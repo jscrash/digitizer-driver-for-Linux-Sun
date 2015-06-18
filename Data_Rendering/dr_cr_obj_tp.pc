@@ -1,0 +1,132 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_CR_OBJ_TP.PC*/
+/* *2    24-OCT-1991 14:47:20 LOEBL "(SPR 4076) Add sanity checking"*/
+/* *1    19-JUN-1989 12:30:53 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_CR_OBJ_TP.PC*/
+
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/******************************************************************************
+
+NAME:       	dr_create_object-type
+
+DESCRIPTION:	Creates a new graphic object type
+
+
+	Input:    	object_type - the new object name
+
+	Output:   	GRAPHIC_OBJECT_CODES table
+     			is updated to reflect the new object code.
+
+	Status:   	SUCCESS, if all required database access successful,
+                        DR_DUPLICATE_CODE,
+                        FAIL, otherwise.
+               
+******************************************************************************/
+#include    "esi_am.h"
+#include    "esi_c_lib.h"
+#include    "esi_dr.h"
+#include    "esi_qs.h"
+#include    "esi_oracle.h"
+
+publicdef INT dr_create_object_type( object_type )
+
+
+CHAR *object_type;
+{
+    INT status;
+    PROJECT_NAME project;
+    EXTENDED_TABLE_NAME graphic_object_codes_table;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+	VARCHAR stmt[129];
+        VARCHAR object_name[41];
+	int new_code;
+    EXEC SQL END DECLARE SECTION;
+
+/*     EXEC ORACLE OPTION (REBIND=YES); */
+    static  first= TRUE;
+
+    EXEC SQL WHENEVER SQLERROR GOTO oracle_error;
+
+    qs_inq_c(QS_PROJECT_NAME, project, (INT *)0);
+    sprintf(graphic_object_codes_table, "%s.GRAPHIC_OBJECT_CODES", project);
+    
+    if (first)
+       {
+           sprintf( (char *)stmt.arr, "%s %s %s", 
+           "SELECT NULL FROM ",
+            graphic_object_codes_table,  
+           "WHERE NAME = :object_name " );
+           stmt.len = strlen( (char *)stmt.arr);
+        
+           EXEC SQL PREPARE stmt from :stmt;
+           EXEC SQL DECLARE name_cursor CURSOR FOR stmt;
+
+           first = FALSE;
+       }
+       strncpy( (char *)object_name.arr, object_type, 
+                                         MIN( 40, strlen(object_type) ) );
+       object_name.len =  MIN(40, strlen(object_type) );
+
+       EXEC SQL WHENEVER NOT FOUND GOTO ok_to_insert;
+       EXEC SQL OPEN name_cursor using :object_name;
+       EXEC SQL FETCH name_cursor into :stmt;
+ 
+/* a value was found, we cannot insert a duplicate */
+
+       status = 1;
+       goto duplicate_return;
+
+ok_to_insert:
+/* get the next highest available code number from the table */
+/* start it out with 1 if nothing in it */
+
+    stmt.len = sprintf((char *)stmt.arr,
+"SELECT NVL(MAX(CODE),0)+1 \
+FROM %s", graphic_object_codes_table);
+    				 		
+    EXEC SQL PREPARE S1 FROM :stmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1;
+    EXEC SQL FETCH C1 INTO :new_code;
+    status = OR_STATUS;
+    EXEC SQL CLOSE C1;
+
+    if (status EQUALS SUCCESS)
+    {
+    status = dr_table_insert(graphic_object_codes_table, 
+			     object_type, new_code, "");
+    }
+
+    return status;
+
+oracle_error:
+    status = OR_STATUS;
+    sqlca.sqlerrm.sqlerrmc[sqlca.sqlerrm.sqlerrml] = '\0' ;
+    am_message(AM_STATUS, "Error in dr_cr_obj_tp");
+    am_message(AM_STATUS, (char *)sqlca.sqlerrm.sqlerrmc);
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL CLOSE C1;
+duplicate_return:
+    EXEC SQL CLOSE name_cursor;
+    return status;
+}

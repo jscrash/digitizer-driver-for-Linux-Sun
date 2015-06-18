@@ -1,0 +1,321 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SL_LIST_CLEANUP.PC*/
+/* *9     6-JUN-1991 17:35:30 MING "(SPR 0) add more messages"*/
+/* *8    17-DEC-1990 12:32:14 MING "(SPR 6193) bug fix "*/
+/* *7    29-OCT-1990 17:03:31 GILLESPIE "(SPR 36) Add esi_sl_emth.ah with NO_MAPPING clause"*/
+/* *6    30-SEP-1990 11:44:10 GILLESPIE "(SPR 1) Tweek variable data types to match prototypes"*/
+/* *5    29-SEP-1990 12:06:50 GILLESPIE "(SPR 1) Merge beta deltas"*/
+/*  3B1  28-SEP-1990 18:27:50 GILLESPIE "Beta Deltas"*/
+/* *4    27-AUG-1990 14:08:45 PURNA "(SPR 0) bug fixes from ernie"*/
+/* *3     3-AUG-1990 18:36:43 PURNA "(SPR 0) change include to esi_sl_meth.ah"*/
+/* *2    18-DEC-1989 16:46:33 PURNA "(SPR 5069) export facility mods"*/
+/* *1     1-JUL-1989 12:23:57 GILLESPIE ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element SL_LIST_CLEANUP.PC*/
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1990                      */
+/*         Unpublished -- All rights reserved                                       */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*          Finder Graphics Systems, Inc.                                           */
+/*          201 Tamal Vista Blvd                                                    */
+/*          Corte Madera, CA  USA 94925                                             */
+/*          (415) 927-0100                                                          */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+/* *************************************************************************        */
+/*                                                                                  */
+/*                SLISTS CLEAN UP TASK.                                             */
+/*                                                                                  */
+/*   Scans the SLISTS table and deletes the select lists that have                  */
+/*    expired.  Also checks the select list NList files and deletes any             */
+/*    select lists that have no corresponding record in the SLISTS table.           */
+/*                                                                                  */
+/* *************************************************************************        */
+/* Modifications:                                                                   */
+/* --------------                                                                   */
+/*     6/18/87: Vince C.   Initial Coding.                                          */
+/*     7/08/87: James C.   modify the hierarchy structure.                          */
+/*                                                                                  */
+/* *************************************************************************        */
+
+#include "esi_c_lib.h"
+
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_SL_ERR_H
+#include "esi_sl_err.h"
+#endif
+
+#ifndef ESI_SL_H
+#include "esi_sl.h"
+#endif
+
+#ifndef ESI_SL_METH_AH
+#define NO_MAPPING
+#include "esi_sl_meth.ah"
+#endif
+
+#ifndef ESI_SL_MSG_H
+#include "esi_sl_msg.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_HO_H
+#include "esi_ho.h"
+#endif
+
+#ifndef ESI_FI_H
+#include "esi_fi.h"
+#endif
+
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+
+privatedef CHAR *file_names[] = 
+    {
+    "DUMMY", "WELLS_SELECTS", "SEISMIC_SELECTS", "LEASES_SELECTS", "MAP_SELECTS",
+    "GRAPHIC_OBJECTS_SELECTS"
+    };
+
+
+
+EXEC SQL BEGIN DECLARE SECTION;
+int number_of_projects;
+VARCHAR project_name[55];
+VARCHAR stmt[512];
+EXEC SQL END DECLARE SECTION;
+
+publicdef INT main (argc, argv)
+INT argc;
+CHAR **argv;
+    {
+    INT i, j, k, status = SUCCESS;
+    PROJECT_NAME current_project;
+    FILENAME filename;
+    TCP db_tcp, nl_tcp;
+    CHAR text[STMAX];
+    UINT total_db, total_nl;
+    BOOL found = FALSE;
+    BOOL has_been_updated = FALSE;
+    INT purge_files = FALSE;
+    BOOL deleted = FALSE;
+    /* get logged in as a DBA (or as an account that has delete privilege           */
+    /*   on all project SLIST_HDR tables                                            */
+    
+    if (or_login (argc, argv) IS_NOT_EQUAL_TO SUCCESS)
+        {
+        or_logout (FALSE);
+        exit (EXIT_SUCCESS);
+        }
+    printf ("\n\nFinder Graphics System Inc. Select List Cleanup.\n");
+    if (argc > 2)
+        {
+        if (strncmp ("Y", argv[2], 1) == 0 OR strncmp ("y", argv[2], 1) == 0)
+            {
+            deleted = TRUE;
+            }
+        }
+
+    if (deleted)
+       {
+       printf ("* Delete option turned on\n\n\n");
+       }
+    else
+       {
+       printf ("* Update option turned on\n\n\n");
+       }
+
+    EXEC SQL WHENEVER SQLERROR GOTO errh1;
+    
+    /*  count the number of projects                                                */
+    
+    EXEC SQL SELECT COUNT(DISTINCT ACCOUNT_NAME)
+         INTO :number_of_projects
+         FROM  ESI.FINDER_ACCOUNTS
+     WHERE TYPE = 'PROJECT' AND
+           ACCOUNT_NAME != 'DEFAULT_PROJECT';
+    
+    if (OR_STATUS != SUCCESS OR number_of_projects EQUALS 0)
+        {
+        or_logout (FALSE);
+        exit (EXIT_SUCCESS);
+        }
+    /*  load all the project names into the                                         */
+    /*    PROJECTS array.                                                           */
+    
+    stmt.len = sprintf ((CHAR *)stmt.arr, 
+"SELECT DISTINCT ACCOUNT_NAME \
+ FROM  ESI.FINDER_ACCOUNTS \
+ WHERE TYPE = 'PROJECT' AND \
+ ACCOUNT_NAME != 'DEFAULT_PROJECT'");
+    
+    EXEC SQL PREPARE S2 FROM :stmt;
+    EXEC SQL DECLARE C2 CURSOR FOR S2;
+    EXEC SQL OPEN C2;
+    
+    FOREVER
+        {
+        EXEC SQL WHENEVER NOT FOUND GOTO all_done;
+        EXEC SQL FETCH C2 INTO :project_name;
+        /*  display the currently defined project names in the LOG file.            */
+        purge_files = FALSE;
+        V_FROMV (current_project, project_name);
+        sprintf (text, "%s %s\n", mg (SL_PROCESSING_PROJECT), current_project);
+        am_message (AM_STATUS, text);
+        
+        /* Main Loop;                                                               */
+        /* *    for each project name {                                             */
+        /* *     perform an Oracle login to the project                             */
+        /* *     deletes all expired slists rows                                    */
+        /* *     makes TCP for existing slists and Nlist ids                        */
+        /* *     delete the nlist, which is not in DB, for the select list file.    */
+        /* *     clean up the Nlist file                                            */
+        /* *       create COMMAND file.                                             */
+        /* *     }                                                                  */
+        /* *     commit changes for this project                                    */
+        /* *    }                                                                   */
+        /*                                                                          */
+        
+        /*  the select statement used here will allow a select list to live         */
+        /*  for at least 24 hours and at most 48 hours.                             */
+        
+        /* set up logical symbols.                                                  */
+        
+        qs_set_c (QS_PROJECT_NAME, current_project, strlen (current_project));
+        
+        /* if there is a problem to config the                                      */
+        /* current project, means this is an                                        */
+        /* abmornal project then skips it.                                          */
+        status = finder_config_project (FALSE);
+        if (status < 0)
+            {
+            continue;
+            }
+        stmt.len = sprintf ((CHAR *)stmt.arr, 
+"DELETE  FROM  %s.SLIST_HDR WHERE \
+ EXPIRATION_DATE IS NOT NULL \
+ AND TRUNC(EXPIRATION_DATE) < TRUNC(SYSDATE - 2)"
+                , current_project);
+        
+        EXEC SQL WHENEVER NOT FOUND GOTO skipit;
+        EXEC SQL PREPARE S3 FROM :stmt;
+        EXEC SQL EXECUTE S3;
+        EXEC SQL COMMIT WORK;
+        /* go througth all data types to do                                         */
+        /* the clean up.                                                            */
+        for (i = 1; i <= 5; i++)
+            {
+            ho_add_path ("ESI$SELECTS", file_names[i], sizeof(FILENAME), filename);
+            
+            /* create tcps for existing slist lists                                 */
+            /* in the DB and existing Nlist ids in                                  */
+            /* NLIST file.                                                          */
+            status = nl_inq_nlist_names (filename, &total_nl, &nl_tcp);
+            if (status < SUCCESS)
+                continue;
+            status = slz_make_lists_tcp (i, &db_tcp, &total_db);
+            if (status < SUCCESS)
+                continue;
+            
+            for (k = 0, has_been_updated = FALSE; k < total_nl; k++)
+                {
+                for (j = 0, found = FALSE; j < total_db AND (!found); j++)
+                    {
+                    if (ARE_SAME(db_tcp[j], nl_tcp[k]))
+                        found = TRUE;
+                    }
+                if (!found)
+                    {
+                    sprintf (text, "deleting %s from %s for %s", nl_tcp[k],
+                             file_names[i], current_project);
+                    am_message (AM_STATUS, text);
+                    status = nl_delete_nlist (filename, nl_tcp[k]);
+                    has_been_updated = TRUE;
+                    }
+                }
+            /* report the warning...                                                */
+            
+            for (k = 0; k < total_db; k++)
+                {
+                for (j = 0, found = FALSE; j < total_nl AND (!found); j++)
+                    {
+                    if (ARE_SAME(db_tcp[k], nl_tcp[j]))
+                        found = TRUE;
+                    }
+                if (!found)
+                    {
+                    sprintf (text, "WARNING!!! %s missing from %s nlist file in  %s",
+                             db_tcp[k], file_names[i], current_project);
+                    am_message (AM_STATUS, text);
+                    if (deleted)
+                        {
+                        sprintf (text, "DELETING!!! %s from SLIST_HDR table in  %s",
+                                 db_tcp[k], current_project);
+                        am_message (AM_STATUS, text);
+                        stmt.len = sprintf ((CHAR *)stmt.arr,
+"DELETE  FROM %s.SLIST_HDR WHERE NAME = '%s'"
+                                            , current_project, db_tcp[k]);
+                        EXEC SQL PREPARE S4 FROM :stmt;
+                        EXEC SQL EXECUTE S4;
+                        EXEC SQL COMMIT WORK;
+                        }
+                    }
+                }
+            /* free TCPS.                                                           */
+            if (total_db > 0)
+                ts_tcp_free (db_tcp);
+            if (total_nl > 0)
+                ts_tcp_free (nl_tcp);
+            if (has_been_updated)
+                {
+                purge_files = TRUE;
+                status = nl_clean_file (filename, 0.0);
+                }
+            }
+    skipit:
+	;
+        }
+
+all_done:
+    EXEC SQL WHENEVER SQLERROR GOTO errh1;
+    EXEC SQL CLOSE C2;
+    or_logout (TRUE);
+    exit (EXIT_SUCCESS);
+    
+errh1:
+    printf ("SQL ERROR : %d\n", OR_STATUS);
+    printf ("%-70s\n", sqlca.sqlerrm.sqlerrmc);
+    printf ("Last sql STMT was:\n");
+    printf ("%s\n", stmt.arr);
+    or_logout (FALSE);
+    exit (EXIT_FAILURE);
+    }

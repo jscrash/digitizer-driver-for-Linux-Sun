@@ -1,0 +1,286 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_ZYCOR_CULTURE.PC */
+/* *3    14-AUG-1991 12:00:05 KEE "(SPR -1) Put in File Lock/Unlock logic" */
+/* *2     1-MAY-1991 22:09:02 KEE "(SPR -1) Zycor Export" */
+/* *1     1-MAY-1991 21:31:44 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_ZYCOR_CULTURE.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* ************************************************************************
+
+   NAME: LD_ZYCOR_CULTURE.PC
+
+   AUTHOR: Rod Hanks (BHP - Consultant)
+   DATE:   May 18th, 1990
+   DESCRIPTION: Unload culture data from a particular map in Finder.
+
+   MODIFY: Jim Green (Unocal)
+   DATE:   November, 1990
+
+   ************************************************************************ */
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+#ifndef LD_ZYCOR_WORK_H
+#include "ld_zycor_work.h"
+#endif
+
+#if USE_PROTOTYPES
+publicdef VOID ld_zycor_culture (CHAR *mapName, PROJECT_NAME projectName,
+				 FILENAME fileName1)
+#else
+publicdef VOID ld_zycor_culture (mapName, projectName, 
+		   fileName1)
+CHAR		*mapName;
+PROJECT_NAME	projectName;
+FILENAME	fileName1;
+#endif
+    {
+/****************************************************************************
+
+	V a r i a b l e   D e c l a r a t i o n s .
+
+******************************************************************************/
+
+    INT  	   status;
+    NLIST_HEADER   nlist;
+    FILE           *myfile;
+    INT            ndim = 2;
+    UINT           dim_list[2];
+    INT            units[2];
+    size_t         data_sizes[2];
+    INT            data_types[2];
+    INT            value_inc[2];
+    VOIDPTR        value_list[2];
+    UINT           total_ids;
+    UINT           nstrokes;
+    UINT           npts;
+    UINT           i;
+    UINT           j;
+    UINT           k;
+    FLOAT          *x_out,*y_out;
+    FILENAME       faults_file;
+    TCP            ids = (TCP)0;
+    INT            nlistCntr;
+    INT            segID;
+    FILENAME       culture_file;
+    CHAR           cultureType[255];
+    FILENAME       outputFile;
+    INT            fileCounter;
+    CHAR           *pos;
+
+/*
+				General variable declarations.
+*/
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[400];
+	VARCHAR	param[1000];	/* Variable in the table is LONG! */
+    EXEC SQL END DECLARE SECTION;
+/*
+				Oracle variable declarations.
+*/
+/****************************************************************************
+
+	I n i t i a l i z a t i o n .
+
+******************************************************************************/
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT PARAMETER \
+FROM %s.MAP_OVERLAYS \
+WHERE MAP_NAME = '%s' \
+AND VERB_CODE = 2 AND KEY_CODE = 20 \
+AND KEYWORD = '*TYPE'", projectName, mapName);
+
+    EXEC SQL PREPARE S1 FROM :sqlstmt;
+    if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "preparing s1");
+    EXEC SQL DECLARE OBJ_CUR CURSOR FOR S1;
+    EXEC SQL OPEN OBJ_CUR;
+    if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "opening s1");
+    EXEC SQL FETCH OBJ_CUR INTO :param;
+    fileCounter = 0;
+
+/*****************************************************************************
+
+	M a i n   L o g i c .
+
+*****************************************************************************/
+
+    while (OR_STATUS EQUALS SUCCESS)
+	{
+	V_V_TO_C(cultureType, param);
+        printf("Type of culture being processed - %s\n",cultureType);
+	if (strcmp(cultureType, "FAULTS") != 0)
+	    {
+	    for (i = 0; i < ndim; i++)
+	        {
+	        dim_list[i] = i + 1;
+	        units[i] = 0;
+	        data_sizes[i] = sizeof (FLOAT);
+	        data_types[i] = FLOAT_TYPE;
+	        }
+/*
+			Initialize arrays we will use for dealing with the
+			nlist array.
+*/
+	    fileCounter++;
+            pos = fileName1 + strlen(fileName1);
+	    while (pos > fileName1 && *pos != '.')
+		{
+		  pos--;
+		}
+	    if (*pos != '.')
+		{
+		  sprintf(outputFile, "%s%d", fileName1, fileCounter);
+		}
+	    else
+		{
+		  strncpy(outputFile, fileName1, 
+			(INT) pos - (INT) fileName1);
+		  outputFile[(INT) pos - (INT) fileName1] = 0;
+		  sprintf(outputFile, "%s%d", outputFile, fileCounter);
+		  strcat(outputFile, pos);
+		}
+	    myfile = ho_open(outputFile, "w", NULL);
+	    status = ho_lock(myfile, ON);
+	    if (myfile == (FILE *)NULL || status != SUCCESS)
+	        {
+	        printf("Unable to open an output file named %s\n", outputFile);
+	        }
+	    else
+	        {
+		printf("Exporting cultural object named %s\n", cultureType);
+	        printf("Creating Zycor format culture file named %s\n", 
+						outputFile);
+
+	        ho_add_path("ESI$CULTURE",cultureType, 
+				sizeof(FILENAME), culture_file);
+	        status = nl_inq_nlist_names (culture_file, &total_ids, &ids);
+	        if (status IS_NOT_EQUAL_TO SUCCESS)
+                    {
+	    	    printf("Error reading culture nlist ids %d\n", status);
+	    	    }
+	        else
+	    	    {
+		    printf ("Total n-Lists in this culture file: %ld\n", 
+							total_ids);
+
+		    segID = 0;
+		    fprintf(myfile, "@%s, VERT, 80, 1\n", culture_file);
+		    fprintf(myfile, "!\n");
+		    fprintf(myfile, 
+"X (EASTING),  1, 1, 1, 1,  20, 0, 0.100E+31, , 15, 8, 0\n");
+		    fprintf(myfile, 
+"Y (NORTHING), 2, 2, 1, 21, 40, 0, 0.100E+31, , 15, 8, 0\n");
+		    fprintf(myfile, 
+"SEGMENT ID,   3, 3, 1, 41, 60, 0, 0.100E+31, , 5, 0, 0\n");
+		    fprintf(myfile, "!\n");
+		    fprintf(myfile, "@\n");
+		    fprintf(myfile, "!\n");
+		    fprintf(myfile, 
+"!        1         2         3         4         5         6\n");
+		    fprintf(myfile, 
+"!23456789012345678901234567890123456789012345678901234567890\n");
+
+		    ts_tcp_sort (ids);
+		    for (nlistCntr = 0; nlistCntr < total_ids; nlistCntr++)
+		        {
+        	        status = nl_read_nlist (&nlist, culture_file, 
+							ids[nlistCntr]);
+        	        if (status < 0)
+	    		    {
+	    		    printf("Error reading NLIST %d\n", status);
+	    		    }
+		        else
+	    		    {
+	                    nl_inq_nlist_int(nlist, NL_NLIST_NSTROKES,
+						(INT *)&nstrokes);
+			    for(i=1;i<=nstrokes;i++)
+	                        {
+	                        nl_inq_stroke_int(nlist,i,NL_STROKE_NPOINTS,
+	                                       		(INT *)&npts);
+	                        x_out = (FLOAT *)tc_zalloc(npts*sizeof(FLOAT));
+	                        y_out = (FLOAT *)tc_zalloc(npts*sizeof(FLOAT));
+	                        value_list[0] = (VOIDPTR)x_out;
+	                        value_list[1] = (VOIDPTR)y_out;
+			        status = nl_set_current_row(nlist,1,i);
+	                        status = nl_get_rows_convert(nlist,npts,ndim,
+						  	dim_list,
+	                                          	value_list,units,
+							data_sizes,
+	                                          	data_types,&j);
+			        segID++;
+			        for (k=0;k<j;k++)
+				    {
+				    fprintf(myfile, "%20.6f%20.6f%20d\n", 
+							x_out[k], 
+							y_out[k],
+							segID);
+				    }
+	                        tc_free(x_out);
+	                        tc_free(y_out);
+			        }
+	                    nl_free_nlist(nlist);
+			    }
+			}
+		    }
+		}
+	    }
+    	EXEC SQL FETCH OBJ_CUR INTO :param;
+	}
+/*****************************************************************************
+
+	C l e a n   U p   A n d   E x i t .
+
+******************************************************************************/
+    if (fileCounter == 1)
+      {
+	ho_rename(outputFile, fileName1);
+      }
+    else
+      {
+	printf("More than one culture output files have been created\n");
+      }
+    if (OR_STATUS < SUCCESS) ld_show_error(OR_STATUS, "fetching s1");
+    EXEC SQL CLOSE OBJ_CUR;
+    if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "closing s1");
+    return;
+    }
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,24 @@
+;   To make your own menus:
+;       1. Prepare an input file (e.g. mymenus.mar) using the system editor.
+;       2. Compile the file using the VMS command
+;               $ MACRO mymenus+esi$lib:finder/lib
+;       3. Link the resulting file using the FLINK procedure:
+;               $ @ESI$BIN:ZZ_FLINK MYFINDER MYMENUS -B
+;
+;------------------------------------------------------------------------------
+;
+;       BEGIN DEFINITION OF MENU STRUCTURE
+;
+;------------------------------------------------------------------------------
+;
+;
+BEGIN_FINDER_MENUS              ; This line is required !!!
+;
+MENU    1,<Convert Plot File>,1
+    MENU    1, <Map>,         3, pf_mp_conv_util, <Map>
+    MENU    1, <Cross Section     >,         3, pf_xs_conv_util, <Cross Section>
+    MENU    1, <->
+    MENU    1, <Quit>,        3, finder_quit, <Quit>
+;
+END_FINDER_MENUS        ;       !!! This line required
+.END                    ;       !!! This line required

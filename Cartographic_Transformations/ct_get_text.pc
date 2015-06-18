@@ -1,0 +1,289 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element CT_GET_TEXT.PC*/
+/*  8     2-MAR-1992 14:31:52 JILL "(SPR 0) reproject origin and upvector"*/
+/* *7     6-MAY-1991 16:45:01 PURNA "(SPR 0) add uom conversion from and to degrees type"*/
+/* *6    14-AUG-1990 17:38:22 GILLESPIE "(SPR 2001) Use LINE_ATTRIBUTEs"*/
+/* *5    18-JUL-1990 10:53:18 GILLESPIE "(SPR 5411) Remove reset, lock parms"*/
+/* *4    12-FEB-1990 15:26:06 GORDON "(SPR 0) Fix for new NODE_ID type, plus no more call to ct_get_node"*/
+/* *3     1-FEB-1990 11:34:24 GORDON "(SPR 0) Call tc_alloc, not am_allocate for text string"*/
+/* *2    10-OCT-1989 09:40:44 PURNA "(SPR 5020) Mods for CT parameter change"*/
+/* *1    19-JUN-1989 12:29:22 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element CT_GET_TEXT.PC*/
+
+/******************************************************************************
+
+        Copyright Exploration Systems, Inc. 1989
+           Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+            Exploration Systems, Inc.
+            579 Market Street
+            San Francisco, CA  USA 94105
+            (415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/*****************************************************************************
+
+NAME:           ct_get_text
+
+DESCRIPTION:    A retrieve text of a given text id.
+
+     Input:     item_number - an item id in the texts table
+                              of the current project.
+                lock - boolean to lock for update
+                reset_cursor - force reseting of the fetching cursor.
+
+     Output:    text - a pointer to a text structure.
+
+     Status:    SUCCESS
+                CT_ORACLE_ERROR
+                CT_ORACLE_EOF
+                
+     TODO:      1)  Lock option not implemented (is it needed?)
+                2)  Eliminate NODES, put xy in text table.
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_ct.h"
+
+#ifndef ESI_MM_H
+#include "esi_mm.h"
+#endif
+
+#ifndef ESI_MP_H
+#include "esi_mp.h"
+#endif
+
+#ifndef ESI_GL_TOP_H
+#include "esi_gl_top.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_AM_H
+#include "esi_am.h"                  /* application manager */
+#endif
+
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+#include "esi_ct_err.h"
+#include "esi_ts.h"
+
+/************************************************************************************/
+#if USE_PROTOTYPES
+publicdef INT ct_get_text(TEXT *text, INT text_number)
+#else
+publicdef INT ct_get_text(text, text_number)
+TEXT *text;
+INT text_number;
+#endif
+    {
+    static BOOL first = TRUE,transformation=FALSE;
+    
+    INT status;
+    MAP_STRUCTURE *mapdef;
+    DOUBLE x_location, y_location;
+    PROJECT_NAME project;
+    CHAR msg[80];
+    NODE_ID node_id;                /* key for node table lookup                    */
+    DOUBLE factor;
+    static PROJECTION_STRUCTURE *map_data,*project_data;
+    static PROJECTION_ID project_projection;
+
+    
+/*     EXEC ORACLE OPTION(REBIND = NO); */
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[1024];
+    static int text_id;
+    static double node_x;
+    static double node_y;
+    static float uom_factor;
+    static double x_min;
+    static double x_max;
+    static double y_min;
+    static double y_max;
+    static VARCHAR annotation_class[25];
+    static VARCHAR annotation_superclass[25];
+    static int horizontal_alignment;
+    static int vertical_alignment;
+    static int text_path;
+    static float up_vector_x;
+    static float up_vector_y;
+    static int box_flag;
+    static int box_hatch_code;
+    static int box_fill_color;
+    static int box_line_style;
+    static int box_line_thickness;
+    static int arrow_flag;
+    static int text_font;
+    static int text_color;
+    static int text_precision;
+    static float text_size;
+    static float text_expansion_factor;
+    static float line_spacing;
+    static VARCHAR text_string[241];
+    EXEC SQL END DECLARE SECTION;
+    
+    status = SUCCESS;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO sqlerrorpt;
+    EXEC SQL WHENEVER NOT FOUND GOTO sqleofpt;
+    
+    mp_get_current_map(&mapdef);
+    if (first)
+        {
+        first = FALSE;
+        qs_inq_c(QS_PROJECT_NAME, project, (INT *)0);
+        sqlstmt.len = sprintf((char *)sqlstmt.arr, 
+"SELECT B.NODE_X, B.NODE_Y, A.ANNOTATION_CLASS, \
+A.ANNOTATION_SUPERCLASS, A.HORIZONTAL_ALIGNMENT, A.VERTICAL_ALIGNMENT,\
+A.TEXT_PATH, A.UP_VECTOR_X, A.UP_VECTOR_Y, DECODE(A.BOX_FLAG,'YES',1,0),\
+A.BOX_HATCH_CODE, A.BOX_FILL_COLOR, A.BOX_LINE_STYLE, A.BOX_LINE_THICKNESS,\
+DECODE(A.ARROW_FLAG,'YES',1,0), A.TEXT_FONT, A.TEXT_COLOR, A.TEXT_PRECISION, \
+A.TEXT_SIZE, A.TEXT_EXPANSION_FACTOR, A.LINE_SPACING, A.TEXT_STRING \
+FROM %s.TEXT A, %s.NODES B WHERE A.TEXT_ID = :text_id AND \
+A.POSITION = B.NODE_ID AND (B.NODE_X BETWEEN :x_min AND :x_max) AND \
+(B.NODE_Y BETWEEN :y_min AND :y_max)"
+                , project, project);
+        
+        EXEC SQL PREPARE S1 FROM : sqlstmt;
+        EXEC SQL DECLARE TEXT_CUR CURSOR FOR S1;
+	qs_inq_c (QS_PROJECT_PROJECTION, project_projection, (INT *)0);
+        if(ARE_DIFFERENT(project_projection,mapdef->map_projection))
+            {
+            ct_get_projection (project_projection, &project_data);
+            ct_get_projection (mapdef->map_projection, &map_data);
+	    transformation = TRUE;
+            }
+        }
+
+    text_id = text_number;
+    
+    /* Get the map extents                                                          */
+    x_min = mapdef->lower_left_xy.x;
+    x_max = mapdef->upper_right_xy.x;
+    y_min = mapdef->lower_left_xy.y;
+    y_max = mapdef->upper_right_xy.y;
+    /* Convert the map extents to project coordinates                               */
+
+    if(transformation)
+	{
+    	ct_transform_point (x_min,y_min, map_data,
+                        &x_min, &y_min, project_data);
+    	ct_transform_point (x_max,y_max, map_data,
+                        &x_max, &y_max, project_data);
+	}    
+    EXEC SQL OPEN TEXT_CUR USING : text_id,  : x_min,  : x_max,  : y_min,  : y_max;
+    
+    EXEC SQL FETCH TEXT_CUR INTO : node_x,  : node_y,  : annotation_class,
+        : annotation_superclass,  : horizontal_alignment,  : vertical_alignment,
+        : text_path,  : up_vector_x,  : up_vector_y,  : box_flag,  : box_hatch_code,
+        : box_fill_color,  : box_line_style,  : box_line_thickness,  : arrow_flag,
+        : text_font,  : text_color,  : text_precision,  : text_size,
+        : text_expansion_factor,  : line_spacing,  : text_string;
+    
+    /* Convert project node position to map coordinates                             */
+    if(transformation AND 
+       (ARE_SAME(project_projection,"GEODETIC") OR 
+	ARE_SAME(mapdef->map_projection,"GEODETIC")))
+	{
+	ct_get_uom_factor_degrees(node_x,node_y,project_data,
+				  &text_size,map_data);
+	ct_get_uom_factor_degrees(node_x,node_y,project_data,
+				  &line_spacing,map_data);
+        text->text_size = text_size;
+        text->text_line_spacing = line_spacing; 
+	}
+    else
+	{
+        ct_get_uom_factor(project_projection,mapdef->map_projection,&factor);
+        uom_factor = factor;
+        text->text_size = text_size / uom_factor;
+        text->text_line_spacing = line_spacing / uom_factor; 
+	}
+
+    if(transformation)
+	{
+    	ct_transform_point (node_x,node_y, project_data,
+                        &node_x, &node_y, map_data);
+	}
+
+    text->text_position.x = node_x;
+    text->text_position.y = node_y;
+    
+    text->box_flag = box_flag;
+    text->arrow_flag = arrow_flag;
+    
+    /* 
+     * assign text attributes.
+     */
+    
+
+    text->text_id = text_id;
+    text->text_offset.x = 0.0;
+    text->text_offset.y = 0.0;
+    text->text_expansion_factor = text_expansion_factor;
+    text->text_up_x = up_vector_x;
+    text->text_up_y = up_vector_y;
+    
+    V_FROMV(text->text_class, annotation_class);
+    V_FROMV(text->text_super_class, annotation_superclass);
+    
+    text->text_alignment[0] = horizontal_alignment;
+    text->text_alignment[1] = vertical_alignment;
+    text->text_path = text_path;
+    text->box_fill_code = box_hatch_code;
+    text->box.color = box_fill_color;
+    text->box.style = box_line_style;
+    text->box.width = box_line_thickness;
+    
+    text->text_font = text_font;
+    text->text_color = text_color;
+    text->text_precision = text_precision;
+    
+    /* allocate the string area and assign the string                               */
+    
+    if (text_string.len EQUALS 0)
+        {
+        status = CT_NULL_STR;
+        }
+    else
+        {
+        text->text_string = (CHAR *)tc_alloc(text_string.len + 1);
+        V_FROMV(text->text_string, text_string);
+        }
+    /* return appropriate status                                                    */
+    return status;
+    
+sqleofpt:
+    return CT_ORACLE_EOF;
+    
+sqlerrorpt:
+    strncpy(msg, OR_MESSAGE, 70);
+    msg[70] = 0;
+    am_message(AM_STATUS, msg);
+    
+    return OR_STATUS;
+    }

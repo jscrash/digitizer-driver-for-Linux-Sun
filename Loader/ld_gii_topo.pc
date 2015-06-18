@@ -1,0 +1,1010 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_GII_TOPO.PC */
+/* *8     6-JUN-1991 17:32:22 MING "(SPR 0) fix prototype error for str_to_ll" */
+/* *7     1-FEB-1991 16:13:28 VINCE "(SPR 6540) fixed an error in the S2 sql phrase" */
+/* *6    26-OCT-1990 13:49:44 GILLESPIE "(SPR 33)  New Lynx 3d changes" */
+/* *5    18-APR-1990 16:55:48 VINCE "(SPR 1) improved error handeling for duplicate sections" */
+/* *4    20-MAR-1990 16:26:10 VINCE "(SPR -1) added setting of SOURCE column in SECTIONS table'" */
+/* *3    18-MAR-1990 14:31:32 VINCE "(SPR -1) Fix a problem in name generation" */
+/* *2    16-MAR-1990 17:51:00 VINCE "(SPR -1) standardized storage of NAME in lynx_culture table" */
+/* *1    15-MAR-1990 18:51:28 VINCE "Initial Checkin" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_GII_TOPO.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1990                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+#include "esi_c_lib.h"
+#include "esi_gl_top.h"
+#include "esi_fi.h"
+#include "esi_am.h"
+#include "esi_ct.h"
+#include "esi_oracle.h"
+#include "esi_qs.h"
+#include "esi_ts.h"
+#include "esi_mg.h"
+#include "esi_ho_files.h"
+#include "esi_gl_project.h"
+#include <ctype.h>
+
+/* Program loads topo db with gii info                                              */
+/*                                                                                  */
+/*J Gillespie                                                                       */
+/*December 1989                                                                     */
+/*                                                                                  */
+/*                                                                                  */
+
+EXEC ORACLE OPTION (REBIND = NO);
+
+#define CONVERT(var,string)    strncpy(cbuff,(char *)(string), sizeof string),\
+        cbuff[sizeof string] = 0,\
+        var = atoi(cbuff)
+        
+#define CONVERT_FLOAT(var,string)    strncpy(cbuff,(char *)(string), sizeof string),\
+        cbuff[sizeof string] = 0,\
+        var = atof(cbuff)
+
+#define MOVE(var,string) strncpy((char *)var.arr,string, sizeof string),\
+    var.len = sizeof string
+
+#define CATNAME(var,string) { \
+    cp = (char *)var.arr + strlen((char *)var.arr); \
+    for (ii=0; ii < sizeof string; ii++) { \
+    if ((string[ii] == '.') && (string[ii+1] == '0')) { ii++; continue; } \
+    if (string[ii] != ' ') *cp++ = string[ii]; \
+    } \
+    *cp = NUL; \
+}
+
+
+EXEC SQL BEGIN DECLARE SECTION;
+privatedef VARCHAR stmt[512];
+privatedef varchar data_type[16];
+privatedef VARCHAR name[84];
+privatedef  long int arc_id;
+privatedef  long int side;
+privatedef  long int lynx_id;       /* Current area or line id                      */
+privatedef  long int last_node;
+privatedef  long int this_node;
+privatedef  char survey_system;
+privatedef  double twp;
+privatedef  char twp_dir;
+privatedef  double rng;
+privatedef varchar source[10];
+privatedef  char rng_dir;
+privatedef  int section;
+privatedef  int meridian;
+privatedef  double x, x1, x2;
+privatedef  double y, y1, y2;
+EXEC SQL END DECLARE SECTION;
+
+/* Important Note: The following templates used to                                  */
+/*crack a card format.  There is NO PROVISION FOR THE NULL CHARACTER                */
+/*in the format! the fields cannot be used in standard C library                    */
+/*string functions without first moving the strings to other buffers                */
+/*Also, some compilers may leave gaps between structures, so this approach          */
+/*may not work                                                                      */
+
+typedef struct 
+    {
+    char long_deg[3];
+    char long_min[6];
+    char lat_deg[2];
+    char lat_min[6];
+    } LOCAL_LATLONG;
+
+typedef struct 
+    {
+    char x[10];
+    char y[10];
+    } XY;
+
+/* I took the following GII definitions from a document                             */
+/*    copyrighted 1989, GII InfoBase Data Distribution Tape Format                  */
+/*    from Graphics Information, Inc                                                */
+/*    600 Seventeenth Street, Suite 2020 South                                      */
+/*    Denver, Colorado 80202                                                        */
+/*    (303)830-8800                                                                 */
+
+typedef struct 
+    {
+    char data_type[1];
+    char rec_type[1];
+    union 
+        {
+        union 
+            {
+            struct 
+                {                   /* data type 0, record type = 0                 */
+                char class [2];     /* col   3-  4                                  */
+                char pad0[4];       /* col   5-  8                                  */
+                char survey[32];    /* col   9- 40                                  */
+                char block_name[20];    /* col  41- 60                              */
+                char section[16];   /* col  61- 76                                  */
+                char state[2];      /* col  77- 78                                  */
+                char county[3];     /* col  79- 81                                  */
+                char rr_district[4];    /* col  82- 85                              */
+                char pad1[1];       /* col  86                                      */
+                LOCAL_LATLONG lower_left;   /* col  87-103                          */
+                LOCAL_LATLONG upper_right;  /* col 104-120                          */
+                char point_count[6];    /* col 121-126                              */
+                } rec0;
+            struct 
+                {                   /* data type 0, record type = 5                 */
+                LOCAL_LATLONG location; /* col   3- 19                              */
+                char font[2];       /* col  20- 21                                  */
+                char size[5];       /* col  22- 27                                  */
+                char text_count[2]; /* col  28- 29                                  */
+                char rotation[3];   /* col  30- 32                                  */
+                char pad[1];        /* col  33                                      */
+                char text[99];      /* col  34-132                                  */
+                } rec5;
+            struct 
+                {                   /* data type 0, record type = 9                 */
+                char point_count[1];    /* col   3                                  */
+                char pad0[3];       /* col   4-  6                                  */
+                char penup1[1];     /* col   7                                      */
+                LOCAL_LATLONG location1;    /* col   8- 24                          */
+                char penup2[1];     /* col  25                                      */
+                LOCAL_LATLONG location2;    /* col  26- 42                          */
+                char penup3[1];     /* col  43                                      */
+                LOCAL_LATLONG location3;    /* col  44- 60                          */
+                char penup4[1];     /* col  61                                      */
+                LOCAL_LATLONG location4;    /* col  62- 78                          */
+                char penup5[1];     /* col  79                                      */
+                LOCAL_LATLONG location5;    /* col  80- 96                          */
+                char penup6[1];     /* col  97                                      */
+                LOCAL_LATLONG location6;    /* col  98-114                          */
+                char penup7[1];     /* col 115                                      */
+                LOCAL_LATLONG location7;    /* col 116-132                          */
+                } rec9;
+            } data0;
+        
+        union 
+            {
+            struct 
+                {                   /* data type 1, record type = 0                 */
+                char well_type[6];  /* col   3-  8                                  */
+                char survey[32];    /* col   9- 40                                  */
+                char block_name[20];    /* col  41- 60                              */
+                char section[16];   /* col  61- 76                                  */
+                char state[2];      /* col  77- 78                                  */
+                char county[3];     /* col  79- 81                                  */
+                char rr_district[4];    /* col  82- 85                              */
+                char pad1[1];       /* col  86                                      */
+                LOCAL_LATLONG location; /* col  87-103                              */
+                char api[12];       /* col 104-115                                  */
+                char old_api[12];   /* col 116-132                                  */
+                } rec0;
+            struct 
+                {                   /* data type 1, record type = 1                 */
+                char operator[48];  /* col   3- 50                                  */
+                char property_name[32]; /* col  51- 82                              */
+                char property_id[16];   /* col  83- 98                              */
+                char comp_date[8];  /* col  99-106                                  */
+                char permit[10];    /* col 107-116                                  */
+                char total_depth[5];    /* col 117-121                              */
+                char elevation[5];  /* col 122-126                                  */
+                char elevation_ref[2];  /* col 127-128                              */
+                } rec1;
+            struct 
+                {                   /* data type 1, record type = 2                 */
+                char location_desc[80]; /* col   3- 82                              */
+                char well_number[8];    /* col  83- 90                              */
+                char field_number[8];   /* col  91- 98                              */
+                char field_name[32];    /* col  99-130                              */
+                } rec2;
+            } data1;
+        union 
+            {
+            struct 
+                {                   /* data type 2, record type = 0                 */
+                char pad0[8];       /* col   3-  8                                  */
+                char survey[32];    /* col   9- 40                                  */
+                char block_name[20];    /* col  41- 60                              */
+                char section[16];   /* col  61- 76                                  */
+                char state[2];      /* col  77- 78                                  */
+                char county[3];     /* col  79- 81                                  */
+                char rr_district[4];    /* col  82- 85                              */
+                char pad1[1];       /* col  86                                      */
+                LOCAL_LATLONG lower_left;   /* col  87-103                          */
+                LOCAL_LATLONG upper_right;  /* col 104-120                          */
+                char point_count[6];    /* col 121-126                              */
+                } rec0;
+            struct 
+                {                   /* data type 2, record type = 1                 */
+                char pad0[8];       /* col   3-  8                                  */
+                char abstract_number[8];    /* col   9- 16                          */
+                char tract_number[8];   /* col  17- 24                              */
+                char lot_number[8]; /* col  25- 32                                  */
+                char sublot_number[8];  /* col  33- 40                              */
+                char other[16];     /* col  41- 56                                  */
+                char property_acct_no[16];  /* col  57- 72                          */
+                char property_owner[50];    /* col  73-122                          */
+                } rec1;
+            struct 
+                {                   /* data type 2, record type = 2                 */
+                char pad0[8];       /* col   3-  8                                  */
+                char address1[25];  /* col   9- 33                                  */
+                char address2[25];  /* col  34- 58                                  */
+                char address3[25];  /* col  59- 83                                  */
+                char acreage[12];   /* col  84- 95                                  */
+                } rec2;
+            struct 
+                {                   /* data type 2, record type = 5                 */
+                LOCAL_LATLONG location; /* col   3- 19                              */
+                char font[2];       /* col  20- 21                                  */
+                char size[5];       /* col  22- 27                                  */
+                char text_count[2]; /* col  28- 29                                  */
+                char rotation[3];   /* col  30- 32                                  */
+                char pad[1];        /* col  33                                      */
+                char text[99];      /* col  34-132                                  */
+                } rec5;
+            struct 
+                {                   /* data type 2, record type = 7                 */
+                char continuation_flag[1];  /* col   3                              */
+                char count[3];      /* col   4- 6                                   */
+                char text[126];     /* col   7-132                                  */
+                } rec7;
+            struct 
+                {                   /* data type 2, record type = 9                 */
+                char point_count[1];    /* col   3                                  */
+                char pad0[3];       /* col   4-  6                                  */
+                char penup1[1];     /* col   7                                      */
+                LOCAL_LATLONG location1;    /* col   8- 24                          */
+                char penup2[1];     /* col  25                                      */
+                LOCAL_LATLONG location2;    /* col  26- 42                          */
+                char penup3[1];     /* col  43                                      */
+                LOCAL_LATLONG location3;    /* col  44- 60                          */
+                char penup4[1];     /* col  61                                      */
+                LOCAL_LATLONG location4;    /* col  62- 78                          */
+                char penup5[1];     /* col  79                                      */
+                LOCAL_LATLONG location5;    /* col  80- 96                          */
+                char penup6[1];     /* col  97                                      */
+                LOCAL_LATLONG location6;    /* col  98-114                          */
+                char penup7[1];     /* col 115                                      */
+                LOCAL_LATLONG location7;    /* col 116-132                          */
+                } rec9;
+            } data2;
+        union 
+            {
+            struct 
+                {                   /* data type 3, record type = 0                 */
+                char class [2];     /* col   3-  4                                  */
+                char sub_class[2];  /* col   5-  6                                  */
+                char point_type[2]; /* col   7-  8                                  */
+                char survey[32];    /* col   9- 40                                  */
+                char block_name[20];    /* col  41- 60                              */
+                char section[16];   /* col  61- 76                                  */
+                char state[2];      /* col  77- 78                                  */
+                char county[3];     /* col  79- 81                                  */
+                char rr_district[4];    /* col  82- 85                              */
+                union 
+                    {
+                    struct 
+                        {
+                        char pad1[1];   /* col  86                                  */
+                        LOCAL_LATLONG lower_left;   /* col  87-103                  */
+                        LOCAL_LATLONG upper_right;  /* col 104-120                  */
+                        char point_count[6];    /* col 121-126                      */
+                        } multi;
+                    struct 
+                        {
+                        LOCAL_LATLONG location; /* col  86-102                      */
+                        } single;
+                    } var;
+                
+                } rec0;
+            struct 
+                {                   /* data type 3, record type = 5                 */
+                LOCAL_LATLONG location; /* col   3- 19                              */
+                char font[2];       /* col  20- 21                                  */
+                char size[5];       /* col  22- 27                                  */
+                char text_count[2]; /* col  28- 29                                  */
+                char rotation[3];   /* col  30- 32                                  */
+                char pad[1];        /* col  33                                      */
+                char text[99];      /* col  34-132                                  */
+                } rec5;
+            struct 
+                {                   /* data type 3, record type = 7                 */
+                char continuation_flag[1];  /* col   3                              */
+                char count[3];      /* col   4- 6                                   */
+                char text[126];     /* col   7-132                                  */
+                } rec7;
+            struct 
+                {                   /* data type 3, record type = 9                 */
+                char point_count[1];    /* col   3                                  */
+                char pad0[3];       /* col   4-  6                                  */
+                char penup1[1];     /* col   7                                      */
+                LOCAL_LATLONG location1;    /* col   8- 24                          */
+                char penup2[1];     /* col  25                                      */
+                LOCAL_LATLONG location2;    /* col  26- 42                          */
+                char penup3[1];     /* col  43                                      */
+                LOCAL_LATLONG location3;    /* col  44- 60                          */
+                char penup4[1];     /* col  61                                      */
+                LOCAL_LATLONG location4;    /* col  62- 78                          */
+                char penup5[1];     /* col  79                                      */
+                LOCAL_LATLONG location5;    /* col  80- 96                          */
+                char penup6[1];     /* col  97                                      */
+                LOCAL_LATLONG location6;    /* col  98-114                          */
+                char penup7[1];     /* col 115                                      */
+                LOCAL_LATLONG location7;    /* col 116-132                          */
+                } rec9;
+            } data3;
+        } fmt;
+    } INFOBASE_HEADER;
+
+/* I took the following GII definitions from a document                             */
+/*copyrighted 1986, Land Base Grid ASCII Tape Format                                */
+/*from Graphics Information, Inc                                                    */
+/*                                                                                  */
+
+typedef struct 
+    {
+    char pre_amb[2];
+    char rec_type[1];
+    char survey[1];
+    char meridian[4];
+    char township[5];
+    char twp_dir[1];
+    char range[5];
+    char rng_dir[1];
+    char section[2];
+    char rec_num[2];
+    char rec_cnt[2];
+    char source[2];
+    char state[2];
+    char flags[4];
+    char long_lat[4][2][12];
+    char post_amb[2];
+    } LAND_BASE_HEADER;
+
+typedef enum 
+    {
+    GII_LAND_GRID, GII_INFO_BASE
+    } GII_FORMAT_TYPE;
+
+privatedef PROJECT_NAME project;
+privatedef  double tolerance = 25.0;
+privatedef  double NULL_VALUE = -360.0;
+privatedef BOOL convert;
+privatedef  int nskip = 0;
+privatedef  int nrejected = 0;
+privatedef  int nrecords = 0;
+privatedef PROJECTION_STRUCTURE *external_projection, *project_projection;
+#define NULL_VALUE_FOUND 100
+
+#if USE_PROTOTYPES
+privatedef VOID copy_discard (FILE *gii_file, long last_seek, FILE *discard_file,
+                              UINT record_count);
+privatedef BOOL report_oops (char *tag);
+privatedef INT str_to_ll (char *ps, double *latitude, double *longitude);
+#else
+privatedef VOID copy_discard ();
+privatedef BOOL report_oops ();
+privatedef INT str_to_ll ();
+#endif
+
+/************************************************************************************/
+
+int main (argc, argv)
+int argc;
+char **argv;
+    {
+    INT status;
+    FILE *gii_file;
+    FILE *discard_file;
+    long int last_seek = 0;
+    LAND_BASE_HEADER *pLand;
+    GII_FORMAT_TYPE format_type = GII_LAND_GRID;
+    int narcs = 0;
+    int record_number;
+    int record_count;
+    INT nignored = 0;
+    int first_node;
+    int ii, i, j;
+    DOUBLE temp;
+    BOOL invalid_header = FALSE;
+    BOOL ignore_duplicates = FALSE;
+    PROJECT_DEFAULT *project_default;   /* project default workspace pointer        */
+    char cbuff[32];
+    char inline [136];
+    char *cp;
+    
+    /* The 'native' coordinate system of the GII file is GEODETIC                   */
+    privatedef PROJECTION_ID external_projection_id = "GEODETIC";
+    privatedef FILENAME discard_filename = "gii.discard";
+    
+    if (argc < 4)
+        {
+        goto info_exit;
+        }
+    EXEC SQL WHENEVER SQLERROR GOTO oops;
+    
+    gii_file = ho_open (argv[3], "r", NULL);
+    if (gii_file == (FILE *)0)
+        {
+        printf ("Bogus file name [%s]\n", argv[3]);
+        return EXIT_FAILURE;
+        }
+    printf ("Opened file %s for reading.\n", argv[3]);
+    
+    status = or_login (argc, argv);
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+        return EXIT_FAILURE;
+        }
+    printf ("Successfully logged into Oracle database\n");
+    am_initialize ();
+    strcpy (project, argv[2]);
+    qs_set_c (QS_PROJECT_NAME, project, 0);
+    status = finder_config_project (TRUE);
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+        printf ("Unable to configure the project \"%s\" - aborting\n", project);
+        goto normal_exit;
+        }
+    printf ("Completed configuration of project '%s'\n", project);
+    
+    for (i = 4; i < argc; i++)
+        {
+        ts_sto_lower (argv[i]);
+        if (ARE_SAME (argv[i], "-skip"))
+            {
+            if (i + 1 > argc)
+                {
+                goto info_exit;
+                }
+            nskip = atoi (argv[i + 1]);
+            if (nskip < 0)
+                {
+                goto info_exit;
+                }
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-tolerance"))
+            {
+            if (i + 1 > argc)
+                {
+                goto info_exit;
+                }
+            tolerance = atof (argv[i + 1]);
+            if (tolerance < 0)
+                {
+                goto info_exit;
+                }
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-discard"))
+            {
+            if (i + 1 > argc)
+                {
+                goto info_exit;
+                }
+            strcpy (discard_filename, (argv[i + 1]));
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-ignore"))
+            {
+            ignore_duplicates = TRUE;
+            }
+        else if (ARE_SAME (argv[i], "-land"))
+            {
+            format_type = GII_LAND_GRID;
+            }
+        else if (ARE_SAME (argv[i], "-info"))
+            {
+            format_type = GII_INFO_BASE;
+            }
+        else
+            {
+            goto info_exit;
+            }
+        }
+    /* Skip the requested number of records, if necessary                           */
+    
+    if (nskip > 0)
+        {
+        printf ("Skipping %d records before starting load: ", nskip);
+        for (i = 0; i < nskip; i++)
+            {
+            if (fgets (inline , sizeof inline , gii_file) == 0)
+                {
+                printf ("End of file detected after reading %d records - aborting\n",
+                        i + 1);
+                goto normal_exit;
+                }
+            if ((i % 500) EQUALS 0)
+                {
+                printf (".");
+                }
+            }
+        printf ("Done.\n");
+        }
+    if ((discard_file = ho_open (discard_filename, "w", NULL))EQUALS NULL_FILE_PTR)
+        {
+        printf ("Problem opening discard file '%s' - aborting.\n", discard_filename);
+        goto normal_exit;
+        }
+    /* Determine whether coordinate transformations are required                    */
+    /* If they are different, then query for the projection parameters              */
+    
+    status = am_open_workspace ("PROJECT_DEFAULTS", AM_GLOBAL,
+                                (VOIDPTR)&project_default);
+    convert = ARE_DIFFERENT (external_projection_id, project_default->projection);
+    if (convert)
+        {
+        if ((status = ct_get_projection (external_projection_id,
+                                         &external_projection)))
+            {
+            printf ("Unable to define input cartographic projection %s:\n\%s\n",
+                    external_projection_id, mg_message (status));
+            goto normal_exit;
+            }
+        if ((status = ct_get_projection (project_default->projection,
+                                         &project_projection)))
+            {
+            printf ("Unable to define output cartographic projection %s:\n\%s\n",
+                    project_default->projection, mg_message (status));
+            goto normal_exit;
+            }
+        }
+    stmt.len = sprintf ((char *)stmt.arr, 
+"INSERT INTO %s.LYNX_CULTURE \
+    (LYNX_ID, DATA_TYPE, NAME, MINX, MAXX, MINY, MAXY, LAST_UPDATE) \
+    VALUES \
+    (ESI.LYNX_ID_SEQ.NEXTVAL, :data_type, :name, :x1, :x2, :y1, :y2, \
+    SYSDATE)"
+            , project);
+    EXEC SQL PREPARE S1 FROM :stmt;
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"INSERT INTO %s.SECTIONS \
+    (LYNX_ID, SECTION, TOWNSHIP, TOWNSHIP_DIR, RANGE, RANGE_DIR, MERIDIAN,\
+     SURVEY_SYSTEM, SOURCE) \
+    VALUES \
+    (:lynx_id, :section, :twp, :twp_dir, :rng, :rng_dir,\
+     :meridian, :survey_system, 'GII-LAND')"
+            , project);
+    EXEC SQL PREPARE S2 FROM :stmt;
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"UPDATE %s.LYNX_CULTURE \
+    SET MINX = :x1, MAXX = :x2, MINY = :y1, MAXY = :y2 \
+    WHERE LYNX_ID = :lynx_id"
+            , project);
+    EXEC SQL PREPARE S3 FROM :stmt;
+    
+    pLand = (LAND_BASE_HEADER *)inline ;
+    
+    /********************************************************************************/
+    /*                                                                              */
+    /*                        Begin main processing loop                            */
+    /*                                                                              */
+    /********************************************************************************/
+    
+    for (nrecords = 0, last_seek = ftell (gii_file);
+         fgets (inline , sizeof inline , gii_file) != NULL;
+         nrecords += record_count, last_seek = ftell (gii_file))
+        {
+        switch (pLand->rec_type[0])
+            {
+        case '1':                   /* Township corner record                       */
+        case '2':                   /* Township boundary record                     */
+            V_FROMC (data_type, "TOWNSHIP");
+            name.arr[0] = NUL;
+            CATNAME (name, pLand->meridian);
+            strcat ((char *)name.arr, ":T");
+            CATNAME (name, pLand->township);
+            CATNAME (name, pLand->twp_dir);
+            strcat ((char *)name.arr, "R");
+            CATNAME (name, pLand->range);
+            CATNAME (name, pLand->rng_dir);
+            break;
+        case '3':                   /* Section corner record                        */
+        case '4':                   /* Section boundary record                      */
+        case '5':                   /* Section edge record                          */
+            V_FROMC (data_type, "SECTION");
+            name.arr[0] = NUL;
+            CATNAME (name, pLand->meridian);
+            strcat ((char *)name.arr, ":T");
+            CATNAME (name, pLand->township);
+            CATNAME (name, pLand->twp_dir);
+            strcat ((char *)name.arr, "R");
+            CATNAME (name, pLand->range);
+            CATNAME (name, pLand->rng_dir);
+            strcat ((char *)name.arr, " ");
+            CATNAME (name, pLand->section);
+            break;
+        default:
+            continue;
+            }
+        narcs = 0;
+        x1 = 99999999.0;
+        x2 = -99999999.0;
+        y1 = 99999999.0;
+        y2 = -99999999.0;
+        EXEC SQL EXECUTE S1 USING :data_type,:name,:x1,:x2,:y1,:y2;
+        EXEC SQL SELECT ESI.LYNX_ID_SEQ.CURRVAL INTO :lynx_id FROM DUAL;
+        
+        /* Crack the header record                                                  */
+        survey_system = pLand->survey[0];
+        CONVERT (meridian, pLand->meridian);
+        CONVERT (section, pLand->section);
+        CONVERT (record_number, pLand->rec_num);
+        CONVERT (record_count, pLand->rec_cnt);
+        CONVERT_FLOAT (twp, pLand->township);
+        CONVERT_FLOAT (rng, pLand->range);
+        MOVE (source, pLand->source);
+        twp_dir = pLand->twp_dir[0];
+        rng_dir = pLand->rng_dir[0];
+        
+        EXEC SQL WHENEVER SQLERROR continue;
+        EXEC SQL EXECUTE S2 USING
+           :lynx_id, :section, :twp, :twp_dir, :rng, :rng_dir,
+           :meridian, :survey_system;
+
+        if (((invalid_header = OR_STATUS) IS_NOT_EQUAL_TO SUCCESS))
+            {
+            if (OR_STATUS EQUALS - 1 AND ignore_duplicates)
+                {
+                for (i = record_number; i < record_count; i++)
+                    {
+                    fgets (inline , sizeof inline , gii_file);
+                    }
+                nignored += record_count;
+                }
+            else
+                {
+                if (OR_STATUS == -1)
+                    {
+                    fprintf (stderr, "Object T%.1f%cR%.1f%c %d ", twp, twp_dir, rng,
+                             rng_dir, section);
+                    fprintf (stderr, "already exists in the SECTIONS table.\n");
+                    }
+                else
+                    {
+                    fprintf (stderr, "%-70.70s\n", OR_MESSAGE);
+                    fprintf (stderr, "while processing T%.1f%cR%.1f%c %d\n", twp,
+                             twp_dir, rng, rng_dir, section);
+                    }
+                copy_discard (gii_file, last_seek, discard_file, record_count);
+                }
+            continue;
+            }
+        else
+            {
+            printf ("Loading %s %s: ", (char *)data_type.arr, (char *)name.arr);
+            }
+        /*******************************************************************************/
+        /*                                                                          */
+        /*                       Begin inner processing loop                        */
+        /*                                                                          */
+        /*******************************************************************************/
+        
+        for (i = record_number; i <= record_count; i++)
+            {
+            /* read another record if this is not the first record of the section   */
+            if (i > 1)
+                {
+                fgets (inline , sizeof inline , gii_file);
+                }
+            /* Skip the processing if the header was unable to be processed         */
+            /* Process the coordinates for this section                             */
+            for (j = 0; !invalid_header && j < 4; j++)
+                {
+                switch (str_to_ll ((char *)pLand->long_lat[j], &y, &x))
+                    {
+                default:
+                    fprintf (stderr, "record rejected - continuing\n");
+                    invalid_header = TRUE;
+                    break;
+                case NULL_VALUE_FOUND:
+                    break;
+                case SUCCESS:
+                    status = ly_process_node (x, y, tolerance, &this_node);
+                    if (status IS_NOT_EQUAL_TO SUCCESS)
+                        {
+                        if (report_oops ("node"))
+                            {
+                            goto normal_exit;
+                            }
+                        invalid_header = TRUE;
+                        break;
+                        }
+                    if (x < x1)
+                        x1 = x;
+                    if (x > x2)
+                        x2 = x;
+                    if (y < y1)
+                        y1 = y;
+                    if (y > y2)
+                        y2 = y;
+                    if (i == 1 && j == 0)
+                        {
+                        first_node = last_node = this_node;
+                        continue;
+                        }
+                    status = process_arc ();
+                    if (status IS_NOT_EQUAL_TO SUCCESS)
+                        {
+                        if (report_oops ("arc"))
+                            {
+                            goto normal_exit;
+                            }
+                        invalid_header = TRUE;
+                        break;
+                        }
+                    narcs++;
+                    last_node = this_node;
+                    }
+                }
+            }
+        /*******************************************************************************/
+        /*                                                                          */
+        /*                         End inner processing loop                        */
+        /*                                                                          */
+        /*******************************************************************************/
+        
+        if (NOT invalid_header)
+            {
+            this_node = first_node;
+            status = process_arc ();
+            if (status IS_NOT_EQUAL_TO SUCCESS)
+                {
+                if (report_oops ("arc"))
+                    {
+                    goto normal_exit;
+                    }
+                invalid_header = TRUE;
+                }
+            narcs++;
+            }
+        if (narcs != 0)
+            {
+            if (invalid_header)
+                {
+                EXEC SQL ROLLBACK WORK;
+                copy_discard (gii_file, last_seek, discard_file, record_count);
+                }
+            else
+                {
+                printf ("%3d arcs.\n", narcs);
+                EXEC SQL EXECUTE S3 USING :x1, :x2, :y1, :y2, :lynx_id;
+                EXEC SQL COMMIT WORK;
+                }
+            }
+        }
+    /********************************************************************************/
+    /*                                                                              */
+    /*                        End  main processing loop                             */
+    /*                                                                              */
+    /********************************************************************************/
+    
+    /* Print out the count from the last entity                                     */
+    if (narcs != 0 AND NOT invalid_header)
+        {
+        printf ("%3d arcs.\n", narcs);
+        EXEC SQL EXECUTE S3 USING :x1, :x2, :y1, :y2, :lynx_id;
+        }
+    goto normal_exit;
+    
+oops:
+    
+    report_oops ("finish");
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL ROLLBACK WORK;
+    
+normal_exit:
+    printf ("\n\nSummary information:\n");
+    printf ("Total data records      read: %d\n", nrecords + nskip);
+    printf ("Total data records processed: %d\n", nrecords);
+    printf ("Number  of records   ignored: %d\n", nignored);
+    printf ("Number  of records  rejected: %d\n", nrejected);
+    if (nrejected > 0)
+        {
+        printf ("Rejected records are in the file named '%s'.\n", discard_filename);
+        }
+    fclose (gii_file);
+    fclose (discard_file);
+    or_logout (TRUE);
+    
+    exit (EXIT_SUCCESS);
+    
+info_exit:
+    printf (
+"usage: %s <name/password> <project> <infile> [-land | -info] [-skip n]\n\
+    [-ignore] [-tolerance value] [-discard filename]\n\n\
+    -land               refers to the Land Base Grid format (Default)\n\
+    -info               refers to the InfoBase format (not currently active)\n\
+    -ignore             ignore duplicate entities (do not write to discard file)\n\
+    -tolerance <value>  allows the snapping tolerance to be defined for nodes\n\
+                        any node within +/- tolerance in both x and y\n\
+                        in project projection units is considered\n\
+                        to be the same node (Default: 25)\n\
+    -skip <n>           allows you to skip n records before loading begins\n\
+                        (Default: 0)\n\
+    -discard <filename> is the name of the file containing rejected entities\n\
+                        (Default = gii.discard)\n"
+            , argv[0]);
+    
+    exit (EXIT_FAILURE);
+    
+    }
+
+/************************************************************************************/
+
+privatedef  int process_arc ()
+    {
+    privatedef BOOL first = TRUE;
+    side = -1;
+    
+    EXEC SQL WHENEVER SQLERROR goto wayout;
+    
+    if (first)
+        {
+        stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT ARC_ID FROM %s.LYNX_IFV \
+WHERE FINAL_NODE = :last_node AND INIT_NODE = :this_node"
+                , project);
+        
+        EXEC SQL PREPARE S5 FROM : stmt;
+        EXEC SQL DECLARE C5 CURSOR FOR S5;
+        
+        stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT ARC_ID FROM %s.LYNX_IFV \
+WHERE INIT_NODE = :last_node AND FINAL_NODE = :this_node"
+                , project);
+        
+        EXEC SQL PREPARE S6 FROM : stmt;
+        EXEC SQL DECLARE C6 CURSOR FOR S6;
+        
+        stmt.len = sprintf ((char *)stmt.arr, 
+"INSERT INTO %s.LYNX_IFV (ARC_ID, INIT_NODE, FINAL_NODE) \
+VALUES (ESI.LYNX_ID_SEQ.NEXTVAL, :last_node, :this_node)"
+                , project);
+        
+        EXEC SQL PREPARE S7 FROM : stmt;
+        
+        stmt.len = sprintf ((char *)stmt.arr, 
+"INSERT INTO %s.LYNX_LRFR (LYNX_PART,LYNX_ID,SIDE_DIREC) \
+    VALUES (:arc_id, :lynx_id, :side)"
+                , project);
+        
+        EXEC SQL PREPARE S8 FROM : stmt;
+        
+        first = FALSE;
+        }
+    /* See if this arc has been entered                                             */
+    EXEC SQL OPEN C5 USING : last_node,  : this_node;
+    EXEC SQL FETCH C5 INTO : arc_id;
+    
+    if (OR_STATUS == 0)
+        {
+        side = 1;
+        }
+    else
+        {
+        EXEC SQL OPEN C6 USING : last_node,  : this_node;
+        EXEC SQL FETCH C6 INTO : arc_id;
+        if (OR_STATUS == 0)
+            {
+            side = 0;
+            }
+        }
+    if (side == -1)
+        {
+        /* Insert this new arc into database -                                      */
+        /*    convention is that the direction is 1 if                              */
+        /*    the arc is traversed from INIT_NODE to FINAL_NODE AND the area        */
+        /*    lies to the RIGHT (clockwise).  GII defines the land grid             */
+        /*    in a COUNTERCLOCKWISE fashion                                         */
+        
+        EXEC SQL EXECUTE S7 USING : last_node,  : this_node;
+        EXEC SQL SELECT ESI.LYNX_ID_SEQ.CURRVAL INTO :arc_id FROM DUAL;
+        
+        side = 0;
+        }
+    EXEC SQL EXECUTE S8 USING : arc_id, : lynx_id, : side;
+    
+    return SUCCESS;
+    
+wayout:
+    return OR_STATUS;
+    }
+
+/************************************************************************************/
+
+#if USE_PROTOTYPES
+privatedef INT str_to_ll (char *ps, double *latitude, double *longitude)
+#else
+privatedef INT str_to_ll (ps, latitude, longitude)
+char *ps;
+double *latitude;
+double *longitude;
+#endif
+
+    {
+    /* convert a string of the form 2F12.7  into                                    */
+    /*latitude and longitude                                                        */
+    
+    char buff[16];
+    register int i;
+    INT status = SUCCESS;
+    
+    strncpy (buff, ps, 12);
+    buff[12] = 0;
+    *longitude = atof (buff);
+    if (*longitude EQUALS NULL_VALUE)
+        {
+        return NULL_VALUE_FOUND;
+        }
+    strncpy (buff, ps + 12, 12);
+    buff[12] = 0;
+    *latitude = atof (buff);
+    if (*latitude EQUALS NULL_VALUE)
+        {
+        return NULL_VALUE_FOUND;
+        }
+    if (convert)
+        {
+        status = ct_transform_point (*longitude, *latitude, external_projection,
+                                     longitude, latitude, project_projection);
+        if (status != SUCCESS)
+            {
+            fprintf (stderr, "Error encountered while transforming coordinate!\n");
+            }
+        }
+    return status;
+    }
+
+/************************************************************************************/
+
+/* returns TRUE if user hit cancel button                                           */
+privatedef BOOL report_oops (tag)
+char *tag;
+    {
+    printf ("%s: Oracle error %d encountered:\n\%-70.70s\n", tag, OR_STATUS,
+            OR_MESSAGE);
+    printf ("Last commit point at record %d.\n", nrecords + nskip);
+    return(OR_STATUS EQUALS OR_ABORT);
+    }
+
+/************************************************************************************/
+
+privatedef VOID copy_discard (gii_file, last_seek, discard_file, record_count)
+FILE *gii_file;
+long last_seek;
+FILE *discard_file;
+UINT record_count;
+    {
+    INT i;
+    char inline [136];
+    
+    printf (" %d record%s copied to discard file ... continuing\n\n", record_count,
+            (record_count == 1) ? "" : "s");
+    fseek (gii_file, last_seek, SEEK_SET);
+    
+    /* copy the information record(s) to the discard file                           */
+    for (i = 0; i < record_count; i++)
+        {
+        fgets (inline , sizeof inline , gii_file);
+        fputs (inline , discard_file);
+        }
+    nrejected += record_count;
+    return;
+    }

@@ -1,0 +1,223 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_DEL_EL.PC*/
+/*  12   13-FEB-1992 17:06:11 PURNA "(SPR 1347) added ho_add_path"*/
+/* *11   15-OCT-1990 16:49:33 GILLESPIE "(SPR 1000) Merge Ernie deltas"*/
+/* *10    4-OCT-1990 13:41:51 VINCE "(SPR 10) updates from Ernie"*/
+/* *9     4-OCT-1990 13:25:37 VINCE "(SPR 10) updates from Ernie"*/
+/* *8     4-OCT-1990 13:24:46 VINCE "(SPR 10) updates from Ernie"*/
+/* *7     4-OCT-1990 13:23:45 VINCE "(SPR 10) updates from Ernie"*/
+/* *6     4-OCT-1990 13:22:52 VINCE "(SPR 10) updates from Ernie"*/
+/* *5     4-OCT-1990 13:22:01 VINCE "(SPR 10) updates from Ernie"*/
+/* *4     4-OCT-1990 13:21:08 VINCE "(SPR 10) updates from Ernie"*/
+/* *3    24-SEP-1990 16:08:35 GILLESPIE "Beta Deltas"*/
+/* *2    18-JUL-1990 07:24:52 GILLESPIE "(SPR 1) Add esi_dr_err.h; change to DR_OBJECT_TYPE_T"*/
+/* *1    19-JUN-1989 12:30:56 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_DEL_EL.PC*/
+
+/******************************************************************************
+
+        Copyright Exploration Systems, Inc. 1989
+           Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+            Exploration Systems, Inc.
+            579 Market Street
+            San Francisco, CA  USA 94105
+            (415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/******************************************************************************
+
+NAME:       dr_delete_element
+
+DESCRIPTION:    Delete the specified line or text element from the
+        database.  The corresponding row in the correlations table 
+        and in the lines or text table is deleted.
+
+        NOTE: caller is responsible for commit/rollback.
+                  
+        If element is a line, the nlist is deleted.
+
+    Input:  object_id   - INT id of the parent object.
+        element_id  - INT id of the element to be deleted.
+        type_code   - INT Which object type (DR_LINE_OBJECT,
+                    DR_TEXT_OBJECT, ...)
+                              
+    Output: Database modified, but not committed.
+
+    Status: SUCCESS
+     
+    TODO:   1) NOTE that node is not deleted, as we are assumming that
+               text nodes will be eliminated.
+
+******************************************************************************/
+
+#include    "esi_dr.h"
+#include    "esi_am.h"
+#include    "esi_qs.h"
+#include    "esi_nl.h"
+#include    "esi_se.h"
+#include    "esi_oracle.h"
+
+/******************************************************************************/
+#if USE_PROTOTYPES
+publicdef INT dr_delete_element (CHAR *object_type, INT object_id,
+                                 INT element_id, DR_OBJECT_TYPE_T type_code,
+                                 CHAR *horizon, CHAR *line_name )
+#else
+publicdef INT dr_delete_element (object_type, object_id, element_id,
+                                 type_code, horizon, line_name)
+CHAR *object_type;
+INT object_id, element_id;
+DR_OBJECT_TYPE_T type_code;
+CHAR *horizon;
+CHAR *line_name;
+#endif
+{
+    INT status;
+    PROJECT_NAME project;
+    CHAR mg[71];
+    NLIST_ID nlist_name;
+    FILENAME nlist_file;
+    INT nlen;
+    BOOL isfault;
+    CHAR sequence[40];
+    FULL_LINE_NAME full_name;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[512];
+        VARCHAR dig_ref[200];
+        VARCHAR dig_ref_vol[200];
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO sqlerrorpt;
+
+    qs_inq_c (QS_PROJECT_NAME, project, &nlen);
+    
+    /* Delete row from line or text table, and associated nlist */
+    
+    switch (type_code)
+        {
+            case DR_LINE_OBJECT:
+                /* ------------------------------------- */
+                /* Fetch the nlist filename and nlist id */
+                /* for any type of line element          */
+                /* ------------------------------------- */
+
+                sqlstmt.len = sprintf((char *)sqlstmt.arr,
+                "SELECT NLIST_FILE, NLIST_ID \
+                 FROM   %s.LINES \
+                 WHERE  LINE_ID = %d",
+                project, element_id );
+
+                EXEC SQL PREPARE S1 FROM :sqlstmt;
+                EXEC SQL DECLARE C1 CURSOR FOR S1;
+                EXEC SQL OPEN C1;
+                EXEC SQL FETCH C1 INTO :dig_ref_vol, :dig_ref;
+                EXEC SQL CLOSE C1;
+        
+                isfault = ( strcmp(object_type, FAULTS_TYPE) == 0 );
+
+                if (isfault)
+                    {
+                    /* ------------------------------------------------- */
+                    /* NOTE: The dig_ref retrieved from the LINES table  */
+                    /*       is the correlation to the SEQ column in the */
+                    /*       SEIS_FAULT_TRACE table.                     */
+                    /* ------------------------------------------------- */
+
+                    V_FROMV (sequence, dig_ref);
+
+                    /* ------------------------------------------------- */
+                    /* For faults, we have to go to the SEIS_FAULT_TRACE */
+                    /* table to fetch the correct nlist filename and     */
+                    /* nlist id.                                         */
+                    /* ------------------------------------------------- */
+
+                    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+                    "SELECT DIGITAL_REF_VOLUME, DIGITAL_REF \
+                     FROM   %s.SEIS_FAULT_TRACE \
+                     WHERE SOURCE = USER AND SEQ = %s",
+                    project, sequence);
+        
+                    EXEC SQL PREPARE S2 FROM :sqlstmt;
+                    EXEC SQL DECLARE C2 CURSOR FOR S2;
+                    EXEC SQL OPEN C2;
+                    EXEC SQL FETCH C2 INTO :dig_ref_vol, :dig_ref;
+                    EXEC SQL CLOSE C2;
+                    
+                    /* ------------------------------------------------ */
+                    /* Now that we have the info required to delete the */
+                    /* fault nlist, we can delete the row from          */
+                    /* the SEIS_FAULT_TRACE table.                      */
+                    /* ------------------------------------------------ */
+
+                    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+                    "DELETE FROM %s.SEIS_FAULT_TRACE \
+                     WHERE  SOURCE = USER AND SEQ = %s",
+                    project, sequence);
+                    EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+                    }
+                else
+                    {
+                    V_FROMV (nlist_file, dig_ref_vol);
+                    V_FROMV (nlist_name,   dig_ref);
+                    }
+                
+                /* --------------------------------------- */
+                /* Next, for all line types we delete      */
+                /* the row in the LINES table.             */
+                /* --------------------------------------- */
+                
+                sqlstmt.len = sprintf((char *)sqlstmt.arr,
+                "DELETE FROM %s.LINES \
+                 WHERE  LINE_ID = %d",
+                project, element_id);
+                EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+
+                /* ------------------------------------------- */
+                /* Lastly, we delete the nList for the element */
+                /* ------------------------------------------- */
+
+                status = nl_delete_nlist (nlist_file, nlist_name);
+                break;
+            
+            case DR_TEXT_OBJECT:
+                sqlstmt.len = sprintf((char *)sqlstmt.arr,
+                "DELETE FROM %s.TEXT \
+                 WHERE TEXT_ID = %d",
+                project, element_id);
+                EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+                break;
+            
+            default:
+                break;
+        }
+          
+    /* Delete the correlations row */
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+    "DELETE FROM %s.GRAPHIC_OBJECT_CORRELATIONS \
+     WHERE  OBJECT_ID = %d AND \
+            ITEM_ID   = %d",
+    project, object_id, element_id);
+    EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+    
+    return SUCCESS;
+
+sqlerrorpt:
+    strncpy(mg, OR_MESSAGE, 70);
+    mg[70] = 0;
+    am_message(AM_STATUS, (char *)sqlstmt.arr);
+    am_message(AM_STATUS, mg);
+    status = OR_STATUS;
+    return( status );
+    }

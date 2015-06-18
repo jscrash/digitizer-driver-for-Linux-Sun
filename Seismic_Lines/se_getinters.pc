@@ -1,0 +1,206 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_GETINTERS.PC*/
+/* *4     1-AUG-1990 13:17:46 VINCE "(SPR 5615) updated for integer line id"*/
+/* *3    25-JUL-1990 10:08:32 VINCE "(SPR 5615) changed for new integer line ids"*/
+/* *2    25-JUL-1989 20:02:13 GILLESPIE "(SPR 50) Seismic system revamp"*/
+/* *1    19-JUN-1989 12:36:30 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_GETINTERS.PC*/
+
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/*
+*
+* AUTHOR:REMI DORET
+*
+* DATE : 01/04/1987
+*
+* FUNCTION : 
+
+ROUTINE   :    se_getinters
+
+DESCRIPTION :  this routine is  returning a set of intersection for a given_line
+                in a selected range of cdp if necessary
+INPUT    :
+         linename  :  name of the seismic line where we look for the
+                    intersections , this is the full line name
+         first_cdp :  first bound for range
+         last_cdp  :  last  bound for range 
+
+OUTPUT  :
+        int_list   : pointer to a link_list of structures SEIS_TIE
+                this link list is created by this procedure but must be
+                freed  by the application calling this routine 
+
+
+    	status    =   SUCCESS  if no problem
+                      FAIL     data base error                
+
+*
+* LANGUAGE: C
+*
+********************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_se_int.h"
+#include "esi_qs.h"
+#include "esi_tc.h"
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#include "esi_ll.h"
+#include "esi_oracle.h"
+
+static BOOL first_sel1 = TRUE ;
+static BOOL first_sel2 = TRUE ;
+
+#define  BIG_CDP      100000
+
+/**************************************************************************/
+
+publicdef INT se_getinters ( line ,  first_cdp , last_cdp , list_int ) 
+FULL_LINE_NAME *line;
+CDP  first_cdp , last_cdp ; 
+LISTHEAD  *list_int ;
+{
+    EXEC SQL BEGIN DECLARE SECTION ;
+        VARCHAR  select [ 1000 ] ;
+        int      line_id ;
+        int      tie_line_id ; 
+        double   this_shot ;
+        double   this_cdp  ;
+        double   tie_shot ;
+        double   tie_cdp ;
+        double   min_cdp ;
+        double   max_cdp ;
+        double   x_inters ;
+        double   y_inters ;
+    EXEC SQL END DECLARE SECTION ;
+
+    SEIS_TIE  *pinter ;
+    SEIS_LINE_ID s_line ;
+
+    /*---------------------------------------------------------*/
+    /* initialise the link list which will contain the list of */
+    /* SEIS_TIE structures                                     */
+    /*---------------------------------------------------------*/
+
+    llinit ( list_int , 0 , sizeof ( SEIS_TIE* ) , 0 ) ; 
+
+    /*-------------------------------------------------------------------*/
+    /* control if the application wants a selection of the intersections */
+    /* between two cdp                                                   */
+    /*-------------------------------------------------------------------*/
+
+    if ( first_cdp > FLAG_NO_RANGE ) 
+        {
+        min_cdp = MIN ( first_cdp , last_cdp ) ;
+        max_cdp = MAX ( first_cdp , last_cdp ) ;
+        }
+    else
+        {
+        min_cdp = - BIG_CDP ;
+        max_cdp = BIG_CDP ;
+        }
+
+    /*--------------------------------------------------------------------*/  
+    /* build the SQL statement performing the retrieval after retrieving  */
+    /* the current project                                                */
+    /*--------------------------------------------------------------------*/  
+
+    EXEC SQL WHENEVER SQLERROR GOTO errsql ;
+
+    if ( first_sel1 ) 
+        {
+	PROJECT_NAME project_name;
+	TABLE_NAME table_name;
+
+	/* inquire project name to build the table name	    */
+        qs_inq_c ( QS_PROJECT_NAME , project_name , (INT *) 0);
+	sez_table_name(SEIS_FULL_TIE_TABLE, table_name);
+
+	select.len = sprintf((char *)select.arr ,
+	"SELECT THIS_SHOT, THIS_CDP, TIE_X, TIE_Y, \
+	        TIE_LINE_ID, TIE_SHOT, TIE_CDP \
+	 FROM   %s.%s \
+	 WHERE  THIS_LINE_ID = :line_id \
+	 ORDER BY THIS_CDP ",
+	project_name, table_name ) ;
+
+	EXEC SQL PREPARE S11 FROM :select ;
+	EXEC SQL DECLARE C11 CURSOR FOR S11 ;
+  
+	first_sel1 = FALSE ;
+	}
+  
+    /*  fill line name and line tie finding the names in the structures  */
+
+    line_id =line->id ;
+
+    EXEC SQL OPEN C11 USING :line_id ;
+ 
+    /* now fetch the results in the structure   */
+
+    EXEC SQL WHENEVER NOT FOUND GOTO errnofd ;
+
+    FOREVER
+        {
+        tie_line_id = 0 ;
+
+        EXEC SQL FETCH C11 INTO :this_shot, :this_cdp,
+                                :x_inters,  :y_inters,
+                                :tie_line_id,
+                                :tie_shot, :tie_cdp;
+
+        /* test if we are inside the selection or not      */
+
+        if ( this_cdp >= min_cdp  AND this_cdp <= max_cdp )
+            {
+            /* cdp inside the selection; fill the SEIS_TIE structure   */
+            /* and add it to the link_list allocate memory for the     */
+            /* structure                                               */
+
+            pinter = (SEIS_TIE*)tc_alloc ( sizeof (SEIS_TIE)) ;	
+
+            pinter -> tie.id              = tie_line_id ;
+            pinter -> this                = *line;
+            pinter -> tie_x               = x_inters ;
+            pinter -> tie_y               = y_inters ;
+            pinter -> this_cdp            = this_cdp ;
+            pinter -> tie_cdp             = tie_cdp  ;
+            pinter -> seismic_on_line     = FALSE;
+            pinter -> seismic_on_tie_line = FALSE;
+              
+            /* add a new item to the list     */
+
+            llappnd ( list_int  , &pinter ) ;
+            }
+        }
+
+errnofd:
+    /* we come here when there is no more rows to fetch   */
+    return SUCCESS;
+
+errsql:
+    /* cursors are not closed because of an oracle problem in this case */
+    return OR_STATUS;
+}

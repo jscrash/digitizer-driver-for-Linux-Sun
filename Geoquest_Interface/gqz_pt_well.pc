@@ -1,0 +1,809 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element GQZ_PT_WELL.PC*/
+/* *10   14-OCT-1991 17:28:40 PURNA "(SPR 0) another fix on well data"*/
+/* *9    11-SEP-1991 13:50:14 PURNA "(SPR 0) fixed crashes when moving wells"*/
+/* *8    18-JUN-1991 12:40:41 PURNA "(SPR 0) geoquest mods"*/
+/* *7    30-APR-1991 13:24:41 KEE "(SPR -1) change homoveblock to hoblockmove"*/
+/*  5B1   3-OCT-1990 11:38:08 GILLESPIE "Change file type to stream"*/
+/* *6    20-AUG-1990 17:07:11 KEE "(SPR -1) fixing compile error at sun"*/
+/* *5    23-JUL-1990 11:10:57 GILLESPIE "(SPR 1) Remove BEST_PICK, PICK_REF from tops selection; better error reporting"*/
+/* *4    20-JUL-1990 11:58:15 VINCE "(SPR 5644) Header Standardization"*/
+/* *3    12-JUL-1990 16:11:34 GILLESPIE "(SPR 1) The Really latest & greatest - incorporates changes in lat/long stuff, too"*/
+/* *2    12-JUL-1990 15:38:51 GILLESPIE "(SPR 1) Latest & greatest from GeoQuest, Houston"*/
+/* *1    21-JUN-1990 19:23:25 GILLESPIE "Geoquest Link"*/
+/* DEC/CMS REPLACEMENT HISTORY, Element GQZ_PT_WELL.PC*/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+           Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+            Finder Graphics Systems, Inc.
+            201 Tamal Vista Blvd
+            Corte Madera, CA  USA 94925
+            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "fgs_gq_ies.h"
+#include "esi_c_lib.h"
+
+#ifndef ESI_TC_H
+
+#include "esi_tc.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_OR_H
+
+#include "esi_or.h"
+
+#endif
+
+#ifndef ESI_WE_WELLS_H
+
+#include "esi_we_wells.h"
+
+#endif
+
+#ifndef ESI_LG_LDEFS_H
+
+#include "esi_lg_ldefs.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_HO_H
+
+#include "esi_ho.h"
+
+#endif
+
+#include "interface.h"
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+#define DEPTH_IN_TIME (INT)1
+#define DEPTH_IN_DISTANCE (INT)2
+
+/* File Description ---------------------------------------------------------
+Overview:
+
+    Well transfer section of the GQS data link
+    
+Public_Functions:
+    main();
+    
+    publicdef int gqz_put_well(IES_STRUCT *iesPtr);
+
+Private_Functions:
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    main ()
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+    
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:                                                                           */
+#ifdef DEBUG
+
+#include "esi_fi.h"
+#include "esi_mg.h"
+#include "esi_sl_meth.ah"
+int main (argc, argv)
+int argc;
+char **argv;
+    {
+    int status;
+    IES_STRUCT theStruct;
+    NLIST_HEADER uwi_list;
+    VECTOR well_vec;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR uid[32], pwd[32];
+    EXEC SQL END DECLARE SECTION;
+    
+    if (argc != 5)
+        {
+        fprintf (stderr, "\
+format: gqz_pt_well name password project select_name\n\n");
+        exit (EXIT_SUCCESS);
+        }
+    if (fi_login (argv[1], argv[2], argv[3], &status) != SUCCESS)
+        {
+        fprintf (stderr, mg_message (status));
+        exit (EXIT_FAILURE);
+        }
+    tc_zeroes (&theStruct, sizeof(IES_STRUCT));
+    strcpy (theStruct.wells_list_name, argv[4]);
+    status = gqz_put_well (&theStruct);
+    
+    exit (EXIT_SUCCESS);
+    }
+
+
+#endif
+/* END:                                                                             */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef int gqz_put_well(IES_STRUCT *iesPtr);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    iesPtr          -(IES_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:                                                                           */
+#if USE_PROTOTYPES
+publicdef INT gqz_put_well (IES_STRUCT *iesPtr)
+#else
+publicdef INT gqz_put_well (iesPtr)
+IES_STRUCT *iesPtr;
+#endif
+    {
+    WELL_LIST well_vec;
+    NLIST_HEADER uwi_list, nl_dir_list;
+    int status, i, j, k, l, nrows, nret;
+    UINT tab_num;
+    UINT nget, nr;
+    WELL_STRUCT_0 *wells_ptr;
+    TOP_STRUCT_T *tops_ptr;
+    LOG_TRACE_STRUCT Trace;         /* LTDM Data structure                          */
+    LOG_TRACE_STRUCT_T *logs_ptr;   /* Interface log structure                      */
+    LOG_SERVICE_STRUCT *pService, Service;
+    LOG_PASS_STRUCT *pPass, Pass;
+    LOG_RUN_HDR *pRun, Run;
+    DOUBLE *pDepth, *pDx, *pDy;
+    FLOAT *depth_ptr;
+    FLOAT *value_ptr;
+    NLIST_ID name;
+    FILENAME filename;
+    WELL_STRUCT *ww_hdr;
+    WELL_HDR_2 *ww2_hdr;
+    WELL_STRUCT_2 *well2_ptr;
+    PROJECT_NAME project;
+    UINT cur_table;
+    UINT num_tables;
+    UINT num_rows;
+    UINT nloaded = 0;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR uwi[24];
+    VARCHAR stmt[512];
+    long int count;
+    long int log_count;
+    VARCHAR u_well_i[24];
+    VARCHAR form_code[16];
+    VARCHAR source[32];
+    double md;
+    VARCHAR age_code[8];
+    double tvd;
+    VARCHAR tvd_method[8];
+    VARCHAR last_update[21];
+    VARCHAR qual_code[2];
+    VARCHAR desc_code[4];
+    
+    VARCHAR trace_type[16];
+    int version;
+    double top;
+    double base;
+    double depth_inc;
+    VARCHAR depth_unit[16];
+    VARCHAR depth_type[2];
+    double trace_min;
+    double trace_max;
+    VARCHAR trace_unit[16];
+    VARCHAR nlist_file[84];
+    VARCHAR nlist_id[64];
+    int log_run;
+    VARCHAR log_date[12];
+    VARCHAR log_company[24];
+    double fluid_density;
+    double mud_viscosity;
+    double mud_fluid_loss;
+    double bh_temperature;
+    double mud_ph;
+    double vDepth, vDx, vDy;
+    double vDigit, vDigit_value;
+    int pass_num;
+    VARCHAR service[16];
+    EXEC SQL END DECLARE SECTION;
+    
+    INT units[1];
+    INT d_type[1];
+    INT v_inc[1];
+    UINT ndim = 1;
+    UINT Col_List[1];
+    size_t d_size[1];
+    VOIDPTR Var_List[1];
+    
+    UINT c_dev[3];
+    VOIDPTR v_dev[3];
+    
+    UINT c_dig[2];
+    VOIDPTR v_dig[2];
+    INT u_dig[2];
+    INT t_dig[2];
+    size_t w_dig[2];
+    
+    units[0] = 0;
+    d_type[0] = CHAR_TYPE;
+    v_inc[0] = VALUE_LIST;
+    
+    Col_List[0] = 1;
+    d_size[0] = sizeof(CHAR) * 24;
+    
+    c_dev[0] = 1, c_dev[1] = 2, c_dev[2] = 3;
+    
+    /* Get the handle of the nlist containing the line names.                       */
+    status = sl_read_list (WELLS_DATA_TYPE, iesPtr->wells_list_name, &uwi_list);
+    if (status != SUCCESS)
+        {
+        return status;
+        }
+    qs_inq_c (QS_PROJECT_NAME, project, (int *)0);
+    status = nl_inq_nlist_int (uwi_list, NL_NLIST_NROWS, &nrows);
+    
+    well_vec.well_struct_0.element_size = sizeof(WELL_STRUCT_0);
+    well_vec.well_struct_0.element_format = VEC_TYPE_WELL_STRUCT_0;
+    well_vec.well_struct_0.vector_pointer = tc_zalloc (sizeof(WELL_STRUCT_0) * nrows);
+    if (well_vec.well_struct_0.vector_pointer == 0)
+        {
+        return FAIL;
+        }
+    well_vec.int_null = -99999;
+    well_vec.dp_null = -1E20;
+
+    Var_List[0] = (VOIDPTR)uwi.arr;
+    
+    v_dev[0] = (VOIDPTR)&vDepth;
+    v_dev[1] = (VOIDPTR)&vDx;
+    v_dev[2] = (VOIDPTR)&vDy;
+    
+    stmt.len = sprintf ((char *)stmt.arr, "SELECT COUNT(*) INTO :count \
+FROM %s.WELL_TOPS WHERE UWI = :uwi"
+                        , project);
+    
+    EXEC SQL WHENEVER SQLERROR GOTO sql_error;
+    EXEC SQL PREPARE S0 FROM : stmt;
+    EXEC SQL DECLARE C0 CURSOR FOR S0;
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT UWI, FORM_CODE, SOURCE, MD, AGE_CODE, TVD, \
+TVD_METHOD, LAST_UPDATE, QUAL_CODE, DESC_CODE \
+FROM %s.WELL_TOPS \
+WHERE UWI = :uwi"
+            , project);
+    
+    EXEC SQL PREPARE S1 FROM : stmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    
+    stmt.len = sprintf ((char *)stmt.arr, "SELECT COUNT(*) INTO :count \
+FROM %s.WELL_LOG_CURVE_HDR WHERE UWI = :uwi"
+                        , project);
+    
+    EXEC SQL PREPARE S2 FROM : stmt;
+    EXEC SQL DECLARE C2 CURSOR FOR S2;
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT LOG_RUN, LOG_DATE, LOG_COMPANY, FLUID_DENSITY, MUD_VISCOSITY, \
+MUD_FLD_LOSS, BH_TEMPERATURE, MUD_PH \
+FROM %s.WELL_LOG_RUN_HDR WHERE UWI = :uwi"
+            , project);
+    
+    EXEC SQL PREPARE S3 FROM : stmt;
+    EXEC SQL DECLARE C3 CURSOR FOR S3;
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT DIGITAL_REF, NVL(LOG_RUN,0), \
+NVL(SERVICE,'?'), NVL(PASS_NUM,0), \
+NVL(SOURCE,'FINDER'), TRACE_TYPE, NVL(VERSION,1), \
+TOP, BASE, DEPTH_INC, DEPTH_UNIT, DEPTH_TYPE, TRACE_MIN, \
+TRACE_MAX, TRACE_UNIT \
+FROM %s.WELL_LOG_CURVE_HDR \
+WHERE UWI = :uwi \
+ORDER BY LOG_RUN,PASS_NUM"
+            , project);
+    EXEC SQL PREPARE S4 FROM : stmt;
+    EXEC SQL DECLARE C4 CURSOR FOR S4;
+    
+    nl_set_current_row (uwi_list, 1, 1);
+    for (wells_ptr = well_vec.well_struct_0.vector_pointer, i = 0; i < nrows;
+         wells_ptr++, i++)
+        {
+	/* initialize the pointer before assigning any value to it */
+
+	wells_ptr->uwi[0]=0;
+	wells_ptr->symbol_code = well_vec.int_null;
+
+	wells_ptr->tophole_xy.x = well_vec.dp_null;
+	wells_ptr->tophole_xy.y = well_vec.dp_null;
+	wells_ptr->tophole_xy.latitude.decimal = well_vec.dp_null;
+	wells_ptr->tophole_xy.latitude.dms.degrees = well_vec.int_null;
+	wells_ptr->tophole_xy.latitude.dms.minutes = well_vec.int_null;
+	wells_ptr->tophole_xy.latitude.dms.seconds = well_vec.dp_null;
+	wells_ptr->tophole_xy.longitude.decimal = well_vec.dp_null;
+	wells_ptr->tophole_xy.longitude.dms.degrees = well_vec.int_null;
+	wells_ptr->tophole_xy.longitude.dms.minutes = well_vec.int_null;
+	wells_ptr->tophole_xy.longitude.dms.seconds = well_vec.dp_null;
+	wells_ptr->tophole_xy.projection_id = well_vec.int_null;
+
+	wells_ptr->bottomhole_xy.x = well_vec.dp_null;
+	wells_ptr->bottomhole_xy.y = well_vec.dp_null;
+	wells_ptr->bottomhole_xy.latitude.decimal = well_vec.dp_null;
+	wells_ptr->bottomhole_xy.latitude.dms.degrees = well_vec.int_null;
+	wells_ptr->bottomhole_xy.latitude.dms.minutes = well_vec.int_null;
+	wells_ptr->bottomhole_xy.latitude.dms.seconds = well_vec.dp_null;
+	wells_ptr->bottomhole_xy.longitude.decimal = well_vec.dp_null;
+	wells_ptr->bottomhole_xy.longitude.dms.degrees = well_vec.int_null;
+	wells_ptr->bottomhole_xy.longitude.dms.minutes = well_vec.int_null;
+	wells_ptr->bottomhole_xy.longitude.dms.seconds = well_vec.dp_null;
+	wells_ptr->bottomhole_xy.projection_id = well_vec.int_null;
+
+	wells_ptr->deviation.flag = well_vec.int_null;	  
+
+        wells_ptr->deviation.depth.vector_pointer = NULL;
+        wells_ptr->deviation.depth.number_elements = 0;
+        wells_ptr->deviation.depth.element_size = sizeof(DOUBLE);
+        wells_ptr->deviation.depth.element_format = VEC_TYPE_REAL;
+                
+        wells_ptr->deviation.dx.vector_pointer = NULL;
+        wells_ptr->deviation.dx.number_elements = 0;
+        wells_ptr->deviation.dx.element_size = sizeof(DOUBLE);
+        wells_ptr->deviation.dx.element_format = VEC_TYPE_REAL;
+                
+        wells_ptr->deviation.dy.vector_pointer = NULL;
+        wells_ptr->deviation.dy.number_elements = count;
+        wells_ptr->deviation.dy.element_size = sizeof(DOUBLE);
+        wells_ptr->deviation.dy.element_format = VEC_TYPE_REAL;
+            
+	wells_ptr->detail.ptr = NULL;
+	wells_ptr->detail.type = WE_LOCATION_ONLY;
+
+        status = nl_get_rows_convert (uwi_list, 1, 1, Col_List, Var_List, units,
+                                      d_size, d_type, &nget);
+        if (status < SUCCESS)
+            {
+            return status;
+            }
+        status = we_get_well_header (Var_List[0], WELL_HDR_2_DETAIL, &ww_hdr);
+        if (status >= 0 AND ww_hdr != (WELL_STRUCT *)0)
+            {
+            nloaded++;
+            V_SETLEN (uwi);
+            strcpy (wells_ptr->uwi, ww_hdr->uwi);
+            wells_ptr->symbol_code = ww_hdr->symbol_code;
+            wells_ptr->tophole_xy.x = ww_hdr->tophole_xy.x;
+            wells_ptr->tophole_xy.y = ww_hdr->tophole_xy.y;
+            wells_ptr->tophole_xy.latitude.decimal =
+                ww_hdr->tophole_xy.latitude_decimal;
+            wells_ptr->tophole_xy.longitude.decimal =
+                ww_hdr->tophole_xy.longitude_decimal;
+            wells_ptr->bottomhole_xy.x = ww_hdr->bottomhole_xy.x;
+            wells_ptr->bottomhole_xy.y = ww_hdr->bottomhole_xy.y;
+            wells_ptr->bottomhole_xy.latitude.decimal =
+                ww_hdr->bottomhole_xy.latitude_decimal;
+            wells_ptr->bottomhole_xy.longitude.decimal =
+                ww_hdr->bottomhole_xy.longitude_decimal;
+            
+            /* Fill deviation depth, x, y for deviated wells                        */
+            
+            status = wes_load_dir_nlist (wells_ptr->uwi, &nl_dir_list);
+            if (status == SUCCESS)
+                {
+                nl_inq_nlist_int (nl_dir_list, NL_NLIST_NROWS, &count);
+                
+                pDepth = wells_ptr->deviation.depth.vector_pointer =
+                    tc_alloc (count * sizeof(DOUBLE));
+                wells_ptr->deviation.depth.number_elements = count;
+                
+                pDx = wells_ptr->deviation.dx.vector_pointer =
+                    tc_alloc (count * sizeof(DOUBLE));
+                wells_ptr->deviation.dx.number_elements = count;
+                
+                pDy = wells_ptr->deviation.dy.vector_pointer =
+                    tc_alloc (count * sizeof(DOUBLE));
+                wells_ptr->deviation.dy.number_elements = count;
+                
+                nl_set_current_row (nl_dir_list, 1, 1);
+                
+                for (j = 0; j < count; pDepth++, pDx++, pDy++, j++)
+                    {
+                    status = nl_get_rows (nl_dir_list, 1, 3, c_dev, v_dev, &nr);
+                    *pDepth = vDepth;
+                    *pDx = vDx;
+                    *pDy = vDy;
+                    }
+		}
+	    else
+		{
+		count = 0;
+        	pDepth = (DOUBLE *)NULL;
+  		pDx =  (DOUBLE *)NULL;
+        	pDy = (DOUBLE *)NULL;
+                }
+            wells_ptr->detail.type = WELL_HDR_2_DETAIL;
+            wells_ptr->detail.ptr = tc_zalloc (sizeof(WELL_STRUCT_2));
+            if (wells_ptr->detail.ptr == 0)
+                return FAIL;
+            
+            ww2_hdr = (WELL_HDR_2 *)ww_hdr->detail.ptr;
+            well2_ptr = (WELL_STRUCT_2 *)wells_ptr->detail.ptr;
+            
+            /* Fill the detail_2 structure                                          */
+            /* (CP)  added for put_well                                             */
+            
+            strncpy (well2_ptr->name, ww2_hdr->name, sizeof(WELL_NAME_T));
+            well2_ptr->name[sizeof(WELL_NAME_T) - 1] = (CHAR)0;
+            
+            /* (CP)                                                                 */
+            
+            strncpy (well2_ptr->number, ww2_hdr->number, sizeof(WELL_NUMBER_T));
+            well2_ptr->number[sizeof(WELL_NUMBER_T) - 1] = (CHAR)0;
+            
+            strcpy (well2_ptr->crstatus, ww2_hdr->crstatus);
+            hoblockmove (&ww2_hdr->td.driller, &well2_ptr->td.driller,
+                         sizeof(DEPTHS_T));
+            hoblockmove (&ww2_hdr->td.formation, &well2_ptr->td.formation,
+                         sizeof(LITHOSTRAT_T));
+            well2_ptr->elevation.value = ww2_hdr->elevation.value;
+            strcpy (well2_ptr->elevation.ref, ww2_hdr->elevation.ref);
+            /* Retrieve Tops records and create tops vector */
+            
+            well2_ptr->top_struct.element_size = sizeof(TOP_STRUCT_T);
+            well2_ptr->top_struct.element_format = VEC_TYPE_TOPS;
+            
+            EXEC SQL OPEN C0 USING : uwi;
+            EXEC SQL FETCH C0 INTO : count;
+            if (count == 0)
+                {
+                well2_ptr->top_struct.vector_pointer = 0;
+                well2_ptr->top_struct.number_elements = 0;
+                }
+            else
+                {
+                well2_ptr->top_struct.vector_pointer = tc_alloc (sizeof(TOP_STRUCT) *
+                                                                 count);
+                if (well2_ptr->top_struct.vector_pointer == 0)
+                    {
+                    return FAIL;
+                    }
+                well2_ptr->top_struct.number_elements = count;
+                EXEC SQL OPEN C1 USING : uwi;
+                EXEC SQL WHENEVER NOT FOUND GOTO no_more_tops;
+                nret = 0;
+                
+                for (tops_ptr = well2_ptr->top_struct.vector_pointer; 1; tops_ptr++)
+                    {
+                    EXEC SQL FETCH C1 INTO : u_well_i,  : form_code,  : source,  : md,
+                       : age_code,  : tvd,  : tvd_method,
+                       : last_update,  : qual_code,  : desc_code;
+                    
+                    V_FROMV (tops_ptr->Marker.Code, form_code);
+                    V_FROMV (tops_ptr->Marker.Age, age_code);
+                    tops_ptr->Depth.md = md;
+                    tops_ptr->Depth.tvd = tvd;
+                    V_FROMV (tops_ptr->Source, source);
+                    V_FROMV (tops_ptr->Comment, desc_code);
+                    tops_ptr->Quality = qual_code.arr[0];
+                    V_FROMV (tops_ptr->Last_Update, last_update);
+                    }
+                }
+        no_more_tops:
+            /* Retrieve well_log_run records and create vector                      */
+            
+            log_count = 0;
+            
+            EXEC SQL OPEN C2 USING : uwi;
+            EXEC SQL FETCH C2 INTO : log_count;
+            
+            well2_ptr->log_run_hdr.element_size = sizeof(LOG_RUN_HDR);
+            well2_ptr->log_run_hdr.element_format = VEC_TYPE_LOG_RUN;
+            
+            if (log_count == 0)
+                {
+                well2_ptr->log_run_hdr.vector_pointer = 0;
+                well2_ptr->log_run_hdr.number_elements = 0;
+		goto no_more_logs;
+                }
+            else
+                {
+                well2_ptr->log_run_hdr.vector_pointer =
+                    tc_zalloc (sizeof(LOG_RUN_HDR) * 1);    /* (CP)     */
+                if (well2_ptr->log_run_hdr.vector_pointer == 0)
+                    return FAIL;
+                well2_ptr->log_run_hdr.number_elements = 1; /* (CP)                 */
+
+#if 0
+                EXEC SQL OPEN C3 USING : uwi;
+                EXEC SQL WHENEVER NOT FOUND GOTO no_more_logs;
+   	        pService->log_trace_struct.number_elements = 0;
+                
+                for (pRun = well2_ptr->log_run_hdr.vector_pointer, j = 0;
+                     j < log_count; pRun++, j++)
+                    {
+                    EXEC SQL FETCH C3 INTO : log_run,  : log_date,  : log_company,
+                       : fluid_density,  : mud_viscosity,  : mud_fluid_loss,
+                       : bh_temperature,  : mud_ph;
+                    
+                    pRun->run_number = log_run;
+                    V_FROMV (pRun->logging_company, log_company);
+                    V_FROMV (pRun->run_date, log_date);
+                    pRun->mud_data.density.value = fluid_density;
+                    pRun->mud_data.viscosity.value = mud_viscosity;
+                    pRun->mud_data.fluid_loss.value = mud_fluid_loss;
+                    pRun->mud_data.pH = mud_ph;
+                    pRun->max_rec_temp.value = bh_temperature;
+#endif
+                    
+                    /* In the current representation of the FGS well logging
+                       model, there is only a one to one relationship of
+                       log runs to log passes.  The structures in interface.h
+                       specify a one to many relationship -- it is therfore
+                       neccesary to create a one element pass vector in the
+                       interface.h log_pass_struct */
+                    pRun = well2_ptr->log_run_hdr.vector_pointer;
+                    
+                    pRun->log_pass_struct.element_size = sizeof(LOG_PASS_STRUCT);
+                    pRun->log_pass_struct.element_format = VEC_TYPE_LOG_PASS;
+                    pRun->log_pass_struct.number_elements = 1;
+                    pPass = pRun->log_pass_struct.vector_pointer =
+                        (VOIDPTR) tc_zalloc (1 * sizeof(LOG_PASS_STRUCT));
+                    if (pPass == 0)
+                        return FAIL;
+                    
+                    /* See the note above... The same applies to log_service
+                       structure */
+                    
+                    pPass->log_service_struct.element_size =
+                        sizeof(LOG_SERVICE_STRUCT);
+                    pPass->log_service_struct.element_format = VEC_TYPE_LOG_SERVICE;
+                    pPass->log_service_struct.number_elements = 1;
+                    pService = pPass->log_service_struct.vector_pointer =
+                        tc_zalloc (1 * sizeof(LOG_SERVICE_STRUCT));
+                    if (pService == 0)
+                        return FAIL;
+                    
+                    pService->log_trace_struct.element_size =
+                        sizeof(LOG_TRACE_STRUCT_T);
+                    pService->log_trace_struct.element_format =
+                        VEC_TYPE_WELL_LOG_TRACE;
+		    pService->log_trace_struct.number_elements = log_count;
+                    pService->log_trace_struct.vector_pointer =
+                        tc_zalloc (log_count * sizeof(LOG_TRACE_STRUCT_T));
+                    if (pService->log_trace_struct.vector_pointer == 0)
+                        return FAIL;
+                    
+                    /* The next "for" loop fills the log_trace_struct
+                       from the FGS well_log_curve_hdr table */
+                    
+                    EXEC SQL OPEN C4 USING : uwi;
+                    EXEC SQL WHENEVER NOT FOUND GOTO no_more_curves;
+                    
+                    logs_ptr = pService->log_trace_struct.vector_pointer;
+                    FOREVER
+                        {
+                        EXEC SQL FETCH C4 INTO : nlist_id,  : log_run,
+                           : service,  : pass_num,  : source,  : trace_type,
+                           : version,  : top,  : base,  : depth_inc,  : depth_unit,
+                           : depth_type,  : trace_min,  : trace_max,  : trace_unit;
+                        
+                        V_FROMV (Trace.trace_name, nlist_id);
+                        V_FROMV (Trace.uwi, uwi);
+                        V_FROMV (Trace.source, source);
+                        Trace.version = version;
+                        Trace.top = 0;
+                        Trace.base = 0;
+                        Trace.dinc = 0;
+                        Trace.multi_strokes = 1;
+                        Trace.non_append_null = 1;
+                        
+                        /* Create vector of depths and values at depth 
+                           from the nlist specified by the table */
+                        
+                        status = lg_ltdm_get_trace (&Trace);
+			if(status != SUCCESS)
+                            {
+                            /* This version only broadcasts trace headers for traces that have digital traces
+                            actually available.  This branch is hit when there is an entry in the
+                            WELL_LOG_CURVE_HEADER table but the digits cannot be accessed.  jgg */
+                            pService->log_trace_struct.number_elements--;
+                            continue;
+                            }
+				 
+			
+                        status = nl_inq_nlist_int (Trace.ptrace,
+                                                   NL_NLIST_NROWS,
+                                                   &count);
+			if(status != SUCCESS)
+                            {
+                            /* This version only broadcasts trace headers for traces that have digital traces
+                            actually available.  This branch is hit when there is an entry in the
+                            WELL_LOG_CURVE_HEADER table but the digits cannot be accessed.  jgg */
+                            pService->log_trace_struct.number_elements--;
+                            continue;
+                            }
+
+                        V_FROMV (logs_ptr->source, source);
+                        V_FROMV (logs_ptr->trace, trace_type);
+                        logs_ptr->version = version;
+                        logs_ptr->non_null_top = top;
+                        logs_ptr->non_null_base = base;
+                        logs_ptr->dinc = depth_inc;
+                        logs_ptr->min = trace_min;
+                        logs_ptr->max = trace_max;
+                        V_FROMV (logs_ptr->depth_uom, depth_unit);
+                        V_FROMV (logs_ptr->trace_uom, trace_unit);
+                        
+                        if (ARE_SAME ("T", ts_sto_upper ((char *)depth_type.arr)))
+                            logs_ptr->depth_type = DEPTH_IN_TIME;
+                        else
+                            logs_ptr->depth_type = DEPTH_IN_DISTANCE;
+                        
+                        logs_ptr->depth.element_size = sizeof(FLOAT);
+                        logs_ptr->depth.element_format = VEC_TYPE_REAL;
+                        logs_ptr->depth.number_elements = count;
+                        logs_ptr->value.element_size = sizeof(FLOAT);
+                        logs_ptr->value.element_format = VEC_TYPE_REAL;
+                        logs_ptr->value.number_elements = count;
+                        
+                        logs_ptr->depth.vector_pointer = tc_alloc (sizeof(FLOAT) *
+                                                                   count);
+                        if (logs_ptr->depth.vector_pointer == 0)
+                            return FAIL;
+                        logs_ptr->value.vector_pointer = tc_alloc (sizeof(FLOAT) *
+                                                                   count);
+                        if (logs_ptr->value.vector_pointer == 0)
+                            return FAIL;
+                        
+                        v_dig[0] = logs_ptr->depth.vector_pointer;
+                        v_dig[1] = logs_ptr->value.vector_pointer;
+                        c_dig[0] = 1, c_dig[1] = 2;
+                        u_dig[0] = u_dig[1] = 0;
+                        w_dig[0] = w_dig[1] = sizeof(FLOAT);
+                        t_dig[0] = t_dig[1] = FLOAT_TYPE;
+                        
+                        nl_inq_nlist_int (Trace.ptrace, NL_NLIST_NTABLES,
+                                          (INT *)&num_tables);
+                        for (k = 1; k <= num_tables; k++)
+                            {
+                            nl_set_current_row (Trace.ptrace, 1, k);
+                            nl_inq_table_int (Trace.ptrace, k, NL_TABLE_NROWS,
+                                              (INT *)&num_rows);
+                            
+                            status = nl_get_rows_convert (Trace.ptrace, num_rows, 2,
+                                                          c_dig, v_dig, u_dig, w_dig,
+                                                          t_dig, &nr);
+                            v_dig[0] = (VOIDPTR_T)(((FLOAT *)v_dig[0]) + num_rows);
+                            v_dig[1] = (VOIDPTR_T)(((FLOAT *)v_dig[1]) + num_rows);
+                            }
+						logs_ptr++;
+                        }
+                no_more_curves:
+                    ;
+                    }
+#if 0
+                }
+#endif
+            }
+    no_more_logs:
+        status = SUCCESS;
+        }
+    well_vec.well_struct_0.number_elements = nloaded;
+
+#ifdef DEBUG
+    put_well_dump (&well_vec, stdout);
+#else
+    /* Now send to IES                                                              */
+    c_put_well_ies (&well_vec, (opt_list_t *)0, &status);
+    if (status != SUCCESS)
+        {
+        iesPtr->ies_error = status;
+        }
+#endif
+    
+    /* Free up memory                                                               */
+    nrows = well_vec.well_struct_0.number_elements;
+    for (wells_ptr = well_vec.well_struct_0.vector_pointer, i = 0; i < nrows;
+         wells_ptr++, i++)
+        {
+        /* Free up the well path                                                    */
+        tc_free (wells_ptr->deviation.depth.vector_pointer);
+        tc_free (wells_ptr->deviation.dx.vector_pointer);
+        tc_free (wells_ptr->deviation.dy.vector_pointer);
+        
+        well2_ptr = (WELL_STRUCT_2 *)wells_ptr->detail.ptr;
+        if (well2_ptr)
+            {
+            
+            /* Free up the tops                                                     */
+            tc_free (well2_ptr->top_struct.vector_pointer);
+            
+            /* Free up the log structures                                           */
+            count = well2_ptr->log_run_hdr.number_elements;
+            for (pRun = well2_ptr->log_run_hdr.vector_pointer, j = 0; j < count;
+                 pRun++, j++)
+                {
+                pPass = pRun->log_pass_struct.vector_pointer;
+                if (pPass)
+                    {
+                    pService = pPass->log_service_struct.vector_pointer;
+                    if (pService)
+                        {
+                        logs_ptr = pService->log_trace_struct.vector_pointer;
+                        for (k = 0; k < pService->log_trace_struct.number_elements;
+                             logs_ptr++, k++)
+                            {
+                            tc_free (logs_ptr->depth.vector_pointer);
+                            tc_free (logs_ptr->value.vector_pointer);
+                            }
+                        tc_free (pService->log_trace_struct.vector_pointer);
+                        tc_free (pService);
+                        }
+                    tc_free (pPass);
+                    }
+                }
+            tc_free (well2_ptr->log_run_hdr.vector_pointer);
+            
+            /* Free up the well structures                                          */
+            tc_free (well2_ptr);
+            }
+        }
+    tc_free (well_vec.well_struct_0.vector_pointer);
+    
+    return status;
+sql_error:
+    fprintf (stderr, "Error processing SQL statement:\n%-70.70s\n", OR_MESSAGE);
+    return OR_STATUS;
+    }

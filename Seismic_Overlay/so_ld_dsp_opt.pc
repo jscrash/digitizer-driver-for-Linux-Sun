@@ -1,0 +1,356 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SO_LD_DSP_OPT.PC*/
+/* *5    26-JUL-1990 17:21:09 GILLESPIE "(SPR 1) Lint run; incorporate changes for horizon end point posting"*/
+/* *4    25-JUL-1990 20:04:33 VINCE "(SPR 5644) Header Standardization"*/
+/* *3     1-SEP-1989 14:37:12 CONROY "(SPR 9999) MODS FOR NEW FULL_LINE_STRUCT"*/
+/* *2    25-JUL-1989 20:06:46 GILLESPIE "(SPR 50) Seismic system revamp"*/
+/* *1    19-JUN-1989 12:41:19 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element SO_LD_DSP_OPT.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_so.h"
+#include "esi_oracle.h"
+#include "esi_math.h"
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+static BOOL first = TRUE;
+
+/* Function Description -----------------------------------------------------
+Description:
+    Function to load the seis_map_disp_opt.
+
+Prototype:
+    publicdef INT so_load_disp_opt(SO_STRUCT *pso);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    pso             -(SO_STRUCT *) Seismic overlay structure.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT so_load_disp_opt (SO_STRUCT *pso)
+#else
+publicdef INT so_load_disp_opt (pso)
+SO_STRUCT *pso;
+#endif
+    {
+    INT status;
+    DOUBLE zang, slope, zang2;
+    FLOAT x1, y1, x2, y2;           /* 4 byte floats */
+    UINT dim_list[2];
+    VOIDPTR value_list[2];
+    FILENAME nlist_name;
+    FILENAME filename;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    
+    VARCHAR select[1024];
+    VARCHAR connect_shot_points[2];
+    char *line_name_column;
+    char *survey;
+    float first_line_label_angle;
+    int first_line_label_paraperp;
+    float last_line_label_angle;
+    int last_line_label_paraperp;
+    VARCHAR shot_symbol_trigger[2];
+    int shot_symbol_value;
+    VARCHAR shot_label_trigger[2];
+    int shot_label_value;
+    VARCHAR zvalue_trigger[2];
+    int zvalue_value;
+    int shot_symbol_code;
+    VARCHAR shot_label_format[6];
+    float shot_label_angle;
+    int shot_label_paraperp;
+    VARCHAR shot_label_nlist_id[33];
+    
+    EXEC SQL END DECLARE SECTION;
+    
+    status = SUCCESS;
+    
+    /* clear target data */
+    
+    V_CLEAR (connect_shot_points);
+    first_line_label_angle = -999.;
+    first_line_label_paraperp = SO_PERP;
+    last_line_label_angle = -999.;
+    last_line_label_paraperp = SO_PERP;
+    shot_symbol_code = 0;
+    V_CLEAR (shot_label_trigger);
+    shot_label_value = 0;
+    V_CLEAR (shot_symbol_trigger);
+    shot_symbol_value = 0;
+    V_CLEAR (zvalue_trigger);
+    zvalue_value = 0;
+    shot_label_angle = -999.;
+    shot_label_paraperp = SO_PERP;
+    V_CLEAR (shot_label_format);
+    V_CLEAR (shot_label_nlist_id);
+    
+    line_name_column = pso->current_line.line_name;
+    survey = pso->current_line.survey;
+    /* build select phrase */
+    
+    EXEC SQL WHENEVER SQLERROR GOTO endsql;
+    if (first)
+        {
+        first = FALSE;
+        select.len = sprintf ((char *)select.arr, 
+"SELECT CONNECT_SHOT_POINTS,\
+    FIRST_LINE_LABEL_ANGLE,FIRST_LINE_LABEL_PARAPERP,LAST_LINE_LABEL_ANGLE,\
+    LAST_LINE_LABEL_PARAPERP,SHOT_SYMBOL_TRIGGER,SHOT_SYMBOL_VALUE,\
+    SHOT_LABEL_TRIGGER,SHOT_LABEL_VALUE,\
+    ZVALUE_TRIGGER,ZVALUE_VALUE,SHOT_LABEL_ANGLE,SHOT_LABEL_PARAPERP,\
+    SHOT_SYMBOL_CODE,SHOT_LABEL_FORMAT,SHOT_LABEL_NLIST_ID\
+    FROM SEIS_MAP_DISP_OPT \
+    WHERE LINE_NAME = :line_name_column AND SURVEY = :survey"
+                );
+        
+        /* read the data from oracle table */
+        EXEC SQL PREPARE S1 FROM : select;
+        EXEC SQL DECLARE C1 CURSOR FOR S1;
+        }
+    EXEC SQL OPEN C1 USING : line_name_column,  : survey;
+    
+    EXEC SQL FETCH C1 INTO : connect_shot_points,  : first_line_label_angle,
+        : first_line_label_paraperp,  : last_line_label_angle,
+        : last_line_label_paraperp,  : shot_symbol_trigger,  : shot_symbol_value,
+        : shot_label_trigger,  : shot_label_value,  : zvalue_trigger,  : zvalue_value,
+        : shot_label_angle,  : shot_label_paraperp,  : shot_symbol_code,
+        : shot_label_format,  : shot_label_nlist_id;
+    
+    /* load into structure */
+    
+endsql:
+    
+    /* connect shot points with line flag */
+    V_FROMV (pso->disp_opt.connect_shot_points, connect_shot_points);
+    if (IS_EMPTY_STRING (pso->disp_opt.connect_shot_points))
+        {
+        strcpy (pso->disp_opt.connect_shot_points, "Y");
+        }
+    /* line label position data */
+    
+    dim_list[0] = 2;
+    dim_list[1] = 3;
+    value_list[0] = (VOIDPTR) & x1;
+    value_list[1] = (VOIDPTR) & y1;
+    nl_first_point (pso->cdp_xy, 2, dim_list, value_list);
+    value_list[0] = (VOIDPTR) & x2;
+    value_list[1] = (VOIDPTR) & y2;
+    nl_last_point (pso->cdp_xy, 2, dim_list, value_list);
+    
+    if (abs (x1 - x2) < 0.001)
+        zang = 90.0;
+    else
+        zang = atan2 (y1 - y2, x1 - x2) * 57.29582;
+    if (zang < 0.0)
+        {
+        zang += 360.0;
+        }
+    if (first_line_label_angle == -999.0)
+        {
+        first_line_label_angle = zang;
+        }
+    pso->disp_opt.first_line_label_angle = first_line_label_angle;
+    pso->disp_opt.first_line_label_paraperp = first_line_label_paraperp;
+    so_angpp_to_text (&pso->seismic_generic.seismic_label1,
+                      pso->disp_opt.first_line_label_angle,
+                      pso->disp_opt.first_line_label_paraperp);
+    
+    if (last_line_label_angle == -999.0)
+        {
+        last_line_label_angle = zang + 180.0;
+        if (last_line_label_angle > 360.0)
+            {
+            last_line_label_angle -= 360.0;
+            }
+        }
+    zang2 = last_line_label_angle / 57.29582;
+    
+    pso->disp_opt.last_line_label_angle = last_line_label_angle;
+    pso->disp_opt.last_line_label_paraperp = last_line_label_paraperp;
+    so_angpp_to_text (&pso->seismic_generic.seismic_label2,
+                      pso->disp_opt.last_line_label_angle,
+                      pso->disp_opt.last_line_label_paraperp);
+    
+    zang /= 57.29582;
+    
+    pso->seismic_generic.seismic_label1.text_offset.x = cos (zang) *
+                                                        pso->seismic_generic.
+                                                        shotpoint_symbol.symbol_size;
+    pso->seismic_generic.seismic_label2.text_offset.x = cos (zang2) *
+                                                        pso->seismic_generic.
+                                                        shotpoint_symbol.symbol_size;
+    
+    pso->seismic_generic.seismic_label1.text_offset.y = sin (zang) *
+                                                        pso->seismic_generic.
+                                                        shotpoint_symbol.symbol_size;
+    pso->seismic_generic.seismic_label2.text_offset.y = sin (zang2) *
+                                                        pso->seismic_generic.
+                                                        shotpoint_symbol.symbol_size;
+    
+    /* label_triggers */
+    
+    V_FROMV (pso->disp_opt.line.shot_symbol_trigger, shot_symbol_trigger);
+    if (IS_EMPTY_STRING (pso->disp_opt.line.shot_symbol_trigger))
+        {
+        *pso->disp_opt.line.shot_symbol_trigger = 'E';
+        shot_symbol_value = 0;
+        }
+    pso->disp_opt.line.shot_symbol_value = shot_symbol_value;
+    
+    V_FROMV (pso->disp_opt.line.shot_label_trigger, shot_label_trigger);
+    if (IS_EMPTY_STRING (pso->disp_opt.line.shot_label_trigger))
+        {
+        *pso->disp_opt.line.shot_label_trigger = 'E';
+        shot_label_value = 0;
+        }
+    pso->disp_opt.line.shot_label_value = shot_label_value;
+    
+    V_FROMV (pso->disp_opt.line.zvalue_trigger, zvalue_trigger);
+    if (strlen (pso->disp_opt.line.zvalue_trigger) == 0)
+        {
+        *pso->disp_opt.line.zvalue_trigger = 'E';
+        zvalue_value = 0;
+        }
+    pso->disp_opt.line.zvalue_value = zvalue_value;
+    
+    /* shot symbol */
+    
+    pso->seismic_generic.shotpoint_symbol = pso->disp_opt.default_symbol;
+    if (shot_symbol_code == 0)
+        {
+        shot_symbol_code = pso->disp_opt.default_symbol.symbol_type;
+        }
+    pso->seismic_generic.shotpoint_symbol.symbol_type = shot_symbol_code;
+    pso->seismic_generic.shotpoint_symbol.symbol_fill_code = FALSE;
+    
+    /* shot labels defaults */
+    
+    if (shot_label_angle == -999.0)
+        {
+        if (abs (x2 - x1) > 0.001)
+            {
+            slope = (y2 - y1) / (x2 - x1);
+            zang = atan (slope);
+            }
+        else
+            {
+            zang = PI / 2.0;
+            }
+        shot_label_angle = zang * 57.29582 + 90.0;
+        if (shot_label_angle < 0.0)
+            {
+            shot_label_angle += 360.0;
+            }
+        }
+    zang = shot_label_angle / 57.295827;
+    
+    pso->disp_opt.shot_label_angle = shot_label_angle;
+    pso->disp_opt.shot_label_paraperp = shot_label_paraperp;
+    
+    V_FROMV (pso->disp_opt.shot_label_format, shot_label_format);
+    if (strlen (pso->disp_opt.shot_label_format) == 0)
+        {
+        strcpy (pso->disp_opt.shot_label_format, "%.0f");
+        }
+    V_FROMV (pso->disp_opt.shot_label_nlist_id, shot_label_nlist_id);
+    
+    pso->disp_opt.shot_label_default = pso->disp_opt.zvalue_default =
+                                       pso->seismic_generic.shotpoint_label;
+    
+    so_angpp_to_text (&pso->disp_opt.shot_label_default,
+                      pso->disp_opt.shot_label_angle,
+                      pso->disp_opt.shot_label_paraperp);
+    
+    pso->disp_opt.shot_label_default.text_offset.x = cos (zang) *
+                                                     pso->seismic_generic.
+                                                     shotpoint_symbol.symbol_size *
+        1.5;
+    
+    pso->disp_opt.shot_label_default.text_offset.y = sin (zang) *
+                                                     pso->seismic_generic.
+                                                     shotpoint_symbol.symbol_size *
+        1.5;
+    
+    pso->disp_opt.zvalue_default.text_offset.x =
+                                                 (-pso
+                                                 ->disp_opt.shot_label_default.
+                                                  text_offset.x);
+    
+    pso->disp_opt.zvalue_default.text_offset.y =
+                                                 (-pso
+                                                 ->disp_opt.shot_label_default.
+                                                  text_offset.y);
+    
+    pso->disp_opt.shot_label_default.box_flag = pso->disp_opt.zvalue_default.box_flag =
+                                                FALSE;
+    
+    zang = pso->disp_opt.shot_label_angle + 180.0;
+    if (zang >= 360.0)
+        {
+        zang -= 360.0;
+        }
+    so_angpp_to_text (&pso->disp_opt.zvalue_default, zang,
+                      pso->disp_opt.shot_label_paraperp);
+    
+    /* only do all dis stuff if there is a label
+       preference available (indicated by a valid
+       character string in
+       pso->disp_opt.shot_label_nlist_id)      */
+    
+    if (IS_STRING (pso->disp_opt.shot_label_nlist_id))
+        {
+        status = se_bld_nlist_ids (&pso->current_line, (VOIDPTR)0,
+                                   SEIS_SHOT_LABEL_DATA,
+                                   pso->disp_opt.shot_label_nlist_id, nlist_name,
+                                   filename);
+        
+        if (status EQUALS SUCCESS)
+            {
+            status = nl_read_nlist (&pso->disp_opt.shot_label_nlist, filename,
+                                    pso->disp_opt.shot_label_nlist_id);
+            }
+        }
+    pso->disp_opt.ntrigger_last = -999;
+    
+    status = so_set_shotpoint_defaults (pso);
+    
+    return status;
+    }
+/* END:     */

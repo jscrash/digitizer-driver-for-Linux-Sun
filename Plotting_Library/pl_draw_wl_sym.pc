@@ -1,0 +1,355 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element PL_DRAW_WL_SYM.PC */
+/*  3     3-MAR-1992 13:50:52 MING "(SPR 5967) fix wl_sym reference, from wl_sym[i]->color to wl_sym[0][i]->color" */
+/* *2    30-JAN-1991 09:58:28 MING "(SPR 6548) change well symbol legend structure" */
+/* *1    12-OCT-1990 17:42:57 GILLESPIE "Merge Ernie Deltas" */
+/* DEC/CMS REPLACEMENT HISTORY, Element PL_DRAW_WL_SYM.PC */
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Finder Graphics Systems, Inc.
+			201 Tamal Vista Blvd
+			Corte Madera, CA  USA 94925
+			(415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT func (arg);
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) arg	- description
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Scope:
+    PUBLIC
+    PRIVATE to <module_description>
+
+
+
+-----------------------------------------------------------------------------*/
+
+
+#ifndef ESI_PL_H
+#include "esi_pl.h"
+#endif
+
+#ifndef ESI_CS_H
+#include "esi_cs.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_GKS_H
+#include "esi_gks.h"
+#endif
+
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+
+#ifndef ESI_MM_H
+#include "esi_mm.h"
+#endif
+
+#ifndef ESI_LU_H
+#include "esi_lu.h"
+#endif
+
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+#if USE_PROTOTYPES 
+publicdef INT pl_draw_well_symbol (DOUBLE width, DOUBLE height)
+#else
+publicdef INT pl_draw_well_symbol (width, height)
+DOUBLE width;
+DOUBLE height;
+#endif
+{
+  INT status;
+  INT i,j,k;
+  INT ncols;
+  INT nelts_in_last_col;
+  INT total_line;
+  INT total_symbol;
+  GKS_INT color;
+  GKS_INT font;
+  GKS_INT precision;
+  CHAR text[80];
+  GKS_REAL symbol_x, symbol_y;
+  GKS_REAL text_x, text_y;
+  GKS_REAL chh_w, chh_h, chh;
+  DOUBLE symbol_size;
+  DOUBLE total_len;
+  DOUBLE line_spacing;
+  SYMBOL symbol;
+  INT *wl_sym_number;
+  WELL_LEGEND_LIST *wl_sym;
+  WELL_LEGEND *wl;
+
+  EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stat[64];
+    VARCHAR remark[244];
+    VARCHAR stmt[1000];
+    int sym;
+  EXEC SQL END DECLARE SECTION;
+
+  status = am_open_workspace ("WL_SYM_NUMBER",AM_APPLICATION,
+						(VOIDPTR *)&wl_sym_number);
+
+  status = am_open_workspace ("WL_SYM",AM_APPLICATION,(VOIDPTR *)&wl_sym);
+
+/* ------------------- */
+/* set text attributes */
+/* ------------------- */
+  wm_gstxp (GRIGHT);
+  wm_gschup (0.0,1.0);
+  wm_gschxp (1.0);
+  lu_text_to_index ("COLOR",&color,"BLACK");
+  wm_gstxci (color);
+  lu_text_to_index ("FONT",&font,"NORMAL");
+  lu_text_to_index ("TEXT_PRECISION",&precision,"STROKE");
+  wm_gstxfp (font,precision);
+
+  if (*wl_sym_number == 0)
+    {
+/* ---------------------------- */
+/* draw well legend header only */
+/* ---------------------------- */
+    chh = 0.8 * width / 20;
+    
+    strcpy (text,"WELL LEGEND");
+
+    wm_gstxal (GACENT,GAVNOR);
+    wm_gschh (chh * 1.2);
+    text_x = 0.5 * width;
+    text_y = 0.8 * height;
+    wm_gtx (text_x,text_y,text);
+
+    text_y = 0.5 * height;
+    strcpy (text,"No well symbol exists");
+    wm_gschh (chh);
+    wm_gtx (text_x,text_y,text);
+
+
+    return SUCCESS;
+    }
+
+/* -------------------------- */
+/* estimate the column needed */
+/* -------------------------- */
+  nelts_in_last_col = *wl_sym_number % 20;
+
+  if (nelts_in_last_col != 0)
+    {
+    ncols = *wl_sym_number / 20 + 1;
+    }
+  else
+    {
+    ncols = *wl_sym_number / 20;
+    }
+
+  wl = (WELL_LEGEND *) tc_zalloc (sizeof (WELL_LEGEND) * ncols);
+
+  for (i = 0; i < ncols; ++i)
+    {
+    wl[i].max_len = -99999.0;
+    wl[i].nelts = 20;
+    }
+
+  EXEC SQL WHENEVER SQLERROR GOTO error;
+
+  stmt.len = sprintf ((CHAR *)stmt.arr,
+  "SELECT STATUS,REMARKS FROM CODES.WELL_STATUS_CODES \
+WHERE SYMBOL = :sym");
+
+  EXEC SQL PREPARE S1 FROM :stmt;
+  EXEC SQL DECLARE C1 CURSOR FOR S1;
+
+  j = -1;
+  k = 0;
+  total_symbol = 0;
+  for (i = 0; i < *wl_sym_number; ++i)
+    {
+    sym = wl_sym[i]->symbol;
+
+    EXEC SQL OPEN C1 USING :sym;
+    EXEC SQL FETCH C1 INTO :stat, :remark;
+    if (OR_STATUS == SUCCESS)
+      {
+      if ((k % 20) == 0)
+	{
+	j++;
+	k = 0;
+	}
+
+      wl[j].elt[k].symbol = wl_sym[i]->symbol;
+      wl[j].elt[k].color = wl_sym[i]->color;
+      if (remark.len == 0)
+	{
+        V_FROMV (wl[j].text[k],stat);
+	if (wl[j].max_len < stat.len)
+	  {
+	  wl[j].max_len = stat.len;
+	  }
+	}
+      else
+	{
+	V_FROMV (wl[j].text[k],remark);
+	if (wl[j].max_len < remark.len) 
+	  {
+	  wl[j].max_len = remark.len;
+	  }
+	}
+      k++;
+      total_symbol++;
+      }
+    EXEC SQL CLOSE C1;
+    }
+
+/* ------------------------------------------------------ */
+/* calculate the actual column since the symbols display  */
+/* may not have a description in well_status_codes table  */
+/* ------------------------------------------------------ */
+  nelts_in_last_col = total_symbol % 20;
+
+  if (nelts_in_last_col != 0)
+    {
+    ncols = total_symbol / 20 + 1;
+    }
+  else
+    {
+    ncols = total_symbol / 20;
+    }
+
+  wl[ncols - 1].nelts = nelts_in_last_col;
+
+  total_len = 0.0;
+  for (i = 0; i < ncols; ++i)
+      {
+      total_len += wl[i].max_len;
+      }
+
+    if (ncols == 1)
+      {
+      total_line = nelts_in_last_col;
+      }
+    else
+      {
+      total_line = 20;
+      }
+
+/* --------------------------------------- */
+/* assume well symbol ocuppy 4 ch space    */
+/* each col is seperated by 8 ch space     */
+/* we use only 0.9 of the width for legend */
+/* --------------------------------------- */
+    chh_w = 0.9 * width / ((ncols-1)*8 + ncols*4 + total_len);
+
+/* -------------------------------------------- */
+/* assume line space = 1.5                      */
+/* we use only 0.8 of the height for the legend */
+/* -------------------------------------------- */
+    chh_h = 0.8 * height / (total_line * 1.5);
+
+/* --------------------------------------- */
+/* true chh is the mini of chh_h and chh_w */
+/* take .75 only                           */
+/* --------------------------------------- */
+    chh = MIN (chh_h, chh_w);
+    chh *= .75;
+
+/* ------------------- */
+/* actual line spacing */
+/* ------------------- */         
+    line_spacing = 1.5 * chh;
+/* ------------------- */
+/* make it look better */
+/* ------------------- */
+    line_spacing *= 1.25; 
+
+/* ----------- */
+/* symbol size */
+/* ----------- */
+    symbol_size = 1.5 * chh;
+
+/* ----------------------- */
+/* draw well legend header */
+/* ----------------------- */
+    strcpy (text,"WELL LEGEND");
+    wm_gstxal (GACENT,GAVNOR);
+
+    wm_gschh (chh*1.2);
+    text_x = 0.5 * width;
+    text_y = 0.85 * height;
+    wm_gtx (text_x,text_y,text);
+
+/* --------------------------------- */
+/* draw well symbols and description */
+/* --------------------------------- */
+    wm_gstxal (GAHNOR,GAHALF);
+    wm_gschh (chh);
+    symbol_x = 0.05 * width;
+    symbol_y = 0.8 * height - line_spacing;
+    text_y = symbol_y;
+    text_x = symbol_x + chh * 4;
+
+    for (i = 0; i < ncols; ++i)
+      {
+      for (j = 0; j < wl[i].nelts; ++j)
+	{
+        strcpy (symbol.symbol_group, CS_V4_WELLS_GROUP);
+        symbol.symbol_type = wl[i].elt[j].symbol;
+	symbol.symbol_color = wl[i].elt[j].color;
+	symbol.symbol_location.x = symbol_x;
+	symbol.symbol_location.y = symbol_y;
+	symbol.symbol_size = symbol_size;
+	mm_draw_symbol (&symbol);
+
+        wm_gtx (text_x,text_y,wl[i].text[j]);
+
+	text_y = symbol_y -= line_spacing;
+	}
+/* --------------------------------------------------------------------- */
+/* next column start from max len of the previous plus the symbol length */
+/* of the previous column which is 4 and column width which is 12 ch     */
+/* --------------------------------------------------------------------- */
+      symbol_x += (wl[i].max_len + 4 + 12) * chh;
+      text_x = symbol_x + chh*4;
+      symbol_y = 0.8 * height - line_spacing;
+      text_y = symbol_y;
+      }
+
+  EXEC SQL WHENEVER SQLERROR CONTINUE;
+  EXEC SQL COMMIT WORK;
+  tc_free (wl);
+  return SUCCESS;
+
+error:
+  tc_free (wl);
+  printf ("%s\n",OR_MESSAGE);
+  EXEC SQL ROLLBACK WORK;
+  return FAIL;
+}
+

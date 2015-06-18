@@ -1,0 +1,71 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_LOGOUT.PC*/
+/* *2    25-JUL-1990 19:57:41 VINCE "(SPR 5644) Header Standardization"*/
+/* *1    19-JUN-1989 12:35:37 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_LOGOUT.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_oracle.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+    This routine logs off of Oracle.
+
+Prototype:
+    publicdef or_logout(BOOL flag);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) flag        -(BOOL) TRUE = Commit changes before log off,
+                            FALSE = roll back changes before log off.
+
+Return Value/Status:
+    OR_STATUS, as returned from Oracle.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT or_logout (BOOL flag)
+#else
+publicdef INT or_logout (flag)
+BOOL flag;
+#endif
+    {
+    EXEC SQL BEGIN DECLARE SECTION;
+    EXEC SQL END DECLARE SECTION;
+    
+    if (flag)
+        {
+        EXEC SQL COMMIT WORK RELEASE;
+        }
+    else
+        {
+        EXEC SQL ROLLBACK WORK RELEASE;
+        }
+    return OR_STATUS;
+    }
+/* END:     */

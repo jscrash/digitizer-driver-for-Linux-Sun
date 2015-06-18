@@ -1,0 +1,95 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element HO_CHECK_DATE.PC */
+/* *2     6-JUN-1991 14:54:22 MING "(SPR 0) new checkin" */
+/* *1     6-JUN-1991 14:53:20 MING "check input date " */
+/* DEC/CMS REPLACEMENT HISTORY, Element HO_CHECK_DATE.PC */
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Finder Graphics Systems, Inc.
+			201 Tamal Vista Blvd
+			Corte Madera, CA  USA 94925
+			(415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    Check the date time string match the format defined
+    the format is in ORACLE date time format.
+
+Prototype:
+    publicdef BOOL ho_check_date (dstr,format)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) DATE_TIME dstr;
+    (I) CHAR *format;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Scope:
+    PUBLIC
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+
+#ifndef ESI_DTYPES_H
+#include "esi_dtypes.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#if USE_PROTOTYPES
+publicdef BOOL ho_check_date (DATE_TIME dstr,CHAR *format)
+#else
+publicdef BOOL ho_check_date (dstr,format)
+DATE_TIME dstr;
+CHAR *format;
+#endif
+    {
+
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[1000];
+    VARCHAR date[80];
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO err;
+
+    stmt.len = sprintf ((CHAR *)stmt.arr,
+"SELECT TO_DATE('%s','%s') FROM DUAL",dstr,format);
+
+    EXEC SQL PREPARE S1 FROM :stmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1;
+
+
+    EXEC SQL FETCH C1 INTO :date;
+
+    EXEC SQL CLOSE C1;
+
+    return TRUE;
+
+err:
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL ROLLBACK WORK;
+    printf ("%s\n",OR_MESSAGE);
+    return FALSE;
+    }
+

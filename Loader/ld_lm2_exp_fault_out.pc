@@ -1,0 +1,321 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_EXP_FAULT_OUT.PC */
+/* *3    14-AUG-1991 11:58:18 KEE "(SPR -1) Put in File Lock/Unlock logic" */
+/* *2     1-MAY-1991 21:57:47 KEE "(SPR -1) Landmark Export" */
+/* *1     1-MAY-1991 21:00:47 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_EXP_FAULT_OUT.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* ************************************************************************
+
+   NAME: LD_LM2_EXP_FAULT_OUT.PC
+
+   AUTHOR: Rod Hanks
+   DATE:   June 15th, 1990
+   DESCRIPTION: Unload fault data from a particular map overlay in Finder.
+
+   ************************************************************************ */
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+#ifndef ESI_SE_INT_H
+#include "esi_se_int.h"
+#endif
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+
+#if USE_PROTOTYPES
+publicdef VOID ld_lm2_exp_fault_out (CHAR *selectPhrase, 
+	           CHAR *sourceName,
+		   BOOL *firstIteration, FILE **myfile, 
+		   CHAR *mapName, PROJECT_NAME projectName, 
+		   DOUBLE lowerLeftX, DOUBLE lowerLeftY, 
+		   DOUBLE upperRightX, DOUBLE upperRightY,
+		   FILENAME fileName1, BOOL convertProj, 
+		   PROJECTION_STRUCTURE *defaultProj, 
+	           PROJECTION_STRUCTURE *inputProj)
+#else
+publicdef VOID ld_lm2_exp_fault_out (selectPhrase, sourceName, 
+	           firstIteration, myfile, 
+		   mapName, projectName, 
+		   lowerLeftX, lowerLeftY, upperRightX, upperRightY,
+		   fileName1, convertProj, defaultProj, inputProj)
+CHAR		*selectPhrase;
+CHAR            *sourceName;
+BOOL		*firstIteration;
+FILE    	**myfile;
+CHAR		*mapName;
+PROJECT_NAME	projectName;
+DOUBLE		lowerLeftX;
+DOUBLE		lowerLeftY;
+DOUBLE		upperRightX;
+DOUBLE		upperRightY;
+FILENAME	fileName1;
+BOOL	             convertProj;
+PROJECTION_STRUCTURE *defaultProj;
+PROJECTION_STRUCTURE *inputProj;
+#endif
+    {
+/****************************************************************************
+
+	V a r i a b l e   D e c l a r a t i o n s .
+
+******************************************************************************/
+
+    INT 	   status;
+    NLIST_HEADER   nlist;
+    INT ndim = 3;
+    UINT dim_list[3];
+    INT units[3];
+    size_t data_sizes[3];
+    INT data_types[3];
+    VOIDPTR value_list[3];
+    UINT nstrokes;
+    UINT npts;
+    UINT i, j, k;
+    FLOAT *x_out,*y_out, *z_out;
+    FILENAME faults_file;
+    INT	    segID;
+    INT	    sectionFlag;
+    COORD   x,   y,  z;
+    CHAR    tempString[50];
+    CHAR    thisParameter[41];
+/*
+				General variable declarations.
+*/
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[2000];
+	VARCHAR digital_ref[62]; 
+	VARCHAR digital_ref_volume[81]; 
+	VARCHAR map_name[41]; 
+	VARCHAR keyword[41]; 
+	VARCHAR parameter[41];
+    EXEC SQL END DECLARE SECTION;
+/*
+				Oracle variable declarations.
+*/
+/****************************************************************************
+
+	I n i t i a l i z a t i o n .
+
+******************************************************************************/
+
+
+/*****************************************************************************
+
+	M a i n   L o g i c .
+
+*****************************************************************************/
+
+    tempString[0] = 0;
+    thisParameter[0] = 0;
+    if (*firstIteration)
+	{
+	*myfile = ho_open(fileName1, "w", NULL);
+	status = ho_lock (*myfile, ON);
+        if (*myfile == (FILE *)NULL || status != SUCCESS)
+	    {
+	    printf("Unable to open an output file named %s\n", 
+					fileName1);
+	    }
+	else
+	    {
+	    printf("Creating Landmark format fault polygon \
+file named %s\n", fileName1);
+	    *firstIteration = FALSE;
+	    }
+
+	sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT KEYWORD, PARAMETER \
+FROM %s.MAP_OVERLAYS \
+WHERE MAP_NAME = :map_name \
+AND VERB_CODE = 2",projectName);
+
+	EXEC SQL PREPARE S1 FROM :sqlstmt;
+	if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "preparing s1");
+	EXEC SQL DECLARE C1 CURSOR FOR S1;
+        V_FROMC(map_name,mapName);
+	EXEC SQL OPEN C1 using :map_name;
+        if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "opening s1");	
+	}
+
+    if (*myfile != (FILE *)NULL)
+	{
+	FOREVER 
+          {
+	  EXEC SQL FETCH C1 INTO :keyword, :parameter;
+          if (OR_STATUS == OR_EOF)
+            {
+              break;
+            }
+          else if (OR_STATUS == SUCCESS)
+            {
+	      V_SETZERO(keyword);
+	      V_SETZERO(parameter);
+	      if (strcmp("HORIZON",(CHAR *)keyword.arr) == 0)
+                {
+	          strcpy(thisParameter,(CHAR *)parameter.arr);
+	          sprintf(tempString,"AND GRAPHIC_OBJECTS.ATTRIBUTE_1 = '%s'",
+	                  thisParameter);
+	        }
+            }
+   	  else 
+            {
+              ld_show_error(OR_STATUS, "fetching s1");
+            }
+          }
+	EXEC SQL CLOSE C1;
+	if (OR_STATUS != SUCCESS)
+	  {
+	    ld_show_error(OR_STATUS, "closing s1");
+          }
+
+	for (i = 0; i < ndim; i++)
+	    {
+	    dim_list[i] = i + 1;
+	    units[i] = 0;
+	    data_sizes[i] = sizeof (FLOAT);
+	    data_types[i] = FLOAT_TYPE;
+	    }
+/*
+			Initialize arrays we will use for dealing with the
+			nlist array.
+*/
+
+	sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT DIGITAL_REF, DIGITAL_REF_VOLUME FROM \
+%s.SEIS_FAULT_TRACE, %s.LINES, \
+%s.GRAPHIC_OBJECT_CORRELATIONS, %s.GRAPHIC_OBJECTS \
+WHERE GRAPHIC_OBJECTS.OBJECT_ID = GRAPHIC_OBJECT_CORRELATIONS.OBJECT_ID \
+AND GRAPHIC_OBJECT_CORRELATIONS.ITEM_ID = LINES.LINE_ID \
+AND LINES.NLIST_ID = SEIS_FAULT_TRACE.SEQ \
+AND GRAPHIC_OBJECTS.SOURCE = '%s' \
+AND GRAPHIC_OBJECTS.OBJECT_NAME = 'FAULTS' %s",
+projectName, projectName, projectName, projectName, sourceName, tempString);
+
+	EXEC SQL PREPARE S2 FROM :sqlstmt;
+	if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "preparing s2");
+	EXEC SQL DECLARE LINE_CUR CURSOR FOR S2;
+	EXEC SQL OPEN LINE_CUR;
+	if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "opening s2");
+	EXEC SQL FETCH LINE_CUR INTO :digital_ref, :digital_ref_volume;
+	if (OR_STATUS == SUCCESS)
+	    {
+	    while (OR_STATUS == SUCCESS)
+		{
+	        V_SETZERO(digital_ref);
+	        V_SETZERO(digital_ref_volume);
+                ho_add_path("ESI$FAULT_TRACE",(CHAR *)digital_ref_volume.arr,
+				sizeof(FILENAME), faults_file);
+
+	        segID = 0;
+
+	        strcpy(tempString,(CHAR *)digital_ref.arr);
+       	        status = nl_read_nlist (&nlist, faults_file, 
+							tempString); 
+       	        if (status < 0)
+    	            {
+    	            printf("Error reading NLIST %d\n", status);
+    	            }
+	        else
+    		    {
+                    nl_inq_nlist_int(nlist, NL_NLIST_NSTROKES, (INT *)&nstrokes);
+		    nl_inq_nlist_int(nlist, NL_NLIST_NCOL, &ndim);
+		    for(i=1;i<=nstrokes;i++)
+                        {
+                        nl_inq_stroke_int(nlist,i,NL_STROKE_NPOINTS,
+	                                       		(INT *)&npts);
+                        x_out = (FLOAT *)tc_zalloc(npts*sizeof(FLOAT));
+                        y_out = (FLOAT *)tc_zalloc(npts*sizeof(FLOAT));
+                        z_out = (FLOAT *)tc_zalloc(npts*sizeof(FLOAT));
+                        value_list[0] = (VOIDPTR)x_out;
+                        value_list[1] = (VOIDPTR)y_out;
+                        value_list[2] = (VOIDPTR)z_out;
+		        status = nl_set_current_row(nlist,1,i);
+                        status = nl_get_rows_convert(nlist,npts,ndim,
+						  	dim_list,
+	                                          	value_list,units,
+							data_sizes,
+	                                          	data_types,&j);
+		        segID++;
+		        for (k=0;k<j;k++)
+			    {
+			    if (k==0)
+				{
+				sectionFlag = 6;
+				}
+			    else if (k==j-1)
+				{
+				sectionFlag = 8;
+				}
+			    else
+				{
+				sectionFlag = 7;
+				}
+			   x = (COORD) x_out[k];
+			   y = (COORD) y_out[k];
+	                   z = (COORD) z_out[k];
+	                   if (convertProj)
+		               {
+	                       ct_transform_point(x, y, defaultProj,
+					  &x, &y, inputProj);
+		                }
+			    fprintf(*myfile, "%11.0lf. %10.0lf.       %4.0lf.  %1d    %1d\n", 
+				    x, y, z, sectionFlag, segID);
+			    }
+                        tc_free(x_out);
+                        tc_free(y_out);
+                        tc_free(z_out);
+		        }
+		    }
+   	        EXEC SQL FETCH LINE_CUR INTO :digital_ref, :digital_ref_volume;
+		}
+	    EXEC SQL CLOSE LINE_CUR;
+	    }
+	}
+    else if (OR_STATUS < SUCCESS)
+	{
+	ld_show_error(OR_STATUS, "FETCHING NLIST IDS");
+	}
+    else
+	{
+	printf("No fault polygon information found in map %s\n",
+			mapName);
+	}
+/*****************************************************************************
+
+	C l e a n   U p   A n d   E x i t .
+
+******************************************************************************/
+    return;
+    }
+
+

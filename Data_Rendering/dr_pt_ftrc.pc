@@ -1,0 +1,142 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_PT_FTRC.PC*/
+/* *3    25-SEP-1990 10:30:18 GILLESPIE "(SPR 1) Merge Ernie deltas"*/
+/*  1B1  24-SEP-1990 16:13:41 GILLESPIE "Beta Deltas"*/
+/* *2    14-AUG-1990 18:04:22 GILLESPIE "(SPR 2001) Use LINE_ATTRIBUTEs"*/
+/* *1    19-JUL-1990 17:55:42 GILLESPIE "Add support for fault traces"*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_PT_FTRC.PC*/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Finder Graphics Systems, Inc.
+			201 Tamal Vista Blvd
+			Corte Madera, CA  USA 94925
+			(415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+/*****************************************************************************
+
+NAME:           dr_put_fault_trace
+
+DESCRIPTION:    Store a fault trace for the specified horizon.
+
+     Input:     horizon name    - The name of a seismic horizon.
+
+     Output:    line - a pointer to a line structure.
+
+     Status:    SUCCESS
+                Oracle errors
+                
+******************************************************************************/
+
+#include "esi_dr.h"
+#include "esi_se.h"
+#include "esi_oracle.h"
+
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_LU_H
+#include "esi_lu.h"
+#endif
+
+/************************************************************************************/
+#if USE_PROTOTYPES
+publicdef INT dr_put_fault_trace(DR_DATA *dr_data, CHAR *horizon,
+                                 INT seq, LINE *line)
+#else
+publicdef INT dr_put_fault_trace(dr_data, horizon, seq, line)
+DR_DATA *dr_data;
+CHAR    *horizon;
+INT     seq;
+LINE    *line;
+#endif
+    {
+    INT  status = SUCCESS;
+    UINT nCol   = 2;
+    UINT Col_List[2];
+    CHAR line_color[16];
+    CHAR line_thickness[16];
+    CHAR line_style[16];
+    PROJECT_NAME project;
+    FILENAME     filename;
+    FILENAME     full_filename;
+    NLIST_ID     nlist_id;
+    SEIS_FAULT_TRACE ftrace;
+    FULL_LINE_NAME   line_name;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[1024];
+    EXEC SQL END DECLARE SECTION;
+    
+    tc_zeroes((VOIDPTR)&ftrace, sizeof ftrace);
+    strcpy(ftrace.hor_code, horizon);
+    strcpy(ftrace.fault_name, line -> line_name);
+
+    sez_fillsource(ftrace.source, ftrace.source);
+
+    filename[0] = 0;
+    nlist_id[0] = 0;
+    tc_zeroes(&line_name, sizeof line_name);
+    status = se_bld_nlist_ids(&line_name, (VOIDPTR)&ftrace, SEIS_FTRACE_DATA, 
+            nlist_id, filename, full_filename);
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+        return status;
+        }
+
+    Col_List[0] = 1, Col_List[1] = 2;
+    status = dr_write_nlist(line->line_nlist, full_filename, nlist_id, Col_List, 0.0, dr_data);
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+        return status;
+        }
+
+    lu_index_to_text("COLOR", line_color, line -> line.color);
+    lu_index_to_text("LINE_STYLE", line_style, line -> line.style);
+    lu_index_to_text("THICKNESS", line_thickness, (INT)line -> line.width);
+    
+    EXEC SQL WHENEVER SQLERROR GOTO sqlerrorpt;
+    
+    qs_inq_c(QS_PROJECT_NAME, project, (INT *)0);
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr, 
+    "INSERT INTO %s.SEIS_FAULT_TRACE \
+         (HOR_CODE, SEQ, FAULT_CODE, SOURCE, LAST_UPDATE, \
+          DIGITAL_REF, DIGITAL_REF_VOLUME, \
+          LINE_COLOR, LINE_STYLE, LINE_THICKNESS, \
+          XMIN, XMAX, YMIN, YMAX) \
+     VALUES \
+         ('%s', %d, '%s', USER, SYSDATE, '%s', '%s', '%s', '%s', '%s', \
+          %lf, %lf, %lf, %lf)",
+    project,
+    horizon, seq, line->line_name, nlist_id, filename, line_color,
+    line_style, line_thickness,
+    dr_data->lower_left_extent.x,
+    dr_data->upper_right_extent.x,
+    dr_data->lower_left_extent.y,
+    dr_data->upper_right_extent.y);
+        
+    EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+    
+    return(status);
+    
+sqlerrorpt:
+    /* Honest to God error                                                          */
+    return OR_STATUS;
+    }

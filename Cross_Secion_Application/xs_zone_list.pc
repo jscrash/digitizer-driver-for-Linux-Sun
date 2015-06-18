@@ -1,0 +1,157 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element XS_ZONE_LIST.PC*/
+/* *2    17-AUG-1990 22:46:32 VINCE "(SPR 5644) Code Cleanup"*/
+/* *1    19-JUN-1989 12:42:57 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element XS_ZONE_LIST.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#ifndef ESI_AM_H
+
+#include "esi_am.h"
+
+#endif
+
+#ifndef ESI_XS_DEFS_H
+
+#include "esi_xs_defs.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_TC_H
+
+#include "esi_tc.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT xs_gen_zone_list(XS_STRUCT *pxs);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    pxs             -(XS_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT xs_gen_zone_list (XS_STRUCT *pxs)
+#else
+publicdef INT xs_gen_zone_list (pxs)
+XS_STRUCT *pxs;
+#endif
+    {
+    INT i;
+    INT unused;
+    INT status;
+    PROJECT_NAME project_name;
+    CHAR buffer[81];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    
+    VARCHAR zone_name[21];
+    VARCHAR select[255];
+    int count;
+    
+    EXEC SQL END DECLARE SECTION;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO errrept;
+    
+    qs_inq_c (QS_PROJECT_NAME, project_name, &unused);
+    
+    sprintf ((char *)select.arr, "SELECT COUNT(ZONE) FROM %s.ZONE_DEFINITION",
+             project_name);
+    V_SETLEN (select);
+    
+    EXEC SQL PREPARE S0 FROM : select;
+    
+    EXEC SQL DECLARE C0 CURSOR FOR S0;
+    
+    EXEC SQL OPEN C0;
+    
+    EXEC SQL FETCH C0 INTO : count;
+    
+    EXEC SQL CLOSE C0;
+    
+    /* allocate tcp based upon count */
+    pxs->zone_list_tcp = (CHAR **)ts_tcp_alloc (count);
+    
+    sprintf ((char *)select.arr, "SELECT ZONE FROM %s.ZONE_DEFINITION ORDER BY ZONE",
+             project_name);
+    V_SETLEN (select);
+    
+    EXEC SQL PREPARE S1 FROM : select;
+    
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    
+    EXEC SQL OPEN C1;
+    
+    EXEC SQL FETCH C1 INTO : zone_name;
+    
+    i = 0;
+    while (OR_STATUS == SUCCESS)
+        {
+        pxs->zone_list_tcp[i] = (CHAR *)tc_zalloc (sizeof(CHAR) * (zone_name.len + 1));
+        V_FROMV (pxs->zone_list_tcp[i], zone_name);
+        i++;
+        
+        EXEC SQL FETCH C1 INTO : zone_name;
+        }
+    EXEC SQL CLOSE C1;
+    return SUCCESS;
+    
+errrept:
+    sprintf (buffer, "SQL error %d occurred in zone selection list generation\n",
+             OR_STATUS);
+    status = am_message (AM_REPORT, buffer);
+    return FAIL;
+    
+    }
+/* END:     */

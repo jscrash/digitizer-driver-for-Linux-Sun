@@ -1,0 +1,89 @@
+*T MENU
+,1
+*N DR_MENU
+*S PR 0 PU 1
+Drafting
+7 D M FINDER/MAPPING/ELECTRONIC_DRAFTING/DRAFTING
+*I DR_SELECT_TYPE
+Select Object Type
+*I DR_NEW_TYPE
+New Object Type
+*I DR_DELETE_TYPE
+Delete Object Type
+*I DR_QUIT
+Quit
+*I DR_SEP1
+(-
+*I DR_STATUS_TYPE
+Current Object Type
+*I DR_STATUS_OBJECT
+Current Object Id
+,2
+*N DR_MENU_OB
+*S PR 0 PU 1
+Objects
+8 D M FINDER/MAPPING/ELECTRONIC_DRAFTING/OBJECTS
+*I DR_OB_SELECT_OBJ
+Pick Object
+*I DR_OB_NEW_OBJ
+New Object
+*I DR_OB_MOVE
+Move Object
+*I DR_OB_SAVE
+Save Object
+*I DR_OB_DELETE
+Delete Object
+*I DR_OB_SEP
+(-
+*I DR_OB_GROUP
+Group Objects
+*I DR_OB_UNGROUP
+Ungroup Objects
+,3
+*N DR_MENU_LI
+*S PR 0 PU 1
+Lines
+8 D M FINDER/MAPPING/ELECTRONIC_DRAFTING/LINES
+*I DR_LI_SELECT
+Pick Line
+*I DR_LI_NEW
+New Line
+*I DR_LI_NEW_RECTANGLE
+New Rectangle
+*I DR_LI_EDIT
+Add or Edit Line
+*I DR_LI_MOVE
+Move Line
+*I DR_LI_DELETE
+Delete Line
+*I DR_LI_SEP
+(-
+*I DR_LI_SETNAME
+Set Line Name or Z-Value
+,4
+*N DR_MENU_TX
+*S PR 0 PU 1
+Text
+4 D M FINDER/MAPPING/ELECTRONIC_DRAFTING/TEXT
+*I DR_TX_SELECT
+Pick Text
+*I DR_TX_NEW
+New Text
+*I DR_TX_EDIT
+Add or Edit Text
+*I DR_TX_DELETE
+Delete Text
+,5
+*N DR_MENU_PR
+*S PR 0 PU 1
+Preferences
+4 D M FINDER/MAPPING/ELECTRONIC_DRAFTING/PREFERENCES
+*I DR_PR_LINE
+Line Color, Style, ...
+*I DR_PR_SEP1
+(-
+*I DR_PR_POLYGON
+Polygon
+*I DR_PR_FILL
+Fill Polygons
+

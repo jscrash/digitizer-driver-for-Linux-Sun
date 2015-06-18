@@ -1,0 +1,152 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element VI_CALL_BATCH5.PC */
+/*  5     7-FEB-1992 14:08:54 SANTIAGO "(SPR 4383) replace rm with /bin/rm" */
+/* *4    14-AUG-1991 12:01:57 KEE "(SPR -1) Put in File Lock/Unlock logic" */
+/* *3    27-JUN-1991 13:24:22 JESSIE "(SPR 0) add srch parameter" */
+/* *2    11-JUN-1991 14:07:37 JESSIE "(SPR 0) batch job for calling VI functions" */
+/* *1    11-JUN-1991 14:05:33 JESSIE "call VI function 5" */
+/* DEC/CMS REPLACEMENT HISTORY, Element VI_CALL_BATCH5.PC */
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_GL_VCHAR_H
+#include "esi_gl_vchar.h"
+#endif
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+#ifndef ESI_VI_H
+#include "esi_vi.h"
+#endif
+#ifndef ESI_SL_H
+#include "esi_sl.h"
+#endif
+#ifndef ESI_HO_H
+#include "esi_ho.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_MP_H
+#include "esi_mp.h"
+#endif
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+/****************************************************************************/
+/*									    */
+/*  VI_CALL_BATCH5							    */
+/*									    */
+/*  Batch job for constructing vi_main5 parameters and setting process 	    */
+/*									    */
+/*  into background							    */
+/*									    */
+/*  Returns:  SUCCESS							    */
+/*									    */
+/****************************************************************************/
+
+publicdef INT vi_call_batch5(pvi)
+VI_STRUCT *pvi;
+{	
+    	FILENAME fi_account, fi_password, fi_database;
+	PROJECT_NAME project;
+	CHAR	 arg_list[512];
+	CHAR	 proc_file[256];
+	CHAR	 directory[200];
+	FILENAME tmp_com_file;
+	FILE	 *comi_fp;
+	INT	 type_flag,status;
+	INT	 batch_process_id;
+	INT	 i, num;
+	CHAR	 *horizon = (CHAR *) 0;
+
+        EXEC SQL BEGIN DECLARE SECTION;
+	    long proc_id;
+        EXEC SQL END DECLARE SECTION;
+
+        EXEC SQL SELECT USERENV('SESSIONID') INTO :proc_id FROM DUAL;
+
+    qs_inq_c (QS_FINDER_ACCOUNT, fi_account, (INT *)0);
+    qs_inq_c (QS_FINDER_PASSWORD, fi_password, (INT *)0);
+    qs_inq_c (QS_DATABASE, fi_database, (INT *)0);
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+
+    num = ts_tcp_len (pvi->hor_tcp);
+    horizon = (CHAR *)tc_zalloc((num * 30) + 1);
+    for ( i = 0 ; i < num; i++)
+      {
+      sprintf (horizon, "%s %s",horizon, pvi->hor_tcp[i]);
+      }
+
+#if UNIX
+    ho_add_path("ESI$BIN","vi_main5",sizeof(FILENAME),proc_file);
+    /* create tmp command file */
+    sprintf (tmp_com_file,"run_tmp_file5");
+#endif
+#ifdef vms
+    ho_add_path("ESI$BIN","vi_main5",sizeof(FILENAME),proc_file);
+    /* create tmp command file */
+    sprintf (tmp_com_file,"run_tmp_file5.com");
+#endif
+
+    if (strlen (fi_database) != 0)
+        {
+        sprintf ((char *)arg_list, "-oid %s/%s@%s -proj %s -line \"%s\" \
+			-hor %s -src %s -srch %s -vtype %s -depth",
+                fi_account,fi_password, fi_database, project, 
+		pvi->list_name, horizon, pvi->source[0], pvi->hor_source[0],
+		pvi->vtype);
+        }
+    else
+        {
+
+        sprintf ((char *)arg_list, "-oid %s/%s -proj %s -line \"%s\" \
+			-hor %s -src %s -srch %s -vtype %s -depth",
+                fi_account,fi_password, project, 
+		pvi->list_name, horizon, pvi->source[0], pvi->hor_source[0],
+		pvi->vtype);
+        }
+ 
+    comi_fp = ho_open (tmp_com_file, "w", NULL);
+    status = ho_lock (comi_fp, ON);
+    if (comi_fp EQUALS NULL_FILE_PTR || status != SUCCESS)
+      {  
+      am_message (AM_ALERT, "Can't open command file in current directory!");
+      return FAIL;
+      }  
+    else
+      { 
+      ho_get_current_path (directory);
+
+#if UNIX
+      fprintf (comi_fp, "cd %s\n", directory);
+      fprintf (comi_fp, "%s %s\n", proc_file,arg_list);
+      fprintf (comi_fp, "rm %s\n", tmp_com_file);
+#endif
+
+#if vms
+      fprintf (comi_fp, "$SET DEFAULT %s\n", directory);
+      fprintf (comi_fp, "$VI_MAIN5 := $ESI$BIN:VI_MAIN5.EXE\n");
+      fprintf (comi_fp, "$VI_MAIN5 %s\n", arg_list);
+      fprintf (comi_fp, "$DELETE %s;*\n", tmp_com_file);
+      fprintf (comi_fp, "$EXIT\n");
+#endif
+
+      status = ho_lock (comi_fp, OFF);
+      fclose (comi_fp);
+
+
+    status = ho_spawn(SPAWN_BATCH, tmp_com_file, "", &batch_process_id);
+    /*sprintf (text, "%s %s", temp_list, arg_list);
+    status = ho_syscom_nw(text, 1);*/
+      }
+
+    if (horizon != (CHAR *) 0)
+      tc_free(horizon);
+    return status;
+}
+
+

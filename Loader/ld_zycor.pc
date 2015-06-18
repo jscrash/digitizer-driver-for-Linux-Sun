@@ -1,0 +1,200 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_ZYCOR.PC */
+/* *2     1-MAY-1991 22:08:56 KEE "(SPR -1) Zycor Export" */
+/* *1     1-MAY-1991 21:31:01 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_ZYCOR.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* TITLE : ZYCOR zycor_export */
+
+/* START-HISTORY :
+   05/17/90	Rod Hanks (BHP - Consultant)	Original development.
+
+   MODIFY: Jim Green (Unocal)
+   DATE:   November, 1990
+
+   END-HISTORY */
+
+/* START-CODE : */
+/*
+   **                                 INCLUDE FILES
+*/
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_WI_H
+#include "esi_wi.h"
+#endif
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+#ifndef LD_ZYCOR_WORK_H
+#include "ld_zycor_work.h"
+#endif
+
+#include "ld_zycor_exp_main.rh"  
+
+/*  */
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+   **
+   **   ROUTINE:  ld_zycor (application entry point)
+   **
+   **   DESCRIPTION:
+   **
+   **        Initialize application. Accesses the necessary
+   **        resource files and loads them into the MAC terminal.
+   **        The application manager is given the name of the function
+   **        for handling resource events.
+   **
+   **   PARAMETERS:
+   **
+   **        pointer        Required Application Manager BYTE pointer.
+   **                       It is not utilized in this application.
+   **
+*/
+
+#if USE_PROTOTYPES
+publicdef INT ld_zycor (BYTE *pointer)
+#else
+publicdef INT ld_zycor (pointer)
+BYTE *pointer;
+#endif
+{
+    ZYCOR_WORKSPACE     *workspace;
+    INT status;
+    INT bufspace;
+    PROJECT_NAME project;
+    CHAR    *tempPtr;
+    CHAR    *ptr1;
+    INT	    len1;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[400];
+	VARCHAR map_name[40];
+	int	map_count;
+    EXEC SQL END DECLARE SECTION;
+
+    if (status = am_declare("ZYCOR Export"))
+	wi_alert(0, "", "am_declare", mg_message(status));
+
+    if (status = am_define_workspace("ZYCOR Export", AM_APPLICATION,
+                         sizeof(ZYCOR_WORKSPACE), (VOIDPTR *)&workspace))
+	wi_alert(0, "", "am_define_workspace", mg_message(status));
+
+    if (status = am_define_resource( AM_DIALOG, "LD_ZYCOR_EXP_MAIN", 
+			 Zycor_Export,
+                         ld_zycor_exp_server,
+                         &workspace->dialogID, workspace))
+	wi_alert(0, "", "am_define_resource", mg_message(status));
+
+    qs_inq_c(QS_PROJECT_NAME,project,(INT *) 0);
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT COUNT(*) \
+FROM %s.MAP_DEFINITIONS ", project);
+
+    EXEC SQL PREPARE S2 FROM :sqlstmt;
+    EXEC SQL DECLARE CNT_CUR CURSOR FOR S2;
+    EXEC SQL OPEN CNT_CUR;
+    EXEC SQL FETCH CNT_CUR INTO :map_count;
+    EXEC SQL CLOSE CNT_CUR;
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT DISTINCT MAP_NAME \
+FROM %s.MAP_DEFINITIONS", project);
+
+    EXEC SQL PREPARE S1 FROM :sqlstmt;
+    EXEC SQL DECLARE LIST_CUR CURSOR FOR S1;
+    EXEC SQL OPEN LIST_CUR;
+
+    EXEC SQL FETCH LIST_CUR INTO :map_name;
+    workspace->map_count = 0;
+    bufspace = map_count*41;
+    workspace->temp_names = am_allocate(AM_APPLICATION, bufspace);
+    tempPtr = (CHAR*) workspace->temp_names;
+    while(OR_STATUS == SUCCESS)
+	{
+	ptr1 = (CHAR*)map_name.arr;
+	len1 = map_name.len;
+	while (len1>0)
+	    {
+	    *tempPtr++ = *ptr1++;
+	    len1--;
+	    }
+	*tempPtr++ = 0;
+	(workspace->map_count)++;
+	EXEC SQL FETCH LIST_CUR INTO :map_name;
+	}
+    EXEC SQL CLOSE LIST_CUR;
+
+    workspace->tcp_of_maps = ts_make_tcp(workspace->temp_names,
+					 workspace->map_count);
+     
+    if (status = wi_set_selections(workspace->dialogID, ZEX_WHICH_MAP, 
+				ZEX_MAPSCROLL, workspace->map_count,
+				1, workspace->tcp_of_maps))
+	wi_alert(0, "", "wi_set_selections", mg_message(status));
+
+    if (status = wi_set_default_button(workspace->dialogID, ZEX_OKAY, TRUE))
+	wi_alert(0, "", "wi_set_default_button", mg_message(status));
+
+    if (status = wi_set_dialog_value(workspace->dialogID, ZEX_FAULT, OFF)) 
+	wi_alert(0, "", "wi_set dialog_value", mg_message(status));
+    if (status = wi_set_dialog_value(workspace->dialogID, ZEX_CULTURE, OFF))
+	wi_alert(0, "", "wi_set dialog_value", mg_message(status));
+    if (status = wi_set_dialog_value(workspace->dialogID, ZEX_XYZ, OFF))
+	wi_alert(0, "", "wi_set dialog_value", mg_message(status));
+
+    workspace->faultFile[0] = 0;
+    workspace->cultureFile[0] = 0;
+    workspace->xyzFile[0] = 0;
+    workspace->mapName[0] = 0;
+
+    if (status = wi_open_dialog(workspace->dialogID))
+	wi_alert(0, "", "wi_open_dialog", mg_message(status));
+
+    return SUCCESS;
+
+}
+
+
+
+
+
+
+
+
+
+

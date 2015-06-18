@@ -1,0 +1,380 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_TOPS.PC */
+/* *2     1-MAY-1991 21:54:08 KEE "(SPR -1) Landmark Import" */
+/* *1     1-MAY-1991 21:24:43 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_TOPS.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* ************************************************************************
+
+   NAME: LD_LM2_IMP_TOPS.PC
+
+   AUTHOR: Rod Hanks
+   DATE:   May 25th, 1990
+   DESCRIPTION: Load well TOPS into finder
+		from a file output by Landmark.
+
+   ************************************************************************ */
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_WE_WELLS_H
+#include "esi_we_wells.h"
+#endif
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+#ifndef LD_LM2_IMP_WORK_H
+#include "ld_lm2_imp_work.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#if USE_PROTOTYPES
+publicdef  VOID ld_lm2_imp_tops (FILENAME fileName, PROJECT_NAME project,
+                        CHAR *source, INT overwrite)
+#else
+publicdef VOID ld_lm2_imp_tops (fileName, project, source, overwrite)
+FILENAME	fileName;
+PROJECT_NAME    project;
+CHAR	       *source;
+INT	        overwrite;
+#endif
+    {
+/****************************************************************************
+
+	V a r i a b l e   D e c l a r a t i o n s .
+
+******************************************************************************/
+
+    INT 	   status;
+    FILE	  *spfile;
+    CHAR	  *inputName;
+    CHAR	  *inputTop;
+    TOP_STRUCT	   pTop;
+    DOUBLE	   theDepth;
+    DOUBLE	   dx;
+    DOUBLE	   dy;
+    DOUBLE	   md;
+    DOUBLE	   tvd;
+    CHAR	   inputUWI[50];
+    BOOL	   skipOne;
+    BOOL           md_data;
+
+#ifdef USE_OLDPARSING
+    CHAR	   dummy[255];
+    CHAR	  *pos;
+    CHAR	  *inputDepth;
+#else
+    LD_SCANNER_STRUCT ld_scan;	
+#endif
+
+/*
+				General variable declarations.
+*/
+    EXEC SQL BEGIN DECLARE SECTION;
+	VARCHAR select2[200];
+        VARCHAR thisUWI[21];
+        VARCHAR thisSource[31];
+        VARCHAR thisTop[13];
+    EXEC SQL END DECLARE SECTION;
+
+/****************************************************************************
+
+	I n i t i a l i z a t i o n .
+
+******************************************************************************/
+
+    select2.len = sprintf((char *)select2.arr,
+"SELECT SOURCE \
+FROM %s.WELL_TOPS WHERE UWI = :thisUWI AND \
+FORM_CODE = :thisTop AND SOURCE = :thisSource", project);
+
+    EXEC SQL PREPARE S2 FROM :select2;
+    if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "prepare TOP_CURS");
+    EXEC SQL DECLARE TOP_CURS CURSOR FOR S2;
+
+    spfile = ho_open(fileName, "r", NULL);
+    if (spfile == (FILE *)NULL)
+	{
+	printf("Unable to open well tops file named \n%s\n", fileName);
+	}
+    else
+	{
+        printf("loading well tops from %s\n", fileName);
+/*****************************************************************************
+
+	M a i n   L o g i c .
+
+*****************************************************************************/
+
+#ifdef USE_OLDPARSING
+	pos = fgets(dummy, 255, spfile); /* get the first line - header */
+	ts_sto_upper(pos);
+	if (ts_like(pos,"*EV_MD*",'*') == TRUE)
+	  {
+	    md_data = TRUE;
+	  }
+	else if (ts_like(pos,"*EV_TD*",'*') == TRUE)
+          {
+	    md_data = FALSE;
+          }
+	else
+          {
+            if (ts_like(pos,"*EV_MS*",'*') == TRUE)
+              {
+                printf("Import abort: Finder does not support Time data\n");
+              }
+	    else
+              {
+                printf("Import abort: Invalid header format of %s\n", fileName);
+               }
+            return;
+          }
+        while ((pos = fgets(dummy, 255, spfile)) != (CHAR *) 0)
+            {
+	    if (strlen(dummy) > 38) /* Rod Hank */
+		{
+/*
+				Sometimes TCIP (or somebody) puts extraneous
+				linesfeeds at the end of the data we get from
+				Landmark and this keeps us from treating it
+				as a well line.
+*/
+	        if (*pos != ' ')  /* skip UWI */
+	          {
+	            while (*pos != ' ' && *pos != 0)
+		      {
+		        pos++;
+		      }
+		    if (*pos != 0)
+		      {
+	                pos++;
+                      }
+                  }
+	        while (*pos == ' ')
+		    {
+		    pos++;
+		    }
+	        inputName = pos;
+	        pos += (48-17+1);
+		/* well name multiple strings handling for UNOCAL */
+	        *pos = 0;
+                inputName = ts_snowhite(inputName);
+                pos++;
+	        while (*pos == ' ')
+		    {
+		    pos++;
+		    }
+	        if ((*pos == 't' || *pos == 'T') &&
+	 	    (*(pos+1) == 'o' || *(pos+1) == 'O') &&
+	 	    (*(pos+2) == 'p' || *(pos+2) == 'P') &&
+	 	    *(pos+3) == ' ')
+	          {
+	            inputTop = pos + 4;
+                  }
+	        else
+                  {
+                    inputTop = pos;
+                  }
+		pos = pos + 11;
+	        while (*pos != ' ' && *pos != 0)
+		    {
+		    pos++;
+		    }
+		while (*pos == ' ' && *(pos - 1) == ' ')
+		    {
+		    pos--;
+		    }
+	        *pos = 0;
+/*
+					Top names can have spaces in them.
+					In order to load them properly,
+					we must skip over the spaces, then
+					move backwards to trim trailing
+					spaces.
+*/
+	        pos++;
+	        while (*pos == ' ')
+		    {
+		    pos++;
+		    }
+	        inputDepth = pos;
+	        while (*pos != ' ' && *pos != 0)
+		    {
+		    pos++;
+		    }
+	        *pos = 0;
+	        if (strlen(inputTop) > 12)
+	          {
+	            *(inputTop + 12) = 0;
+                  }
+
+		if (strlen(inputName) == 0
+		||  strlen(inputTop) == 0
+		||  strlen(inputDepth) == 0)
+		    {
+		    printf("Incorrectly formatted line, not loaded... \
+%s %s %s\n", inputName, inputTop, inputDepth);
+		    }
+		else
+		    {
+#else
+        tc_zeroes(&ld_scan, sizeof(LD_SCANNER_STRUCT));	
+        ld_scan.in.fix_format = TRUE;
+	ld_scan.in.snowhite = TRUE;
+        ld_scan.in.num_pair = 4;
+        ld_scan.in.start[0] = 1;     ld_scan.in.end[0] = 15;
+        ld_scan.in.start[1] = 17;    ld_scan.in.end[1] = 48;
+        ld_scan.in.start[2] = 50;    ld_scan.in.end[2] = 70;
+        ld_scan.in.start[3] = 72;    ld_scan.in.end[3] = 80;
+	ld_scan_line(spfile, &ld_scan);
+	ts_sto_upper(ld_scan.line);
+	if (ts_like(ld_scan.line,"*EV_MD*",'*') == TRUE)
+	  {
+	    md_data = TRUE;
+	  }
+	else if (ts_like(ld_scan.line,"*EV_TD*",'*') == TRUE)
+          {
+	    md_data = FALSE;
+          }
+	else
+          {
+            if (ts_like(ld_scan.line,"*EV_MS*",'*') == TRUE)
+              {
+                printf("Import abort: Finder does not support Time data\n");
+              }
+	    else
+              {
+                printf("Import abort: Invalid header format of %s\n", fileName);
+               }
+            return;
+          }
+
+	while (ld_scan.eof == FALSE)
+	  {
+	    ld_scan_line(spfile, &ld_scan);
+	    /* check all items are there or empty line  */
+	    if (ld_scan.out_nitems == 0)
+	      {
+		continue;
+              }
+	    else if (ld_scan.out_nitems != ld_scan.in.num_pair OR 
+	   	     ld_scan.out[1].parmtype != LD_STRING OR
+		     ld_scan.out[2].parmtype != LD_STRING OR
+		     ld_scan.out[3].parmtype != LD_DOUBLE)
+	      {
+		printf("Invalid line format - following line will be skipped\n ");
+		printf("%s",ld_scan.line);
+		continue;
+              }
+	    else 
+	      {
+	        inputName = ld_scan.out[1].parmval.cval;
+	        theDepth = ld_scan.out[3].parmval.dbval;
+	        inputTop = 
+	          (strncmp(ts_sto_upper(ld_scan.out[2].parmval.cval),"TOP ",4) == 0) ?
+		  ld_scan.out[2].parmval.cval + 4 :
+      		  ld_scan.out[2].parmval.cval ;
+                ld_scan.out[2].parmval.cval[12] = 0;
+#endif
+		    tc_zeroes(&pTop, sizeof pTop);
+		    status = ld_lm2_get_uwi(project, inputName, 
+							    inputUWI);
+		    if (status != SUCCESS)
+			{
+			printf("Well %s not in database, top not loaded\n", 
+				inputName);
+			}
+		    else
+			{
+			V_FROMC(thisUWI, inputUWI);
+			V_FROMC(thisTop, inputTop);
+			V_FROMC(thisSource, source);
+			EXEC SQL OPEN TOP_CURS USING :thisUWI, 
+						     :thisTop, :thisSource;
+			if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, 
+							"OPEN TOP_CURS");
+			EXEC SQL FETCH TOP_CURS INTO :thisSource;
+			skipOne = FALSE;
+			if (OR_STATUS < SUCCESS)
+			    {
+			    ld_show_error(OR_STATUS, "FETCH TOP_CURS");
+			    }
+			else if (OR_STATUS == SUCCESS && overwrite == 0)
+			    {
+			    printf("%s of %s already exists, not overwritten\n",
+					inputTop, inputUWI);
+			    skipOne = TRUE;
+			    }
+			EXEC SQL CLOSE TOP_CURS;
+			if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS,
+							"close top_curs");
+			if (skipOne == FALSE)
+			    {
+		            status = ls_get_top(inputUWI, inputTop, &pTop);
+/*
+				First step, find out if this well already
+				exists.  If so, fill in the pTop structure
+				with the existing values.
+*/
+#ifdef USE_OLDPARSING
+		            theDepth = 0.0;
+		            sscanf(inputDepth, "%lf", &theDepth);
+#endif
+		            strcpy(pTop.Source, source);
+		            strcpy(pTop.Marker.Code, inputTop);
+	                    if (md_data == TRUE)
+			      {
+		                pTop.Depth.md = (FLOAT) theDepth;
+	   		        status = wes_get_dir_tvd(inputUWI, theDepth,
+						         &dx, &dy, &tvd);
+	                        pTop.Depth.tvd = (FLOAT) tvd;
+			      }
+			    else 
+			      {
+		                pTop.Depth.tvd = (FLOAT) theDepth;
+	   		        status = wes_get_dir_md(inputUWI, theDepth,
+						         &dx, &dy, &md);
+	                        pTop.Depth.md = (FLOAT) md;
+			      }
+		            status = ld_lm2_imp_put_top(inputUWI, inputTop, &pTop);
+		            if (status != SUCCESS)
+			        {
+			        ld_show_error(status, "LD_LM2_IMP_PUT_TOP");
+			        }
+			    }
+			}
+		    }
+#ifdef USE_OLDPARSING
+		}
+#endif
+	    }
+/*****************************************************************************
+
+	C l e a n   U p   A n d   E x i t .
+
+******************************************************************************/
+	}
+    if (spfile != (FILE *)NULL) fclose(spfile);
+    return;
+    }

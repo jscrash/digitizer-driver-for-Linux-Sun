@@ -1,0 +1,138 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element WL_GET_MD.PC*/
+/* *6    18-OCT-1991 16:32:39 JTM "(SPR 0) Fixes by Charlie for WELL DEPTH and ISOPACH - SOURCE option was ignored. Case 4568."*/
+/* *5    23-MAY-1991 10:05:16 MING "(SPR -1) return elevation and honor source option (CHARLIE)"*/
+/* *4    14-AUG-1990 13:41:21 VINCE "(SPR 5644) Header Standardization"*/
+/* *3    23-JAN-1990 12:34:19 GILLESPIE "(SPR 6001) Change all [21] sizes to [24] for RISC machines"*/
+/* *2    13-AUG-1989 02:08:44 GILLESPIE "(SPR 5) Fixes for Gulf Schema changes"*/
+/* *1    19-JUN-1989 12:42:06 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element WL_GET_MD.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_we_wells.h"
+#include "esi_oracle.h"
+#include "esi_qs.h"
+/* EXEC ORACLE OPTION (REBIND = NO); */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT wl_get_md(UWI uwi,CHAR *form,DOUBLE *md);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    uwi             -(UWI)
+    form            -(CHAR *)
+    md              -(DOUBLE *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT wl_get_md (UWI uwi, CHAR *form, CHAR *source, DOUBLE *md,
+	DOUBLE *elevation, BOOL re_init) 
+#else
+publicdef INT wl_get_md (uwi, form, source, md, elevation, re_init)
+UWI uwi;
+CHAR *form;
+CHAR *source;
+DOUBLE *md;
+DOUBLE *elevation;
+BOOL re_init;
+#endif
+    {
+    
+    INT status = SUCCESS;
+    PROJECT_NAME project;
+    static BOOL inited = FALSE;
+    CHAR sql_source[60];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[256];
+    static VARCHAR query_uwi[24];
+    static VARCHAR query_form[16];
+    static double ret_md;
+    static double ret_elev;
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ********************************************************************** */
+    if ( !re_init )
+    {
+    status = SUCCESS;
+
+    if (NOT inited)
+        {
+    if (source[0] != (CHAR) 0)
+    {
+	sprintf(sql_source, "AND A.SOURCE = '%s'", source);
+    }
+    else
+    {
+	sql_source[0] = (CHAR) 0;
+    }
+        qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+        
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr,
+"SELECT A.MD,NVL(B.ELEVATION,0.0) FROM %s.WELL_TOPS A, %s.WELL_HDR B WHERE \
+A.UWI = B.UWI AND A.UWI = :v1 AND A.FORM_CODE = :v2 %s",
+                                project, project, sql_source);
+        EXEC SQL PREPARE S1 FROM : sqlstmt;
+        EXEC SQL DECLARE C1 CURSOR FOR S1;
+        
+        inited = TRUE;
+        }
+    V_FROMC (query_uwi, uwi);
+    V_FROMC (query_form, form);
+    EXEC SQL OPEN C1 USING : query_uwi,  : query_form;
+    EXEC SQL FETCH C1 INTO : ret_md, : ret_elev;
+    
+    if (OR_STATUS EQUALS SUCCESS)
+        {
+        *md = ret_md;
+	*elevation = ret_elev;
+        }
+    else
+        {
+        *md = 0.0;
+	*elevation = 0.0;
+        status = FAIL;
+        }
+	}
+	else
+	{
+	EXEC SQL WHENEVER SQLERROR CONTINUE;
+	inited = FALSE;
+	EXEC SQL CLOSE C1;
+    }
+
+    return status;
+    }
+/* END:     */

@@ -1,0 +1,186 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_G_ARC_BNDL.PC */
+/* *12   14-AUG-1990 17:25:21 GILLESPIE "(SPR 2001) Use LINE_GC" */
+/* *11   20-JUL-1990 13:49:14 PURNA "(SPR 0) fix compiling errors" */
+/* *10   19-JUL-1990 11:15:27 JESSIE "(SPR 5628) Make LYNX functions internally consistant" */
+/* *9    19-JUL-1990 10:17:24 VINCE "(SPR 5628) Make LYNX functions internally consistant" */
+/* *8    27-MAR-1990 14:09:30 PURNA "(SPR 1) Fixup topologic stuff" */
+/* *7    25-MAR-1990 22:45:13 SCD "(SPR 1) Hardwire to return a default bundle" */
+/* *6    23-MAR-1990 15:27:51 PURNA "(SPR 5095) change in no of fetch variables" */
+/* *5    22-MAR-1990 10:33:07 PURNA "(SPR 5095) add bundle_id=0" */
+/* *4    21-MAR-1990 16:26:10 PURNA "(SPR 0) more changes" */
+/* *3    17-MAR-1990 15:03:47 PURNA "(SPR 5095) culture overlay" */
+/* *2    16-MAR-1990 09:08:22 PURNA "(SPR 5095) culture" */
+/* *1    16-MAR-1990 08:46:50 PURNA "lynx table retrieval" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_G_ARC_BNDL.PC */
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_ly.h"
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_LU_H
+#include "esi_lu.h"
+#endif
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT ly_get_arc_bundle (CHAR *data_type,INT arc_id,INT bundle_id_in,
+                                LINE_GC *line);
+                                
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    data_type       -(CHAR *)
+    arc_id          -(INT)
+    bundle_id_in    -(INT)
+    line            -(LINE_GC *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+    OR_STATUS - Status returned by Oracle.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT ly_get_arc_bundle (CHAR *data_type, INT arc_id, INT bundle_id_in,
+                                 LINE_GC *line) 
+#else
+publicdef INT ly_get_arc_bundle (data_type, arc_id, bundle_id_in, line)
+CHAR *data_type;
+INT arc_id;
+INT bundle_id_in;
+LINE_GC *line;
+#endif
+    {
+    PROJECT_NAME project;
+    INT status, code;
+    CHAR temp[16];
+    BOOL bundle_fetch = TRUE;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+    static int line_bundle_id;
+    static VARCHAR color_override[13], line_color[13];
+    static VARCHAR line_style[16], line_width[16];
+    VARCHAR sqlstmt[1000];
+    EXEC SQL END DECLARE SECTION;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO :orcerr;
+    
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    
+    if (bundle_id_in != 0)
+        {
+        sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+"SELECT LINE_COLOR,LINE_STYLE,LINE_WIDTH FROM  %s.LYNX_LINE_BUNDLE  \
+WHERE LINE_BUNDLE_ID=%d"
+                , project, bundle_id_in);
+        V_FROMC (color_override, "NULL");
+        line_bundle_id = bundle_id_in;
+        bundle_fetch = FALSE;
+        }
+    else if (arc_id != 0)
+        {
+        sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+"SELECT NVL(A.COLOR_OVERRIDE,'NULL'),A.LINE_BUNDLE_ID,B.LINE_COLOR,B.LINE_STYLE,\
+B.LINE_WIDTH FROM %s.LYNX_ARC_GC A, %s.LYNX_LINE_BUNDLE B \
+WHERE A.ARC_ID=%d AND A.LINE_BUNDLE_ID=B.LINE_BUNDLE_ID"
+                , project, project, arc_id);
+        }
+    else if (data_type != NULL)
+        {
+        sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+"SELECT NVL(A.COLOR_OVERRIDE,'NULL'),A.LINE_BUNDLE_ID,B.LINE_COLOR,B.LINE_STYLE,\
+B.LINE_WIDTH FROM %s.LYNX_DTYPE_ARC_GC A, %s.LYNX_LINE_BUNDLE B \
+WHERE A.DATA_TYPE ='%s' AND A.LINE_BUNDLE_ID=B.LINE_BUNDLE_ID"
+                , project, project, data_type);
+        }
+    else
+        {
+        sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+"SELECT LINE_COLOR,LINE_STYLE,LINE_WIDTH FROM  %s.LYNX_LINE_BUNDLE  \
+WHERE LINE_BUNDLE_ID=%d"
+                , project, bundle_id_in);
+        V_FROMC (color_override, "NULL");
+        line_bundle_id = bundle_id_in;
+        bundle_fetch = FALSE;
+        }
+    EXEC SQL WHENEVER NOT FOUND GOTO not_found;
+    EXEC SQL PREPARE S_LINE_GC FROM : sqlstmt;
+    EXEC SQL DECLARE C_LINE_GC CURSOR FOR S_LINE_GC;
+    EXEC SQL OPEN C_LINE_GC;
+    if (bundle_fetch)
+        {
+        EXEC SQL FETCH C_LINE_GC INTO : color_override,  : line_bundle_id,
+            : line_color,  : line_style,  : line_width;
+        }
+    else
+        {
+        EXEC SQL FETCH C_LINE_GC INTO : line_color,  : line_style,  : line_width;
+        }
+    EXEC SQL CLOSE C_LINE_GC;
+    
+    line->line_bundle_id = line_bundle_id;
+    V_FROMV (temp, color_override);
+    if (ARE_SAME (temp, "NULL"))
+        V_FROMV (temp, line_color);
+    status = lu_text_to_index ("COLOR", (INDEX *)&line->line.color, temp);
+    V_FROMV (temp, line_style);
+    status = lu_text_to_index ("LINE_STYLE", (INDEX *)&line->line.style, temp);
+    V_FROMV (temp, line_width);
+    status = lu_text_to_index ("THICKNESS", (INDEX *)&code, temp);
+    line->line.width = (DOUBLE)code;
+    
+    return SUCCESS;
+orcerr:
+    return OR_STATUS;
+not_found:
+    if (bundle_id_in EQUALS 0)
+        {
+        return ly_get_default_gc (line, "LINE");
+        }
+    else
+        {
+        return ly_get_arc_bundle (arc_id ? data_type : NULL, 0, 0, line);
+        }
+    }
+/* END:     */

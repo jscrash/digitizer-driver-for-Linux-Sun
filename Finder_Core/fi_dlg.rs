@@ -1,0 +1,100 @@
+*UX
+*T CDLG
+,1
+*N VERIFY
+*S PR 0 PU 1
+100 100 183 388
+Verify Quit
+3
+*I ITEM_TITLE
+StatText Enabled
+5 15 32 285
+DO YOU REALLY WANT TO QUIT FINDER?
+
+*I ITEM_QUIT
+BtnItem Enabled
+39 35 70 125
+QUIT FINDER
+
+*I ITEM_NO_QUIT
+BtnItem Enabled
+39 146 70 248
+DO NOT QUIT
+
+,2
+*N FINDER_DIALOG
+*S PR 0 PU 1
+100 100 255 485
+Finder Version
+4
+
+*I FINDER_DIALOG_TEXT_1
+StatText Enabled
+10 20 32 269
+Line 1
+
+*I FINDER_DIALOG_TEXT_2
+StatText Enabled
+40 20 62 269
+Line 2
+
+*I FINDER_DIALOG_COPYRIGHTS
+StatText Enabled
+90 20 120 380
+Copyright Finder Graphics Systems, Inc. (c) 1984-1991
+
+*I FINDER_DIALOG_ALL_RIGHTS_RSVD
+StatText Enabled
+120 20 148 380
+All rights reserved
+
+*UM
+*T CDLG
+,1
+*N VERIFY
+*S PR 0 PU 1
+100 100 183 368
+Verify Quit
+3
+*I ITEM_TITLE
+StatText Enabled
+10 20 32 269
+DO YOU REALLY WANT TO QUIT FINDER?
+
+*I ITEM_QUIT
+BtnItem Enabled
+39 31 70 110
+QUIT FINDER
+
+*I ITEM_NO_QUIT
+BtnItem Enabled
+39 142 70 222
+DO NOT QUIT
+
+,2
+*N FINDER_DIALOG
+*S PR 0 PU 1
+100 100 250 480
+Finder
+4
+
+*I FINDER_DIALOG_TEXT_1
+StatText Enabled
+10 20 32 269
+Line 1
+
+*I FINDER_DIALOG_TEXT_2
+StatText Enabled
+40 20 62 269
+Line 2
+
+*I FINDER_DIALOG_COPYRIGHTS
+StatText Enabled
+100 20 120 380
+Copyright Finder Graphics Systems, Inc. (c) 1984-1991
+
+*I FINDER_DIALOG_ALL_RIGHTS_RSVD
+StatText Enabled
+125 20 145 380
+All rights reserved
+

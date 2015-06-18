@@ -1,0 +1,66 @@
+C  DEC/CMS REPLACEMENT HISTORY, Element MO_TRCP_DRV.FOR
+C  *3     3-NOV-1989 12:03:19 GILLESPIE "(SPR 30) Change entry points for new n-List nomenclature"
+C  *2    19-SEP-1989 10:15:37 GORDON "(PURNA) GULF MODS UNDER SPR 100"
+C  *1    10-AUG-1989 18:50:29 VINCE "Fortran code after UNIX mods"
+C  DEC/CMS REPLACEMENT HISTORY, Element MO_TRCP_DRV.FOR
+      SUBROUTINE MO_TRC_PLT_DRIVER(PARAM_FILE)
+
+C ****************************************************************************
+C
+C     ROUTINE:    MO_TRC_PLT_DRIVER
+C
+C     FUNCTION:   DRIVER ROUTINE TO READ IN THE PLOT PARAMETERS FROM THE 
+C                 PARAMETER FILE, THEN CALL THE ROUTINE TO READ IN THE TRACE
+C                 DATA FILE AND PLOT THE SUCKER.  ASSUMES FINDER AND GKS 
+C                 ENVIRONMENTS ALREADY SET UP (GKS TO NEUTRAL PLOT FILE).
+C
+C ****************************************************************************  
+
+
+      CHARACTER*(*)  PARAM_FILE
+      CHARACTER*128  NEW_TRACEFILE, MO_NAME, TITLE1, TITLE2
+      CHARACTER*128  COMMENT, DISP
+      REAL           SCALE, PLTSPD, TRSP
+      INTEGER        POLARITY, IFBATCH, NRMAX
+
+C 01/04/89 GS - Use argument instead of hard-coded filename
+C      PARAM_FILE = 'TRC_PLOT_PARAM.DAT'
+
+C
+C READ IN PLOT PARAMETERS FROM FILE
+C
+
+      CALL HOGFNT( IUNIT)
+
+      OPEN (IUNIT, FILE = PARAM_FILE, STATUS = 'OLD')
+
+      READ (IUNIT,10) NEW_TRACEFILE
+10    FORMAT (A)          
+
+      READ (IUNIT,10) MO_NAME
+      READ (IUNIT,10) TITLE1
+      READ (IUNIT,10) TITLE2
+      READ (IUNIT,10) COMMENT
+      READ (IUNIT,10) DISP
+
+      READ (IUNIT,20) SCALE, PLTSPD, TRSP
+20    FORMAT (3F20.4)          
+
+      READ (IUNIT,30) POLARITY, IFBATCH, NRMAX
+30    FORMAT (3I10)
+
+      CLOSE (IUNIT)
+
+C
+C   CALL ROUTINE TO CREATE TRACE PLOT
+C
+
+      CALL MO_PLOTTER( NEW_TRACEFILE, MO_NAME, TITLE1, TITLE2,
+     *                    COMMENT, SCALE, PLTSPD, POLARITY,
+     *                    TRSP, DISP, 1, NRMAX)   
+
+
+      RETURN
+      END
+
+C  END CODE

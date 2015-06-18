@@ -1,0 +1,177 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element MD_VER_ONAME.PC*/
+/* *2    17-AUG-1990 21:59:20 VINCE "(SPR 5644) Code Cleanup"*/
+/* *1    19-JUN-1989 12:34:25 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element MD_VER_ONAME.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_gl_defs.h"
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_MD_ERR_H
+
+#include "esi_md_err.h"
+
+#endif
+
+#ifndef ESI_AM_H
+
+#include "esi_am.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+
+#ifndef ESI_MD_BASIS_X
+
+#include "esi_md_basis.x"
+
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+    Function to validate an OVERLAY NAME parameter value.
+
+Prototype:
+    publicdef INT md_verify_oname(MD_KEY_INFO *key_info,CHAR parm_string[MD_MAX_PARM_STRING],
+        MD_PARM_STRUCT **parmstruc);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    key_info        -(MD_KEY_INFO *)
+    parm_string     -(CHAR [])
+    parmstruc       -(MD_PARM_STRUCT **) Map def parameter structure.       
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    MD_RESERVED_OVERLAY_NAME
+    OR_STATUS
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT md_verify_oname (MD_KEY_INFO *key_info,
+                               CHAR parm_string[MD_MAX_PARM_STRING],
+                               MD_PARM_STRUCT **parmstruc)
+#else
+publicdef INT md_verify_oname (key_info, parm_string, parmstruc)
+MD_KEY_INFO *key_info;
+CHAR parm_string[MD_MAX_PARM_STRING];
+MD_PARM_STRUCT **parmstruc;
+#endif
+    {
+    
+    INT status;                     /* RETURN STATUS */
+    PROJECT_NAME project;
+    MD_PARM_STRUCT *temp_parm;
+    INT i;
+    static BOOL inited = FALSE;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[200];
+    VARCHAR name[1000];
+    long code;
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ********************************************************************** */
+    
+    status = SUCCESS;
+    
+    ts_sto_upper (parm_string);
+    
+    /* * CHECK AGAINST OVERLAY NAMES * */
+    /* ------------------------------- */
+    
+    for (i = 0; i < MD_MAX_OVERLAY_TYPES; i++)
+        {
+        if (strcmp (parm_string, overlay_tcp[i]) EQUALS 0)
+            {
+            status = MD_RESERVED_OVERLAY_NAME;
+            break;
+            }
+        }
+    /* * CHECK AGAINST GRAPHIC OBJECT NAMES * */
+    /* -------------------------------------- */
+    
+    if (status EQUALS SUCCESS)
+        {
+        if (NOT inited)
+            {
+            qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+            sqlstmt.len = sprintf ((char *)sqlstmt.arr,
+                          "SELECT CODE FROM %s.GRAPHIC_OBJECT_CODES WHERE NAME = :v1",
+                                   project);
+            EXEC SQL PREPARE S1 FROM : sqlstmt;
+            EXEC SQL DECLARE C1 CURSOR FOR S1;
+            
+            inited = TRUE;
+            }
+        V_FROMC (name, parm_string);
+        EXEC SQL OPEN C1 USING : name;
+        
+        EXEC SQL FETCH C1 INTO : code;
+        
+        if (OR_STATUS EQUALS 0)
+            {
+            status = MD_RESERVED_OVERLAY_NAME;
+            }
+        else if (OR_STATUS != OR_EOF)
+            {
+            status = OR_STATUS;
+            }
+        }
+    /* * MAKE PARAMETER STRUCTURE * */
+    /* ---------------------------- */
+    
+    if (status EQUALS SUCCESS)
+        {
+        temp_parm = (MD_PARM_STRUCT *)am_allocate (AM_GLOBAL, sizeof(MD_PARM_STRUCT));
+        temp_parm->parmtype = 1;
+        temp_parm->parmval.cval = (CHAR *)am_allocate (AM_GLOBAL,
+                                                       strlen (parm_string) + 1);
+        strcpy (temp_parm->parmval.cval, parm_string);
+        temp_parm->nxtparm = NULL_PARM;
+        *parmstruc = temp_parm;
+        }
+    return status;
+    }
+/* END:     */

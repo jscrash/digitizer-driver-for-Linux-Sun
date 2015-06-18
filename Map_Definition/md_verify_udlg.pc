@@ -1,0 +1,167 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element MD_VERIFY_UDLG.PC */
+/* *3    26-JUL-1991 11:07:29 PURNA "(SPR 3426) fixed missing entry in selector box for edit param" */
+/* *2    12-JUN-1991 14:59:14 PURNA "(SPR 0) create new table for lease attributes" */
+/* *1    12-JUN-1991 14:53:06 PURNA "change from .c function" */
+/* DEC/CMS REPLACEMENT HISTORY, Element MD_VERIFY_UDLG.PC */
+
+/* DEC/CMS REPLACEMENT HISTORY, Element MD_VERIFY_TLU.C*/
+/* *3    20-OCT-1989 11:32:28 CONROY "(SPR 5030) remove include file esi_md_tlu, make use of lu routines"*/
+/* *2    10-OCT-1989 14:18:53 GORDON "(SPR 4999) Mods for new lookup method"*/
+/* *1    19-JUN-1989 13:07:49 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element MD_VERIFY_TLU.C*/
+
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+
+/* * FILE DESCRIPTION * */
+/* -------------------- */
+/* ************************************************************************
+
+   NAME: MD_VERIFY_UDLG.C
+
+   DESCRIPTION: Function to validate a UDLG parameter value.
+
+   ************************************************************************ */
+
+/* * INCLUDE FILES * */
+/* ----------------- */
+
+#include "esi_c_lib.h"
+#include "esi_oracle.h"
+#include "esi_qs.h"
+#ifndef ESI_GL_DEFS_H
+#include "esi_gl_defs.h"
+#endif
+#ifndef ESI_MD_DEFS_H
+#include "esi_md_defs.h"
+#endif
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+#ifndef ESI_HO_H
+#include "esi_ho.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#include "esi_lm.h"
+
+/* * FUNCTION TITLE * */
+/* ------------------ */
+
+INT md_verify_udlg(key_info,parm_string,parmstruc)
+
+/* * ARGUMENT LIST * */
+/* ------------------ */
+
+MD_KEY_INFO *key_info;
+CHAR parm_string[MD_MAX_PARM_STRING];
+MD_PARM_STRUCT **parmstruc;		/* MAP DEF PARAMETER STRUCTURE */
+
+
+/* * VARIABLE LIST * */
+/* ----------------- */
+
+{
+
+MD_PARM_STRUCT *temp_parm;
+INT i;
+INT j;
+INT status;				/* RETURN STATUS */
+TCP ptcp;
+LM_DIALOG_STRUCT *lm_dialog;
+CHAR defs_name[32];
+INT defs_type;
+CHAR ext_type[12];
+PROJECT_NAME project_name;
+
+    /* ORACLE precompiler declarations */
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[1024];
+    static int range_flag,date_format,control_type;
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO oraerror;
+    EXEC SQL WHENEVER NOTFOUND CONTINUE;
+
+
+/* ********************************************************************** */
+
+    ptcp = ts_token(parm_string,":");
+
+    strcpy(defs_name,ptcp[0]);
+    strcpy(ext_type,ptcp[1]);
+
+    if(ARE_SAME(ext_type,"DATE"))
+      defs_type = LM_DATE;
+    else if(ARE_SAME(ext_type,"TEXT"))
+      defs_type = LM_TEXT;
+    else if(ARE_SAME(ext_type,"NUM"))
+      defs_type = LM_NUMERIC;
+
+    qs_inq_c(QS_PROJECT_NAME,project_name,(INT *)0);
+
+    stmt.len = sprintf((CHAR *)stmt.arr,
+        "SELECT RANGE_FLAG,DATE_FORMAT,CONTROL_TYPE \
+FROM %s.LEASE_COLOR_FILL_DEF \
+WHERE DEFINITION_TYPE = %d AND DEFINITION_NAME = '%s'",
+        project_name,defs_type,defs_name);
+    EXEC SQL PREPARE S_LOAD FROM :stmt;
+    EXEC SQL DECLARE C_LOAD CURSOR FOR S_LOAD;
+    EXEC SQL OPEN C_LOAD;
+    EXEC SQL FETCH C_LOAD INTO :range_flag, :date_format, :control_type;
+    if(OR_STATUS EQUALS OR_EOF) return OR_STATUS;
+    EXEC SQL CLOSE C_LOAD;
+
+	/* store information for open dialog later */
+    status = am_open_workspace(LM_DIALOG_WORKSPACE,AM_GLOBAL,(VOIDPTR *)&lm_dialog);
+    if (status != SUCCESS)
+                             /*  and initialize it                          */
+      {  
+      status = am_define_workspace(LM_DIALOG_WORKSPACE,AM_GLOBAL,
+                          sizeof(LM_DIALOG_STRUCT),(VOIDPTR *)&lm_dialog);
+      } 
+	
+    lm_dialog->defs_type = defs_type;
+    strcpy(lm_dialog->defs_name,defs_name); 
+
+    temp_parm = (MD_PARM_STRUCT *)am_allocate(AM_GLOBAL,sizeof(MD_PARM_STRUCT));
+    if (key_info->translate)
+	{
+	temp_parm->parmtype = 2;
+	}
+    else
+	{
+	temp_parm->parmtype = 1;
+	temp_parm->parmval.cval = 
+		(CHAR *)am_allocate(AM_GLOBAL,strlen(parm_string)+1 );
+	strcpy(temp_parm->parmval.cval,parm_string);
+	}
+    temp_parm->nxtparm = NULL_PARM;
+    *parmstruc = temp_parm;
+
+return status;
+ oraerror:
+return OR_STATUS;
+}

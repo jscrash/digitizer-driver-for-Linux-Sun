@@ -1,0 +1,85 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_CHG_TP_ID.PC*/
+/* *1    19-JUN-1989 12:30:49 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_CHG_TP_ID.PC*/
+
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/******************************************************************************
+
+NAME:           dr_chg_obj_type_by_id
+
+DESCRIPTION:    To change the graphic object by given graphic object id.
+		The function of this routine is as same as DR_CHANGE_OBJECT_TYPE
+
+
+     Input:     object_id.  
+		dr_data.
+
+     Output:	None.
+     Status:    SUCCESS
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_dr.h"
+#include "esi_oracle.h"
+#include "esi_qs.h"
+
+publicdef INT dr_chg_obj_type_by_id(object_id, dr_data)
+INT object_id;
+DR_DATA *dr_data;
+{
+    PROJECT_NAME project;
+    INT status;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR object_name[41];
+        VARCHAR sqlstmt[250];
+    EXEC SQL END DECLARE SECTION;
+
+/*  Define a cursor			*/
+
+    qs_inq_c(QS_PROJECT_NAME,project,(INT *)0);
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT OBJECT_NAME FROM %s.GRAPHIC_OBJECTS WHERE  OBJECT_ID = %d", 
+			    project,object_id);
+
+    EXEC SQL WHENEVER SQLERROR GOTO sql_error;
+
+    EXEC SQL PREPARE S1 FROM :sqlstmt;
+    EXEC SQL DECLARE GO_CUR CURSOR FOR S1;
+    EXEC SQL OPEN GO_CUR;
+
+    EXEC SQL FETCH GO_CUR INTO :object_name;
+
+    if (OR_STATUS EQUALS SUCCESS)
+	{
+	V_SETZERO(object_name);
+	dr_change_object_type((CHAR *)object_name.arr, dr_data);
+	}
+    status = OR_STATUS;
+    EXEC SQL CLOSE GO_CUR;
+    return status;
+
+sql_error:
+    return OR_STATUS;
+}

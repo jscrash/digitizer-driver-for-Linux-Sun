@@ -1,0 +1,178 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_EXP_SEISMIC.PC */
+/* *3    14-AUG-1991 11:58:49 KEE "(SPR -1) Put in File Lock/Unlock logic" */
+/* *2     1-MAY-1991 21:58:25 KEE "(SPR -1) Landmark Export" */
+/* *1     1-MAY-1991 21:06:34 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_EXP_SEISMIC.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* ************************************************************************
+
+   NAME: LD_LM2_EXP_SEISMIC.PC
+
+   AUTHOR: Rod Hanks
+   DATE:   May 3rd, 1990
+   DESCRIPTION: Unload seismic information (lines, shots with x/y's, traces)
+		from a particular map in Finder.
+
+   ************************************************************************ */
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef LD_LM2_EXP_WORK_H
+#include "ld_lm2_exp_work.h"
+#endif
+
+#if USE_PROTOTYPES
+publicdef VOID ld_lm2_exp_seismic (CHAR *mapName, PROJECT_NAME projectName, 
+		   DOUBLE lowerLeftX, DOUBLE lowerLeftY, 
+		   DOUBLE upperRightX, DOUBLE upperRightY,
+		   FILENAME fileName1, FILENAME fileName2, BOOL convertProj, 
+		   PROJECTION_STRUCTURE *defaultProj, 
+	           PROJECTION_STRUCTURE *inputProj)
+#else
+publicdef VOID ld_lm2_exp_seismic (mapName, projectName, 
+		   lowerLeftX, lowerLeftY, upperRightX, upperRightY,
+		   fileName1, fileName2,
+		   convertProj, defaultProj, inputProj)
+CHAR		*mapName;
+PROJECT_NAME	projectName;
+DOUBLE		lowerLeftX;
+DOUBLE		lowerLeftY;
+DOUBLE		upperRightX;
+DOUBLE		upperRightY;
+FILENAME	fileName1;
+FILENAME	fileName2;
+BOOL	              convertProj;
+PROJECTION_STRUCTURE *defaultProj;
+PROJECTION_STRUCTURE *inputProj;
+#endif
+    {
+/****************************************************************************
+
+	V a r i a b l e   D e c l a r a t i o n s .
+
+******************************************************************************/
+
+    INT		   status;
+    CHAR	   selectList[80];
+    CHAR	   selectPhrase[1000];
+    BOOL	   processFlag=FALSE;
+    BOOL	   firstIteration=TRUE;
+    FILE	   *spfile;
+    FILE	   *trfile;
+    INT		   loop;
+    CHAR	   tempString[41];
+/*
+				General variable declarations.
+*/
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[200];
+	int	key_code;
+	VARCHAR	param[1000];	/* Variable in the table is LONG! */
+	VARCHAR verb[41];
+    EXEC SQL END DECLARE SECTION;
+/*
+				Oracle variable declarations.
+*/
+/****************************************************************************
+
+	I n i t i a l i z a t i o n .
+
+******************************************************************************/
+
+    selectPhrase[0]=0;
+    selectList[0]=0;
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT KEY_CODE, PARAMETER, VERB \
+FROM %s.MAP_OVERLAYS \
+WHERE MAP_NAME = '%s' \
+AND VERB_CODE = 7 ORDER BY SEQ_NO", projectName, mapName);
+
+    EXEC SQL PREPARE S1 FROM :sqlstmt;
+    EXEC SQL DECLARE OBJ_CUR CURSOR FOR S1;
+    EXEC SQL OPEN OBJ_CUR;
+    EXEC SQL FETCH OBJ_CUR INTO :key_code, :param, :verb;
+    while (OR_STATUS EQUALS SUCCESS)
+	{
+	V_V_TO_C(tempString, verb);
+	for (loop = verb.len - 1; loop >= 0 && tempString[loop] == 32; loop--)
+	    {
+	    tempString[loop] = 0;
+	    }
+	if (strlen(tempString) > 0)
+	    {
+	    if (processFlag)
+		{
+		ld_lm2_exp_seismic_out(selectPhrase, selectList,
+				    &firstIteration, &trfile, &spfile,
+				    mapName, projectName, 
+		     		    lowerLeftX, lowerLeftY, 
+				    upperRightX, upperRightY,
+		     		    fileName1, fileName2,
+				    convertProj, defaultProj, inputProj);
+		}
+	    selectPhrase[0] = 0;
+	    selectList[0] = 0;
+	    processFlag = TRUE;
+	    }
+	if (key_code == 14)
+	    {
+	    V_V_TO_C(selectPhrase, param);
+	    }
+	else if (key_code == 15)
+	    {
+	    V_V_TO_C(selectList, param);
+	    }
+	EXEC SQL FETCH OBJ_CUR INTO :key_code, :param, :verb;
+	}
+    EXEC SQL CLOSE OBJ_CUR;
+    if (processFlag)
+	{
+	ld_lm2_exp_seismic_out(selectPhrase, selectList,
+			    &firstIteration, &trfile, &spfile,
+			    mapName, projectName, 
+	     		    lowerLeftX, lowerLeftY, 
+			    upperRightX, upperRightY,
+	     		    fileName1, fileName2,
+			    convertProj, defaultProj, inputProj);
+	}
+/*****************************************************************************
+
+	C l e a n   U p   A n d   E x i t .
+
+******************************************************************************/
+    if (trfile != (FILE*) 0)
+	{
+	status = ho_lock (trfile, OFF);
+	fclose(trfile);
+	}
+    if (spfile != (FILE*) 0)
+	{
+	status = ho_lock (spfile, OFF);
+	fclose(spfile);
+	}
+    if (firstIteration == TRUE)
+	{
+	printf("No seismic line information found for map %s\n", mapName);
+	}
+    return;
+    }

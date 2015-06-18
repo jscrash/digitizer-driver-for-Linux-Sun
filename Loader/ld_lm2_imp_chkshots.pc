@@ -1,0 +1,358 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_CHKSHOTS.PC */
+/* *2     1-MAY-1991 21:52:53 KEE "(SPR -1) Landmark Import" */
+/* *1     1-MAY-1991 21:12:23 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_CHKSHOTS.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* ************************************************************************
+
+   NAME: LD_LM2_IMP_CHKSHOTS.PC
+
+   DATE:   December 14th, 1990
+   DESCRIPTION: Load well check shot data
+
+   ************************************************************************ */
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_WE_WELLS_H
+#include "esi_we_wells.h"
+#endif
+#ifndef LD_LM2_IMP_WORK_H
+#include "ld_lm2_imp_work.h"
+#endif
+
+#if USE_PROTOTYPES
+publicdef VOID ld_lm2_imp_chkshots (FILENAME fileName, PROJECT_NAME project,
+                        CHAR *source, INT overwrite)
+#else
+publicdef VOID ld_lm2_imp_chkshots (fileName, project, source, overwrite)
+FILENAME	fileName;
+PROJECT_NAME    project;
+CHAR	       *source;
+INT	        overwrite;
+#endif
+    {
+/****************************************************************************
+
+	V a r i a b l e   D e c l a r a t i o n s .
+
+******************************************************************************/
+
+    INT 	   status;
+    FILE	  *spfile;
+    CHAR	  *inputName;
+    CHAR	   inputUWI[50];
+    DOUBLE         dx;
+    DOUBLE         dy;
+    DOUBLE         md;
+    DOUBLE         tvd;
+    BOOL	   skipOne;
+    BOOL           md_data;
+
+#ifdef USE_OLDPARSING
+    CHAR	  *inputTime;
+    CHAR	  *inputDepth;
+    CHAR	  *pos;
+    CHAR	   dummy[255];
+#else
+    LD_SCANNER_STRUCT ld_scan;	
+#endif
+
+/*
+				General variable declarations.
+*/
+    EXEC SQL BEGIN DECLARE SECTION;
+	VARCHAR sqlstmt[400];
+        VARCHAR thisUWI[21];
+        VARCHAR thisSource[31];
+        double  thisDepth;
+	double  thisTime;
+    EXEC SQL END DECLARE SECTION;
+
+/****************************************************************************
+
+	I n i t i a l i z a t i o n .
+
+******************************************************************************/
+
+    spfile = ho_open(fileName, "r", NULL);
+    if (spfile == (FILE *)NULL)
+	{
+	printf("Unable to open well check shot file named \n%s\n", fileName);
+	}
+    else
+	{
+        printf("loading well check shots from %s\n", fileName);
+#ifdef USE_OLDPARSING
+	pos = fgets(dummy, 255, spfile); /* get the first line - header */
+	ts_sto_upper(pos);
+	if (ts_like(pos,"*EV_MD*",'*') == TRUE)
+	  {
+	    md_data = TRUE;
+          }
+	else if (ts_like(pos,"*EV_TD*",'*') == TRUE)
+	  {
+	    md_data = FALSE;
+	  }
+	else
+          {
+            if (ts_like(pos,"*EV_MS*",'*') == TRUE)
+              {
+                printf("Import abort: Finder does not support Time data\n");
+              }
+	    else
+              {
+                printf("Import abort: Invalid header format of %s\n", fileName);
+              }
+            return;
+          }
+#else
+        tc_zeroes(&ld_scan, sizeof(LD_SCANNER_STRUCT));	
+        ld_scan.in.fix_format = TRUE;
+	ld_scan.in.snowhite = TRUE;
+        ld_scan.in.num_pair = 3;
+        ld_scan.in.start[0] = 1;     ld_scan.in.end[0] = 21;
+        ld_scan.in.start[1] = 23;    ld_scan.in.end[1] = 32;
+        ld_scan.in.start[2] = 34;    ld_scan.in.end[2] = 43;
+	ld_scan_line(spfile, &ld_scan);
+	ts_sto_upper(ld_scan.line);
+	if (ts_like(ld_scan.line,"*EV_MD*",'*') == TRUE)
+	  {
+	    md_data = TRUE;
+          }
+	else if (ts_like(ld_scan.line,"*EV_TD*",'*') == TRUE)
+	  {
+	    md_data = FALSE;
+	  }
+	else
+          {
+            if (ts_like(ld_scan.line,"*EV_MS*",'*') == TRUE)
+              {
+                printf("Import abort: Finder does not support Time data\n");
+              }
+	    else
+              {
+                printf("Import abort: Invalid header format of %s\n", fileName);
+              }
+            return;
+          }
+#endif
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT SOURCE \
+FROM %s.WELL_CHECKSHT_SRVY WHERE UWI = :thisUWI AND \
+MD = :thisDepth AND SOURCE = :thisSource", project);
+
+    EXEC SQL PREPARE S1 FROM :sqlstmt;
+    if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "prepare S1");
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"INSERT INTO %s.WELL_CHECKSHT_SRVY (UWI, SOURCE, MD, TIME) \
+VALUES (:thisUWI, :thisSource, :thisDepth, :thisTime)", project);
+
+    EXEC SQL PREPARE S2 FROM :sqlstmt;
+    if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "prepare S2");
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"UPDATE %s.WELL_CHECKSHT_SRVY SET TIME = :theTime \
+WHERE UWI = :thisUWI AND SOURCE = :thisSource AND MD = :thisDepth", project);
+
+    EXEC SQL PREPARE S3 FROM :sqlstmt;
+    if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "prepare S3");
+
+/*****************************************************************************
+
+	M a i n   L o g i c .
+
+*****************************************************************************/
+
+#ifdef USE_OLDPARSING
+        while ((pos = fgets(dummy, 255, spfile)) != (CHAR *) 0)
+            {
+	        inputName = pos;
+	        pos += (21-1+1);
+                *pos = 0;
+                inputName = ts_snowhite(inputName);
+		pos++;
+	        while (*pos == ' ')
+		    {
+		    pos++;
+		    }
+                inputDepth = pos;
+	        while (*pos != ' ' && *pos != 0)
+		    {
+		    pos++;
+		    }
+	        *pos = 0;
+		pos++;
+	        while (*pos == ' ')
+		    {
+		    pos++;
+		    }
+	        inputTime = pos;
+	        while (*pos != ' ' && *pos != 0)
+		    {
+		    pos++;
+		    }
+	        *pos = 0;
+		if (strlen(inputName) == 0
+		||  strlen(inputDepth) == 0
+		||  strlen(inputTime) == 0)
+		    {
+		    printf("Incorrectly formatted line, not loaded... \
+%s %s %s\n", inputName, inputDepth, inputTime);
+		    }
+		else
+		    {
+#else
+	while (ld_scan.eof == FALSE)
+	  {
+	    ld_scan_line(spfile, &ld_scan);
+	    /* check all items are there or empty line  */
+	    if (ld_scan.out_nitems == 0)
+	      {
+		continue;
+              }
+	    else if (ld_scan.out_nitems != ld_scan.in.num_pair OR
+  		     ld_scan.out[0].parmtype != LD_STRING OR	  
+		     ld_scan.out[1].parmtype != LD_DOUBLE OR
+		     ld_scan.out[2].parmtype != LD_INT)
+	      {	
+         	printf("Invalid line format - following line will be skipped\n ");
+		printf("%s",ld_scan.line);
+		continue;
+              }
+	    else 
+	      {
+	        inputName = ld_scan.out[0].parmval.cval;
+	        thisDepth = ld_scan.out[1].parmval.dbval;
+	        thisTime = ld_scan.out[2].parmval.ival;
+#endif
+		    status = ld_lm2_get_uwi(project, inputName, 
+							    inputUWI);
+		    if (status != SUCCESS)
+			{
+			printf("Well %s not in database, check shot not loaded\n", 
+				inputName);
+			}
+		    else
+			{
+			V_FROMC(thisUWI, inputUWI);
+			V_FROMC(thisSource, source);
+#ifdef USE_OLDPARSING
+			sscanf(inputDepth, "%lf", &thisDepth);
+			sscanf(inputTime,  "%lf", &thisTime);
+#endif
+		        if (md_data == FALSE)
+		          {
+		            tvd = thisDepth;
+  	                    status = wes_get_dir_md(inputUWI, tvd,
+					            &dx, &dy, &md);
+			    thisDepth = md;
+           		  }
+			EXEC SQL OPEN C1 USING :thisUWI, 
+						     :thisDepth, :thisSource;
+			if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, 
+							"OPEN C1");
+			EXEC SQL FETCH C1 INTO :thisSource;
+			skipOne = FALSE;
+			if (OR_STATUS < SUCCESS)
+			    {
+			    ld_show_error(OR_STATUS, "FETCH C1");
+			    }
+			else if (OR_STATUS == SUCCESS && overwrite == 0)
+			    {
+			    printf("%s of %s already existed, not overwritten\n",
+					source, inputUWI);
+			    skipOne = TRUE;
+			    }
+			else if (OR_STATUS > SUCCESS && overwrite == 1)
+			    {
+#ifdef USE_OLDPARSING
+			    printf("%s of %s for Depth %s does not exist, not overwritten\n",
+					source, inputUWI, inputDepth);
+#else
+			    printf("%s of %s for Depth %.1f does not exist, not overwritten\n",
+					source, inputUWI, thisDepth);
+#endif
+			    skipOne = TRUE;
+			    }
+			EXEC SQL CLOSE C1;
+			if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS,
+							"close C1");
+			if (skipOne == FALSE)
+			    {
+			    if (overwrite == 0)
+			       {
+			        EXEC SQL EXECUTE S2 USING :thisUWI, 
+				 			  :thisSource, 
+							  :thisDepth,
+							  :thisTime;
+		                if (OR_STATUS == -1) /* duplicate key */
+			          {
+			            printf("%s - Well Check Shots already \
+existed, not overwritten\n", inputUWI);
+                                  }	
+    			        else if (OR_STATUS != 0) 
+				  {
+				    ld_show_error(OR_STATUS, "execute s2");
+                                  }
+				else
+				  {
+			            EXEC SQL COMMIT WORK;
+    			            if (OR_STATUS != 0) ld_show_error(OR_STATUS,
+					   			     "commit s2");
+                                  }
+			        }
+		            else
+			        {
+			        EXEC SQL EXECUTE S3 USING :thisTime,
+							  :thisUWI,
+							  :thisSource,
+							  :thisDepth;
+    			        if (OR_STATUS != 0) ld_show_error(OR_STATUS,
+							"execute s3");
+			        EXEC SQL COMMIT WORK;
+    			        if (OR_STATUS != 0) ld_show_error(OR_STATUS,
+							"commit s3");
+			        }
+			    }
+			}
+		    }
+		}
+	}
+/*****************************************************************************
+
+	C l e a n   U p   A n d   E x i t .
+
+******************************************************************************/
+    if (spfile != (FILE *)NULL) fclose(spfile);
+    return;
+    }

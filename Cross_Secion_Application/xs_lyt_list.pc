@@ -1,0 +1,246 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element XS_LYT_LIST.PC*/
+/* *3    17-AUG-1990 22:40:51 VINCE "(SPR 5644) Code Cleanup"*/
+/* *2    27-JUL-1989 13:33:11 GILLESPIE "(SPR 1) fix minor cast problem"*/
+/* *1    19-JUN-1989 12:42:42 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element XS_LYT_LIST.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_oracle.h"
+#include "esi_xs_defs.h"
+
+#ifndef ESI_TC_H
+
+#include "esi_tc.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+
+#ifndef ESI_NL_H
+
+#include "esi_nl.h"
+
+#endif
+
+#ifndef ESI_SL_H
+
+#include "esi_sl.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT xs_gen_layout_list(XS_STRUCT *pxs);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    pxs             -(XS_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    XS_NO_LAYOUT_NAME
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT xs_gen_layout_list (XS_STRUCT *pxs)
+#else
+publicdef INT xs_gen_layout_list (pxs)
+XS_STRUCT *pxs;
+#endif
+    {
+    INT status;
+    NLIST_HEADER nl;
+    /* ndim is three dimensions - project, source (formerly analyst), layout */
+    UINT ndim = 3;
+    INT units[3];
+    size_t data_widths[3];
+    INT data_types[3];
+    INT value_inc[3];
+    UINT stroke_num = 1;
+    VOIDPTR value_list[3];
+    UINT dim_list[3];
+    UINT nlcount;
+    INT i;
+    /* where may be null or a string like 'WHERE SOURCE= USER' */
+    CHAR where[81];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    
+    VARCHAR analyst_name[31];
+    VARCHAR project_name[31];
+    VARCHAR layout_name[41];
+    VARCHAR select[512];
+    
+    EXEC SQL END DECLARE SECTION;
+    
+    units[0] = 0;
+    units[1] = 0;
+    units[2] = 0;
+    
+    data_widths[0] = 31;
+    data_widths[1] = 31;
+    data_widths[2] = 41;
+    
+    data_types[0] = CHAR_TYPE;
+    data_types[1] = CHAR_TYPE;
+    data_types[2] = CHAR_TYPE;
+    
+    value_inc[0] = VALUE_LIST;
+    value_inc[1] = VALUE_LIST;
+    value_inc[2] = VALUE_LIST;
+    
+    dim_list[0] = 1;
+    dim_list[1] = 2;
+    dim_list[2] = 3;
+    
+    value_list[0] = (VOIDPTR)project_name.arr;
+    value_list[1] = (VOIDPTR)analyst_name.arr;
+    value_list[2] = (VOIDPTR)layout_name.arr;
+    
+    /* initialize nlist of 3 dimensions (project, user, layout */
+    status = nl_init_nlist (&nl, ndim, units, data_widths, data_types, value_inc, 0);
+    status = nl_start_stroke (nl, &stroke_num);
+    
+    if (pxs->search_project == ON)
+        {
+        /* loop for all projects */
+        strcpy ((char *)select.arr,
+                "SELECT ACCOUNT_NAME FROM ESI.FINDER_ACCOUNTS WHERE TYPE = 'PROJECT'");
+        V_SETLEN (select);
+        
+        EXEC SQL PREPARE S1 FROM : select;
+        
+        EXEC SQL DECLARE C1 CURSOR FOR S1;
+        
+        EXEC SQL OPEN C1;
+        
+        EXEC SQL FETCH C1 INTO : project_name;
+        
+        while (OR_STATUS == SUCCESS)
+            {
+            V_SETZERO (project_name);
+            /* set whether the where clause is null or not, based on user request */
+            if (pxs->search_accounts != ON)
+                strcpy (where, " WHERE SOURCE = USER");
+            else
+                where[0] = 0;
+            sprintf ((char *)select.arr,
+                "SELECT DISTINCT SOURCE, LAYOUT_NAME FROM %s.CROSS_SECTION_LAYOUTS%s",
+                     project_name.arr, where);
+            V_SETLEN (select);
+            
+            EXEC SQL PREPARE S2 FROM : select;
+            
+            EXEC SQL DECLARE C2 CURSOR FOR S2;
+            
+            EXEC SQL OPEN C2;
+            
+            EXEC SQL FETCH C2 INTO : analyst_name,  : layout_name;
+            
+            while (OR_STATUS == SUCCESS)
+                {
+                V_SETZERO (analyst_name);
+                V_SETZERO (layout_name);
+                /* store the items in the nlist */
+                status = nl_add_points (nl, 1, ndim, dim_list, value_list);
+                
+                EXEC SQL FETCH C2 INTO : analyst_name,  : layout_name;
+                
+                }
+            /* repeat for each project */
+            sqlca.sqlcode = SUCCESS;
+            EXEC SQL FETCH C1 INTO : project_name;
+            
+            /* save status */
+            }
+        /* while */
+        }
+    else
+        {
+        /* search_projects == off - do only the current project */
+        qs_inq_c (QS_PROJECT_NAME, (char *)project_name.arr, &i);
+        V_SETLEN (project_name);
+        /* set where clause to null if only this analyst */
+        if (pxs->search_accounts != ON)
+            strcpy (where, " WHERE SOURCE = USER");
+        else
+            where[0] = 0;
+        sprintf ((char *)select.arr,
+                "SELECT DISTINCT SOURCE, LAYOUT_NAME FROM %s.CROSS_SECTION_LAYOUTS%s",
+                 project_name.arr, where);
+        V_SETLEN (select);
+        
+        EXEC SQL PREPARE S4 FROM : select;
+        
+        EXEC SQL DECLARE C4 CURSOR FOR S4;
+        
+        EXEC SQL OPEN C4;
+        
+        EXEC SQL FETCH C4 INTO : analyst_name,  : layout_name;
+        
+        while (OR_STATUS == SUCCESS)
+            {
+            V_SETZERO (analyst_name);
+            V_SETZERO (layout_name);
+            /* store the items in the nlist */
+            status = nl_add_points (nl, 1, ndim, dim_list, value_list);
+            
+            EXEC SQL FETCH C4 INTO : analyst_name,  : layout_name;
+            
+            }
+        }
+    /* turn nl into tcp */
+    status = nl_inq_nlist_int (nl, NL_NLIST_NPOINTS, (INT *) & nlcount);
+    if (nlcount != 0)
+        {
+        status = sl_make_tcp (&pxs->project_name_tcp, nl, 1);
+        status = sl_make_tcp (&pxs->analyst_name_tcp, nl, 2);
+        status = sl_make_tcp (&pxs->layout_name_tcp, nl, 3);
+        return SUCCESS;
+        }
+    /* nlcount was zero so set tcp to null */
+    pxs->layout_name_tcp = (CHAR **)NULL;
+    pxs->analyst_name_tcp = (CHAR **)NULL;
+    pxs->project_name_tcp = (CHAR **)NULL;
+    return XS_NO_LAYOUT_NAME;
+    
+    }
+/* END:     */

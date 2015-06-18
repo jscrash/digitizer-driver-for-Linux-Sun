@@ -1,0 +1,91 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_LOAD_GO.PC */
+/* *2     6-MAY-1991 16:46:10 PURNA "(SPR 0) data mover init change" */
+/* *1     6-MAY-1991 16:43:54 PURNA "load graphic object to temp table" */
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_LOAD_GO.PC */
+#include "esi_dtypes.h"
+#include "esi_oracle.h"
+#include "esi_qs.h"
+
+publicdef INT or_load_graphic_object(unique_name, all_flag,llx,lly,urx,ury)
+CHAR *unique_name;
+INT all_flag;
+DOUBLE llx,lly,urx,ury;
+{
+    INT status;
+    PROJECT_NAME project_name;
+    INT total_count;
+
+EXEC SQL BEGIN DECLARE SECTION;
+    static int count;
+    VARCHAR stmt[255];
+    static int or_object_id[100];
+    static char *id;
+EXEC SQL END DECLARE SECTION;
+
+		    /* I assume that if the  list name exists in
+			the TEMP_GO_LISTS table, then this list
+			has already been inserted, and that the select
+			list has NOT changed its contents since the list
+			was entered.  This implies that any select list editing
+			function should make sure that the TEMP_GO_LISTS
+			table entry is brought up to date before allowing other
+			interactions... */
+    id = unique_name;
+    EXEC SQL WHENEVER NOT FOUND GOTO not_yet_loaded;
+    EXEC SQL WHENEVER SQLERROR GOTO orerror;
+    EXEC SQL SELECT NULL FROM TEMP_GO_LISTS
+	WHERE TEMP_PROCESS_ID = USERENV('SESSIONID')
+	AND TEMP_LIST_NAME = :id;
+    return SUCCESS;
+
+not_yet_loaded:
+    EXEC SQL WHENEVER NOT FOUND CONTINUE;
+    qs_inq_c(QS_PROJECT_NAME,project_name,(INT *)0);
+    if(all_flag)
+	{
+    	stmt.len = sprintf((char *)stmt.arr, 
+    	"SELECT DISTINCT OBJECT_ID FROM %s.GRAPHIC_OBJECTS \
+WHERE OBJECT_NAME IN (SELECT NAME FROM %s.GRAPHIC_OBJECT_CODES) AND \
+LOWER_LEFT_X <= %lf AND LOWER_LEFT_Y <= %lf AND UPPER_RIGHT_X >= %lf AND \
+UPPER_RIGHT_Y >= %lf",
+    	project_name,project_name,urx,ury,llx,lly);
+	}
+    else
+	{
+    	stmt.len = sprintf((char *)stmt.arr, 
+    	"SELECT DISTINCT OBJECT_ID FROM %s.GRAPHIC_OBJECTS \
+WHERE OBJECT_NAME IN (SELECT NAME FROM %s.GRAPHIC_OBJECT_CODES)",
+    	project_name,project_name);
+	}
+
+    EXEC SQL PREPARE S0 FROM :stmt;
+    EXEC SQL DECLARE C0 CURSOR FOR S0;
+    EXEC SQL OPEN C0;
+
+    stmt.len = sprintf((char *)stmt.arr, "INSERT INTO TEMP_GO_LISTS \
+(TEMP_LIST_NAME, OBJECT_ID, TEMP_PROCESS_ID) VALUES \
+('%s',:or_object_id, USERENV('SESSIONID'))", unique_name);
+    EXEC SQL PREPARE S1 FROM :stmt;
+
+/* retrieve the select list data into a buffer */
+
+    total_count = 0;
+    FOREVER
+	{
+	EXEC SQL FETCH C0 INTO :or_object_id;
+	count = sqlca.sqlerrd[2] - total_count;
+	if(count < 1) break;
+	EXEC SQL FOR :count EXECUTE S1 USING :or_object_id;
+	total_count += count;
+	if(count < 100) break;
+	}
+
+    if(total_count > 0)
+	EXEC SQL CLOSE C0;
+    EXEC SQL COMMIT WORK;
+
+    return SUCCESS;
+orerror:
+   EXEC SQL ROLLBACK WORK;
+   return OR_STATUS;
+}

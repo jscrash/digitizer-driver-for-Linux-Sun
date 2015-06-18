@@ -1,0 +1,185 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element CT_GET_SYMBOL.PC*/
+/* *6    20-JUL-1990 11:15:52 JESSIE "(SPR 5628) Make LYNX functions internally consistant"*/
+/* *5    20-JUL-1990 10:41:42 VINCE "(SPR 5644) Standardized Header"*/
+/* *4    10-FEB-1990 09:55:15 MING "(SPR 6007) Change NODE_ID to INTEGER"*/
+/* *3    10-OCT-1989 09:40:15 PURNA "(SPR 5020) Mods for CT parameter change"*/
+/* *2    14-SEP-1989 16:14:31 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *1    19-JUN-1989 12:29:18 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element CT_GET_SYMBOL.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_ly.h"
+
+#ifndef ESI_GL_TOP_H
+#include "esi_gl_top.h"
+#endif
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+
+#ifndef ESI_CT_ERR_H
+#include "esi_ct_err.h"
+#endif
+
+#ifndef ESI_MM_H
+#include "esi_mm.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+    This function A retrievesn a symbol of a given symbol id.
+
+Prototype:
+    publicdef INT ct_get_symbol(SYMBOL *symbol, INT symbol_number);
+                            
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (O) symbol          -(SYMBOL *) A pointer to a symbol structure.
+    (I) symbol_number   -(INT) An item id in the symbols table of the 
+                            current project.
+    
+Return Value/Status:
+    SUCCESS - Successful completion
+    CT_ORACLE_EOF - Error with oracle file.
+    Function also returns <oracle error number>.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT ct_get_symbol (SYMBOL *symbol, INT symbol_number) 
+#else
+publicdef INT ct_get_symbol (symbol, symbol_number)
+SYMBOL *symbol;
+INT symbol_number;
+#endif
+    {
+    INT status;
+    DOUBLE x_loc, y_loc;
+    PROJECT_NAME project;
+    static INT old_symbol_number = 0;
+    NODE_ID node_id;                /* key for node table lookup */
+    INT symbol_color_code;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[512];
+    int symbol_id;
+    long symbol_location;
+    VARCHAR symbol_group[26];
+    int symbol_type;
+    VARCHAR symbol_color[21];
+    float symbol_size;
+    EXEC SQL END DECLARE SECTION;
+    
+    status = SUCCESS;
+    
+    /*
+     * If it is a new symbol id Build the cursor for the symbolS table
+     */
+    if (symbol_number != old_symbol_number)
+        {
+        /*--------------------------------*/
+        /* open cursor for this symbol id */
+        /* get project name               */
+        /*--------------------------------*/
+        old_symbol_number = symbol_number;
+        
+        qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+        
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"SELECT SYMBOL_LOCATION, \
+                    SYMBOL_GROUP, SYMBOL_TYPE, SYMBOL_COLOR, SYMBOL_SIZE \
+                    FROM %s.SYMBOLS WHERE SYMBOL_ID = :symbol_id "
+                , project);
+        
+        symbol_id = symbol_number;
+        EXEC SQL PREPARE S1 FROM : sqlstmt;
+        EXEC SQL DECLARE SYM_CUR CURSOR FOR S1;
+        }
+    EXEC SQL WHENEVER SQLERROR GOTO sqlerrorpt;
+    EXEC SQL WHENEVER NOT FOUND GOTO sqleofpt;
+    EXEC SQL OPEN SYM_CUR USING : symbol_id;
+    EXEC SQL FETCH SYM_CUR INTO : symbol_location,  : symbol_group,  : symbol_type,
+        : symbol_color,  : symbol_size;
+    
+    /* 
+     * get the symbol location in the nodes table.
+     */
+    status = ct_get_node (symbol_location, &x_loc, &y_loc);
+    symbol->symbol_location.x = x_loc;
+    symbol->symbol_location.y = y_loc;
+    if (status != SUCCESS)
+        {
+        return(status);
+        }
+    /*
+     * Fetch symbol color value.
+     */
+    V_SETZERO (symbol_color);
+    status = lu_text_to_index ("COLOR", (INT *)&symbol_color_code, symbol_color.arr);
+    if (status != SUCCESS)
+        return status;
+    /* 
+     * assign symbol elements and return.
+     */
+    symbol->symbol_id = symbol_id;
+    V_FROMV (symbol->symbol_group, symbol_group);
+    symbol->symbol_type = symbol_type;
+    symbol->symbol_color = symbol_color_code;
+    symbol->symbol_size = (FLOAT)symbol_size;
+    symbol->symbol_fill_color = 0;
+    symbol->symbol_fill_code = 0;
+    
+    /* return appropriate status */
+    return(status);
+    
+sqleofpt:
+    status = CT_ORACLE_EOF;
+    return(status);
+    
+sqlerrorpt:
+    status = OR_STATUS;
+    return(status);
+    }
+/* END:     */

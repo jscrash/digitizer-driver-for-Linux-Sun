@@ -1,0 +1,269 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element CT_GET_PRJN.PC*/
+/* *5    14-AUG-1990 23:38:01 GILLESPIE "(SPR 5644) Fix up last checkin"*/
+/* *4    14-AUG-1990 13:06:38 VINCE "(SPR 5644) Header Standardization"*/
+/* *3    18-DEC-1989 16:39:54 PURNA "(SPR 5069) export facility mods"*/
+/* *2    26-JUN-1989 10:39:38 GILLESPIE "(SPR 20) Fix castings"*/
+/* *1    19-JUN-1989 12:29:15 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element CT_GET_PRJN.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#ifndef ESI_GL_DEFS_H
+#include "esi_gl_defs.h"
+#endif
+
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+
+#ifndef ESI_CT_ERR_H
+#include "esi_ct_err.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+/* File Description ---------------------------------------------------------
+Overview:
+    Routine to return a pointer to the projection structure
+    for the supplied projection id.  This data originally will come from
+    the project yable "projections".  The assumption is that the 
+    definition for any projection is static (at least within any run of
+    Finder).  Thus, the data base retrieval occurs only once for each 
+    possible projection.  After retrieval, it is stored in a global 
+    workspace for later retrieval.  The workspace name is based on 
+    the projection name since these should be unique.
+
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT ctz_get_projection(PROJECT_NAME project, PROJECTION_ID projection_id,
+                                 PROJECTION_STRUCTURE **projection_data);
+
+    publicdef INT ct_get_projection(PROJECTION_ID projection_id,
+                                PROJECTION_STRUCTURE **projection_data);
+                                
+Private_Functions:
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+    See above.
+    
+Prototype:
+    publicdef INT ctz_get_projection(PROJECT_NAME project, PROJECTION_ID projection_id,
+                                 PROJECTION_STRUCTURE **projection_data);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) project         -(PROJECT_NAME) Name of project to retrieve.
+    (I) projection_id   -(PROJECTION_ID) Id of project to retrieve.
+    (O) projection_data -(PROJECTION_STRUCTURE **) Data of projection retrieved.
+
+Return Value/Status:
+    SUCCESS - Successful completion
+    CT_BAD_PROJECTION - Error defining workspace with SQL.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT ctz_get_projection (PROJECT_NAME project, PROJECTION_ID projection_id,
+                                  PROJECTION_STRUCTURE **projection_data) 
+#else
+publicdef INT ctz_get_projection (project, projection_id, projection_data)
+PROJECT_NAME project;
+PROJECTION_ID projection_id;
+PROJECTION_STRUCTURE **projection_data;
+#endif
+/* * VARIABLE LIST * */
+/* ----------------- */
+    {
+    INT status;
+    CHAR workspace_name[sizeof(PROJECTION_ID) + 3];
+    PROJECTION_STRUCTURE *temp;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR projection_name[41];
+    int projection_type;
+    int spheroid_code;
+    int projection_units;
+    int zone_code;
+    double parm_1, parm_2, parm_3, parm_4, parm_5, parm_6, parm_7, parm_8, parm_9,
+        parm_10, parm_11, parm_12, parm_13, parm_14, parm_15;
+    VARCHAR sqlstmt[355];
+    EXEC SQL END DECLARE SECTION;
+    
+    /**************************************************************************/
+    
+    /* * CHECK IF PROJECTION DATA ALREADY RETRIEVED * */
+    /* ---------------------------------------------- */
+    
+    ts_sto_upper (projection_id);
+    sprintf (workspace_name, "CT_%s", projection_id);
+    if ((status = am_open_workspace (workspace_name, AM_GLOBAL,
+                                     (VOIDPTR)projection_data)) != SUCCESS)
+        {
+        
+        /* * MUST RETRIEVE DATA FROM DATA BASE * */
+        /* ------------------------------------- */
+        
+        /* CONSTRUCT AND OPEN QUERY CURSOR */
+        
+        EXEC SQL WHENEVER SQLERROR goto orc_err;
+        EXEC SQL WHENEVER NOT FOUND goto orc_err;
+        
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"SELECT  PROJECTION_NAME, PROJECTION_TYPE, SPHEROID_CODE, PROJECTION_UOM,\
+ZONE_CODE, PARM_1, PARM_2, PARM_3, PARM_4, PARM_5, PARM_6, PARM_7, \
+PARM_8, PARM_9, PARM_10, PARM_11, PARM_12, PARM_13, PARM_14, PARM_15 \
+FROM %s.PROJECTIONS WHERE PROJECTION_ID = '%s'"
+                , project, projection_id);
+        
+        EXEC SQL PREPARE S1 FROM : sqlstmt;
+        EXEC SQL DECLARE C1 CURSOR FOR S1;
+        EXEC SQL OPEN C1;
+        
+        /* INITIALIZE FETCH PARMS TO ZERO */
+        
+        projection_name.len = projection_type = spheroid_code = projection_units =
+                              zone_code = 0;
+        parm_1 = parm_2 = parm_3 = parm_4 = parm_5 = parm_6 = parm_7 = parm_8 =
+                 parm_9 = parm_10 = parm_11 = parm_12 = parm_13 = parm_14 = parm_15 =
+                 0.0;
+        
+        /* PERFORM FETCH */
+        
+        EXEC SQL FETCH C1 INTO : projection_name,  : projection_type,  : spheroid_code,
+            : projection_units,  : zone_code,  : parm_1,  : parm_2,  : parm_3,
+            : parm_4,  : parm_5,  : parm_6,  : parm_7,  : parm_8,  : parm_9,
+            : parm_10,  : parm_11,  : parm_12,  : parm_13,  : parm_14,  : parm_15;
+        
+        /* CREATE WORKSPACE */
+        
+        if ((status = am_define_workspace (workspace_name, AM_GLOBAL,
+                                           sizeof(PROJECTION_STRUCTURE),
+                                           (VOIDPTR)projection_data)) EQUALS SUCCESS)
+            {
+            
+            /* MOVE CURSOR DATA TO OUTPUT AREA */
+            
+            temp = *projection_data;
+            strcpy (temp->projection_id, projection_id);
+            V_V_TO_C (temp->projection_name, projection_name);
+            temp->projection_type = projection_type;
+            temp->spheroid_code = spheroid_code;
+            temp->spheroid_units = projection_units;
+            temp->zone_code = zone_code;
+            temp->parameters.parm_1 = parm_1;
+            temp->parameters.parm_2 = parm_2;
+            temp->parameters.parm_3 = parm_3;
+            temp->parameters.parm_4 = parm_4;
+            temp->parameters.parm_5 = parm_5;
+            temp->parameters.parm_6 = parm_6;
+            temp->parameters.parm_7 = parm_7;
+            temp->parameters.parm_8 = parm_8;
+            temp->parameters.parm_9 = parm_9;
+            temp->parameters.parm_10 = parm_10;
+            temp->parameters.parm_11 = parm_11;
+            temp->parameters.parm_12 = parm_12;
+            temp->parameters.parm_13 = parm_13;
+            temp->parameters.parm_14 = parm_14;
+            temp->parameters.parm_15 = parm_15;
+            }
+        else
+            {
+            status = CT_BAD_PROJECTION;
+            }
+        EXEC SQL WHENEVER SQLERROR CONTINUE;
+        EXEC SQL CLOSE C1;
+        }
+    return status;
+    
+orc_err:
+    EXEC SQL CLOSE C1;
+    return CT_BAD_PROJECTION;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    See above.
+    
+Prototype:
+    publicdef INT ct_get_projection(PROJECTION_ID projection_id,
+                                PROJECTION_STRUCTURE **projection_data);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) projection_id   -(PROJECTION_ID) Id of project to retrieve.
+    (O) projection_data -(PROJECTION_STRUCTURE **) Data of projection retrieved.
+
+Return Value/Status:
+    Function returns status returned by ctz_get_projection.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT ct_get_projection (PROJECTION_ID projection_id,
+                                 PROJECTION_STRUCTURE **projection_data) 
+#else
+publicdef INT ct_get_projection (projection_id, projection_data)
+PROJECTION_ID projection_id;
+PROJECTION_STRUCTURE **projection_data;
+#endif
+/* * VARIABLE LIST * */
+/* ----------------- */
+    {
+    INT status;
+    PROJECT_NAME project;
+    PROJECTION_STRUCTURE *temp;
+    
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    status = ctz_get_projection (project, projection_id, &temp);
+    *projection_data = temp;
+    
+    return status;
+    }
+/* END:     */

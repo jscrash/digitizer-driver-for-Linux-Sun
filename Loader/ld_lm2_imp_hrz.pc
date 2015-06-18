@@ -1,0 +1,634 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_HRZ.PC */
+/* *2     1-MAY-1991 21:53:37 KEE "(SPR -1) Landmark Import" */
+/* *1     1-MAY-1991 21:20:34 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_HRZ.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* ************************************************************************
+
+   NAME: LD_LM2_IMP_HRZ.PC
+
+   AUTHOR: Rod Hanks
+   DATE:   May 11th, 1990
+   DESCRIPTION: Load a horizon from a file output by Landmark.
+
+   MODIFY DATE: November 19th, 1990
+   DESCRIPTION: The code has been totally rewritten.  Basically, use 
+	        the ld_seis_horizon.pc logical and comment.
+
+   ************************************************************************ */
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+#ifndef ESI_NL_ERR_H
+#include "esi_nl_err.h"
+#endif
+#ifndef ESI_SE_INT_H
+#include "esi_se_int.h"
+#endif
+#ifndef ESI_SE_ERR_H
+#include "esi_se_err.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+#ifndef ESI_CTYPE_H
+#include "esi_ctype.h"
+#endif
+#ifndef LD_LM2_IMP_WORK_H
+#include "ld_lm2_imp_work.h"
+#endif
+
+#if USE_PROTOTYPES
+static INT ldz_put_horizon(FULL_LINE_NAME *line, CHAR *horizon, 
+	                       CHAR *source, NLIST_HEADER nlist, 
+	                       PROJECT_NAME project);
+#else
+static INT ldz_put_horizon ();
+#endif
+
+#define NULL_VALUE -32767.0
+
+/* EXEC ORACLE OPTION (REBIND=NO); */
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+#if USE_PROTOTYPES
+publicdef VOID ld_lm2_imp_hrz (FILENAME fileName, PROJECT_NAME project,
+			CHAR *horizonName, BOOL convertProj, 
+			PROJECTION_STRUCTURE *defaultProj, 
+                        PROJECTION_STRUCTURE *inputProj, CHAR *source, 
+			INT overwrite, DOUBLE ll_x, DOUBLE ll_y, DOUBLE ur_x, 
+			DOUBLE ur_y)
+#else
+publicdef VOID ld_lm2_imp_hrz (fileName, project, horizonName,
+			convertProj, defaultProj, inputProj,
+			source, overwrite, ll_x,
+			ll_y, ur_x, ur_y)
+FILENAME	fileName;
+PROJECT_NAME	project;
+CHAR	       *horizonName;
+BOOL	              convertProj;
+PROJECTION_STRUCTURE *defaultProj;
+PROJECTION_STRUCTURE *inputProj;
+CHAR		     *source;
+INT		      overwrite;
+DOUBLE		      ll_x;
+DOUBLE		      ll_y;
+DOUBLE		      ur_x;
+DOUBLE		      ur_y;
+#endif
+{
+/****************************************************************************
+
+	V a r i a b l e   D e c l a r a t i o n s .
+
+******************************************************************************/
+
+    FILE	  *spfile;
+    CHAR	  inputSurvey[24];
+    CHAR	  inputName[31];
+    CHAR	  *pos;
+/*
+				General variable declarations.
+*/
+    NLIST_HEADER hor_nlist;    /* FOR OUR OUTPUT FILE                      */
+    UINT dim_list[3];
+    UINT ndim;
+    UINT table_num;
+    VOIDPTR Value_List[3];
+    INT nrows;
+    FULL_LINE_NAME this_line;
+    FULL_LINE_NAME previous;
+    SP f_shot_point;
+    CDP cdp;
+    CHAR flag;
+    FLOAT f_two_way_time;               /* 4 byte float                             */
+    INT status;
+    INT chcount;
+    INT i;
+    INT total_lines_loaded = 0;
+    BOOL first = TRUE;                  /* NOTHING TO WRITE FIRST TIME THROUGH      */
+    BOOL line_found = TRUE;
+#ifdef USE_OLDPARSING
+    CHAR	   dummy[255];
+    CHAR horizon[31];
+    BOOL	   moreFlag;
+    CHAR	  inputShot[11];
+    CHAR	  inputX[13];
+    CHAR	  inputY[13];
+    CHAR	  inputZ[13];
+    CHAR	  *inputFlag;
+#else
+    LD_SCANNER_STRUCT ld_scan;	
+#endif
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[400];
+	VARCHAR landmarkName[81];
+	VARCHAR lineName[25];
+	VARCHAR	survey[25];
+    EXEC SQL END DECLARE SECTION;
+/*
+				Oracle variable declarations.
+*/
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT FINDER_LINE_NAME, FINDER_SURVEY FROM %s.SEIS_LINE_XREF \
+WHERE VENDOR_LINE_NAME = :landmarkName AND VENDOR = 'LANDMARK'", project);
+
+    EXEC SQL PREPARE S4 FROM :sqlstmt;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s4");
+    EXEC SQL DECLARE XREF_CURS CURSOR FOR S4;
+
+    dim_list[0] = 1;
+    dim_list[1] = 2;
+    dim_list[2] = 3;
+    ndim = 3;
+    Value_List[0] = (VOIDPTR) & cdp;
+    Value_List[1] = (VOIDPTR) & f_two_way_time;
+    Value_List[2] = (VOIDPTR) & flag;
+    
+    strcpy(previous.line_name, "");     /* A CLEAN SLATE                            */
+    strcpy(previous.survey, "");
+    
+    /*  this nlist will hold the cdp value (int)                                    */
+    /*  and the time value(float)                                                   */
+    status = se_init_hor_nlist(&hor_nlist);
+
+    spfile = ho_open(fileName, "r", NULL);
+    if (spfile == (FILE *)NULL)
+      {
+	printf("Unable to open horizon file named %s", fileName);
+      }
+    else
+      {
+        printf("loading horizon from %s\n", fileName);
+#ifdef USE_OLDPARSING
+        moreFlag = TRUE;
+        while (moreFlag)
+	  {
+	    do
+	      {
+		pos = fgets(dummy, 255, spfile);
+	      }
+            while (pos != (CHAR *) 0 && strlen(dummy) < 5); /* Rod Hank */
+	    
+	    if (pos == (CHAR *) 0)
+	      {
+		moreFlag = FALSE;
+	      }
+	    /*
+	      Get next line from file, if any, and
+	      set a flag when no more.  We want to
+	      fall thru the loop one last time in
+	      this case in order to output the last
+	      line.
+	      */
+
+	    if (moreFlag)
+	      {
+		for (i= 0, chcount = 0; *pos == ' '; pos++, chcount++);
+	        while (*pos != ' ' && *pos != 0 && chcount < 30)
+		  {
+		    inputName[i] = *pos;
+		    pos++;
+		    i++;
+		    chcount++;
+		  }
+		inputName[i] = 0;
+
+		for (i= 0, chcount = 0; *pos == ' '; pos++);
+	        while (*pos != ' ' && *pos != 0 && chcount < 10)
+		  {
+		    inputShot[i] = *pos;
+		    pos++;
+		    i++;
+		    chcount++;
+		  }
+		inputShot[i] = 0;
+
+		for (i = 0, chcount = 0; *pos == ' '; pos++);
+	        while (*pos != ' ' && *pos != 0 && chcount < 12)
+		  {
+		    inputX[i] = *pos;
+		    pos++;
+		    i++;
+		    chcount++;
+		  }
+		inputX[i] = 0;
+
+		for (i = 0, chcount = 0; *pos == ' '; pos++);
+	        while (*pos != ' ' && *pos != 0 && chcount < 12)
+		  {
+		    inputY[i] = *pos;
+		    pos++;
+		    i++;
+		    chcount++;
+		  }
+		inputY[i] = 0;
+
+		for (i = 0, chcount = 0; *pos == ' '; pos++);
+	        while (*pos != ' ' && *pos != 0 && chcount < 12)
+		  {
+		    inputZ[i] = *pos;
+		    pos++;
+		    i++;
+		    chcount++;
+		  }
+		inputZ[i] = 0;
+
+		inputFlag = &dummy[79];
+		dummy[80] = 0;
+		/*
+		  Expect fault flag in column 80.
+		  */
+#else
+        tc_zeroes(&ld_scan, sizeof(LD_SCANNER_STRUCT));	
+        ld_scan.in.fix_format = TRUE;
+	ld_scan.in.snowhite = TRUE;
+        ld_scan.in.num_pair = 6;
+        ld_scan.in.start[0] = 1;     ld_scan.in.end[0] = 30;
+        ld_scan.in.start[1] = 31;    ld_scan.in.end[1] = 40;
+        ld_scan.in.start[2] = 41;    ld_scan.in.end[2] = 52;
+        ld_scan.in.start[3] = 53;    ld_scan.in.end[3] = 64;
+	ld_scan.in.start[4] = 65;    ld_scan.in.end[4] = 76;
+        ld_scan.in.start[5] = 80;    ld_scan.in.end[5] = 80;
+	while (ld_scan.eof == FALSE)
+	  {
+	    ld_scan_line(spfile, &ld_scan);
+	    /* check all items are there or empty line  */
+	    if (ld_scan.out_nitems == 0)
+	      {
+		continue;
+              }
+	    else if ((ld_scan.out_nitems != ld_scan.in.num_pair AND 
+		      ld_scan.out_nitems != (ld_scan.in.num_pair - 1)) OR
+	             ld_scan.out[0].parmtype != LD_STRING OR
+		     ld_scan.out[1].parmtype != LD_DOUBLE OR
+		     ld_scan.out[4].parmtype != LD_DOUBLE OR
+		     ld_scan.out[5].parmtype != LD_STRING)
+	      {
+		printf("Invalid line format - following line will be skipped\n ");
+		printf("%s",ld_scan.line);
+		continue;
+              }
+	    else
+	      {
+	        strcpy(inputName,ld_scan.out[0].parmval.cval);
+		f_shot_point = ld_scan.out[1].parmval.dbval;
+	        f_two_way_time = (FLOAT) ld_scan.out[4].parmval.dbval;
+		flag = (strcmp(ld_scan.out[5].parmval.cval,"F") == 0) ? 'F' : ' '; 	
+#endif
+	        pos = inputName + strlen(inputName);
+	        while ((int)pos > (int)inputName && *pos != '-')
+		  {
+		    pos--;
+		  }
+	        if ((int)pos > (int)inputName)
+		  {
+		    strncpy(inputSurvey, inputName, (pos - inputName));
+		    inputSurvey[(int)(pos - inputName)] = 0;
+		  }
+	        else
+		  {
+	            pos = inputName;
+	            while (isalpha(*pos))
+		      {
+		        pos++;
+		      }
+	            strncpy(inputSurvey, inputName, (pos - inputName));
+	            inputSurvey[(int)(pos - inputName)] = 0;
+		  }
+		/*
+		  Above, parse out the input line into line
+		  name (and survey), shot number, x, and y.
+		  */	
+
+		V_FROMC(landmarkName, inputName);
+	        V_FROMC(lineName, inputName);
+	        V_FROMC(survey, inputSurvey);
+		EXEC SQL OPEN XREF_CURS USING :landmarkName;
+		if (OR_STATUS != 0) ld_show_error(OR_STATUS, 
+						"open xref_curs");
+		EXEC SQL FETCH XREF_CURS INTO :lineName, :survey;
+		if (OR_STATUS < 0) ld_show_error(OR_STATUS,
+						"fetch xref_curs");
+		EXEC SQL CLOSE XREF_CURS;
+		if (OR_STATUS != 0) ld_show_error(OR_STATUS,
+						"close xref_curs");
+
+	        V_V_TO_C(inputName, lineName);
+	        V_V_TO_C(inputSurvey, survey);
+
+		strncpy(this_line.line_name, inputName, 20);
+		this_line.line_name[20] = 0;
+		ts_sto_upper(ts_snowhite(this_line.line_name));
+		
+		strncpy(this_line.survey, inputSurvey, 24);
+		this_line.survey[24] = 0;
+		ts_sto_upper(ts_snowhite(this_line.survey));
+		
+#ifdef USE_OLDPARSING
+		strncpy(horizon, horizonName, 10);
+		horizon[10] = 0;
+		ts_sto_upper(ts_snowhite(horizon));
+	        strcpy(horizon, horizonName);
+#endif
+
+		
+		/*  determine if this is the same line and surface */
+		
+		if (strcmp(this_line.line_name, previous.line_name))            
+		  /*  make sure this isn't the first time (nothing to do ) */
+		  {
+		    if (!first)
+		      {
+			if (NOT line_found)
+			  {
+			    /*  gets here if previous line was not found in                 */
+			    /*  line header                                                 */
+			    status = FAIL;
+			    printf(" Continuing...\n");
+			  }
+			else
+			  {
+			    previous.id = this_line.id;
+#ifdef USE_OLDPARSING
+			    status = ldz_put_horizon(&previous, horizon, source, hor_nlist, project);
+#else
+			    status = ldz_put_horizon(&previous, horizonName, source, hor_nlist, project);
+#endif
+			  }
+			if (status == SUCCESS)
+			  {
+			    total_lines_loaded++;
+			  }
+		      }
+		    /*     reset some things for the next surface */
+		    /*  trigger SE routines that new line has been requested */
+		    previous = this_line;
+		    this_line.id = 0;
+		    status = nl_clear_nlist(hor_nlist);
+		    status = nl_start_table(hor_nlist, &table_num);
+		    nrows = 0;
+		    first = FALSE;
+		    line_found = TRUE;
+		  }
+		/*  this is just another shot_point in the seismic of life */
+		/*  line_found is FALSE if this line not found in 
+		    SEIS_LINE_HDR table */
+		if (line_found)
+		  {
+#ifdef USE_OLDPARSING
+		    /*     extract shot_point, horizon, point_code
+			   and two_way_time from buffer         */
+		    inputShot[10] = 0;
+	            f_shot_point = atof(inputShot);
+#endif
+		    
+		    /*  convert the shot point to CDP */
+		    
+		    if ((status = se_cdp_from_sp(&this_line, f_shot_point,
+						 &cdp))IS_NOT_EQUAL_TO SUCCESS)
+		      {
+			/*  This means that this line has not been seen
+			    before, or other weird things are happening */
+			printf("ERROR while looking for Survey %-20s Line %-20s : ", 
+                                this_line.survey, this_line.line_name);
+			line_found = FALSE;
+		      }
+		    else
+		      {
+#ifdef USE_OLDPARSING
+			flag = (strcmp(inputFlag,"F") == 0) ? 'F' : ' '; 
+
+	                f_two_way_time = atof(inputZ);
+#endif
+			
+			/*  severe restriction (1). we are ignoring the
+			    quality code flag which identifies if it is
+			    a fault, pinchout, etc.  The Interpret
+			    system has a goofy way of dealing with this
+			    by adding some offset to the time pick
+			    which can be dealt with by the routine
+			    SO_ZVALUE and SE_ANALYZE_PICK.  I would not
+			    suggest trying this unless you are also
+			    willing to update the SEIS_FAULT_POSTS
+			    table (see SO_DISP_FAULT_POSTS.PC). cp */
+			
+			if (f_two_way_time != NULL_VALUE)    /* (NOT NULL) */
+	                  {
+   		            status = nl_add_rows(hor_nlist, 1, ndim, dim_list, Value_List);
+		            nrows++;
+	                    if (flag == 'F' && nrows > 0)
+	                      {
+				status = nl_start_table(hor_nlist, &table_num);
+				nrows = 0;
+                              }
+	                  }
+			else
+			  {
+			    /*  This test eliminates empty tables caused
+				by multiple null values */
+			    if (nrows > 0)
+			      {
+				status = nl_start_table(hor_nlist, &table_num);
+				nrows = 0;
+			      }
+			  }
+		      }
+		  } /* line_found */
+	      } /* moreFlag */
+	  } /* while */
+
+	/* we're through (EOF), so cleanup */
+	/* we call se_put one last time to write the previous line and write 
+	   the nlist. We free the nlist in memory and close the data file
+	   or just let the system do it. */
+    
+	previous.id = this_line.id;
+#ifdef USE_OLDPARSING
+	status = ldz_put_horizon(&previous, horizon, source, hor_nlist, project);
+#else
+	status = ldz_put_horizon(&previous, horizonName, source, hor_nlist, project);
+#endif
+	
+	if (status EQUALS SUCCESS)
+	  {
+	    total_lines_loaded++;
+	  }
+	
+	printf("\n\nLOADER COMPLETED: %d Lines successfully loaded\n\n",total_lines_loaded);
+	
+	status = nl_free_nlist(hor_nlist);
+	
+	if (spfile != (FILE *)NULL) fclose(spfile);
+
+      } /* else */ 
+    
+    return;
+  }
+
+/************************************************************************************/
+
+static INT ldz_put_horizon(line, horizon, source, nlist, project)
+FULL_LINE_NAME *line;
+CHAR *horizon;
+CHAR *source;
+NLIST_HEADER nlist;
+PROJECT_NAME project;	
+    {
+    UINT ndim;
+    INT ntables;
+    UINT Dim_List[2];
+    INT Sort_Flags[2];
+    VOIDPTR Value_List[2];
+    NLIST_HEADER sorted_list;
+    CDP min_cdp, max_cdp;
+    FLOAT min_time, max_time;           /* 4 byte floats */
+    CDP_FLOAT min_cdp_f, max_cdp_f;
+    INT nrows;
+    INT status;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+	VARCHAR stmt[256];
+	VARCHAR surfaceCode[31];
+	VARCHAR sourceName[13];
+	int     version;
+    EXEC SQL END DECLARE SECTION;
+/*
+				Oracle variable declarations.
+*/
+    nl_inq_nlist_int(nlist, NL_NLIST_NROWS, &nrows);
+    
+    if (nrows EQUALS 0)
+        {
+        status = NL_EMPTY_NLIST;
+        }
+    else
+        {
+        ndim = 1;
+        Dim_List[0] = 1;
+        Sort_Flags[0] = NL_ASCENDING;
+        sorted_list = (NLIST_HEADER)0;
+        status = nl_sort_nlist(nlist, ndim, Dim_List, Sort_Flags, &sorted_list);
+
+        if (status EQUALS SUCCESS)
+            {
+            ndim = 2;
+            Dim_List[0] = 1, Dim_List[1] = 2;
+            Value_List[0] = (VOIDPTR) & min_cdp;
+            Value_List[1] = (VOIDPTR) & min_time;
+            nl_inq_nlist_info(sorted_list, NL_NLIST_MIN, ndim, Dim_List, Value_List);
+            Value_List[0] = (VOIDPTR) & max_cdp;
+            Value_List[1] = (VOIDPTR) & max_time;
+            nl_inq_nlist_info(sorted_list, NL_NLIST_MAX, ndim, Dim_List, Value_List);
+            min_cdp_f = min_cdp;
+            max_cdp_f = max_cdp; 
+
+	    stmt.len = sprintf((char *)stmt.arr,
+"SELECT VERSION FROM %s.SEIS_SURFACE \
+WHERE SURFACE_CODE = :surfaceCode AND SURFACE_TYPE = 1 \
+AND DATA_TYPE = 1 AND LINE_ID = %d AND SOURCE = :sourceName", 
+project,line->id);
+
+	    EXEC SQL PREPARE S1 FROM :stmt;
+	    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare S1");
+	    EXEC SQL DECLARE C1 CURSOR FOR S1;
+
+    	    version = 0;
+ 	    V_FROMC(surfaceCode, horizon);
+	    V_FROMC(sourceName, source);
+	    EXEC SQL OPEN C1 USING :surfaceCode, :sourceName;
+	    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "open C1");
+	    EXEC SQL FETCH C1 INTO :version;
+	    if (OR_STATUS < 0) ld_show_error(OR_STATUS, "fetch C1");
+	    EXEC SQL CLOSE C1;
+	    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "close C1");
+	
+	    if (version == 0)
+              {
+	        status = se_put(sorted_list, horizon, SE_HORIZ, SE_TIME, line,
+	                        source, SE_AT_NM, SE_FINDER, version);
+              }
+	    else 
+              {
+	        status = se_rep(sorted_list, horizon, SE_HORIZ, SE_TIME, line,
+	                        source, SE_AT_NM, SE_FINDER, version);
+	      }
+            
+            if (status EQUALS SUCCESS)
+                {
+                nl_inq_nlist_int(sorted_list, NL_NLIST_NTABLES, &ntables);
+#ifdef USE_OLDPARSING
+                printf(
+                "Loaded horizon %-10s for line %-10s: %4d data points in %2d table%s.\n",
+                       horizon, line->line_name, nrows, ntables,
+                       ntables EQUALS 1 ? "" : "s");
+#else
+                printf(
+                "Loaded horizon %s for line %-10s: %4d data points in %2d table%s.\n",
+                       horizon, line->line_name, nrows, ntables,
+                       ntables EQUALS 1 ? "" : "s");
+#endif                
+                /* Make sure this horizon is entered into the SEIS_HOR_CODES table.
+                If the current account has insert access to the table, and the horizon
+                does not exist, then the statement will succeed.  Otherwise, it will
+                bite the big one, but who cares...
+                */
+                stmt.len = sprintf((char *)stmt.arr,
+"INSERT INTO %s.SEIS_HOR_CODES(HOR_CODE, DISPLAY_NAME, DESCRIPTION) \
+VALUES ('%s','%s', 'Created by importing form Landmark')"
+                                   , project, horizon, horizon);
+                EXEC SQL EXECUTE IMMEDIATE : stmt;
+                EXEC SQL COMMIT WORK;
+                }
+            nl_free_nlist(sorted_list);
+            }
+        }
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+#ifdef USE_OLDPARSING
+        printf("Problem loading Line %-10s Horizon %-10s:\n%s\n", line->line_name,
+               horizon, mg_message(status));
+#else
+        printf("Problem loading Line %-10s Horizon %s:\n%s\n", line->line_name,
+               horizon, mg_message(status));
+#endif
+        }
+    return status;
+    }
+
+
+
+
+

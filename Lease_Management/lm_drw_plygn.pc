@@ -1,0 +1,532 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LM_DRW_PLYGN.PC */
+/* *6    11-SEP-1991 13:40:43 PURNA "(SPR 0) add comments" */
+/* *5    12-JUN-1991 14:57:39 PURNA "(SPR 0) upgrade user interface" */
+/* *4     7-MAY-1991 17:49:08 PURNA "(SPR 1622) init change" */
+/* *3     4-APR-1991 14:18:23 PURNA "(SPR 0) init checkin" */
+/* *2    18-MAR-1991 18:08:33 PURNA "(SPR 0) Lease Mapping Init Checkin" */
+/* *1    18-MAR-1991 17:53:03 PURNA "Lease Ma" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LM_DRW_PLYGN.PC */
+/* INCLUDE FILES */
+#include "esi_lm.h"
+
+#ifndef ESI_GL_DEFS_H
+#include "esi_gl_defs.h"
+#endif
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_GL_VCHAR_H
+#include "esi_gl_vchar.h"
+#endif
+#ifndef ESI_WM_H
+#include "esi_wm.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_NL_METH_HDR_H
+#include "esi_nl_meth_hdr.h"
+#endif
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+#ifndef ESI_MP_H
+#include "esi_mp.h"
+#endif
+
+
+#define SYSTEM_DATE -1
+#define NUM_IS_BETWEEN(n1,n,n2) ((n1<=n && n<=n2) || (n2<=n && n<=n1))
+#define TEXT_IS_BETWEEN(tx1,tx,tx2) (strcmp(tx,tx1)<=0 && strcmp(tx,tx2)>=0) || (strcmp(tx,tx1)>=0 && strcmp(tx,tx2)<=0)
+ 
+/* EXEC ORACLE OPTION (REBIND=NO); */
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+static NLIST_HEADER cl_fill_code;
+static INT new_nlist;
+
+#if USE_PROTOTYPES
+static INT lmz_retrieve_color_fill(LM_STRUCT *plm,CHAR *column,
+					INT *type,CHAR *value);
+static INT lmz_to_date(CHAR *date,INT date_type,DOUBLE *j_time);
+#else
+static INT lmz_retrieve_color_fill();
+static INT lmz_to_date();
+#endif
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    Function to draw polygon(s) that shapes a lease object
+
+Prototype:
+    publicdef INT lm_draw_polygons(NLIST_HEADER select_list,LM_STRUCT *plm);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    select_list -(NLIST_HEADER) select list of leases
+    plm         -(LM_STRUCT *) Lease overlay structure.
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lm_draw_polygons (NLIST_HEADER select_list,LM_STRUCT *plm)
+#else
+publicdef INT lm_draw_polygons(select_list,plm)
+NLIST_HEADER select_list;
+LM_STRUCT *plm;
+#endif
+{
+    INT status;
+    INT i,j;
+    NLIST_HEADER nlist,before_clip;
+    UINT ret_pts;
+    static UINT ndim = 1;
+    static UINT dim_list[1] = { 1 };
+    static VOIDPTR value_list[1];
+    COLUMN_NAME column;
+    INT type;
+    CHAR value[32];
+    INT fill_index;
+    INT npolygons;
+    LM_LEASE_ID polygon_id; 
+    LM_POLYGON_TYPE polygon_type; 
+    INT n_leases,l_count,n_rows;
+    PROJECTION_ID map_projection;
+    PROJECTION_STRUCTURE *map_data;
+    INT segment;
+    NLM_CLIP_HEADER clip;
+    MAP_STRUCTURE *mapdef;
+    static UINT ncol=2;
+    static UINT Col_List[2]={1,2};
+    static VOIDPTR Var_List[2];
+    DOUBLE min_point[2], max_point[2];
+    BOOL clipped;
+    static INT  dim_type[3]     = { CHAR_TYPE, CHAR_TYPE, CHAR_TYPE };
+    static size_t  dim_size[3]  = { sizeof(CHAR)*30, sizeof(CHAR)*30,
+                                        sizeof(CHAR)*30 };
+    static INT  units[3]        = { 0, 0, 0 };
+    static INT  value_inc[3]    = { VALUE_LIST, VALUE_LIST, VALUE_LIST };
+
+	/** GET THE MAP **/ 
+    status = mp_get_current_map(&mapdef);
+
+    if (status != SUCCESS)
+        {
+        return status;
+        }
+
+	/* get projection structure */
+    qs_inq_c(QS_MAP_PROJECTION,map_projection,(INT *)0);
+    status = ct_get_projection(map_projection,&map_data);
+    if(status != SUCCESS)
+	return status;
+
+	/* initialize nlist for color/fill coding */
+    new_nlist = TRUE;
+    status =  nl_init_nlist (&cl_fill_code, 3, units, dim_size, dim_type,
+                            value_inc, 500);
+    if(status != SUCCESS)
+	return status;
+
+    status = nl_inq_nlist_int(select_list,NL_NLIST_NROWS,&n_leases);
+    if(status != SUCCESS)
+	return status;
+
+	/* open segment */
+    wmsallocate(&segment);
+	
+	/* set up to get lease id from select list */
+    value_list[0] = (VOIDPTR) polygon_id;
+	/* loop thru each lease id */
+	
+    for (l_count = 0; l_count < n_leases; l_count++)
+        {
+        status = nl_set_current_row(select_list,l_count+1,1);
+	status = nl_get_rows(select_list,1,ndim,dim_list,value_list,&ret_pts);
+
+	    /* get nlist of polygon */
+	status = lm_get_polygon(select_list,l_count,map_data,&nlist);
+    	if(status != SUCCESS)
+            return status;
+
+	    /* set clipping method to clip polygon */
+	status = nl_set_nlist_method (nlist, NL_CLIP_METHOD, 
+		"NLM_WINDOW_CLIP_POLY",nlm_window_clip_poly);
+	if(status != SUCCESS)
+            return status;
+
+	    /* CLIP nlist if part of it is out of the window boundary */
+	clipped = FALSE;	
+	Var_List[0] = (VOIDPTR) & min_point[0];
+    	Var_List[1] = (VOIDPTR) & min_point[1];
+    	nl_inq_nlist_info(nlist, NL_NLIST_MIN, 2, Col_List, Var_List);
+    	Var_List[0] = (VOIDPTR) & max_point[0];
+    	Var_List[1] = (VOIDPTR) & max_point[1];
+    	nl_inq_nlist_info(nlist, NL_NLIST_MAX, 2, Col_List, Var_List);
+	if ((min_point[0] < mapdef->lower_left_xy.x) ||
+            (min_point[1] < mapdef->lower_left_xy.y) ||
+            (max_point[0] > mapdef->upper_right_xy.x) ||
+            (max_point[1] > mapdef->upper_right_xy.y))
+            {
+            clip.Col_List[0] = 1;
+            clip.Col_List[1] = 2;
+            clip.minList[0] = mapdef->lower_left_xy.x;
+            clip.minList[1] = mapdef->lower_left_xy.y;
+            clip.maxList[0] = mapdef->upper_right_xy.x;
+            clip.maxList[1] = mapdef->upper_right_xy.y;
+            status = nl_invoke_nlist_method(nlist, NL_CLIP_METHOD, &clip);
+	    if (status EQUALS SUCCESS)
+            	{
+		clipped = TRUE;
+		before_clip=nlist;
+            	nlist = clip.outNlist;
+            	}
+	    else
+		{
+		nl_free_nlist(nlist);
+                continue;
+                }
+            }
+
+	    /* check for number of points in polygon, whether is fillable and
+		necessary to draw its annotation */
+	status = nl_inq_nlist_int(nlist,NL_NLIST_NROWS,&n_rows);
+	if(status != SUCCESS)
+	    return status;
+
+            /* fill polygon(s) if there exists attributes for it */
+    	if(plm->color_fill_attribute != (CHAR *)0 AND n_rows > 3)
+	    {
+                /* set graphic context for fill area of polygon */
+	    lm_retrieve_column_entry(plm->color_fill_attribute,polygon_id,
+					column);
+	    status = lmz_retrieve_color_fill(plm,column,&type,value);
+	    	    
+		/* set graphic context for fill polygon */
+	    if(type EQUALS LM_COLOR)
+	    	{
+	 	lu_text_to_index("FILL_STYLE",&fill_index,"SOLID");
+	    	wm_gsfais(fill_index) ;  /* set fill area interior style */
+	    	if(status != SUCCESS)
+		    lu_text_to_index("COLOR",&fill_index,"YELLOW");
+	    	else
+		    lu_text_to_index("COLOR",&fill_index,value);
+	    	wm_gsfaci(fill_index) ;  /* set fill area color index */
+	    	}
+	    else
+	    	{
+	    	if(status != SUCCESS)
+		    lu_text_to_index("FILL_STYLE",&fill_index,"SOLID");
+	    	else
+		    lu_text_to_index("FILL_STYLE",&fill_index,value);
+	     	wm_gsfais(fill_index);
+	    	lu_text_to_index("COLOR",&fill_index,"YELLOW");
+	    	wm_gsfaci(fill_index) ;
+	    	}   
+       	    status = nl_fill_polygon_nlist(nlist,1,2);
+	    if (status != SUCCESS)
+	    	return status;
+	    }
+
+            /* draw polygons outlines */
+	if(! plm->suppress_lines)
+            {
+	    wm_gsln(plm->line.style);
+            wm_gslwsc(plm->line.width);
+    	    wm_gsplci(plm->line.color);
+    
+    	    status = nl_draw_nlist(nlist, 1, 2);
+            if(status != SUCCESS)
+                return status;
+            }
+
+	    /* draw the annotation for this lease id */
+	if(plm->annotate != (CHAR *)0 AND !plm->suppress_text AND n_rows > 3) 
+	    { 
+	    if(clipped)
+		{
+		status = lm_draw_annotation(polygon_id,before_clip,plm,clipped); 
+		}
+	    else
+		{
+		status = lm_draw_annotation(polygon_id,nlist,plm,clipped); 
+		}
+	    if(status != SUCCESS) return status; 
+	    } 
+
+	    /* free nlist if necessary */
+	if(clipped)
+	    nl_free_nlist(before_clip);
+	nl_free_nlist(nlist);
+        }
+
+	/* close window segment */
+	wmsclose(segment);
+
+    nl_free_nlist(cl_fill_code);
+    return SUCCESS;
+}
+
+/* Function Description -----------------------------------------------------
+Description:
+    Function to retrieve color/fill value from nlist
+
+Prototype:
+    static INT lmz_retrieve_color_fill(LM_STRUCT *plm,CHAR *column,
+					INT *type,CHAR *value)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    plm	    -(LM_STRUCT *)
+    column  -(CHAR *)
+    type    -(INT *)
+    value   -(CHAR *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT lmz_retrieve_color_fill(LM_STRUCT *plm,CHAR *column,
+					INT *type,CHAR *value)
+#else
+static INT lmz_retrieve_color_fill(plm,column,type,value)
+LM_STRUCT *plm;
+CHAR *column;
+INT *type;
+CHAR *value;
+#endif
+{
+    INT status;
+    CHAR *t;
+    CHAR temp_type[8];
+    DOUBLE num1,num2,find_num;
+    TCP ptcp;
+    PROJECT_NAME project_name;
+    CHAR control_name[64];
+    static CHAR defs_name[32];
+    static INT defs_type;
+    UINT tab_num;
+    INT i;
+    static UINT ncol=3;
+    static UINT Col_List[3]={1,2,3};
+    static VOIDPTR Var_List[3];
+    static nrows;	
+
+    /* ORACLE precompiler declarations */
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[1024];
+    static int range_flag,date_format,control_type;
+    static VARCHAR starting_value[32];
+    static VARCHAR ending_value[32];
+    static VARCHAR code[32];
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO oraerror;
+    EXEC SQL WHENEVER NOTFOUND CONTINUE;
+
+    Var_List[0] = (VOIDPTR)(char *)code.arr;
+    Var_List[1] = (VOIDPTR)(char *)starting_value.arr;
+    Var_List[2] = (VOIDPTR)(char *)ending_value.arr;
+
+    if(new_nlist)
+	{
+	    /* separate the type and the name */
+    	ptcp = ts_token(plm->color_fill_clut,":");
+    	strcpy(defs_name,ptcp[0]);
+    	strcpy(temp_type,ptcp[1]);
+
+    	if(ARE_SAME(temp_type,"DATE"))
+	    defs_type=LM_DATE;
+    	else if (ARE_SAME(temp_type,"TEXT"))
+	    defs_type=LM_TEXT;
+    	else if(ARE_SAME(temp_type,"NUM"))
+	    defs_type=LM_NUMERIC;		
+    	else 
+	    return FAIL;
+
+	    /* build sql stmt to retrieve all the information needed for
+	       the dialog boxes */
+	     
+    	qs_inq_c(QS_PROJECT_NAME,project_name,(INT *)0);
+
+    	stmt.len = sprintf((CHAR *)stmt.arr,
+        "SELECT RANGE_FLAG,DATE_FORMAT,CONTROL_TYPE \
+FROM %s.LEASE_COLOR_FILL_DEF \
+WHERE DEFINITION_TYPE = %d AND DEFINITION_NAME = '%s'",
+        project_name,defs_type,defs_name);
+    	EXEC SQL PREPARE S_LOAD FROM :stmt;
+    	EXEC SQL DECLARE C_LOAD CURSOR FOR S_LOAD;
+    	EXEC SQL OPEN C_LOAD;
+    	EXEC SQL FETCH C_LOAD INTO :range_flag, :date_format, :control_type;
+    	EXEC SQL CLOSE C_LOAD;
+
+    	stmt.len = sprintf((CHAR *)stmt.arr,
+        "SELECT STARTING_VALUE,ENDING_VALUE,COLOR_FILL_CODE \
+FROM %s.LEASE_COLOR_FILL_DEF_ENTRIES \
+WHERE DEFINITION_NAME = '%s' AND DEFINITION_TYPE = %d",
+        project_name,defs_name,defs_type);
+    	EXEC SQL PREPARE S_LOAD1 FROM :stmt;
+    	EXEC SQL DECLARE C_LOAD1 CURSOR FOR S_LOAD1;
+	EXEC SQL OPEN C_LOAD1;
+
+	    /* loop thru each of the entry */
+
+	nl_start_table(cl_fill_code,&tab_num);
+	nrows = 0;
+    	FOREVER
+            {
+            EXEC SQL FETCH C_LOAD1 INTO :starting_value, :ending_value, :code;
+            if(OR_STATUS EQUALS OR_EOF)
+            	break;
+            V_SETZERO(starting_value);
+            V_SETZERO(ending_value);
+            V_SETZERO(code);
+	    status = nl_add_rows(cl_fill_code,1,ncol,Col_List,Var_List);
+	    if(status != SUCCESS)
+		return status;
+	    nrows ++;
+	    }
+    	EXEC SQL CLOSE C_LOAD1;
+
+	new_nlist = FALSE;
+	}
+
+    *type = control_type;
+
+    for(i = 0;i<nrows;i++)
+	{
+	if(i EQUALS 0)
+            nl_first_row(cl_fill_code, ncol, Col_List, Var_List);
+	else
+            nl_next_row(cl_fill_code, ncol, Col_List, Var_List);
+
+	switch(defs_type)
+	    {
+	    case LM_DATE:
+		lmz_to_date((char *)starting_value.arr,date_format,&num1);
+		lmz_to_date(column,SYSTEM_DATE,&find_num);
+		if(range_flag)
+		    {
+		    lmz_to_date((char *)ending_value.arr,date_format,&num2);
+		    if(NUM_IS_BETWEEN(num1,find_num,num2))
+			goto found;
+		    }
+		else 
+		    {
+		    if(num1 EQUALS find_num)
+			goto found;
+		    }
+		break;
+	    case LM_TEXT:
+		if(range_flag && 
+		    TEXT_IS_BETWEEN((char *)starting_value.arr,column,(char *)ending_value.arr))
+			goto found;
+		else
+		    if(ARE_SAME(column,(char *)starting_value.arr))
+			goto found;
+		break;
+	    case LM_NUMERIC:
+		num1=atof((char *)starting_value.arr);
+		find_num=atof(column);
+		if(range_flag)
+		    {
+		    num2=atof((char *)ending_value.arr);
+		    if(NUM_IS_BETWEEN(num1,find_num,num2))
+			goto found;
+		    }
+		else 
+		    {
+		    if(num1 EQUALS find_num)
+			goto found;
+		    }
+		break;
+	    }
+        }
+
+
+    return FAIL;
+
+oraerror:
+    return OR_STATUS;
+found:
+    strcpy(value,(char *)code.arr);
+    return SUCCESS;
+}
+
+#if USE_PROTOTYPES
+static INT lmz_to_date(CHAR *date,INT date_type,DOUBLE *j_time)
+#else
+static INT lmz_to_date(date,date_type,j_time)
+CHAR *date;
+INT date_type;
+DOUBLE *j_time;
+#endif
+{
+    CHAR date_format[32];
+
+    EXEC SQL BEGIN DECLARE SECTION;
+	VARCHAR sqlstmt[1024];
+	double time;
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO :orcerr;
+    switch(date_type)
+	{
+	case LM_MDY:
+	    strcpy(date_format,"MM/DD/YYYY");
+	    break;
+	case LM_DMY:
+	    strcpy(date_format,"DD/MM/YYYY");
+	    break;
+	case LM_MY:    
+	    strcpy(date_format,"MM/YYYY");
+	    break;
+        case LM_Y:
+            strcpy(date_format,"YYYY");
+            break;
+	case SYSTEM_DATE :
+	    strcpy(date_format,"DD-MON-YYYY");
+	    break;
+	}
+	
+    sqlstmt.len = sprintf((CHAR *)sqlstmt.arr,
+    "SELECT TO_NUMBER(TO_CHAR(TO_DATE('%s','%s'),'J')) FROM DUAL",
+	date,date_format);
+
+    EXEC SQL PREPARE S1 FROM :sqlstmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1;
+    EXEC SQL FETCH C1 INTO :time;
+    EXEC SQL CLOSE C1;
+
+    *j_time=time;
+    return SUCCESS;
+orcerr:
+    return OR_STATUS;
+}
+

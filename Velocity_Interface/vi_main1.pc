@@ -1,0 +1,562 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element VI_MAIN1.PC */
+/* *3    16-AUG-1991 17:17:00 JESSIE "(SPR 0) for BHP's modification" */
+/* *2    14-JUN-1991 17:53:12 DOUG "(SPR 0) Initial checkin in correct library." */
+/* *1    14-JUN-1991 17:52:24 DOUG "Convert stacking velocity functions to average velocity fns." */
+/* DEC/CMS REPLACEMENT HISTORY, Element VI_MAIN1.PC */
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1991
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+/* Function Description -------------------------------------------------------
+Description:
+    Compute stacking or average velocity for input velocity functions.
+    VERSION 2.0
+
+Prototype:
+    vi_main1 -oid aaa -proj bbb -line ccc -source ddd  -vin eee -vout fff
+
+Parameters:
+    -oid aaa                    Oracle ID/Password, e.g. EUREKA/EUREKA
+    -proj bbb                   Project name
+    -line ccc                   Seismic line select list name
+    -src ddd                    Owner name of input velocity data
+    -vin eee                    Type of input velocity data, legal
+                                values are 'STK' or 'INT'
+    -vout fff                   Type of output velocity data, legal
+                                values are
+                                -vin STK -vout AVG
+                                -vin INT -vout STK
+                                -vin INT -vout AVG
+ 
+Limitations/Assumptions:
+ 
+-----------------------------------------------------------------------------*/
+
+#include "esi_c_lib.h"            /* for strings */
+#ifndef ESI_FM_H
+#include "esi_fm.h"
+#endif
+
+#include "esi_se.h"            /* for se typedefs and prototypes */
+
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+
+#ifndef ESI_VI_H
+#include "esi_vi.h"           
+#endif
+
+#ifndef ESI_NL_ERR_H
+#include "esi_nl_err.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"            /* for project projection */
+#endif
+
+#ifndef ESI_FI_H
+#include "esi_fi.h"
+#endif
+
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+
+#ifndef ESI_OR_H
+#include "esi_or.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_SE_H
+#include "esi_se.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_SL_METH_AH
+#include "esi_sl_meth.ah"           
+#endif
+
+publicdef INT main (argc, argv)
+INT argc;
+CHAR *argv[];
+    {
+    PROJECT_NAME project;
+    CHAR source[60];
+    INT status;
+    INT i, j;
+    INT num;
+    BOOL go;
+    CHAR velin[4];
+    CHAR velout[4];
+    NLIST_ID lines;
+    
+    /* Process command line arguments */
+    /* ------------------------------ */
+    go = TRUE;
+    
+    /* Get ORACLE id/password */
+    /* ---------------------- */
+    i = vi_args (argc, argv, "-oid", &num);
+    if (i < 0 || num EQUALS 0)
+        {
+        fprintf (stderr, "No Oracle ID.\n");
+        go = FALSE;
+        }
+    else
+        {
+        if ((status = or_login (argc, argv)) IS_NOT_EQUAL_TO SUCCESS)
+            {
+            fprintf (stderr,
+                "Unable to connect to Oracle using %s: Terminating.\n",
+                 argv[i + 1]);
+            exit (EXIT_FAILURE);
+            }
+        }
+
+    /* Get owner of velocity data to be used */
+    /* ------------------------------------- */
+    i = vi_args (argc, argv, "-src", &num);
+    if (i < 0 || num EQUALS 0)
+        {
+        fprintf (stderr, "No source.\n");
+        go = FALSE;
+        }
+    else
+        {
+        strcpy (source, ts_sto_upper (argv[i + 1]));
+        }
+    
+    /* Get project name */
+    /* ---------------- */
+    i = vi_args (argc, argv, "-proj", &num);
+    if (i < 0 || num EQUALS 0)
+        {
+        fprintf (stderr, "No project.\n");
+        go = FALSE;
+        }
+    else
+        {
+        qs_set_c (QS_PROJECT_NAME, ts_sto_upper (argv[i + 1]), 0);
+        strcpy (project, argv[i + 1]);
+        if ((status = finder_config_project (FALSE)) IS_NOT_EQUAL_TO SUCCESS)
+            {
+            fprintf (stderr, "Unable to connect to project %s: Terminating.\n",
+                     argv[i + 1]);
+            or_logout (FALSE);
+            goto NO_PROCESS;
+            }
+        }
+    
+    /* Get input velocity data type */
+    /* ---------------------------- */
+    i = vi_args (argc, argv, "-vin", &num);
+    if (i > 0)
+        {
+        ts_sto_upper (argv[i + 1]);
+        if (strcmp (argv[i + 1], "STK") != 0 
+            AND strcmp (argv[i + 1], "INT") != 0)
+            {
+            go = FALSE;
+            fprintf (stderr, "-vin must have 'STK' or 'INT' as argument\n");
+            }
+        else
+            {
+            strcpy (velin, argv[i + 1]);
+            }
+        }
+    else
+        {
+        strcpy (velin, "STK");      /* default */
+        }
+    
+    /* Get output velocity data type */
+    /* ----------------------------- */
+    i = vi_args (argc, argv, "-vout", &num);
+    if (i > 0)
+        {
+        ts_sto_upper (argv[i + 1]);
+        if (strcmp (argv[i + 1], "STK") != 0 
+            AND strcmp (argv[i + 1], "AVG") != 0)
+            {
+            go = FALSE;
+            fprintf (stderr, "-vout must have 'STK' or 'AVG' as argument\n");
+            }
+        else
+            {
+            strcpy (velout, argv[i + 1]);
+            }
+        }
+    else
+        {
+        strcpy (velout, "AVG");     /* default */
+        }
+            
+    /* Get seismic line select list name */
+    /* --------------------------------- */
+    i = vi_args (argc, argv, "-line", &num);
+    if (i > 0 AND num > 0)
+        {
+        strcpy (lines, argv[i + 1]);
+        }
+    else
+        {
+        fprintf (stderr, "No seismic select list.\n");
+        go = FALSE;
+        }
+
+    /* If main parameters were present, then can proceed. */
+    /* -------------------------------------------------- */
+    if (go EQUALS FALSE)
+        {
+        or_logout (TRUE);
+        goto NO_PROCESS;
+        }
+
+    /* We're ready to process */
+    /* ---------------------- */
+    status = viz_main1 (project, source, velin, velout, lines);
+    
+    or_logout (TRUE);
+    
+    exit (EXIT_SUCCESS);
+    
+NO_PROCESS:
+    fprintf (stderr,
+             "Usage: vi_main1 -oid <oracle_login>\n");
+    fprintf (stderr,
+             "                -proj <project>\n");
+    fprintf (stderr,
+             "                -line <select list name>\n");
+    fprintf (stderr,
+             "                -src <owner of input data>\n");
+    fprintf (stderr,
+             "                -vin <velocity type>\n");
+    fprintf (stderr,
+             "                -vout <velocity type>\n");
+    exit (EXIT_FAILURE);
+    
+    }
+    
+/* ========================================================================*/
+
+/* Function Description -------------------------------------------------------
+Description:
+    Function to convert velocity functions to required velocity type.
+
+Prototype:
+    publicdef INT viz_main1(PROJECT_NAME project, CHAR *src,
+                            CHAR *velin, CHAR *velout, 
+                            NLIST_ID line_list)
+    
+Parameters:
+    (I) project     -(PROJECT_NAME) Name of project containing data.
+    (I) src         -(CHAR *)   Source name for velocity data.
+    (I) velin       -(CHAR *)   Type of input velocity function
+                                to process - 'STK' or 'INT'.
+    (I) velout      -(CHAR *)   Type of input velocity function
+                                to produce - 'STK' or 'AVG'.
+    (I) line_list   -(NLIST_ID) Seismic select list name.
+
+Return Value/Status:
+    SUCCESS.
+    FAIL.
+
+Scope:
+    PUBLIC
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+#define TVSIZ 30  /* max no. elements for velocity function */
+
+#ifdef PROTOTYPES
+privatedef INT viz_main1 (PROJECT_NAME project, CHAR *src,
+                          CHAR *velin, CHAR *velout,
+                          NLIST_ID line_list)
+#else
+privatedef INT viz_main1 (project, src, velin, velout, line_list)
+PROJECT_NAME project;
+CHAR        *src;
+CHAR        *velin;
+CHAR        *velout;
+NLIST_ID     line_list;
+#endif
+    {
+    NLIST_HEADER line_nlist;/* nlist for line select list           */
+    INT status;             /* status flag for function calls       */
+    DOUBLE time[TVSIZ];     /* time array pointer                   */
+    DOUBLE vrms[TVSIZ];     /* stk (int) vel array pointer          */
+    DOUBLE vavg[TVSIZ];     /* avg vel array pointer                */
+    INT ntv;                /* tv pair count                        */
+    INT i;                  /* loop index                           */
+    INT isp;                /* loop index                           */
+    INT j;                  /* loop index                           */
+    INT itime;              /* int version of time                  */
+    INT ivel;               /* int version of velocity              */
+    INT numlines;           /* line counter                         */
+    INT *lines;             /* pointer for lines data               */
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+        long lcount;
+        long spcount;
+        long tvcount;
+        long lineid;
+        long shotpt;
+        long velid;
+        long newid;
+        VARCHAR source[13];
+        VARCHAR vel_type[4];
+        VARCHAR vel_unit[12];
+        VARCHAR z_unit[12];
+        VARCHAR ludate[16];
+        double tim;
+        double velocity;
+        VARCHAR lcntstmt[512];
+        VARCHAR tvstmt[512];
+        VARCHAR hdrstmt[512];
+        VARCHAR spstmt[512];
+        VARCHAR ohdrstmt[512];
+        VARCHAR vdstmt[512];
+        VARCHAR ovdstmt[512];
+    EXEC SQL END DECLARE SECTION;
+
+    /* Get line ids specified by select list now */
+    /* ----------------------------------------- */
+    status = vi_lines(project, line_list, &lines, &numlines);
+    if(status < SUCCESS)
+        {
+        fprintf(stderr, "Could not get lineids.\n");
+        return status;
+        }
+        
+    /* Set error handling */
+    /* ------------------ */
+    EXEC SQL WHENEVER SQLERROR GOTO :serr;
+    
+    /* Get max count of velocity functions to be processed */
+    /* --------------------------------------------------- */
+    lcntstmt.len = sprintf ((char *)lcntstmt.arr, 
+    "SELECT COUNT(*) \
+    FROM %s.SEIS_VEL_HDR \
+    WHERE VELOCITY_TYPE = '%s' \
+    AND Z_UNIT = 'MSEC' \
+    AND SOURCE = '%s'"
+            , project, velin, src);
+    
+    EXEC SQL PREPARE S10 FROM  :lcntstmt;
+    EXEC SQL DECLARE C10 CURSOR FOR S10;
+    EXEC SQL OPEN C10;
+    EXEC SQL FETCH C10 INTO :lcount;
+    EXEC SQL CLOSE C10;
+    
+    /* Minimum processing case */
+    /* ----------------------- */
+    if (lcount EQUALS 0)      
+        {
+        fprintf (stderr, "No velocity function data found.\n");
+        status = SUCCESS;
+        goto finished;
+        }
+        
+    /* Minimum processing case */
+    /* ----------------------- */
+    if (ARE_SAME (velin, velout))
+        {
+        fprintf (stderr, "Input & output velocity types identical.\n");
+        fprintf (stderr, "No processing required.\n");
+        status = SUCCESS;
+        goto finished;
+        }
+
+    /* Build the cursor for SEIS_VEL_HDR - Input */
+    /* ----------------------------------------- */
+    V_FROMC (source, src);        
+    V_SETZERO (source);
+    hdrstmt.len = sprintf ((char *)hdrstmt.arr, 
+    "SELECT SHOT_POINT, VEL_ID, \
+    VELOCITY_UNIT, LAST_UPDATE \
+    FROM %s.SEIS_VEL_HDR \
+    WHERE VELOCITY_TYPE = '%s' \
+    AND Z_UNIT = 'MSEC' \
+    AND LINE_ID = :lineid \
+    AND SOURCE = :source \
+    ORDER BY SHOT_POINT"
+                , project, velin);
+        
+    EXEC SQL PREPARE S1 FROM :hdrstmt;
+    EXEC SQL DECLARE HDR_CUR CURSOR FOR S1;
+    
+    
+    /* Now input velocity functions */
+    /* ---------------------------- */
+    EXEC SQL WHENEVER NOT FOUND GOTO serr;
+    
+    V_FROMC (z_unit, "MSEC");
+    V_FROMC (vel_type, velout);
+
+    for (i = 0; i < numlines; i++)
+        {
+        lineid = lines[i];
+    
+        /* Open hdr cursor now */
+        /* ------------------- */
+        EXEC SQL OPEN HDR_CUR USING :lineid, :source;
+
+        /* Get count of shotpoints to be processed */
+        /* --------------------------------------- */
+        spstmt.len = sprintf ((char *)spstmt.arr, 
+        "SELECT COUNT(*) \
+        FROM %s.SEIS_VEL_HDR \
+        WHERE VELOCITY_TYPE = '%s' \
+        AND Z_UNIT = 'MSEC' \
+        AND LINE_ID = %d"
+            , project, velin, lineid);
+    
+        EXEC SQL PREPARE S3 FROM  :spstmt;
+        EXEC SQL DECLARE C3 CURSOR FOR S3;
+        EXEC SQL OPEN C3;
+        EXEC SQL FETCH C3 INTO :spcount;
+        EXEC SQL CLOSE C3;
+    
+        for(isp = 0; isp < spcount; isp++)
+            {
+            EXEC SQL FETCH HDR_CUR INTO :shotpt,:velid,:vel_unit,:ludate;
+            V_SETZERO (vel_unit);
+            V_SETZERO (ludate);
+        
+            /*  Build the cursor for SEIS_VEL_DATA - Input */
+            /* ------------------------------------------- */        
+            vdstmt.len = sprintf ((char *)vdstmt.arr, 
+            "SELECT Z_VALUE,VELOCITY \
+            FROM %s.SEIS_VEL_DATA \
+            WHERE VEL_ID = %d \
+            ORDER BY Z_VALUE", project, velid);
+        
+            EXEC SQL PREPARE S2 FROM :vdstmt;
+            EXEC SQL DECLARE VD_CUR CURSOR FOR S2;
+        
+            /* Get count of T-V pairs */
+            /* ---------------------- */
+            tvstmt.len = sprintf ((char *)tvstmt.arr, 
+            "SELECT COUNT(*) \
+            FROM %s.SEIS_VEL_DATA \
+            WHERE VEL_ID = %d", project, velid);
+        
+            EXEC SQL PREPARE S11 FROM  :tvstmt;
+            EXEC SQL DECLARE C11 CURSOR FOR S11;
+            EXEC SQL OPEN C11;
+            EXEC SQL FETCH C11 INTO :tvcount;
+            EXEC SQL CLOSE C11;
+        
+            /* Now process velocity function */
+            /* ----------------------------- */
+            ntv = 0;
+            EXEC SQL OPEN VD_CUR;
+            for (j = 0; j < tvcount; j++)
+                {
+                EXEC SQL FETCH VD_CUR INTO :tim, :velocity;
+                *(time + j) = tim;
+                *(vrms + j) = velocity;
+                ntv += 1;
+                }
+
+            EXEC SQL SELECT ESI.SEIS_VEL_ID_SEQ.NEXTVAL INTO :newid FROM DUAL;
+        
+            /* Build statement for SEIS_VEL_HDR - Output */
+            /* ----------------------------------------- */
+        
+            ohdrstmt.len = sprintf ((char *)ohdrstmt.arr, 
+            "INSERT INTO %s.SEIS_VEL_HDR (VEL_ID, LINE_ID, SOURCE, \
+            SHOT_POINT, VELOCITY_TYPE, VELOCITY_UNIT, Z_UNIT, \
+            LAST_UPDATE) VALUES (%ld, \
+            %ld, '%s', %ld, '%s', '%s', '%s', '%s')"
+                , project, newid, lineid, source.arr, shotpt, vel_type.arr,
+                                vel_unit.arr, z_unit.arr, ludate.arr);
+        
+            /* compute output velocity from stacking or interval velocity */
+            /* ---------------------------------------------------------- */
+            if (ARE_SAME (velout, "AVG"))
+                {
+                if (ARE_SAME (velin, "STK"))
+                    {
+                    vi_rms_avg (ntv, time, vrms, vavg);
+                    }
+                else
+                    {
+                    vi_int_avg (ntv, time, vrms, vavg);
+                    }
+                }
+            else
+                {
+                vi_int_stk (ntv, time, vrms, vavg);
+                }
+
+            /* Output new velocity header record */
+            /* --------------------------------- */
+            EXEC SQL EXECUTE IMMEDIATE :ohdrstmt;
+            EXEC SQL COMMIT WORK;
+        
+            /* Now stuff velocity function into DB */
+            /* ----------------------------------- */
+            for (j = 0; j < ntv; j++)
+                {
+                itime = (INT)*(time + j);
+                ivel = (INT)*(vavg + j);
+            
+                /*  Build statement for SEIS_VEL_DATA - Output */
+                /* ------------------------------------------- */           
+                ovdstmt.len = sprintf ((char *)ovdstmt.arr, 
+                "INSERT INTO %s.SEIS_VEL_DATA (VEL_ID,Z_VALUE,VELOCITY) \
+                VALUES (%ld, %ld, %ld)"
+                    , project, newid, itime, ivel);
+            
+                EXEC SQL EXECUTE IMMEDIATE :ovdstmt;
+                }
+        END_TV:
+            EXEC SQL CLOSE VD_CUR;
+            } /* end shotpoint loop */
+            
+        EXEC SQL CLOSE HDR_CUR;
+        } /* end line loop */
+DONE:
+    EXEC SQL COMMIT WORK;
+    
+    /* All ok - clear status flag */
+    /* -------------------------- */
+    status = SUCCESS;
+    
+finished:
+    if (lines != (INT *) 0)
+        tc_free(lines);
+    return status;
+    
+serr:
+    status = OR_STATUS;
+    fprintf (stderr, "SQL error: %d occurred.\n%-70.70s\n", 
+             OR_STATUS, OR_MESSAGE);
+    goto finished;
+    }

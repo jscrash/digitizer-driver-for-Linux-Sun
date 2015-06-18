@@ -1,0 +1,218 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element FM_FILE_LIST.PC*/
+/* *5    14-AUG-1990 13:24:43 VINCE "(SPR 5644) Header Standardization"*/
+/* *4     7-NOV-1989 13:23:24 GILLESPIE "(SPR 30) Use esi_fm_int.h include file"*/
+/* *3    30-SEP-1989 15:13:07 CONROY "(SPR 15) FIX ORDER BY STATEMENT FOR ORDERING CHANGE IN ORACLE V6"*/
+/* *2    18-SEP-1989 12:43:03 PURNA "Gulf mods under SPR 100"*/
+/* *1    19-JUN-1989 12:32:04 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element FM_FILE_LIST.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_fm_int.h"
+#include "esi_oracle.h"
+#include "esi_qs.h"
+#include "esi_tc.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+    This file contains the necessary subroutines to implement the 
+    FM_FILE_LIST function.
+
+Prototype:
+    publicdef INT fm_file_list (FM_PATH fi_pathname, FM_TYPE file_type, FM_SORT_ATTRIBUTE sort_attr,
+        FM_SORT_TYPE sort_type,INT r_w_mode, CHAR ***tcp, INT *nnames);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    fi_pathname     -(FM_PATH)
+    file_type       -(FM_TYPE)
+    sort_attr       -(FM_SORT_ATTRIBUTE)
+    sort_type       -(FM_SORT_TYPE)
+    r_w_mode        -(INT)
+    tcp             -(CHAR ***)
+    nnames          -(INT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    OR_STATUS
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT fm_file_list (FM_PATH fi_pathname, FM_TYPE file_type,
+                            FM_SORT_ATTRIBUTE sort_attr, FM_SORT_TYPE sort_type,
+                            INT r_w_mode, CHAR ***tcp, INT *nnames)
+#else
+publicdef INT fm_file_list (fi_pathname, file_type, sort_attr, sort_type, r_w_mode,
+                            tcp, nnames)
+FM_PATH fi_pathname;
+FM_TYPE file_type;
+FM_SORT_ATTRIBUTE sort_attr;
+FM_SORT_TYPE sort_type;
+INT r_w_mode;
+CHAR ***tcp;
+INT *nnames;
+#endif
+    {
+    INT status;
+    CHAR select_list[100];
+    CHAR where_cls[200];
+    CHAR order_cls[100];
+    CHAR **local_tcp = (CHAR **)0;
+    CHAR *line;
+    INT i, j;
+    BOOL first;
+    PROJECT_NAME project;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[500];
+    VARCHAR dummy[100][31];
+    VARCHAR list[100][120];
+    EXEC SQL END DECLARE SECTION;
+    
+    /***************************************************************************/
+    
+    /* * CREATE WHERE CLAUSE * */
+    /* ----------------------- */
+    
+    strcpy (where_cls, "WHERE UPPER(DELETE_FLAG) != 'T'");
+    if (file_type != NULL)
+        {
+        strcat (where_cls, " AND FILE_TYPE = '");
+        strcat (where_cls, file_type);
+        strcat (where_cls, "'");
+        }
+    if (fi_pathname != NULL)
+        {
+        strcat (where_cls, " AND FINDER_PATHNAME = '");
+        strcat (where_cls, fi_pathname);
+        strcat (where_cls, "'");
+        }
+    /* * CREATE SELECTION LIST * */
+    /* ------------------------- */
+    
+    if (r_w_mode EQUALS 0)           /* READ ACCESS */
+        {
+        /* break on decode(creator_analyst,USER,'',creator_analyst) skip 1; */
+        
+        strcpy (order_cls, "DECODE(CREATOR_ANALYST,USER,'A','B'||CREATOR_ANALYST)");
+        sprintf ((char *)select_list, "%s,CREATOR_ANALYST||': '||FINDER_FILENAME",
+                 order_cls);
+        strcat (order_cls, " ASC,");
+        }
+    else                            /* WRITE ACCESS */
+        {
+        strcpy (order_cls, "");
+        strcpy (select_list, "USER,FINDER_FILENAME");
+        strcat (where_cls, " AND CREATOR_ANALYST = USER");
+        }
+    /* * CREATE ORDER CLAUSE * */
+    /* ----------------------- */
+    
+    switch (sort_attr)
+        {
+    case FM_SIZE:
+        strcat (order_cls, "FILE_SIZE ");
+        break;
+        
+    case FM_MOD_DATE:
+        strcat (order_cls, "LAST_MOD_DATE ");
+        break;
+        
+    case FM_CREATION_DATE:
+        strcat (order_cls, "CREATE_DATE ");
+        break;
+        
+    default:
+        strcat (order_cls, "FINDER_FILENAME ");
+        }
+    if (sort_type EQUALS FM_DESC)
+        {
+        strcat (order_cls, "DESC");
+        }
+    else
+        {
+        strcat (order_cls, "ASC");
+        }
+    /* * PUT IT TOGETHER FOR SQL SELECT COMMAND * */
+    /* ------------------------------------------ */
+    
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    sqlstmt.len = sprintf ((char *)sqlstmt.arr,
+                           "SELECT %s FROM %s.FM_HDR %s ORDER BY %s", select_list,
+                           project, where_cls, order_cls);
+    
+    EXEC SQL WHENEVER SQLERROR GOTO finished;
+    EXEC SQL PREPARE S1 FROM : sqlstmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1;
+    
+    /* * FETCH DATA * */
+    /* -------------- */
+    
+    first = TRUE;
+    *nnames = 0;
+    FOREVER
+        {
+        EXEC SQL FETCH C1 INTO : dummy,  : list;
+        
+        if ((OR_ROWCOUNT - *nnames) != 0)
+            {
+            if (first)
+                {
+                local_tcp = (CHAR **)tc_zalloc ((OR_ROWCOUNT + 1) * sizeof(CHAR *));
+                first = FALSE;
+                }
+            else
+                {
+                local_tcp = (CHAR **)tc_realloc ((BYTE *)(local_tcp),
+                                                 (OR_ROWCOUNT + 1) * sizeof(CHAR *));
+                local_tcp[OR_ROWCOUNT] = NULL;
+                }
+            for (i = (*nnames); i < OR_ROWCOUNT; i++)
+                {
+                j = i - *nnames;
+                
+                line = (CHAR *)tc_zalloc (list[j].len + 1);
+                V_FROMV (line, list[j]);
+                local_tcp[i] = line;
+                }
+            *nnames = OR_ROWCOUNT;
+            }
+        if (OR_STATUS EQUALS OR_EOF)
+            {
+            *tcp = local_tcp;
+            break;
+            }
+        }
+finished:
+    status = OR_STATUS;
+    EXEC SQL CLOSE C1;
+    return status EQUALS OR_EOF ? SUCCESS : status;
+    }
+/* END:     */

@@ -1,0 +1,146 @@
+/*  DEC/CMS REPLACEMENT HISTORY, Element MP_TTLBLK_LST.PC*/
+/*  *4    17-AUG-1990 22:10:33 VINCE "(SPR 5644) Code Cleanup"*/
+/*  *3     6-FEB-1990 15:39:53 WALTERS "(SPR 0) Fix ts_tcp_copy"*/
+/*  *2    22-DEC-1989 17:12:11 CONROY "(SPR 5080) Add none retrieved return status"*/
+/*  *1    19-JUN-1989 12:35:10 SYSTEM ""*/
+/*  DEC/CMS REPLACEMENT HISTORY, Element MP_TTLBLK_LST.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_mp.h"
+#include "esi_md_err.h"
+#include "esi_oracle.h"
+#include "esi_qs.h"
+#include "esi_ts.h"
+#include "esi_tc.h"
+/* EXEC ORACLE OPTION (REBIND = NO); */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Routine to build a TCP of all title block names in the 
+    project table "TITLE_BLOCKS".
+
+Prototype:
+    publicdef INT mp_ttlblk_list(CHAR ***list, INT *no_items);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    list            -(CHAR ***)
+    no_items        -(INT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    MD_NO_TITLE_BLOCKS_RETRIEVED
+    OR_STATUS
+    
+Scope:
+    PUBLIC
+   
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT mp_ttlblk_list (CHAR ***list, INT *no_items)
+#else
+publicdef INT mp_ttlblk_list (list, no_items)
+CHAR ***list;
+INT *no_items;
+#endif
+    {
+    
+    INT status;
+    INT i;
+    CHAR **tcp = (CHAR **)NULL;
+    INT newitems = 0;
+    static BOOL inited = FALSE;
+    PROJECT_NAME project;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    static VARCHAR ttlblk_names[20][41];
+    VARCHAR sqlstmt[250];
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ********************************************************************** */
+    
+    status = SUCCESS;
+    
+    /* * DEFINE A CURSOR * */
+    /* ------------------- */
+    
+    EXEC SQL WHENEVER SQLERROR GOTO orcerr;
+    if (NOT inited)
+        {
+        qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr,
+                      "SELECT DISTINCT BLOCK_NAME FROM %s.TITLE_BLOCKS ORDER BY BLOCK_NAME"
+                               , project);
+        
+        EXEC SQL PREPARE S1 FROM : sqlstmt;
+        EXEC SQL DECLARE TTLBLK_CUR CURSOR FOR S1;
+        
+        inited = TRUE;
+        }
+    EXEC SQL OPEN TTLBLK_CUR;
+    
+    /* * EXTRACT MAPS FROM THE CURSOR UNTIL THERE ARE NO MAPS * */
+    /* -------------------------------------------------------- */
+    
+    *no_items = 0;
+    tcp = ts_tcp_alloc (100);
+    FOREVER
+        {
+        EXEC SQL FETCH TTLBLK_CUR INTO : ttlblk_names;
+        newitems = OR_ROWCOUNT - *no_items;
+        *no_items = OR_ROWCOUNT;
+        
+        for (i = 0; i < newitems; i++)
+            {
+            V_SETZERO (ttlblk_names[i]);
+            ts_tcp_append (&tcp, (CHAR *)ttlblk_names[i].arr);
+            }
+        if (OR_STATUS == OR_EOF)
+            {
+            break;
+            }
+        }
+    if (*no_items EQUALS 0)
+        {
+        status = MD_NO_TITLE_BLOCKS_RETRIEVED;
+        goto finished;
+        }
+    ts_tcp_copy (list, tcp);
+    goto finished;
+    
+orcerr:
+    /* ------- */
+    
+    status = OR_STATUS;
+    
+finished:
+    /* --------- */
+    
+    ts_tcp_free (tcp);
+    return status;
+    }
+/* END:     */

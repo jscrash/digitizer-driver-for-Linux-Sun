@@ -1,0 +1,74 @@
+*T MENU
+,1
+*N MENU_LS
+*S PR 0 PU 1
+Lines
+9 D M FINDER/MAPPING/EDIT_SEISMIC_LINES/LINES
+*I ITEM_LS_GRAPHIC_PICKING
+Pick Seismic Line...
+*I ITEM_LS_MANUAL_ENTRY
+Enter Line Name...
+*I ITEM_LS_SEP_1
+(-
+*I ITEM_LS_REDRAW
+Redraw Seismic Line
+*I ITEM_LS_SEP_2
+(-
+*I ITEM_LS_SAVE
+Save Seismic Line
+*I ITEM_LS_DELETE
+Delete Seismic Line
+*I ITEM_LS_SEP_3
+(-
+*I ITEM_LS_QUIT
+Quit
+,2
+*N MENU_SP
+*S PR 0 PU 1
+Shotpoints
+6 D M FINDER/MAPPING/EDIT_SEISMIC_LINES/SHOTPOINTS
+*I ITEM_SP_ADD
+Add...
+*I ITEM_SP_MOVE
+Move...
+*I ITEM_SP_DELETE
+Delete...
+*I ITEM_SP_CHANGE
+Change...
+*I ITEM_SP_SEP1
+(-
+*I ITEM_SP_CONNECT
+Connect Shot Points
+,3
+*N MENU_LP
+*S PR 0 PU 1
+Labels
+14 D M FINDER/MAPPING/EDIT_SEISMIC_LINES/LABELS
+*I ITEM_LP_AUTO_ALL_LABELS
+Automatic All Label Positions
+*I ITEM_LP_AUTO_SHOT_LABELS
+Automatic Shot Label Positions
+*I ITEM_LP_AUTO_LINE_LABELS
+Automatic Line Label Positions
+*I ITEM_LP_SEP1
+(-
+*I ITEM_LP_SET_DEFPOS
+Set Default Shot Label Position..
+*I ITEM_LP_SEP2
+(-
+*I ITEM_LP_SET_SYMTRIG
+Set Shot Symbol Filter...
+*I ITEM_LP_SET_LABTRIG
+Set Shot Label Filter...
+*I ITEM_LP_SET_SHOTTRIG
+Set Data Label Filter...
+*I ITEM_LP_SEP3
+(-
+*I ITEM_LP_CHANGE_INDIVIDUAL
+Set Shot Label Positions...
+*I ITEM_LP_CHANGE_LINE
+Set Line Label Positions...
+*I ITEM_LP_SEP4
+(-
+*I ITEM_LP_DISPLAY_DATA_LABELS
+Display Data Labels

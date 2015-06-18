@@ -1,0 +1,259 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DD_GETUWI.PC*/
+/* *7     2-AUG-1990 17:55:29 PURNA "(SPR 5718) change color during hilite well in forms"*/
+/* *6    28-FEB-1990 06:18:49 GILLESPIE "(SPR 1) Remove - once & for all - the PICK CLOSER %$#%^$#"*/
+/* *5    28-FEB-1990 05:47:44 GILLESPIE "(SPR 6010) Remove reference to esi_gi_msg.h"*/
+/* *4    14-FEB-1990 11:08:04 GORDON "(SPR 0) move wmgclose & wmwclose calls down past symbol stuff"*/
+/* *3    17-JAN-1990 23:55:54 GILLESPIE "(SPR 6001) Changes for new well structs"*/
+/* *2    13-JUL-1989 14:08:58 GORDON "(SPR 0) add call to wm_set_mouse_menu"*/
+/* *1    19-JUN-1989 12:30:44 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DD_GETUWI.PC*/
+
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/*
+ * DD_GETUWI.PC
+ * 
+ * A USER EXIT FROM AN ORACLE FORM 
+ * TO GET A UNIQUE WELL IDENTIFIER FROM A MAP
+ *
+ * The command format is DD_GETUWI NAMEFIELD SYMBOL COLOR
+ * where NAMEFIELD is the name of the field containing a string which will
+ *                 be filled with the retrieved UWI
+ *       SYMBOL is name of the field containing the plot symbol code
+ *       COLOR  is name of the field containing the color (as text)
+ *
+ */
+                           
+#include "esi_c_lib.h"
+#include "esi_oracle.h"
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+#ifndef ESI_MP_H
+#include "esi_mp.h"               /* mapping structures */
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_CS_H
+#include "esi_cs.h"              /* Centered Symbol graphics routines */
+#endif
+#ifndef ESI_GB_H
+#include "esi_gb.h"
+#endif
+#ifndef ESI_WE_WELLS_H
+#include "esi_we_wells.h"
+#endif
+#ifndef ESI_WI_H
+#include "esi_wi.h"
+#endif
+#ifndef ESI_WM_H
+#include "esi_wm.h"
+#endif
+#ifndef ESI_WM_CLS_H
+#include "esi_wm_cls.h"
+#endif
+#ifndef ESI_DD_ERR_H
+#include "esi_dd_err.h"           /* error codes for data digitization */
+#endif
+#ifndef ESI_DD_MSG_H
+#include "esi_dd_msg.h"           /* message codes for data digitization */
+#endif
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+#ifndef ESI_SL_H
+#include "esi_sl.h"
+#endif
+#ifndef ESI_GKS_H
+#include "esi_gks.h"
+#endif
+
+/*************************************************************/
+publicdef INT dd_getuwi( cmd, cmdlen, msg, msglen, query )
+char *cmd;
+int  *cmdlen;
+char *msg;
+int  *msglen;
+int  *query;
+{
+    INT  status = SUCCESS;
+    CHAR errmsg[81];
+    INT  len;                         /* length of error message */
+    CHAR command_line[255];
+    CHAR *pnext;
+    CHAR command[31];
+    DOUBLE  x;
+    DOUBLE  y;
+    FLOAT   wm_x;			 /* needed for the &^%&* window manager */
+    FLOAT   wm_y;                        /* ditto */
+    TNR_ID tnr;
+    GROUP_ID group;
+    WINDOW_ID window_id;
+    INT button;
+    INT     length;
+    INT     color_code;
+    INT    plot_symbol;                  /* well symbol type specification */
+    DOUBLE symbol_size;                  /* pick out a good one */
+    DOUBLE scale;                        /* centered symbol scale factor */
+    MAP_STRUCTURE  *map;                 /* map struct for current map */
+    SELECT_KEY_STRING key;
+    WELL_STRUCT *pWell;
+    INT defmod,regmod;
+    
+/*
+ * SQL definitions for program variables 
+ */
+EXEC SQL BEGIN DECLARE SECTION; 
+   VARCHAR  field_name [32];
+   VARCHAR  uwi[24];
+EXEC SQL END DECLARE SECTION;
+
+    wm_inq_deferral(&defmod,&regmod);
+    wm_hold_updates();
+/* disable the keyboard */
+    wi_enable_keyboard(OFF);
+
+/* parse the command line */
+
+   strncpy(command_line, cmd, *cmdlen);
+   command_line[*cmdlen] = 0;
+
+   pnext = ts_next_word(command_line, command);    /* get command = DD_GETUWI */
+   V_FROMC(field_name, pnext);
+
+/* 
+ * get a pointer to the current map workspace.
+ */
+    status = mp_front_map(&map);
+    wm_update();
+    if ( status != SUCCESS )
+    {
+       status = DD_ERR_NO_MAP_DEF ;
+    }
+
+/* 
+ * Get transformation for the map (and abort if there is none)
+ */
+    if (status EQUALS SUCCESS)
+	{
+	tnr = map->map_tnr;
+	if ( tnr EQUALS 0 )
+	    {
+	    status = DD_ERR_NO_TNR_DEF ;
+	    }
+	}
+
+/* 
+ * Open window before registering 
+ */
+    if (status EQUALS SUCCESS)
+	{
+	window_id = map->map_window_id;
+	if ( window_id EQUALS 0 )
+	    {
+	    status = DD_ERR_BAD_WIN_ID;
+	    }
+	else
+	    {
+/* 
+ * open window, select transformation
+ */
+	    wmwopen( window_id );
+	    wmtselect( tnr );
+	    }
+	}
+
+    if (ug_if_gpx())
+        wm_set_mouse_menu( (CHAR**)0, (INT*)0 );   /* use default mouse menu */
+
+    while (status EQUALS SUCCESS)
+	{
+
+/* Get a location from window manager */
+	wmtlocate( &status, &wm_x, &wm_y, &button );
+	if ( button EQUALS WM_BUTTON_CANCEL )
+	    {
+	    status = DD_ERR_HIT_CANCEL_BUT ;
+	    break;
+	    }
+
+        if (status EQUALS SUCCESS)   /* get UWI given x, y for current map */
+	    {
+            x = wm_x;
+            y = wm_y;
+	    status = gb_pick_well(x, y, key, &x, &y);         
+	    }
+        if (status EQUALS SUCCESS)
+	    {
+	    V_FROMC(uwi, key);
+
+	    EXEC IAF PUT :field_name VALUES( :uwi );
+	    break;
+	    }
+	}
+
+   if ( status IS_NOT_EQUAL_TO SUCCESS )
+   {
+      strcpy(errmsg, mg_message(status));
+      len = strlen(errmsg);
+      sqliem(errmsg, &len);
+      status = IAPFAIL;
+   }
+   else
+   {
+      status = IAPSUCC;
+
+			     /*	get the size to use to draw the symbol	    */
+			     /*	NOTE: we eventually want to get the size
+			     	and type of the symbol as plotted rom the
+			     	well overlay structure.  Since that is not
+			     	currently possible, use 1/40 of the
+			     	vertical dimension as a good approximation.
+			     	Also, the wrong symbol may be flashed if
+			     	the SYMBOL TYPE option was specified when
+			     	the overlay was drawn...		    */
+
+
+	status = we_get_well_header(key, WE_LOCATION_ONLY, &pWell);
+	symbol_size = (map->upper_right_xy.y - map->lower_left_xy.y)/40.0;
+	cs_set_height(symbol_size);
+	scale = 1.0;
+	lu_text_to_index("COLOR",&color_code,"HIGHLIGHT");
+	wm_x = x;
+	wm_y = y;
+	status = cs_draw_symbol( CS_V4_WELLS_GROUP,
+			    pWell -> symbol_code, scale, 
+                            color_code, wm_x, wm_y );
+	
+    }
+    wm_update();
+
+/* Close  overlay group and close window */
+    wmgclose( group );
+    wmwclose( window_id );
+
+/* enable the keyboard */
+    wi_enable_keyboard(ON);
+    wm_set_deferral(defmod,regmod);
+    return status;
+}

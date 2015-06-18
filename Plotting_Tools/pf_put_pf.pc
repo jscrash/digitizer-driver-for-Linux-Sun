@@ -1,0 +1,358 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element PF_PUT_PF.PC */
+/* *5    11-OCT-1991 13:47:33 MING "(SPR 4475) fix fm_get_file_id in pf_put_mp_pf" */
+/* *4     7-OCT-1991 14:56:10 MING "(SPR 4413) fix fm_get_file_id" */
+/* *3    23-SEP-1991 15:16:55 MING "(SPR 4158) increase the length of the oracle string keyword and vb" */
+/* *2     6-JUN-1991 15:54:35 MING "(SPR 0) new checkin" */
+/* *1     6-JUN-1991 15:53:24 MING "save plot file" */
+/* DEC/CMS REPLACEMENT HISTORY, Element PF_PUT_PF.PC */
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Finder Graphics Systems, Inc.
+			201 Tamal Vista Blvd
+			Corte Madera, CA  USA 94925
+			(415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+
+#include "esi_pf.h"
+#include "esi_mp.h"
+#include "esi_xs_defs.h"
+#include "esi_qs.h"
+#include "esi_oracle.h"
+#include "esi_ts.h"
+#include "esi_pl.h"
+#include "esi_md_basis.x"
+#include "esi_md_err.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT pf_put_plotfile (PF_INFO *pf_info)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) PF_INFO *pf_info;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+EXEC SQL BEGIN DECLARE SECTION;
+    long display_lines;
+    long overlays;
+    long verb_code;
+    long key_code;
+    long fid;
+    float wcs_ll_x;
+    float wcs_ll_y;
+    float wcs_ur_x;
+    float wcs_ur_y;
+    float map_scale;
+    float xsize;
+    float ysize;
+    VARCHAR sqlabc[500];
+    VARCHAR map_name[41];
+    VARCHAR xs_lyt_name[41];
+    VARCHAR projection[16];
+    VARCHAR coord[16];
+    VARCHAR meta_type[20];
+    VARCHAR layout_name[40];
+    VARCHAR map_scale_unit[21];
+    VARCHAR parameter[1000];
+    VARCHAR vb[100];
+    VARCHAR keyword[100];
+EXEC SQL END DECLARE SECTION;
+
+/* EXEC ORACLE OPTION (REBIND = NO); */
+
+/* Function Description -----------------------------------------------------
+Description:
+    A interface function to call the save cross section plotfile routine
+    or the save map plotfile routine.
+
+Prototype:
+    publicdef INT pf_put_plotfile (PF_INFO *pf_info)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) PF_INFO *pf_info;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+
+
+#if USE_PROTOTYPES 
+publicdef INT pf_put_plotfile (PF_INFO *pf_info)
+#else
+publicdef INT pf_put_plotfile (pf_info)
+PF_INFO *pf_info;
+#endif
+    {
+    INT status;
+
+    if (ARE_SAME (pf_info->app,"MAPPING"))
+	{
+        status = pf_put_mp_pf (pf_info);
+	}
+    else
+	{
+	status = pf_put_xs_pf (pf_info);
+	}
+
+    return status;
+    }
+
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    Save cross section plotfile routine
+
+Prototype:
+    publicdef INT pf_put_xs_pf (PF_INFO *pf_info)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) arg	- description
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Scope:
+    PUBLIC
+    PRIVATE to <module_description>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+
+#if USE_PROTOTYPES 
+publicdef INT pf_put_xs_pf (PF_INFO *pf_info)
+#else
+publicdef INT pf_put_xs_pf (pf_info)
+PF_INFO *pf_info;
+#endif
+    {
+    static BOOL first = TRUE;
+    INT status;
+    CHAR creator[80];
+    CHAR plot_type[40];
+    PROJECT_NAME project;
+    XS_STRUCT *pxs;
+
+    EXEC SQL WHENEVER SQLERROR GOTO oraerr1;
+
+    qs_inq_c (QS_FINDER_ACCOUNT,creator,(INT *) 0);
+    strcpy (plot_type,"PLOTFILE");
+    fid = fm_get_file_id ("ESI$PLOTS",pf_info->filename,plot_type);
+    if (fid == 0)
+        {
+	return FAIL;
+	}
+
+    if (first)
+	{
+	first = FALSE;
+
+        qs_inq_c (QS_PROJECT_NAME,project,(INT *) 0);
+
+        sqlabc.len = sprintf ((CHAR *)sqlabc.arr,
+"INSERT INTO %s.CROSS_SECTION_PLOTFILE_HDR (FILE_ID,PLOT_FILE_FORMAT,CROSS_SECTION_LAYOUT,\
+PLOT_LAYOUT_NAME,PLOT_WIDTH,PLOT_HEIGHT) VALUES (:v1,:v2,:v3,:v4,:v5,:v6)",project);
+        EXEC SQL PREPARE S11 FROM :sqlabc;
+
+        sqlabc.len = sprintf ((CHAR *)sqlabc.arr,
+"DELETE FROM %s.CROSS_SECTION_PLOTFILE_HDR WHERE FILE_ID = :v1",project);
+	EXEC SQL PREPARE S22 FROM :sqlabc;
+
+	sqlabc.len = sprintf ((CHAR *)sqlabc.arr,
+"SELECT FILE_ID FROM %s.CROSS_SECTION_PLOTFILE_HDR WHERE FILE_ID = :v1",project);
+	EXEC SQL PREPARE S33 FROM :sqlabc;
+	EXEC SQL DECLARE F11 CURSOR FOR S33;
+	}
+
+    
+	/* ------------------------------- */
+	/* check if plotfile exists or not */
+	/* if so, delete it                */
+	/* ------------------------------- */
+        EXEC SQL OPEN F11 USING :fid;
+	EXEC SQL FETCH F11 INTO :fid;
+	if (OR_STATUS != OR_EOF)
+	    {
+	    EXEC SQL EXECUTE S22 USING :fid;
+	    }
+
+	/* ------------- */
+        /* insert record */
+	/* ------------- */
+	pxs = pf_info->parm.xs;
+        V_C_TO_V (xs_lyt_name,pxs->layout_name);
+        V_C_TO_V (meta_type,pf_info->meta_type);
+	V_C_TO_V (layout_name,pf_info->layout);
+	xsize = pf_info->xsize;
+	ysize = pf_info->ysize;
+        EXEC SQL EXECUTE S11 USING :fid, :meta_type, :xs_lyt_name, :layout_name,
+			           :xsize, :ysize;
+
+        EXEC SQL COMMIT WORK;
+	return SUCCESS;
+
+oraerr1:
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL ROLLBACK WORK;
+    printf ("%s\n",OR_MESSAGE);
+    return status ;
+    }
+
+
+
+
+
+#if USE_PROTOTYPES 
+publicdef INT pf_put_mp_pf (PF_INFO *pf_info)
+#else
+publicdef INT pf_put_mp_pf (pf_info)
+PF_INFO *pf_info;
+#endif
+    {
+    MAP_STRUCTURE *map;
+    MD_DISPLAY *display;
+    MD_COMPILED_MAPDEF *compiled;
+    PROJECT_NAME project;
+    CHAR creator[80];
+    static BOOL first = TRUE;
+    INT status;
+    INT row;
+    MD_COMPILED_VERB *verb_ptr;
+    ORACLE_NAME plot_type;
+
+    EXEC SQL WHENEVER SQLERROR GOTO oraerr;
+
+    qs_inq_c (QS_FINDER_ACCOUNT,creator,(INT *) 0);
+    strcpy (plot_type,"PLOTFILE");
+    fid = fm_get_file_id ("ESI$PLOTS",pf_info->filename,plot_type);
+    if (fid == 0)
+        {
+	return FAIL;
+	}
+    
+    qs_inq_c (QS_PROJECT_NAME,project,(INT *) 0);
+
+	if (first)
+	    {
+	    first = FALSE;
+
+            sqlabc.len = sprintf ((CHAR *)sqlabc.arr,
+"INSERT INTO %s.MAP_PLOTFILE_OVERLAYS (FILE_ID,VERB_CODE,VERB,KEY_CODE,\
+KEYWORD,SEQ_NO,PARAMETER) VALUES (:v1,:v2,:v3,:v4,:v5,:v6,:v7)",project);
+            EXEC SQL PREPARE S1 FROM :sqlabc;
+
+            sqlabc.len = sprintf ((CHAR *)sqlabc.arr,
+"DELETE FROM %s.MAP_PLOTFILE_HDR WHERE FILE_ID = :v1",project);
+	    EXEC SQL PREPARE S2 FROM :sqlabc;
+
+	    sqlabc.len = sprintf ((CHAR *)sqlabc.arr,
+"DELETE FROM %s.MAP_PLOTFILE_OVERLAYS WHERE FILE_ID = :v1",project);
+	    EXEC SQL PREPARE S3 FROM :sqlabc;
+
+	    sqlabc.len = sprintf ((CHAR *)sqlabc.arr,
+"INSERT INTO %s.MAP_PLOTFILE_HDR (FILE_ID,PLOT_FILE_FORMAT,MAP_NAME, \
+PLOT_LAYOUT_NAME,PROJECTION,COORDINATE_SYSTEM,LOWER_LEFT_X,\
+LOWER_LEFT_Y,UPPER_RIGHT_X,UPPER_RIGHT_Y,MAP_SCALE,MAP_SCALE_UNIT,\
+DISPLAY_LINES,OVERLAYS,PLOT_WIDTH,PLOT_HEIGHT) VALUES \
+(:v1,:v2,:v3,:v4,:v5,:v6,:v7,:v8,:v9,:v10,:v11,:v12,:v13,:v14,:v15,:v16)",project);
+	    EXEC SQL PREPARE S4 FROM :sqlabc;
+
+	    sqlabc.len = sprintf ((CHAR *)sqlabc.arr,
+"SELECT FILE_ID FROM %s.MAP_PLOTFILE_HDR WHERE FILE_ID = :v1",project);
+	    EXEC SQL PREPARE S5 FROM :sqlabc;
+	    EXEC SQL DECLARE F1 CURSOR FOR S5;
+	    }
+
+        map = pf_info->parm.map;
+        display = map->display;
+	compiled = map->compiled;
+
+        EXEC SQL OPEN F1 USING :fid;
+	EXEC SQL FETCH F1 INTO :fid;
+	if (OR_STATUS != OR_EOF)
+	    {
+	    EXEC SQL EXECUTE S2 USING :fid;
+	    EXEC SQL EXECUTE S3 USING :fid;
+	    }
+
+        overlays = 1;
+        for (display_lines = 0; display_lines < display->last_row_used; display_lines++)
+	    {
+	    V_C_TO_V (parameter, display->parameters[display_lines]);
+	    V_C_TO_V (keyword, display->keywords[display_lines]);
+	    V_C_TO_V (vb, display->verbs[display_lines]);
+
+            row = display->compiled_row[display_lines];
+            if (display->verb_ndx[display_lines] == -1)
+	        {
+		overlays++;
+                verb_code = -1;
+                }
+            else
+                {
+                verb_code = compiled->verb_code[row];
+                verb_ptr = compiled->verb_ptr[row];
+                }
+            key_code = (display->key_ndx[display_lines] != -1) ?
+                         verb_ptr->key_code[display->key_ndx[display_lines]] :  - 1;
+
+            EXEC SQL EXECUTE S1 USING : fid,  : verb_code,  : vb,  : key_code,
+                    : keyword,  : display_lines, : parameter;
+            }
+	V_C_TO_V (map_name,map->map_name);
+        V_C_TO_V (meta_type,pf_info->meta_type);
+	V_C_TO_V (layout_name,pf_info->layout);
+        V_C_TO_V (projection, map->map_projection);
+        V_C_TO_V (coord, map->map_coordinate_system);
+        wcs_ll_x = map->lower_left_xy.x;
+        wcs_ll_y = map->lower_left_xy.y;
+        wcs_ur_x = map->upper_right_xy.x;
+        wcs_ur_y = map->upper_right_xy.y;
+        map_scale = map->map_scale;
+	xsize = pf_info->xsize;
+	ysize = pf_info->ysize;
+        V_C_TO_V (map_scale_unit, map->map_scale_uom);
+
+        EXEC SQL EXECUTE S4 USING :fid, :meta_type, :map_name, :layout_name,
+			    :projection, :coord, :wcs_ll_x, :wcs_ll_y,
+			    :wcs_ur_x, :wcs_ur_y, :map_scale, :map_scale_unit,
+			    :overlays, :display_lines, :xsize, :ysize;
+        EXEC SQL COMMIT WORK;
+         
+    return SUCCESS;
+oraerr:
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL ROLLBACK WORK;
+    printf ("%s\n",OR_MESSAGE);
+    return status ;
+    }
+

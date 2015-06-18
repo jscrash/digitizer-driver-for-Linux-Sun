@@ -1,0 +1,67 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LG_Z_GSD.PC*/
+/* *2    13-AUG-1989 01:47:57 GILLESPIE "(SPR 5) Change WLL_LOG_TRACE_HDR to WELL_LOG_CURVE; always release cursor"*/
+/* *1    19-JUN-1989 12:33:48 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element LG_Z_GSD.PC*/
+
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+
+/* **********************************************************************
+                             INCLUDE FILES
+   ********************************************************************** */
+
+#include "esi_gl_defs.h"
+#include "esi_oracle.h"
+#include "esi_lg_err.h"
+
+EXEC ORACLE OPTION (RELEASE_CURSOR = YES);
+
+/* ********************************************************************** */
+/*                                                                        */
+/* GET_SYSTEM_DEFAULT searches the system defaults table for a zone value. */
+/*                                                                        */
+/* ********************************************************************** */
+
+publicdef INT get_system_default(vname,value)
+CHAR        vname[];  /* Variable name to find system default.          */
+CHAR        value[];  /* Default value (if any) from db table.          */
+{
+EXEC SQL BEGIN DECLARE SECTION;
+    char *sel_var;
+    VARCHAR svalue[64];
+EXEC SQL END DECLARE SECTION;
+
+
+sel_var = vname;
+
+EXEC SQL WHENEVER SQLERROR GOTO errvec;
+EXEC SQL WHENEVER NOT FOUND GOTO errvec;
+
+EXEC SQL SELECT VALUE INTO :svalue FROM ZONE_SYS_DEF 
+WHERE VARIABLE = :sel_var;
+
+V_FROMV(value, svalue);
+return SUCCESS;
+
+errvec:
+   return LG_ZV_NOT_FOUND;
+}

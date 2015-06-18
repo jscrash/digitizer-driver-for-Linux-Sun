@@ -1,0 +1,438 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_LOGIN.PC*/
+/* *6     9-DEC-1990 18:04:07 VINCE "(SPR 1) moved gets(database) out of the is_empty_string macro call"*/
+/* *5    23-AUG-1990 16:03:19 GILLESPIE "(SPR 1) Enable V6 tracing when -trace is entered on command line"*/
+/* *4    25-JUL-1990 19:57:33 VINCE "(SPR 5644) Header Standardization"*/
+/* *3    22-MAY-1990 10:30:40 GILLESPIE "(SPR 1) Return SUCCESS if already logged in (oracle_login == TRUE)"*/
+/* *2    20-JUL-1989 07:49:42 GORDON "(SPR 100) Add Unix switch"*/
+/* *1    19-JUN-1989 12:35:34 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_LOGIN.PC*/
+/******************************************************************************
+
+        Copyright Exploration Systems, Inc. 1989
+           Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+            Exploration Systems, Inc.
+            579 Market Street
+            San Francisco, CA  USA 94105
+            (415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_oracle.h"
+#include "esi_or_err.h"
+#include "esi_ho.h"
+#include "esi_qs.h"
+#include "esi_ts.h"
+
+publicdef BOOL oracle_login = FALSE;
+
+EXEC ORACLE OPTION (MAXOPENCURSORS = 75);
+EXEC ORACLE OPTION (RELEASE_CURSOR = YES);
+
+#if USE_PROTOTYPES
+static char getachar (void);
+#else
+static char getachar ();
+#endif
+
+/* File Description ---------------------------------------------------------
+Overview:
+    Log onto ORACLE.
+    
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT or_login (INT argc, CHAR **argv);
+
+Private_Functions:
+    static CHAR getachar ();
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT or_login (INT argc, CHAR **argv);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    argc            -(INT)
+    argv            -(CHAR **)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    OR_FAILED_LOGIN
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+    If argc > 1, then the first command line arguement that has a slash in it is 
+    used as the first attempt for logging in.  Otherwise, the user is prompted.  
+    Three Query/Set variables are set:
+    QS_FINDER_ACCOUNT, QS_FINDER_PASSWORD and QS_DATABASE.  
+    They are all upper case characters.
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT or_login (INT argc, CHAR **argv)
+#else
+publicdef INT or_login (argc, argv)
+INT argc;
+CHAR **argv;
+#endif
+
+/***/
+/* if argc > 1, then the first command line
+argument that has a slash in it is used as
+the first attempt for logging in.
+Otherwise, the user is prompted.  Three
+Query/Set variables are set:
+QS_FINDER_ACCOUNT, QS_FINDER_PASSWORD and
+QS_DATABASE.  They are all upper case
+characters.
+
+If the parameter -TRACE is found, then
+the Oracle V6 Trace facility is enabled.  If -NOTRACE
+is found, then the trace facility is disabled.
+*/
+/***/
+    {
+    INT retry_count;
+    INT i, status = SUCCESS;
+    CHAR letter, getachar ();
+    CHAR *p;
+    CHAR *pat;
+    CHAR *pName = (CHAR *)0;
+    TCP tcp;
+    CHAR buffer[256];
+    INT batch = FALSE;
+    CHAR dbnodebuf[64];
+    CHAR database[31];
+    BOOL enable_trace = FALSE;
+
+#ifdef vms
+    static CHAR account_prompt[30] = "\nFINDER Account: ";
+    static CHAR password_prompt[30] = "\n      Password: ";
+    static CHAR database_prompt[30] = "\n    Database[%s]: ";
+#else
+    static CHAR account_prompt[30] = "\nFINDER Account: ";
+    static CHAR password_prompt[30] = "      Password: ";
+    static CHAR database_prompt[30] = "    Database[%s]: ";
+#endif
+
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR account_name[128];
+    VARCHAR password[32];
+    EXEC SQL END DECLARE SECTION;
+
+    if (oracle_login)       /* set to FALSE by or_logout */
+        {
+        return SUCCESS;
+        }
+
+    EXEC SQL WHENEVER SQLERROR GOTO LOG_PROB;
+
+    qs_inq_i (QS_IF_BATCH, &batch);
+    for (retry_count = 0; retry_count < 3; retry_count++)
+        {
+
+        /* initialize the oracle communications        */
+        /* variables                                   */
+
+        V_FROMC (account_name, "");
+        V_FROMC (password, "");
+        strcpy (database, "");
+        strcpy (dbnodebuf, "");
+
+        for (i = 1; i < argc AND retry_count EQUALS 0; i++)
+            {
+            /* skip past any command line option that
+            begins with a dash OR that does NOT have a
+            slash                                       */
+
+
+            if (*argv[i] EQUALS '-')
+                {
+                strcpy(buffer, argv[i] + 1);
+                ts_sto_upper(buffer);
+                if (ARE_SAME(buffer,"TRACE"))
+                    {
+                    enable_trace = TRUE;
+                    }
+                else if (ARE_SAME(buffer,"NOTRACE"))
+                    {
+                    enable_trace = FALSE;
+                    }
+                continue;
+                }
+            if (pName EQUALS (CHAR *)0 AND strchr(argv[i], '/') IS_NOT_EQUAL_TO NULL)
+                {
+                /* Store the address of the first argument that contains a slash */
+                pName = argv[i];
+                }
+            }
+            
+        /* Check the argument that contains a slash, if any */
+        if (IS_EMPTY_STRING((char *)pName))
+            {
+            if (batch)
+                {           /* We must have a login id to proceed in Batch */
+                /* mode                                        */
+                return OR_FAILED_LOGIN;
+                }
+            else
+                {
+                printf (account_prompt);
+                gets ((char *)account_name.arr);
+                }
+
+            if (account_name.arr[0] EQUALS 0)
+                {           /* try autologin                               */
+                strcpy ((char *)account_name.arr, "/");
+                }
+            }
+        else
+            {
+            strcpy((char *)account_name.arr, pName);
+            }
+            
+        V_SETLEN (account_name);
+
+        /* Look up the (externally defined) database   */
+        /* node, if any                                */
+
+        status = ho_translate_symbol ("ESI$DATABASE_NODE", &tcp);
+        if (status == SUCCESS)
+            {
+            strcpy (dbnodebuf, tcp[0]);
+            ts_tcp_free (tcp);
+            }
+
+        /* strip out the @ character, if the node name */
+        /* exists                                      */
+        if (status EQUALS SUCCESS AND dbnodebuf[0] EQUALS '@')
+            {
+            dbnodebuf[0] = ' ';
+            }
+
+        ts_noblanks (dbnodebuf);
+
+        /* user has entered name and password already  */
+        /* - try connecting                            */
+
+        if (strchr ((char *)account_name.arr, '/') IS_NOT_EQUAL_TO 0)
+            {
+            EXEC SQL CONNECT : account_name;
+            }
+        else
+            {
+            if (batch)
+                {           /* We must have a login id to proceed in Batch */
+                /* mode                                        */
+                return OR_FAILED_LOGIN;
+                }
+
+            printf (password_prompt);
+
+#ifdef vms
+            for (p = (CHAR *)password.arr; (letter = getachar ()) != '\r';
+                 *p++ = letter)
+                 {
+                 }
+            *p = 0;
+#else
+            gets ((char *)password.arr);
+#endif
+
+            if (password.arr[0] EQUALS 0)
+                {
+                return OR_FAILED_LOGIN;
+                }
+            V_SETLEN (password);
+
+            /* See if database node already exists in      */
+            /* string                                      */
+            pat = strchr ((char *)account_name.arr, '@');
+            if (pat EQUALS NULL)
+                {
+                if (batch)
+                    {
+                    strcpy (database, dbnodebuf);
+                    }
+                else        /* prompt for the database - can be null
+                               PRO-C wants the SQL*NET database as part
+                               of the account name, separated by @ */
+                    {
+                    printf (database_prompt, dbnodebuf);
+		    gets (database);
+
+                    if (IS_EMPTY_STRING(database))
+                        {
+                        strcpy (database, ts_snowhite (dbnodebuf));
+                        }
+                    }
+
+                if (IS_STRING(database))
+                    {
+                    sprintf ((char *)account_name.arr, "%s@%s",
+                             account_name.arr, database);
+                    V_SETLEN (account_name);
+                    }
+                }
+            EXEC SQL CONNECT : account_name IDENTIFIED BY : password;
+            }
+
+        /* ONLY GET HERE ON SUCCESSFUL LOGIN */
+        break;
+
+    LOG_PROB:
+        printf ("\n%-70s", OR_MESSAGE);
+
+        if (batch)
+            {
+            EXEC SQL WHENEVER SQLERROR CONTINUE;
+            retry_count = 3;
+            break;
+            }
+        else
+            {
+            argc = 1;
+            }
+        }
+
+    /* If user is in batch, or if three login
+    attempts have been made and failed then
+    it's time to abort.                         */
+
+    if (retry_count EQUALS 3)
+        {
+        printf ("\nLogin to FINDER has failed.");
+        return OR_FAILED_LOGIN;
+        }
+
+    oracle_login = TRUE;
+
+    /* parse out a remote database string from the */
+    /* account name, if entered remote string is   */
+    /* in the form @D:node-instance refer to       */
+    /* ORACLE PRO*C book V1.1 p. 20                */
+
+    pat = strchr ((char *)account_name.arr, '@');
+    if (pat IS_NOT_EQUAL_TO NULL)
+        {
+        strcpy (database, pat + 1);
+        *pat = 0;
+        V_SETLEN (account_name);
+        }
+    else if (IS_STRING(dbnodebuf))
+        {
+        strcpy (database, dbnodebuf);
+        }
+
+    /* parse out the password from the account     */
+    /* name, if entered in the form name/password  */
+
+    pat = strchr ((char *)account_name.arr, '/');
+    if (pat IS_NOT_EQUAL_TO NULL)
+        {
+        password.len = strlen (strcpy ((char *)password.arr, pat + 1));
+        *pat = 0;
+        V_SETLEN (account_name);
+        }
+
+    /* set all strings to upper case               */
+
+    ts_sto_upper ((char *)account_name.arr);
+    ts_sto_upper ((char *)password.arr);
+    ts_sto_upper (database);
+
+    /* set the QS state variables                  */
+
+    qs_set_c (QS_FINDER_ACCOUNT, (char *)account_name.arr, account_name.len);
+    qs_set_c (QS_FINDER_PASSWORD, (char *)password.arr, password.len);
+    qs_set_c (QS_DATABASE, database, strlen (database));
+    
+    /* Enable the Oracle V6 trace facility, if requested */
+    
+    if (enable_trace)
+        {
+        EXEC SQL ALTER SESSION SET SQL_TRACE TRUE;
+        }
+    else
+        {
+        EXEC SQL ALTER SESSION SET SQL_TRACE FALSE;
+    	}
+
+    return SUCCESS;
+    }
+
+
+#ifdef vms
+#include "iodef.h"
+#include "ssdef.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+    Returns a single character from the user terminal -
+    no need to hit return to have program respond.
+
+Prototype:
+    static CHAR getachar ();
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+    
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE to <or_login.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static char getachar (void)
+#else
+static char getachar ()
+#endif
+    {
+    INT iosb[2];
+    CHAR ichar;
+    static BOOL first = TRUE;
+    static INT jtrmchn;
+    static INT option = IO$_TTYREADALL | IO$M_NOECHO;
+
+    if (first)
+        {
+        hoopenio (&jtrmchn, "TT:");
+        first = FALSE;
+        }
+    VAX_ROUTINE (SYS$QIOW (0, jtrmchn, option, iosb, 0, 0, &ichar, 1, 0, 0, 0, 0));
+    
+    if ((ichar EQUALS 3) OR (ichar EQUALS 25)) /*  Control C and control Y trapping */
+        {
+        SCR$ERASE_PAGE (1, 1);
+        exit (1);
+        }
+    return ichar;
+    }
+
+
+#endif
+/* END:     */

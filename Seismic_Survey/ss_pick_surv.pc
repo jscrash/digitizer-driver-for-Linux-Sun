@@ -1,0 +1,331 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SS_PICK_SURV.PC*/
+/* *4    17-AUG-1990 22:19:14 VINCE "(SPR 5644) Code Cleanup"*/
+/* *3    18-JUN-1990 12:10:34 GILLESPIE "(SPR 1) Changes to allow 3-D lines to be handles as select list entryes (IES deltas)"*/
+/* *2    25-JUL-1989 20:08:45 GILLESPIE "(SPR 50) Seismic system revamp"*/
+/* *1    19-JUN-1989 12:41:32 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element SS_PICK_SURV.PC*/
+/* DEC/CMS REPLACEMENT HISTORY, Element SS_PICK_SURV.PC                             */
+/* *2    25-JUL-1989 20:08:45 GILLESPIE "(SPR 50) Seismic system revamp"            */
+/* *1    19-JUN-1989 12:41:32 SYSTEM ""                                             */
+/* DEC/CMS REPLACEMENT HISTORY, Element SS_PICK_SURV.PC                             */
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_se.h" 
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_AM_H
+
+#include "esi_am.h"
+
+#endif
+
+#ifndef ESI_WI_H
+
+#include "esi_wi.h"
+
+#endif
+
+#ifndef ESI_SL_H
+
+#include "esi_sl.h"
+
+#endif
+
+#ifndef ESI_NL_H
+
+#include "esi_nl.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#include "ss_dial.rh"
+
+/* Function Description -----------------------------------------------------
+Description:
+    Present a dialog box with a selector box containing
+    the list of available surveys in the table SEIS_SURVEY_HDR
+    in the project. 
+    A survey can be selected and returned to the caller.
+
+Prototype:
+    publicdef INT ss_pick_surv(INT flag, SEIS_SURV surv_out);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) flag        -(INT) 1 if we want the 2d surveys,
+                        0 if we want the 3d surveys.
+    (O) surv_out    -(SEIS_SURV) Survey selected ( null string if nothing selected).
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT ss_pick_surv (INT flag, SEIS_SURV surv_out)
+#else
+publicdef INT ss_pick_surv (flag, surv_out)
+INT flag;
+SEIS_SURV surv_out;
+#endif
+    {
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR select[300];
+    VARCHAR text[31];
+    VARCHAR type_surv[4];
+    EXEC SQL END DECLARE SECTION;
+    
+    static NLIST_HEADER surv_list;
+    static CHAR **cnames;
+    INT Units[1];
+    INT Data_Types[1];
+    size_t Data_Widths[1];
+    INT Value_Inc[1];
+    INT status;
+    INT rc;
+    INT nselected;
+    INT selected[1];
+    UINT row_num;
+    UINT table_num;
+    UINT nrows;
+    INT nsurv;                      /* Number of entries in color table.            */
+    UINT ndim;
+    INT id;                         /* The rs id which generated an event.          */
+    INT cdlgid;                     /* The dialog id.                               */
+    INT item;
+    INT class ;
+    UINT Col_List[1];
+    INT timeout = 0;
+    VOIDPTR Var_List[1];
+    BOOL done;                      /* Signal a correct event recieved.             */
+    BOOL found;                     /* Signal if table search succeeded.            */
+    PROJECT_NAME project;
+    
+    
+    EXEC SQL WHENEVER SQLERROR GOTO err_sql;
+    
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    
+    /*---------------------------------------------------------------
+      prepare the SQL statement used to scan the table SEIS_SURVEY_HDR
+      to look for all the survey codes appearing in this table for
+      a given survey type ( 2d or 3d)
+    ---------------------------------------------------------------*/
+    
+    select.len = sprintf ((char *)select.arr, 
+" SELECT SURVEY_CODE FROM \
+%s.SEIS_SURVEY_HDR \
+WHERE SURVEY_TYPE =:type_surv \
+ORDER BY SURVEY_CODE "
+            , project);
+    if (flag)
+        {
+        V_FROMC (type_surv, "2D");
+        }
+    else
+        {
+        V_FROMC (type_surv, "3D");
+        }
+    EXEC SQL PREPARE S1 FROM : select;
+    
+    EXEC SQL DECLARE SURVEY CURSOR FOR S1;
+    
+    EXEC SQL OPEN SURVEY USING : type_surv;
+    
+    /*---------------------------------------------------------------
+      initialise the nlist used to keep  the survey names  
+    ---------------------------------------------------------------*/
+    
+    ndim = 1;
+    Col_List[0] = 1;
+    Var_List[0] = (VOIDPTR)text.arr;
+    Data_Widths[0] = 31;
+    Data_Types[0] = CHAR_TYPE;
+    Value_Inc[0] = VALUE_LIST;
+    Units[0] = 0;
+    
+    nl_init_nlist (&surv_list, ndim, Units, Data_Widths, Data_Types, Value_Inc, 0);
+    nl_start_table (surv_list, &table_num);
+    
+    /*---------------------------------------------------------------
+      loop to fetch all the survey codes for a given type ( 2d or 3d) 
+    ---------------------------------------------------------------*/
+    
+    EXEC SQL WHENEVER NOT FOUND GOTO end_fetch;
+    
+    FOREVER
+        {
+        EXEC SQL FETCH SURVEY INTO : text;
+        
+        V_SETZERO (text);
+        nl_add_rows (surv_list, 1, ndim, Col_List, Var_List);
+        
+        }
+    end_fetch : EXEC SQL CLOSE SURVEY;
+    
+    nl_inq_nlist_int (surv_list, NL_NLIST_NROWS, &nsurv);
+    
+    /*---------------------------------------------------------------
+      if there is no survey or only one survey in the list we don't
+      need to put up a selector box
+    ---------------------------------------------------------------*/
+    
+    if (nsurv < 1)
+        {
+        return FAIL;
+        }
+    else
+        {
+        
+        /*---------------------------------------------------------------
+                    if there is only one survey in the list we d'ont
+                    need a dialog so we return  this survey name
+        ---------------------------------------------------------------*/
+        
+        if (nsurv == 1)
+            {
+            
+            status = nl_set_current_row (surv_list, 1, 1);
+            Var_List[0] = surv_out;
+            status = nl_get_rows (surv_list, 1, 1, Col_List, Var_List, &nrows);
+            nl_free_nlist (surv_list);
+            return SUCCESS;
+            }
+        }
+    /*---------------------------------------------------------------
+     make an array of character pointers to fill the selector box
+     containing the survey names 
+    ---------------------------------------------------------------*/
+    
+    sl_make_tcp (&cnames, surv_list, 1);
+    
+    /*---------------------------------------------------------------
+      we are in a pipe server  so we need to push the application manager
+      environment in order to process the events in this routine 
+    ---------------------------------------------------------------*/
+    
+    /*-------------------------------*/
+    /* disable the rest of the world */
+    /* Define the dialog box.        */
+    /*-------------------------------*/
+    fi_push ();
+    
+    am_define_resource (AM_DIALOG, "ss_dial", 1, NULL_FUNCTION_PTR, &cdlgid, NULL);
+    
+    /* Load the three selector boxes.                                               */
+    
+    wi_set_selections (cdlgid, SS_SELECTOR, SS_SCROLL, nsurv, 1, cnames);
+    
+    /* open the dialog                                                              */
+    
+    wi_open_dialog (cdlgid);
+    
+    /*---------------------------------------------------------------
+                          process event loop
+    ---------------------------------------------------------------*/
+    
+    done = FALSE;
+    
+    while (NOT done)
+        {
+        wi_request_event (timeout, &class , &id, &item);
+        if (id == cdlgid)
+            {
+            switch (item)
+                {
+            case SS_IGNORE:
+                done = TRUE;
+                rc = CANCEL;
+                break;
+            case SS_ACCEPT:
+                done = TRUE;
+                rc = SUCCESS;
+                break;
+            default:
+                break;
+                
+                }
+            }
+        }
+    am_release_resource (cdlgid);
+    
+    /*---------------------------------------------------------------
+      we are in a pipe server so we need to restore the application manager
+      environment after  processing  the events  
+    ---------------------------------------------------------------*/
+    
+    fi_pop ();
+    
+    /*---------------------------------------------------------------
+      if DONE button was pressed we query the selector box to get
+      the survey code selected
+    ---------------------------------------------------------------*/
+    
+    if (rc == SUCCESS)
+        {
+        
+        wi_query_selections (cdlgid, SS_SELECTOR, &nselected, selected);
+        status = nl_set_current_row (surv_list, selected[0], 1);
+        Var_List[0] = surv_out;
+        status = nl_get_rows (surv_list, 1, 1, Col_List, Var_List, &nrows);
+        }
+    /*  free the nlist                                                              */
+    nl_free_nlist (surv_list);
+    
+    /*   free cnames array                                                          */
+    
+    ts_tcp_free (cnames);
+    
+    return rc;
+    
+err_sql:
+    
+    /*  free the nlist                                                              */
+    nl_free_nlist (surv_list);
+    
+    /*   free cnames array                                                          */
+    
+    ts_tcp_free (cnames);
+    
+    return FAIL;
+    
+    }
+/* END:     */

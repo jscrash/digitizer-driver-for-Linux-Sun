@@ -1,0 +1,402 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_COMPILE_LAND.PC */
+/* *15    5-DEC-1991 12:47:26 LOEBL "(SPR 0) Fix error in decode logic of section select." */
+/* *14   25-NOV-1991 13:22:49 LOEBL "(SPR 0) Cleanup error processing" */
+/* *13   13-OCT-1991 08:37:28 LOEBL "(SPR 0) Error checking on table creation" */
+/* *12    2-OCT-1991 11:47:15 LOEBL "(SPR 4223) Add newline" */
+/* *11   13-SEP-1991 12:25:47 LOEBL "(SPR 3951) Eliminate Core Dump and Performance Enhancements" */
+/* *10   11-JUN-1991 16:27:58 PURNA "(SPR 0) lynx_temp_areas to temp_lynnx_lists" */
+/* *9     9-NOV-1990 16:02:34 GILLESPIE "(SPR 1) Add stubs for to_draw... to keep graphics libraries away" */
+/* *8    15-JUN-1990 15:19:27 KEE "(SPR -1) take care of the word TOBIN_SECTION and TOBIN_TOWNSHIP for data type" */
+/* *7    17-MAY-1990 11:20:51 VINCE "(SPR 1) modified to compile single townships instead of township strips." */
+/* *6    24-APR-1990 14:54:38 VINCE "(SPR 1) Modified to use some of the new LY toolbox routines" */
+/* *5    19-APR-1990 14:11:58 VINCE "(SPR 1) modified sqlerror handling" */
+/* *4    27-MAR-1990 14:03:08 VINCE "(SPR 1) panic fixes" */
+/* *3    25-MAR-1990 19:55:33 VINCE "(SPR 1) more fixes" */
+/* *2    24-MAR-1990 18:07:37 VINCE "(SPR 1) initial checkin" */
+/* *1    24-MAR-1990 18:06:21 VINCE "compile the land grid objects (section/township) from the lynx database" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_COMPILE_LAND.PC */
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Finder Graphics Systems, Inc.
+			201 Tamal Vista Blvd
+			Corte Madera, CA  USA 94925
+			(415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+/* INCLUDE FILES */
+#ifndef ESI_MATH_H
+#include "esi_math.h"
+#endif
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+
+#ifndef ESI_HT_H
+#include "esi_ht.h"
+#endif
+
+#include "esi_ly.h"
+#include "esi_qs.h"
+#include "esi_ts.h"
+
+EXEC ORACLE OPTION(REBIND=NO);
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+privatedef     CHAR *project_name;
+
+#define DO_SECTION  0
+#define DO_TOWNSHIP 1
+
+
+
+INT main(argc, argv)
+INT argc;
+CHAR **argv;
+{
+    INT	    status;
+    CHAR    town_id[31];
+    CHAR    data_type[31];
+    INT	    type;
+    INT     lynx_id_count;	
+    BOOL    must_create_table = FALSE;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+	VARCHAR sqlstmt[500];
+	double	township;
+	char	township_dir;
+	double	range;
+	char	range_dir;
+	int	meridian;
+	double	start_township;
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL WHENEVER NOT FOUND CONTINUE;
+
+    if (argc < 4) {
+	printf ("Usage: LD_COMPILE_LAND account/password project data_type\n");
+	printf ("	where data_type is one of SECTION/TOBIN_SECTION or TOWNSHIP/TOBIN_TOWNSHIP\n\n");
+	exit (EXIT_SUCCESS);
+    }
+
+    start_township = 1.0;
+    project_name = ts_sto_upper(argv[2]);
+    strcpy(data_type, ts_sto_upper(argv[3]));
+                     
+    if ((strcmp(data_type,"TOBIN_SECTION") != 0) &&
+        (strcmp(data_type,"SECTION") != 0) &&
+        (strcmp(data_type,"TOBIN_TOWNSHIP") != 0) &&
+        (strcmp(data_type,"TOWNSHIP")!= 0)  ) {
+	printf ("Data_Type must be one of SECTION/TOBIN_SECTION or TOWNSHIP/TOBIN_TOWNSHIP\n\n");
+	exit (EXIT_SUCCESS);
+    }
+
+    if (or_login(argc, argv) IS_NOT_EQUAL_TO SUCCESS) {
+	printf("Unable to log onto Oracle - Aborting\n");
+	exit (EXIT_FAILURE);
+    }
+
+    if (strcmp(data_type,"TOBIN_TOWNSHIP") EQUALS 0 ||
+        strcmp(data_type,"TOWNSHIP") EQUALS 0)
+      type = DO_TOWNSHIP;
+    else 
+      type = DO_SECTION;
+
+    qs_set_c (QS_PROJECT_NAME, project_name, strlen(project_name));
+    status=finder_config_project(FALSE);
+    if(status != SUCCESS) {
+	printf ("%s\n", mg_message(status));
+	exit (EXIT_SUCCESS);
+    }
+
+    EXEC SQL WHENEVER NOT FOUND CONTINUE;
+
+    EXEC SQL SELECT NULL
+             FROM USER_TABLES 
+             WHERE TABLE_NAME = 'TEMP_LYNX_LISTS';
+
+    if ( sqlca.sqlcode != SUCCESS)
+        {
+        must_create_table = TRUE;
+        }
+
+    if ( must_create_table )
+        {
+        sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+       "CREATE TABLE TEMP_LYNX_LISTS AS \
+        SELECT LYNX_ID, \
+        USERENV('SESSIONID') TEMP_PROCESS_ID, \
+        lpad(' ',80)  TEMP_LIST_NAME \
+        FROM %s.SECTIONS \
+        WHERE 1=2",  project_name);
+
+        EXEC SQL WHENEVER SQLERROR goto orcerr;
+        EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+         }
+ 
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL CREATE INDEX TEMP_LYNX_LIST_PROCESS
+             ON TEMP_LYNX_LISTS (temp_process_id);
+
+    EXEC SQL WHENEVER SQLERROR goto orcerr;
+
+    sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+    "SELECT DISTINCT MERIDIAN \
+     FROM   %s.SECTIONS",
+    project_name);
+
+    EXEC SQL PREPARE S_MERD FROM :sqlstmt;
+    EXEC SQL DECLARE C_MERD CURSOR FOR S_MERD;
+    EXEC SQL OPEN C_MERD;
+
+    sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+    "SELECT DISTINCT TOWNSHIP, TOWNSHIP_DIR, RANGE, RANGE_DIR \
+     FROM   %s.SECTIONS \
+     WHERE  MERIDIAN = :meridian \
+     ORDER BY RANGE_DIR, TOWNSHIP_DIR, RANGE, TOWNSHIP",
+    project_name);
+
+    EXEC SQL PREPARE S_TSHIP FROM :sqlstmt;
+    EXEC SQL DECLARE C_TSHIP CURSOR FOR S_TSHIP;
+
+    if (type EQUALS DO_TOWNSHIP) 
+	{
+	status = ly_delete_data_type ("C_TOWNSHIP", LYNX_ALL_CLASSES);
+
+	status = ly_create_data_type ("C_TOWNSHIP", "Composited Township Lines");
+	if (status EQUALS SUCCESS) 
+	    status = ly_set_dtype_gc ("C_TOWNSHIP", LYNX_ARC_CLASS, -2, "BLUE");
+        }
+    else 
+	{
+	status = ly_delete_data_type ("C_SECTION", LYNX_ALL_CLASSES);
+	status = ly_delete_data_type ("C_SECTION_LABEL", LYNX_ALL_CLASSES);
+
+	status = ly_create_data_type ("C_SECTION", "Composited Section Lines");
+	if (status EQUALS SUCCESS)
+	    status = ly_set_dtype_gc ("C_SECTION", LYNX_ARC_CLASS, -1, "YELLOW");
+
+	if (status EQUALS SUCCESS)
+	    status = ly_create_data_type 
+		     ("C_SECTION_LABEL", "Composited Section Labels");
+	if (status EQUALS SUCCESS)
+	    status = ly_set_dtype_gc 
+		     ("C_SECTION_LABEL", LYNX_TEXT_CLASS, -1, "NORMAL");
+        }
+    if (status != SUCCESS) goto orcerr;
+
+    FOREVER 
+	{
+	EXEC SQL FETCH C_MERD INTO :meridian;
+	if ( sqlca.sqlcode EQUALS OR_EOF) break;
+
+	EXEC SQL OPEN C_TSHIP USING :meridian;
+	FOREVER 
+	    {
+	    EXEC SQL FETCH C_TSHIP INTO
+			:township, :township_dir, :range, :range_dir;
+	    if (sqlca.sqlcode EQUALS OR_EOF) break;
+
+	    sprintf (town_id, "%dM_%.1f%c%.1f%c",
+			meridian, township, township_dir, range, range_dir);
+
+	    printf ("Processing %s lines for %s\n", data_type, town_id);
+
+	    status = store_lynx_ids (township, township_dir,
+			range, range_dir, meridian, type, &lynx_id_count);
+            if (status != SUCCESS) goto orcerr;
+
+	    if (lynx_id_count > 0 )
+		{
+		status = to_draw_area_nl (data_type, town_id, project_name);
+		if (status != SUCCESS)
+                   {
+                   EXEC SQL ROLLBACK WORK;
+                   }
+                else
+                   {
+                   EXEC SQL COMMIT WORK;
+                   }
+	        }
+	    }
+        }
+        /* end of the forever loop */
+
+/* remove records from last loop */
+
+    EXEC SQL
+	DELETE	FROM TEMP_LYNX_LISTS
+	WHERE	TEMP_PROCESS_ID = USERENV('SESSIONID');
+
+	goto normal_exit;
+
+
+orcerr:
+    or_errmsg(&sqlca,"Error in ld_compile_land.pc");
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL ROLLBACK WORK;
+
+normal_exit:
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL CLOSE C_MERD;
+    EXEC SQL CLOSE C_TSHIP;
+    or_logout (TRUE);
+
+    exit (EXIT_SUCCESS);
+
+}
+
+
+
+
+publicdef INT store_lynx_ids (township, township_dir,
+				 range, range_dir,
+				 meridian, type, lynx_id_count)
+DOUBLE	township;
+CHAR	township_dir;
+DOUBLE	range;
+CHAR	range_dir;
+INT	meridian;
+INT	type;
+INT    *lynx_id_count;
+{
+    INT total_count, status, done;
+    privatedef BOOL first = TRUE;
+
+    EXEC ORACLE OPTION (REBIND=YES);
+
+    EXEC SQL BEGIN DECLARE SECTION;
+	int	n_rows;
+	VARCHAR sqlstmt[1024];
+	int	lynx_id_ptr[1000];
+        double	township_2;
+        char	township_dir_2;
+        double	range_2;
+        char	range_dir_2;
+        int	meridian_2;
+        int	type_2;
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO orcerr;
+    EXEC SQL WHENEVER NOT FOUND CONTINUE;
+
+    if (first) 
+    {
+/* The following sql statement uses the decode to only pick up the
+   sections or townships, depending on the value of type_2 */
+
+    sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+    "SELECT LYNX_ID \
+     FROM   %s.SECTIONS \
+     WHERE  TOWNSHIP	 = :township_2	AND \
+	    TOWNSHIP_DIR = :township_dir_2 AND \
+	    RANGE	 = :range_2     AND \
+	    RANGE_DIR	 = :range_dir_2	AND \
+	    MERIDIAN	 = :meridian_2	AND \
+	    SECTION	 = decode( :type_2, 0, SECTION, 0) AND \
+            SECTION     != decode( :type_2, 0, 0, -9999  )",
+     project_name ) ;
+
+    EXEC SQL PREPARE S_TWN FROM :sqlstmt;
+    EXEC SQL DECLARE C_TWN CURSOR FOR S_TWN;
+
+    first = FALSE;
+    }
+/* First delete existing id's from the temporary table, then reinsert */
+
+    EXEC SQL
+	DELETE	FROM TEMP_LYNX_LISTS
+	WHERE	TEMP_PROCESS_ID = USERENV('SESSIONID');
+
+/* set locally declared Oracle variables */
+
+    township_2 = township;
+    township_dir_2 = township_dir;
+    range_2    = range;
+    range_dir_2    = range_dir;
+    meridian_2 = meridian;
+    type_2 = type;
+
+/* now select all id's for the entity in questions . The fetch
+   is performed 1000 rows at a time.   */
+
+    EXEC SQL OPEN C_TWN USING
+    :township_2, 
+    :township_dir_2, 
+    :range_2,    
+    :range_dir_2,    
+    :meridian_2, 
+    :type_2,
+    :type_2 ;
+
+    total_count = 0;
+    done = FALSE;
+    while (! done) 
+	{
+	EXEC SQL FETCH C_TWN INTO :lynx_id_ptr;
+	done = (sqlca.sqlcode EQUALS OR_EOF);
+
+	n_rows = OR_ROWCOUNT - total_count;
+	total_count = OR_ROWCOUNT;
+
+	if (n_rows > 0) 
+	    {
+	    EXEC SQL FOR :n_rows 
+	    INSERT INTO TEMP_LYNX_LISTS 
+	    (LYNX_ID, TEMP_PROCESS_ID, TEMP_LIST_NAME)
+	    VALUES (:lynx_id_ptr, USERENV('SESSIONID'),'TOWNSHIP_STRIP');
+
+            }
+        }
+    *lynx_id_count = total_count;
+    EXEC SQL CLOSE C_TWN;
+    return SUCCESS;
+
+orcerr:
+    or_errmsg(&sqlca, "Error in ld_compile_land/store_lynx_ids");
+
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL CLOSE C_TWN;
+    return status;
+}
+
+/***************************************************************************
+The following are two dummy entry points which
+help out the linker.  This is a stand-alone module
+that performs no graphics operations.  The routines
+ly_init_text_nl and ly_init_line_nl both plant
+the appropriate drawing methods in the n-List.
+The two entry points below stub out those functions.
+***************************************************************************/
+
+publicdef INT to_draw_line_method()
+{
+return SUCCESS;
+}
+publicdef INT to_draw_text_method()
+{
+return SUCCESS;
+}

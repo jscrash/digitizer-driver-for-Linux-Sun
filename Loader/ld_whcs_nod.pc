@@ -1,0 +1,800 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_WHCS_NOD.PC */
+/* *13   16-JUL-1991 17:14:02 LOEBL "(SPR 8569) Print error message on certain errors" */
+/* *12   13-MAY-1991 11:33:08 LOEBL "(SPR 0) Computed minimum tolerance allowed " */
+/* *11    9-JAN-1991 15:02:38 MING "(SPR -1) initialize x1,yy1" */
+/* *10   19-DEC-1990 15:58:53 MING "(SPR 6047) fix bug from previous change" */
+/* *9     6-DEC-1990 16:22:28 MING "(SPR 6084) get rid of unnecessary fetch statement and add tolerence = IGNORE in order to */
+/*optimize the loader" */
+/* *8     2-NOV-1990 15:48:03 MING "(SPR 6051) get rid of fgetname which is Vax only and variable y1 to yy1 that conflict with */
+/*function y1 delaration in math.h on UNIX" */
+/* *7    26-OCT-1990 13:50:17 GILLESPIE "(SPR 33)  New Lynx 3d changes" */
+/* *6    13-APR-1990 17:24:47 WALTERS "(SPR 0) Make compatable with LD_RUN_WHCS_LOAD.COM" */
+/* *5     5-APR-1990 10:24:32 WALTERS "(SPR 0) Set base lat,long to 0 if well not deviated" */
+/* *4     3-APR-1990 17:22:46 WALTERS "(SPR 0) Prog was looking at default MAP_PROJECTION -- should have looked at default */
+/*PROJECT_PROJECTION" */
+/* *3    26-MAR-1990 11:44:47 WALTERS "(SPR 0) Fix ct_transform_point's order of parms" */
+/* *2    19-MAR-1990 10:20:30 WALTERS "(SPR 0) Initial release of WHCS nodes loader" */
+/* *1    19-MAR-1990 10:19:37 WALTERS "Whcs nodes loader" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_WHCS_NOD.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Exploration Systems, Inc. 1989                          */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY   */
+/*CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE      */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Exploration Systems, Inc.                                             */
+/*            579 Market Street                                                     */
+/*            San Francisco, CA  USA 94105                                          */
+/*            (415) 974-1600                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+#include "esi_c_lib.h"
+#include "esi_math.h"
+
+#ifndef ESI_HO_FILES_H
+
+#include "esi_ho_files.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_FI_H
+
+#include "esi_fi.h"
+
+#endif
+
+#ifndef ESI_MG_H
+
+#include "esi_mg.h"
+
+#endif
+
+#ifndef ESI_OR_H
+
+#include "esi_or.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+
+#ifndef ESI_CT_H
+
+#include "esi_ct.h"
+
+#endif
+
+#ifndef ESI_WE_WELLS_H
+
+#include "esi_we_wells.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#define VERSION "Version 1.1"
+#define IGNORE -9999
+
+EXEC SQL BEGIN DECLARE SECTION;
+VARCHAR default_projection[16];
+VARCHAR sqlstmt[500];
+
+double min_tolerance;
+
+privatedef  long int theNode, theNode2;
+privatedef  double x1, x2, tdx, tdy, bdx, bdy;
+privatedef  double tdx2, tdy2, bdx2, bdy2;
+privatedef  double yy1, yy2;
+privatedef  double lat, lon;
+VARCHAR src[13];
+VARCHAR dat[13];
+VARCHAR u_well_i[21];
+VARCHAR dev_flg[2];
+EXEC SQL END DECLARE SECTION;
+
+privatedef CHAR bad_file[] = 
+  {
+  "load_bad.dat"
+  };
+    
+EXEC ORACLE OPTION (REBIND = NO);
+
+main (argc, argv)
+int argc;
+char **argv;
+    {
+    INT status;
+    FILE *fp;
+    FILE *bad_fp;
+    FILENAME file_name;
+    DOUBLE tolerance;
+
+    /* Check # of incoming arguments -- there should be 5                           */
+    
+    if (argc != 5)
+        {
+        printf ("Usage: %s <oracle_login> <project> <filename> <tolerance>\n",
+                argv[0]);
+        exit (1);
+        }
+    /* Check that tolerance is actually a floating point number                     */
+    
+	if (ARE_SAME(argv[4],"I") OR ARE_SAME(argv[4],"i"))
+        {
+	    tolerance = IGNORE;
+        }
+        else if (ts_isfloat (argv[4]))
+             {
+                 tolerance = atof (argv[4]);
+             }
+             else
+             {
+                 printf ("Tolerance is not valid\n");
+             }
+    /* Open the input file -- exit if unable to open                                */
+    
+    strcpy (file_name, argv[3]);
+    fp = ho_open (file_name, "r", NULL);
+    if (fp == NULL_FILE_PTR)
+        {
+        printf ("Can't open file: %s\n", file_name);
+        exit (EXIT_FAILURE);
+        }
+    /* Open output file -- store records which cause errors here                    */
+    
+    bad_fp = ho_open (bad_file, "w+", NULL);
+    if (bad_fp == NULL_FILE_PTR)
+        {
+        printf ("Can't open file: %s\n", bad_file);
+        exit (EXIT_FAILURE);
+        }
+    /* Log into ORACLE -- exit if unable to                                         */
+    
+    if (or_login (argc, argv) != SUCCESS)
+        {                           /* Log into Oracle                              */
+        exit (EXIT_FAILURE);
+        }
+    /* Configure finder project and set project name                                */
+    
+    qs_set_c (QS_PROJECT_NAME, ts_sto_upper (argv[2]), 0);
+    if ((status = finder_config_project (TRUE)) IS_NOT_EQUAL_TO SUCCESS)
+        {
+        printf ("Can't connect to project %s: \n", argv[2]);
+        or_logout (FALSE);
+        exit (EXIT_FAILURE);
+        }
+    /* Read data file and store in nodes_second and well_hdr_second                 */
+    
+    printf ("\n\nFinder Graphics Systems, Inc. WHCS nodes loader %s\n", 
+              VERSION);
+
+/* test the input tolerance, if less than half the scale factor, then it
+   must be made equal to half the scale factor. 
+*/
+    if ( tolerance != IGNORE )
+    {
+       EXEC SQL select 0.5*power(10,-scale) 
+                into :min_tolerance
+                from ESI.finder_columns 
+                where tname = 'NODES'
+                and cname = 'NODE_X';
+        if (OR_STATUS != SUCCESS) 
+        {
+            printf("\nUnable to read from esi.finder_columns: %d\n",
+                    sqlca.sqlcode);
+            exit (EXIT_FAILURE);
+        }
+        if ( tolerance < min_tolerance) tolerance = min_tolerance;
+    }
+
+
+    whcs_read_data_file (fp, bad_fp, tolerance);
+    
+    /* Close input and output files, log off ORACLE, and exit                       */
+    
+    fclose (fp);
+    fclose (bad_fp);
+    
+    or_logout (TRUE);
+    
+    exit (EXIT_SUCCESS);
+    }
+
+/* ----------------------------------------------------------------------           */
+/* *  This routine reads records from a WHCS input file and:                        */
+/* *                                                                                */
+/* *      1. Ignores all records that are not numbered between                      */
+/* *     10030 to 10039 OR 10050 to 10059 inclusive.                                */
+/* *      2. Transforms the lat/longs into project projection                       */
+/* *     coordinates and calculates the base_delta_x and y.                         */
+/* *  3. Stores the records in the nodes_second or well_hdr_second.                 */
+/* *-----------------------------------------------------------------------         */
+
+privatedef  int whcs_read_data_file (fp, bad_fp, tolerance)
+FILE *fp;
+FILE *bad_fp;
+DOUBLE tolerance;
+    {
+    INT i;
+    INT status;
+    INT degr;
+    INT degr_slice;
+    INT numb;
+    UWI uwi;
+    CHAR buffer[84];
+    CHAR source[31];
+    CHAR datum[13];
+    CHAR bad_file[256];
+    DOUBLE count_of_bad = 0;
+    DOUBLE count_of_good = 0;
+    DOUBLE x, y;
+    DOUBLE surface_latitude, surface_longitude, templat, templon;
+    DOUBLE bottom_latitude, bottom_longitude;
+    DOUBLE xb, xt, yb, yt;
+    DOUBLE theta, xp, yp;
+    UOM_NAME uom;
+    PROJECT_NAME project_name;
+    PROJECTION_STRUCTURE *geod_projection;
+    PROJECTION_STRUCTURE *proj_projection;
+    PROJECTION_STRUCTURE utm_projection;
+    
+    /* Select the projects default projection. This is the projection               */
+    /* that all points must be transformed to before storage.                       */
+    
+    qs_inq_c (QS_PROJECT_NAME, project_name, 0);
+    sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+"SELECT DEFAULT_VALUE FROM %s.PROJECT_DEFAULTS \
+WHERE DEFAULT_NAME = 'PROJECT_PROJECTION'"
+            , project_name);
+    
+    EXEC SQL PREPARE S1 FROM :sqlstmt;
+    EXEC SQL DECLARE C3 CURSOR FOR S1;
+    EXEC SQL OPEN C3;
+    EXEC SQL FETCH C3 INTO :default_projection;
+    
+    ct_get_projection ("GEODETIC", &geod_projection);
+    ct_get_projection ((CHAR *)default_projection.arr, &proj_projection);
+    ct_get_projection_uom ((CHAR *)default_projection.arr, uom);
+    
+    /* Read the records from the input file and process them                        */
+    
+    ts_fill (buffer, '\0', 84);
+    
+    while (fgets (buffer, 82, fp) != NULL AND buffer[0] != 0)
+        {
+        status = whcs_break_up_buffer (buffer, &numb, uwi, source, &surface_latitude,
+                                       &surface_longitude, &bottom_latitude,
+                                       &bottom_longitude);
+        if ((((numb >= 10030) AND (numb <= 10039)) OR 
+             ((numb >= 10050) AND (numb <= 10059))))
+            {
+            
+            if (status)
+                {
+                fprintf (bad_fp, "%s", buffer);
+                count_of_bad++;
+                printf ("not right line #\n");
+                continue;
+                }
+            strcpy (datum, source);
+            strcpy (source, "WHCS-");
+            strcat (source, datum);
+            if (numb >= 10030 AND numb <= 10039)
+                {
+                strcat (datum, " 1927");
+                strcat (source, " 1927");
+                }
+            else
+                {
+                strcat (datum, " 1983");
+                strcat (source, " 1983");
+                }
+            surface_longitude = surface_longitude * -1;
+            bottom_longitude = bottom_longitude * -1;
+            
+            status = ct_transform_point (surface_longitude, surface_latitude,
+                                  geod_projection, &x, &y, proj_projection);
+            
+            if (status)
+                {
+                fprintf (bad_fp, "%s", buffer);
+                printf ("bad ct_transform_point\n");
+                count_of_bad++;
+                ts_fill (buffer, '\0', 84);
+                continue;
+                }
+            /* Calculate top and bottom delta xy's here                             */
+            
+            tdx = tdy = 0.0;
+            if ((surface_latitude == bottom_latitude AND surface_longitude ==
+                 bottom_longitude) OR 
+                (bottom_longitude == 0.0 AND bottom_latitude == 0.0))
+                {
+                V_FROMC (dev_flg, "N");
+                bdx = bdy = 0.0;
+                }
+            else if (ARE_SAME ((CHAR *)default_projection.arr, "GEODETIC"))
+                {
+                degr = -180;
+                degr_slice = 6;
+                for (i = 1; i < 30; i++)
+                    {               /* Calculate UTM Zone        */
+                    if ((surface_longitude >= degr) AND (surface_longitude <
+                                                         degr + degr_slice))
+                        {
+                        utm_projection.zone_code = i;
+                        break;
+                        }
+                    degr += degr_slice;
+                    }
+                utm_projection.projection_type = 1;
+                utm_projection.spheroid_code = 2;
+                utm_projection.spheroid_units = 2;
+                status = ct_transform_point (surface_longitude, surface_latitude,
+                                             geod_projection, &xt, &yt,
+                                             &utm_projection);
+                if (status)
+                    {
+                    fprintf (bad_fp, "%s", buffer);
+                    printf ("bad ct_transform_point\n");
+                    count_of_bad++;
+                    ts_fill (buffer, '\0', 84);
+                    continue;
+                    }
+                status = ct_transform_point (bottom_longitude, bottom_latitude,
+                                             geod_projection, &xb, &yb,
+                                             &utm_projection);
+                if (status)
+                    {
+                    fprintf (bad_fp, "%s", buffer);
+                    printf ("bad ct_transform_point\n");
+                    count_of_bad++;
+                    ts_fill (buffer, '\0', 84);
+                    continue;
+                    }
+                status = ct_transform_point (surface_longitude, surface_latitude + 0.1,
+                                             geod_projection, &xp, &yp,
+                                             &utm_projection);
+                if (status)
+                    {
+                    fprintf (bad_fp, "%s", buffer);
+                    printf ("bad ct_transform_point\n");
+                    count_of_bad++;
+                    ts_fill (buffer, '\0', 84);
+                    continue;
+                    }
+                /* Calculate base delta X and Y                                     */
+                
+                theta = atan ((xp - xt) / (yp - yt));
+                bdx = (xt + (xb - xt) * cos (theta) - (yb - yt) * sin (theta)) - xt;
+                bdy = (yt + (yb - yt) * cos (theta) + (xb - xt) * sin (theta)) - yt;
+                }
+            else
+                {
+                status = ct_transform_point (bottom_longitude, bottom_latitude,
+                                             geod_projection, &xb, &yb,
+                                             proj_projection);
+                if (status)
+                    {
+                    fprintf (bad_fp, "%s", buffer);
+                    printf ("bad ct_transform_point\n");
+                    count_of_bad++;
+                    ts_fill (buffer, '\0', 84);
+                    continue;
+                    }
+                status = ct_transform_point (surface_longitude, surface_latitude + 0.1,
+                                             geod_projection, &xp, &yp,
+                                             proj_projection);
+                if (status)
+                    {
+                    fprintf (bad_fp, "%s", buffer);
+                    printf ("bad ct_transform_point\n");
+                    count_of_bad++;
+                    ts_fill (buffer, '\0', 84);
+                    continue;
+                    }
+                /* Calculate base delta X and Y                                     */
+                
+                theta = atan ((xp - x) / (yp - y));
+                bdx = (x + (xb - x) * cos (theta) - (yb - y) * sin (theta)) - x;
+                bdy = (y + (yb - y) * cos (theta) + (xb - x) * sin (theta)) - y;
+                }
+            /* Store records to tables and increment counters                       */
+            
+            status = whcs_prc_nodes_2nd (x, y, surface_latitude, surface_longitude,
+                                         uwi, source, datum, uom, tolerance);
+            
+            if (status < 0)
+                {
+                fprintf (bad_fp, "%s", buffer);
+                printf ("bad whcs_prc_nodes_2nd\n");
+                count_of_bad++;
+                }
+            else
+                {
+                count_of_good++;
+                }
+            ts_fill (buffer, '\0', 84);
+            }
+        else
+            {
+            ts_fill (buffer, '\0', 84);
+            continue;
+            }
+        }
+    printf ("%8.0f records were processed\n", count_of_good + count_of_bad);
+    printf ("        %8.0f records were successful\n", count_of_good);
+    printf ("        %8.0f records were NOT successful\n", count_of_bad);
+    
+    if (count_of_bad)
+        printf ("\nBad records are in file: %s\n", bad_file);
+    
+    return SUCCESS;
+    }
+
+privatedef  int whcs_break_up_buffer (buffer, numb, uwi, source, s_lat, s_lon, b_lat,
+                                      b_lon)
+INT *numb;
+UWI uwi;
+CHAR *buffer, *source;
+DOUBLE *s_lat, *s_lon, *b_lat, *b_lon;
+    {
+    CHAR str[16];
+    CHAR s1[4], s2[6];
+    INT status = SUCCESS;
+    
+    strncpy (str, &(buffer[0]), 5); /* Get card number                              */
+    str[5] = 0;
+    if (ts_isfloat (str) > 0)
+        *numb = atoi (str);
+    else
+        return FAIL;
+    
+    strncpy (uwi, &(buffer[5]), 14);    /* Get Unique well indicator                */
+    uwi[14] = 0;
+    
+    strncpy (source, &(buffer[25]), 2); /* Get source code                          */
+    source[2] = 0;
+    
+    strncpy (str, &(buffer[28]), 8);    /* Get top latitude                         */
+    str[8] = 0;
+    if (ts_isfloat (str) > 0)
+        *s_lat = atof (str) / 100000;
+    else
+        return FAIL;
+    
+    strncpy (str, &(buffer[37]), 8);    /* Get top longitude                        */
+    str[8] = 0;
+    if (ts_isfloat (str) > 0)
+        *s_lon = atof (str) / 100000;
+    else
+        return FAIL;
+    
+    strncpy (str, &(buffer[46]), 8);    /* Get base latitude                        */
+    str[8] = 0;
+    if (ts_isfloat (str) > 0)
+        {
+        V_FROMC (dev_flg, "Y");
+        *b_lat = atof (str) / 100000;
+        }
+    else
+        {
+        V_FROMC (dev_flg, "N");
+        *b_lat = 0.0;
+        }
+    strncpy (str, &(buffer[55]), 8);    /* Get Base longitude                       */
+    str[8] = 0;
+    if (ts_isfloat (str) > 0)
+        {
+        V_FROMC (dev_flg, "Y");
+        *b_lon = atof (str) / 100000;
+        }
+    else
+        {
+        V_FROMC (dev_flg, "N");
+        *b_lon = 0.0;
+        }
+    if ((*b_lat > 90 OR * b_lat < 0)OR/* Check coord consistency                    */
+        (*s_lat > 90 OR * s_lat < 0) OR (*b_lon > 180 OR * b_lon <
+                                         0) OR (*s_lon > 180 OR * s_lon < 0))
+        return FAIL;
+    else
+        return SUCCESS;
+    }
+
+publicdef  int whcs_prc_nodes_2nd (x, y, lati, longi, uwi, source, datum, uom,
+                                   tolerance)
+DOUBLE x;
+DOUBLE y;
+DOUBLE lati;
+DOUBLE longi;
+UWI *uwi;
+CHAR *datum;
+CHAR *source;
+UOM_NAME *uom;
+DOUBLE tolerance;
+    {
+    privatedef FILE *upd_fp;
+    privatedef BOOL first = TRUE;
+    privatedef CHAR upd_file[] = 
+        {
+        "load_upd.dat"
+        };
+    
+    /* Prepare and Declare cursors -- these are static and are not rebound          */
+    
+    if (first)
+        {
+        PROJECT_NAME project;
+        
+        upd_fp = ho_open (upd_file, "w+", NULL);
+        qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+        
+        /* Find a node within the tolerance if one exists                           */
+        
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"SELECT NODE_ID FROM %s.NODES_SECOND \
+WHERE NODE_X BETWEEN :x1 AND :x2 AND \
+NODE_Y BETWEEN :yy1 AND :yy2"
+                , project);
+        EXEC SQL PREPARE S1 FROM :sqlstmt;
+        EXEC SQL DECLARE C1 CURSOR FOR S1;
+        
+        /* insert record into nodes_second                                          */
+        
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"INSERT INTO %s.NODES_SECOND(NODE_ID, NODE_X, NODE_Y, \
+LATITUDE, LONGITUDE, SOURCE, LOC_QUAL, DATUM) VALUES \
+                (:theNode, :x, :y, :lat, :lon, :src, 'A', :dat)"
+                , project);
+        EXEC SQL PREPARE S2 FROM :sqlstmt;
+        
+        /* insert record into well_hdr_second                                       */
+        
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"INSERT INTO %s.WELL_HDR_SECOND \
+(UWI, SOURCE, NODE_ID, TOP_DELTA_X, TOP_DELTA_Y, \
+BASE_DELTA_X, BASE_DELTA_Y, DEVIATION_FLAG) \
+VALUES (:u_well_i, :src, :theNode, :tdx, :tdy, \
+:bdx, :bdy, :dev_flg)"
+                , project);
+        EXEC SQL PREPARE S3 FROM :sqlstmt;
+        
+        /* update well_hdr_second record                                            */
+        
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"UPDATE %s.WELL_HDR_SECOND SET \
+NODE_ID = :theNode, \
+TOP_DELTA_X = :tdx, TOP_DELTA_Y = :tdy, \
+BASE_DELTA_X = :bdx, BASE_DELTA_Y = :bdy, \
+DEVIATION_FLAG = :dev_flg \
+WHERE UWI = :u_well_i AND SOURCE = :src"
+                , project);
+        EXEC SQL PREPARE S4 FROM :sqlstmt;
+        
+        /* select record from well_hdr_second                                       */
+        
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"SELECT UWI,NODE_ID,TOP_DELTA_X,TOP_DELTA_Y, \
+BASE_DELTA_X, BASE_DELTA_Y \
+FROM %s.WELL_HDR_SECOND \
+WHERE UWI = :u_well_i AND SOURCE = :src"
+                , project);
+        EXEC SQL PREPARE S5 FROM :sqlstmt;
+        EXEC SQL DECLARE C4 CURSOR FOR S5;
+        
+        /* update nodes_second record                                               */
+        
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"UPDATE %s.NODES_SECOND SET \
+NODE_X = :x, NODE_Y = :y, LATITUDE = :lat, \
+LONGITUDE = :lon, LOC_QUAL = 'A', DATUM = :dat \
+WHERE NODE_ID = :node_id and source = :src"
+                , project);
+        EXEC SQL PREPARE S6 FROM :sqlstmt;
+        
+        first = FALSE;
+        }
+    
+    V_FROMC (u_well_i, uwi);
+    V_FROMC (src, source);
+    V_FROMC (dat, datum);
+    
+    if (tolerance == IGNORE)
+        {
+        EXEC SQL SELECT ESI.LYNX_ID_SEQ.NEXTVAL INTO :theNode FROM DUAL;
+        if (OR_STATUS < 0)
+            {
+            printf ("#2 %s\n", OR_MESSAGE);
+            EXEC SQL ROLLBACK WORK;
+            return FAIL;
+            }
+        /* try to insert the record into the nodes_second table                     */
+        
+        x1 = x;
+	yy1 = y;
+        lat = lati;
+        lon = longi;
+
+        EXEC SQL EXECUTE S2 USING :theNode,  :x1,  :yy1,  :lat,  :lon,
+           :src,  :dat;
+        if (OR_STATUS != SUCCESS && OR_STATUS != -1 )
+            {
+            printf ("\nFailed to update nodes_second\n%s\n",
+                       sqlca.sqlerrm.sqlerrmc);
+            EXEC SQL ROLLBACK WORK;
+            return FAIL;
+            }
+
+        if (OR_STATUS != SUCCESS )
+            {
+            
+            /* If the insert fails then update the record                           */
+            
+            EXEC SQL EXECUTE S6 USING :x1,  :yy1,  :lat,  :lon,  :dat, 
+                                      :theNode, :src;
+            if (OR_STATUS != SUCCESS )
+                {
+                printf ("#3 %s\n", OR_MESSAGE);
+                EXEC SQL ROLLBACK WORK;
+                return FAIL;
+                }
+            }
+        /* try to insert the well_hdr_second record                       */
+        
+        EXEC SQL EXECUTE S3 USING :u_well_i,  :src,  :theNode,  :tdx,
+           :tdy,  :bdx,  :bdy,  :dev_flg;
+		   
+        if (OR_STATUS != SUCCESS)
+            {
+            /* if the record exists then save it and update the record    */
+            
+            fprintf (upd_fp, "%14s %10s %5d %9f %9f %9f %9f\n", 
+                      (CHAR *)u_well_i.arr,
+              (CHAR *)src.arr, theNode2, tdx2, tdy2, bdx2, bdy2);
+            EXEC SQL EXECUTE S4 USING :theNode,  :tdx,  :tdy,  :bdx,
+              :bdy,  :dev_flg,  :u_well_i,  :src;
+            if (OR_STATUS < 0)
+                {
+                printf ("#5 %s\n", OR_MESSAGE);
+                EXEC SQL ROLLBACK WORK;
+                return FAIL;
+                }
+            }				
+        }
+    else
+        {
+        x1 = x - tolerance;
+        x2 = x + tolerance;
+        yy1 = y - tolerance;
+        yy2 = y + tolerance;
+    
+        EXEC SQL OPEN C1 USING :x1,  :x2,  :yy1,  :yy2;
+        EXEC SQL FETCH C1 INTO :theNode;
+        if (OR_STATUS < 0)
+            {
+            printf ("#1 %s\n", OR_MESSAGE);
+            EXEC SQL ROLLBACK WORK;
+            return FAIL;
+            }
+        if (OR_STATUS == OR_EOF)
+            {
+            x1 = x;
+	    yy1 = y;
+            lat = lati;
+            lon = longi;
+        
+            /* Get the next node_id in the sequence                                     */
+        
+            EXEC SQL SELECT ESI.LYNX_ID_SEQ.NEXTVAL INTO :theNode FROM DUAL;
+            if (OR_STATUS < 0)
+                {
+                printf ("#2 %s\n", OR_MESSAGE);
+                EXEC SQL ROLLBACK WORK;
+                return FAIL;
+                }
+        /* try to insert the record into the nodes_second table                     */
+        
+            EXEC SQL EXECUTE S2 USING :theNode,  :x1,  :yy1,  :lat,  :lon,
+               :src,  :dat;
+            if (OR_STATUS != SUCCESS)
+                {
+            
+            /* If the insert fails then update the record                           */
+            
+                EXEC SQL EXECUTE S6 USING :x1,  :yy1,  :lat,  :lon,  :dat, :theNode;
+                if (OR_STATUS < 0)
+                    {
+                    printf ("#3 %s\n", OR_MESSAGE);
+                    EXEC SQL ROLLBACK WORK;
+                    return FAIL;
+                    }
+           /* try to insert the well_hdr_second record  */
+                }		   
+        
+            EXEC SQL EXECUTE S3 USING :u_well_i,  :src,  :theNode,  :tdx,
+                    :tdy,  :bdx,  :bdy,  :dev_flg;
+            if (OR_STATUS != SUCCESS)
+                {
+            /* if the record exists then save it and update the record              */
+                EXEC SQL EXECUTE S4 USING :theNode,  :tdx,  :tdy,  :bdx,
+                   :bdy,  :dev_flg,  :u_well_i,  :src;
+                if (OR_STATUS == SUCCESS)
+			        {						
+                    fprintf (upd_fp, "%14s %10s %5d %9f %9f %9f %9f\n", (CHAR *)u_well_i.arr,
+                            (CHAR *)src.arr, theNode2, tdx2, tdy2, bdx2, bdy2);
+                    }
+				else							
+                    {
+                    printf ("#5 %s\n", OR_MESSAGE);
+                    EXEC SQL ROLLBACK WORK;
+                    return FAIL;
+                    }
+                }   
+            }
+        else
+            {
+            x1 = x, yy1 = y;
+            lat = lati;
+            lon = longi;
+            strcpy ((CHAR *)src.arr, source);
+            src.len = strlen ((CHAR *)src.arr);
+        
+         /* UPDATE THE RECORD IF IT ALREADY EXISTS                               */
+            
+            EXEC SQL EXECUTE S6 USING :x1,  :yy1,  :lat,  :lon,  :dat, :theNode;
+            if (OR_STATUS < 0)
+                {
+                printf ("#6 %s\n", OR_MESSAGE);
+                EXEC SQL ROLLBACK WORK;
+                return FAIL;
+                }
+            
+          /* try to insert in well_hdr_second */
+            
+            EXEC SQL EXECUTE S3 USING :u_well_i,  :src,  :theNode,  :tdx,
+               :tdy,  :bdx,  :bdy,  :dev_flg;
+            if (OR_STATUS != SUCCESS)
+                {
+            /* Otherwise save the record and update the record                      */
+            
+                EXEC SQL EXECUTE S4 USING :theNode,  :tdx,  :tdy,  :bdx,
+                    :bdy,  :dev_flg,  :u_well_i,  :src;
+                if (OR_STATUS == SUCCESS)
+                    {
+                    fprintf (upd_fp, "%14s %10s %5d %9f %9f %9f %9f\n", (CHAR *)u_well_i.arr,
+                       (CHAR *)src.arr, theNode2, tdx2, tdy2, bdx2, bdy2);
+                    }
+                else					 					 
+                    {
+                    printf ("#9 %s\n", OR_MESSAGE);
+                    EXEC SQL ROLLBACK WORK;
+                    return FAIL;
+                    }
+                }
+            }
+        }
+    EXEC SQL COMMIT WORK;
+    return OR_STATUS;
+    }

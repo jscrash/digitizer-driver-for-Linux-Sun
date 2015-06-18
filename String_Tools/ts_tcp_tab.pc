@@ -1,0 +1,97 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element TS_TCP_TAB.PC */
+/*  3     2-MAR-1992 15:24:51 JILL "(SPR 0) added proto" */
+/* *2    21-SEP-1989 09:06:38 GILLESPIE "(SPR 1) Initial release" */
+/* *1    21-SEP-1989 09:06:05 GILLESPIE "Convert tcp to table" */
+/* DEC/CMS REPLACEMENT HISTORY, Element TS_TCP_TAB.PC */
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.   AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND   MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+                     Finder Graphics Systems, Inc.
+                     579 Market Street
+                     San Francisco, CA  USA 94105
+                            (415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+NAME:        ts_tcp_from_table 
+
+DESCRIPTION: Build a TCP of all names from a specified a table and column
+
+
+    Input:  table_name  -   The SQL table to be retrieved,
+                            (Must be fully qualified name, e.g.
+                            CODES.FONT_CODES, <project>.LITHOSTRAT_CODES, etc.)
+            column_name -   Valid column name in table_name
+
+    Output: tcp_list    -   table of character pointers to the rows
+             no_rows    -   Number of rows returned
+
+    Status: SUCCESS     -   if request satisfied
+            FAIL        -   if trouble
+
+******************************************************************************/
+
+#include "esi_oracle.h"
+#include "esi_ts.h"
+
+publicdef INT ts_tcp_from_table(table_name,column_name,tcp_list, no_rows)
+CHAR *table_name;
+CHAR *column_name;
+CHAR ***tcp_list;
+INT *no_rows;
+{
+    CHAR **tcp = (CHAR **)0;
+    INT nlen;
+    INT no_items;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR name[41];
+        VARCHAR sqlstmt[250];
+    EXEC SQL END DECLARE SECTION;
+    
+/*------------------*/
+/*  Define a cursor */
+/*------------------*/
+
+    sqlstmt.len = sprintf((CHAR *)sqlstmt.arr, "SELECT DISTINCT %s FROM %s ORDER BY %s",
+                    column_name,table_name,column_name);
+
+    EXEC SQL PREPARE S1 FROM :sqlstmt;
+    EXEC SQL DECLARE C_CUR CURSOR FOR S1;
+    EXEC SQL OPEN C_CUR;
+    if(OR_STATUS != SUCCESS)
+    {
+        return OR_STATUS;
+    }
+
+/*----------------------------------------------------------*/
+/*  Extract objects from the cursor until there are no more */
+/*----------------------------------------------------------*/
+
+    EXEC SQL WHENEVER NOT FOUND GOTO done;
+    for (no_items = 0; TRUE; no_items++)
+    {
+
+        EXEC SQL FETCH C_CUR INTO :name;
+
+        V_SETZERO(name);
+        ts_tcp_append(&tcp, (CHAR *)name.arr);
+    }
+
+done:
+    EXEC SQL CLOSE C_CUR;
+
+    *tcp_list = tcp;
+    *no_rows = no_items;
+    
+    return SUCCESS;
+}

@@ -1,0 +1,224 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_G_TEXT_BNDL.PC */
+/* *11   19-JUL-1990 17:26:51 JESSIE "(SPR 5628) Make LYNX functions internally consistant" */
+/* *10   19-JUL-1990 11:16:26 JESSIE "(SPR 5628) Make LYNX functions internally consistant" */
+/* *9    19-JUL-1990 10:22:04 VINCE "(SPR 5628) Make LYNX functions internally consistant" */
+/* *8    27-MAR-1990 13:56:32 VINCE "(SPR 1) panic fixes" */
+/* *7    27-MAR-1990 01:00:33 MING "(SPR 1) Fixup topologic stuff" */
+/* *6    25-MAR-1990 22:50:26 SCD "(SPR 1) Hardwire to return a default bundle" */
+/* *5    23-MAR-1990 15:27:57 PURNA "(SPR 5095) change in no of fetch variables" */
+/* *4    22-MAR-1990 10:33:20 PURNA "(SPR 5095) add bundle_id=0" */
+/* *3    21-MAR-1990 16:26:21 PURNA "(SPR 0) more changes" */
+/* *2    15-MAR-1990 18:19:35 PURNA "(SPR 5095) lynx table retrieval" */
+/* *1    15-MAR-1990 18:17:11 PURNA "lynx table retrieval" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_G_TEXT_BNDL.PC */
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_ly.h"
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_LU_H
+#include "esi_lu.h"
+#endif
+
+#ifndef ESI_MP_H
+#include "esi_mp.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT ly_get_text_bundle (CHAR *data_type,INT text_id,INT bundle_id_in,
+                                    TEXT_GC *text);
+                                    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    data_type       -(CHAR *)
+    text_id         -(INT)
+    bundle_id_in    -(INT)
+    text            -(TEXT_GC *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    OR_STATUS - Status returned by Oracle.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT ly_get_text_bundle (CHAR *data_type, INT text_id, INT bundle_id_in,
+                                  TEXT_GC *text) 
+#else
+publicdef INT ly_get_text_bundle (data_type, text_id, bundle_id_in, text)
+CHAR *data_type;
+INT text_id;
+INT bundle_id_in;
+TEXT_GC *text;
+#endif
+    {
+    PROJECT_NAME project;
+    INT code, status;
+    CHAR color[12];
+    BOOL bundle_fetch = TRUE;
+    MAP_STRUCTURE *map;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    static int text_bundle_id;
+    static VARCHAR color_override[13];  /* GKS color index                  */
+    static VARCHAR text_color[13];  /* GKS color index                  */
+    static VARCHAR text_font[17];   /* GKS font index                   */
+    static int text_precision;  /* GKS text precision code          */
+    static int string_h_just;   /* defined below                    */
+    static int string_v_just;   /* defined below                    */
+    static double string_spacing;   /* in char_height units             */
+    static int text_path;       /* vector defining character angle  */
+    static double char_height;  /* in project default horizontal UOM*/
+    static double char_spacing; /* in char_width units              */
+    static VARCHAR sqlstmt[1000];
+    EXEC SQL END DECLARE SECTION;
+    
+    status = mp_get_current_map (&map);
+    
+    if (status != SUCCESS)
+        {
+        return status;
+        }
+    EXEC SQL WHENEVER SQLERROR GOTO :orcerr;
+    
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    
+    if (bundle_id_in != 0)
+        {
+        sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+"SELECT TEXT_COLOR,TEXT_FONT,TEXT_PRECISION,STRING_H_JUST,STRING_V_JUST, \
+STRING_SPACING,TEXT_PATH,CHAR_HEIGHT,CHAR_SPACING \
+FROM  %s.LYNX_TEXT_BUNDLE WHERE TEXT_BUNDLE_ID=%d"
+                , project, bundle_id_in);
+        V_FROMC (color_override, "NULL");
+        text_bundle_id = bundle_id_in;
+        bundle_fetch = FALSE;
+        }
+    else if (text_id != 0)
+        {
+        sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+"SELECT NVL(A.COLOR_OVERRIDE,'NULL'),A.TEXT_BUNDLE_ID,\
+B.TEXT_COLOR,B.TEXT_FONT,B.TEXT_PRECISION,B.STRING_H_JUST,B.STRING_V_JUST, \
+B.STRING_SPACING,B.TEXT_PATH,B.CHAR_HEIGHT,B.CHAR_SPACING \
+FROM %s.LYNX_TEXT_GC A, %s.LYNX_TEXT_BUNDLE B \
+WHERE A.TEXT_ID=%d AND A.TEXT_BUNDLE_ID=B.TEXT_BUNDLE_ID"
+                , project, project, text_id);
+        }
+    else if (data_type != NULL)
+        {
+        sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+"SELECT NVL(A.COLOR_OVERRIDE,'NULL'),A.TEXT_BUNDLE_ID,\
+B.TEXT_COLOR,B.TEXT_FONT,B.TEXT_PRECISION,B.STRING_H_JUST,B.STRING_V_JUST, \
+B.STRING_SPACING,B.TEXT_PATH,B.CHAR_HEIGHT,B.CHAR_SPACING \
+FROM %s.LYNX_DTYPE_TEXT_GC A, %s.LYNX_TEXT_BUNDLE B \
+WHERE A.DATA_TYPE='%s' AND A.TEXT_BUNDLE_ID=B.TEXT_BUNDLE_ID"
+                , project, project, data_type);
+        }
+    else
+        {
+        sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+"SELECT TEXT_COLOR,TEXT_FONT,TEXT_PRECISION,STRING_H_JUST,STRING_V_JUST, \
+STRING_SPACING,TEXT_PATH,CHAR_HEIGHT,CHAR_SPACING \
+FROM  %s.LYNX_TEXT_BUNDLE WHERE TEXT_BUNDLE_ID=%d"
+                , project, bundle_id_in);
+        V_FROMC (color_override, "NULL");
+        text_bundle_id = bundle_id_in;
+        bundle_fetch = FALSE;
+        }
+    EXEC SQL WHENEVER NOT FOUND GOTO not_found;
+    EXEC SQL PREPARE S_TEXT_GC FROM : sqlstmt;
+    EXEC SQL DECLARE C_TEXT_GC CURSOR FOR S_TEXT_GC;
+    EXEC SQL OPEN C_TEXT_GC;
+    if (bundle_fetch)
+        {
+        EXEC SQL FETCH C_TEXT_GC INTO : color_override,  : text_bundle_id,
+            : text_color,  : text_font,  : text_precision,  : string_h_just,
+            : string_v_just,  : string_spacing,  : text_path,  : char_height,
+            : char_spacing;
+        }
+    else
+        {
+        EXEC SQL FETCH C_TEXT_GC INTO : text_color,  : text_font,  : text_precision,
+            : string_h_just,  : string_v_just,  : string_spacing,  : text_path,
+            : char_height,  : char_spacing;
+        }
+    EXEC SQL CLOSE C_TEXT_GC;
+    
+    text->text_bundle_id = text_bundle_id;
+
+    V_SETZERO(color_override);
+    
+    V_FROMV (color, text_color);
+    if (ARE_DIFFERENT ((CHAR *)color_override.arr, "NULL"))
+        V_FROMV (color, color_override);
+       
+    status = lu_text_to_index ("COLOR", &code, color);
+    text->text_color = code;
+
+    status = lu_text_to_index ("FONT",(INT *)&text->text_font, (CHAR *)text_font.arr);
+
+    text->text_precision = text_precision;
+    text->string_h_just = string_h_just;
+    text->string_v_just = string_v_just;
+    text->string_spacing = string_spacing;
+    text->text_path = text_path;
+    text->char_height = char_height / map->wcs_to_inches;
+    text->char_spacing = char_spacing;
+    
+    return SUCCESS;
+orcerr:
+    return OR_STATUS;
+    
+not_found:
+    if (bundle_id_in == 0)
+        {
+        return ly_get_default_gc ((VOIDPTR)text, "TEXT");
+        }
+    else
+        {
+        return(ly_get_text_bundle (text_id ? data_type : NULL, 0, 0, text));
+        }
+    }
+/* END:     */

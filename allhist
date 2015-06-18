@@ -1,0 +1,5000 @@
+  117  ls -l
+  118  whoami
+  119  cd virus/
+  120  ls -l
+  121  cd vscdb/
+  122  ls -l
+  123  scan
+  124  cd ..
+  125  ls -l
+  126  cd images/
+  127  ls
+  128  cd ..
+  129  ls
+  130  cd ..
+  131  ls
+  132  ls -l
+  133  cd Jake2/
+  134  ls
+  135  ./build.sh 
+  136  cd ..
+  137  ls -l
+  138  cd Jake2/
+  139  ls
+  140  cd src
+  141  ls
+  142  ls -l
+  143  cd jake2/
+  144  ls -l
+  145  cd ..
+  146  ls
+  147  cd ..
+  148  ls -l
+  149  cd ..
+  150  ls -l
+  151  ls -l
+  152  ls -l
+  153  ls -l
+  154  ls -l
+  155  ls -l
+  156  ls -l
+  157  ls -l
+  158  ls -l
+  159  ls -l
+  160  ls -l
+  161  ls -l
+  162  ls -l
+  163  ls -l
+  164  ls -l
+  165  ls mnopqrs/
+  166   ls -l
+  167  ls -l
+  168  ls rott
+  169  ls rottcom/
+  170  ls -l
+  171  ls old
+  172  ls old/src/
+  173  ls -l
+  174  ls old_slashsrc/
+  175  cd old_slashsrc/
+  176  ls APPLE/
+  177  ls GAMES/
+  178  ls -l
+  179  ls BENCH/
+  180  ls
+  181  ls DISK/
+  182  ls NET
+  183  ls TTY
+  184  ls
+  185  ls
+  186  cd ..
+  187  ls
+  188  ls -l
+  189  ls tuvwxyz/
+  190  ls
+  191  cd gks
+  192  ls
+  193  make
+  194  ls
+  195  nmake
+  196  make -f makefile.mak
+  197  vi Makefile
+  198  make -n
+  199  less ./Config 
+  200  uname
+  201  less ./Config 
+  202  machine
+  203  less ./Config 
+  204  arch
+  205  less ./Config 
+  206  ./Config
+  207  vi Makefile
+  208  make -n
+  209  make -i
+  210  cd ../ncar/
+  211  ls
+  212  cd ncl_ncarg-5.0.0/
+  213  ls
+  214  less Configure 
+  215  ls /bin/csh
+  216  ./Configure 
+  217  make Everything
+  218  make
+  219  ls
+  220  dir /s/b cygwin
+  221  gfind . -iname 'cygw*'
+  222  cd config
+  223  ls
+  224  arch
+  225  uname
+  226  vi CYGWIN_NT-6.1-WOW64
+  227  vi CYGWIN_NT-6.1-WOW64
+  228  cp CYGWIN_NT-5.1-i686 CYGWIN_NT-6.1-i686 
+  229  vi CYGWIN_NT-6.1-i686
+  230  ls -ltr
+  231  vi CYGWIN
+  232  gcc -v
+  233  gcc
+  234  cpp -traditional
+  235  ls
+  236  cat CYGWIN
+  237  ls
+  238  vi ymkmf
+  239  vi makefile
+  240  make Makefile
+  241  cd ..
+  242  ls
+  243  vi Configure 
+  244  ./Configure 
+  245  make Everything
+  246  make 
+  247  make ncarg2d
+  248  less Makefile
+  249  /usr/bin/cpp -traditional
+  250  gcc --help
+  251  gcc -dumpspecs
+  252   gcc -###
+  253  make
+  254  make all
+  255  cd common/src/bin
+  256  cd ncargpath/
+  257  ls
+  258  make
+  259  vi makefile 
+  260  make
+  261  gcc -traditional
+  262  gcc -traditional *.c
+  263  gcc *.c
+  264  gcc -I ../../../../include *.c
+  265  vi ../../../../include/ncarg/c.h
+  266  od -xc ../../../../include/ncarg/c.h
+  267  cpp -traditional ../../../../include/ncarg/c.h
+  268  cpp  ../../../../include/ncarg/c.h
+  269  /usr/bin/cpp  ../../../../include/ncarg/c.h
+  270  gcc -E  ../../../../include/ncarg/c.h
+  271  gcc -E -traditional  ../../../../include/ncarg/c.h
+  272  vi ../../../../include/ncarg/c.h
+  273  gcc -E -traditional  ../../../../include/ncarg/c.h
+  274  vi ../../../../include/ncarg/c.h
+  275  gcc -E -traditional  ../../../../include/ncarg/c.h
+  276  gcc -E -ansi  ../../../../include/ncarg/c.h
+  277  vi ../../../../include/ncarg/c.h 
+  278  vi ../../../../include/ncarg/c.h 
+  279  gcc -E -ansi  ../../../../include/ncarg/c.h
+  280  gcc  -ansi  ../../../../include/ncarg/c.h
+  281  vi ../../../../include/ncarg/c.h 
+  282  gcc  -ansi  ../../../../include/ncarg/c.h
+  283  vi ../../../../include/ncarg/c.h 
+  284  gcc  -ansi  ../../../../include/ncarg/c.h
+  285  vi ../../../../include/ncarg/c.h 
+  286  gcc  -ansi  ../../../../include/ncarg/c.h
+  287  which cpp
+  288  where cpp
+  289  ls -l /cygdrive/c/cygwin/bin/cpp
+  290  ls -l /etc/alternatives/cpp
+  291  ls -l /etc/alternatives
+  292  which cpp
+  293  ls -l /usr/bin/cpp-4.exe 
+  294  ls -l /usr/bin/cpp.exe
+  295  ls -l /usr/bin/cpp-3.exe 
+  296  cd /etc/alternatives/
+  297  ls -l
+  298  ls -l cpp*
+  299  ln -s /usr/bin/cpp-3.exe cpp
+  300  ln -fs /usr/bin/cpp-3.exe cpp
+  301  ls -l gcc
+  302  ln -fs /usr/bin/gcc-3.exe gcc
+  303  cd /cygdrive/f/l/src/ncar/ncl_ncarg-5.0.0/
+  304  ls
+  305  make
+  306  make all
+  307  cd ../..
+  308  cd geoshare/
+  309  ls
+  310  ls
+  311  ls -la
+  312  cd ../finder/
+  313  cd ../gs
+  314  ls
+  315  cd lib
+  316  make
+  317  which gcc
+  318  gcc-3
+  319  make CC=gcc-3
+  320  make CC=gcc-3 -traditional
+  321  make CC="gcc-3 -traditional"
+  322  make CC="gcc-3 -E -traditional"
+  323  make CC="gcc-3 -E -traditional" -i
+  324  make CC="gcc-4 -E -traditional" -i
+  325  which gcc
+  326  ls -l /cygdrive/c/Perl/site/bin/
+  327  which cpp
+  328  where cpp
+  329  vi Makefile
+  330  makew
+  331  make
+  332  cd /etc/alternatives/
+  333  ls -l gcc
+  334  ln -s /usr/bin/gcc-4.exe gcc
+  335  ln -fs /usr/bin/gcc-4.exe gcc
+  336  cd /cygdrive/f/l/src/gs/lib
+  337  make
+  338  locate gs_cm
+  339  cd ../../../
+  340  cd gs
+  341  ls
+  342  cd julian
+  343  ls
+  344  cd ../
+  345  cd j
+  346  cd src
+  347  cd j
+  348  make
+  349  cd src
+  350  ls
+  351  make
+  352  make *.c
+  353  ls -ltra *ake*
+  354  ls .??*
+  355  cd ..
+  356  ls */*ake*
+  357  cd src
+  358  ls RCS
+  359  ls
+  360  ls *ake*
+  361  ls */*ake*
+  362  cd ../..
+  363  ls gs
+  364  ls geoshare/
+  365  cd fin
+  366  cd finder/
+  367  ls
+  368  ls */*ake*
+  369  cd src
+  370  make
+  371  cd
+  372  ls -ltr
+  373  grep -i blue *.txt
+  374  grep -i blue *.csv
+  375  whois locationlabs.com
+  376  dig @ns-c.pnap.net locationlabs.com
+  377  dig @192.168.12.2  locationlabs.com
+  378  dig @192.168.12.2  locationlabs.com axfr
+  379  grep -i blue *
+  380  scp julian.carlisle@bastion:*.* .
+  381  ssh -X julian.carlisle@bastion
+  382  ssh -X julian.carlisle@bastion
+  383  exit
+  384  mkdir spice
+  385  sftp julian.carlisle@bastion
+  386  mv spice.tgz ../Downloads/
+  387  cd ../Downloads/
+  388  tar xvzf spice.tgz 
+  389  sqlite3.exe db/spiceworks_prod.db
+  390  cd db
+  391  ls -ltr
+  392  sqlite3.exe spiceworks_prod.db
+  393  cd /tmp
+  394  ls -ltr
+  395  less /tmp/db.dmp 
+  396  sqlite3.exe 
+  397  ssh -X julian.carlisle@bastion
+  398  ls -ltr
+  399  cd /cygdrive/c/Users/julian/Downloads/
+  400  sftp julian.carlisle@bastion
+  401  ls -ltr
+  402  vi cvt.pl
+  403  vi cvt.py
+  404  chmod a+rx cvt.py 
+  405  ./cvt.py  db.out
+  406  vi cvt.py 
+  407  ./cvt.py  db.out
+  408  mysql
+  409  services.msc
+  410  history
+  411  xhost +
+  412  ssh -X julian.carlisle@julian-desktop.engr.wavemarket.com
+  413  ssh -X julian.carlisle@bastion
+  414  ssh -X julian.carlisle@bastion
+  415  ssh -X julian.carlisle@bastion
+  416  ssh -X julian.carlisle@bastion
+  417  ssh -X julian.carlisle@bastion
+  418  ssh julian.carlisle@bastion
+  419  ssh julian.carlisle@bastion
+  420  ssh -X julian.carlisle@bastion
+  421  ssh -X julian.carlisle@bastion 'ssh -X julian-desktop'
+  422  xhost +
+  423  ssh -X julian.carlisle@bastion
+  424  ssh -X julian.carlisle@bastion
+  425  cd /j/fl
+  426  cd /j
+  427  ls
+  428  ls -la
+  429  pef
+  430  pwd
+  431  tcsh
+  432  source .finderrc
+  433  . .finderrc
+  434  cd finder
+  435  grep coraenv *
+  436  grep coraenv .??*
+  437  ci .oracle
+  438  tcsh
+  439  ssh -X julian.carlisle@bastion
+  440  netstat -na
+  441   man ssh
+  442  exit
+  443  ./cvt.py  db.out > spice.mysql
+  444  sftp spice.mysql  julian.carlisle@bastion
+  445  sftp spice.mysql  julian.carlisle@bastion:
+  446  sftp   julian.carlisle@bastion
+  447  cd t??
+  448  cd ..
+  449  cd td?
+  450  ls -ltrc
+  451  ssh -X julian.carlisle@bastion
+  452  ssh -X julian.carlisle@bastion
+  453  ssh -X julian.carlisle@bastion
+  454  ssh -X julian.carlisle@bastion
+  455  ssh -fN -D localhost:8001 julian.carlisle@bastion
+  456  ld V*
+  457  ls -l v*
+  458  ls -ltr 
+  459  ls -ltr 
+  460  ls -ltr 
+  461  ls -ltr 
+  462  ls -ltrh 
+  463  ls -ltrh 
+  464  ls -ltrh 
+  465  ls -ltrh 
+  466  ls -ltrh VMwa*
+  467  ls -ldtrh VMwa*
+  468  ls -ldtrh VMwa*
+  469  ls -ldtrh VMwa*
+  470  ls -ldtrh VMwa*
+  471  ls -ldtrh VMwa*
+  472  ls -ldtrh VMwa*
+  473  ls -ldtrh VMwa*
+  474  ls -ldtrh VMwa*
+  475  ls -ldtrh VMwa*
+  476  locate -i funcom
+  477  locate purple
+  478  locate -i funcom
+  479   cd /cygdrive/l/Program Files/Funcom/Anarchy Online/cd_image/sound/sfx/
+  480  df -h
+  481  df -h
+  482  cd /cygdrive/l/Program Files/Funcom/Anarchy Online/cd_image/sound/sfx/
+  483  cd /cygdrive/l/
+  484  cd Program\ Files/Funcom/Anarchy\ Online/cd_image/
+  485  cd sound/
+  486  ls
+  487  cd sfx
+  488  ls
+  489  cd env/
+  490  ls
+  491  exit
+  492  ssh -X julian.carlisle@bastion
+  493  rdesktop 
+  494  ssh --help
+  495  man ssh
+  496  ssh -D 1080 julian.carlisle@bastion
+  497  ssh -D 1080 julian.carlisle@bastion -f -N
+  498  ps -ef
+  499  ss
+  500  man ss
+  501  ls -ltr
+  502  ./VMware-viclient-all-5.0.0-623373.exe 
+  503  gfind . -mtime -90 -print0 | xargs -0 grep -i rowid
+  504  gfind . -mtime -90 -size -10000c -print0 | xargs -0 grep -i rowid
+  505  gfind . -mtime -90 -size -10000c -print0 
+  506  egrep -il rowid *
+  507  egrep -il rowid *.sql
+  508  ls -l `egrep -il rowid *.sql`
+  509  ls -ld `egrep -il rowid *.sql`
+  510  less jwh2.sql 
+  511  vi iii.sql 
+  512  sqlplus cupid/R1vercard@denver
+  513  vi iii.sql 
+  514  sqlplus cupid/R1vercard@denver
+  515  less jwh2.sql 
+  516  vi iii.sql 
+  517  sqlplus cupid/R1vercard@denver
+  518  vi iii.sql 
+  519  sqlplus cupid/R1vercard@denver
+  520  grep -il procedure *.sql
+  521  less tournament_migration.sql 
+  522  vi iii.sql 
+  523  sqlplus cupid/R1vercard@denver
+  524  vi iii.sql 
+  525  sqlplus cupid/R1vercard@denver
+  526  grep -il procedure *.sql
+  527  less mt.sql 
+  528  less 10g_indices_of.sql 
+  529  grep -il declare *.sql
+  530  less lda-creation.sql 
+  531  less t.sql 
+  532  less mu.sql 
+  533  vi iii.sql 
+  534  sqlplus cupid/R1vercard@denver
+  535  exit
+  536  f:
+  537  cd /j/fl
+  538  cd /j/finder/
+  539  ls
+  540  cd src
+  541  ls -ltrc
+  542  ar tv newlib.a 
+  543  nm newlib.a 
+  544  ssh -D 1080 julian.carlisle@bastion
+  545  ssh -D 1080 julian.carlisle@bastion -f -N
+  546  exit
+  547  ssh oracle@reporting.nlop.com -X
+  548  ssh -D 1080 julian.carlisle@bastion -f -N
+  549  ssh -D 8001 julian.carlisle@bastion -f -N
+  550  netstat -na
+  551  pkill ssh
+  552  ssh -D 8001 julian.carlisle@bastion -f -N
+  553  exit
+  554  ssh -X oracle@reporting.nlop.com
+  555  grep coraenv .??*
+  556  ssh mgmt01.sing
+  557  rsync -av mgmt01.sing:gs .
+  558  cp -r gw /j/finder/
+  559  cp -r gs /j/finder/
+  560  cp -r gs /j/finder/geoshare
+  561  cd /j/finder/geoshare/
+  562  ls
+  563  cd lib
+  564  ls -ltr
+  565  cd ../../
+  566  cd src
+  567  ls -ltr *.a
+  568  cp libfinder.a  ../geoshare/lib
+  569  cd ..
+  570  cd maint
+  571  ls -ltr
+  572  ls *nl*
+  573  cd ..
+  574  ls */*nl*
+  575  cd main
+  576  ls
+  577  less nl_to_ascii.c 
+  578  make nl_to_ascii LDFLAGS="-L/j/finder/geoshare/lib -lfinder"
+  579  make nl_to_ascii CFLAGS="-I/j/finder/inc -I/j/finder/gen -I. LDFLAGS="-L/j/finder/geoshare/lib -lfinder"
+  580  make nl_to_ascii CFLAGS="-I/j/finder/inc -I/j/finder/gen -I." LDFLAGS="-L/j/finder/geoshare/lib -lfinder"
+  581  less nl_to_ascii.c 
+  582  make nl_to_ascii CFLAGS="-I/j/finder/inc -I/j/finder/gen -I." LDFLAGS="-L/j/finder/geoshare/lib -lfinder" -f ../src/Makefile
+  583  make nl_to_ascii LCFLAGS="-I/j/finder/inc -I/j/finder/gen -I." LDFLAGS="-L/j/finder/geoshare/lib -lfinder" -f ../src/Makefile
+  584  make nl_to_ascii LCFLAGS="-I/j/finder/inc -I/j/finder/gen -I." LDFLAGS="-L/j/finder/geoshare/lib -lfinder.a" -f ../src/Makefile
+  585  make nl_to_ascii LCFLAGS="-I/j/finder/inc -I/j/finder/gen -I." LDFLAGS="-L/j/finder/geoshare/lib libfinder.a" -f ../src/Makefile
+  586  make nl_to_ascii LCFLAGS="-I/j/finder/inc -I/j/finder/gen -I." LDFLAGS="-L/j/finder/geoshare/lib ../src/libfinder.a" -f ../src/Makefile
+  587  make nl_to_ascii LCFLAGS="-I/j/finder/inc -I/j/finder/gen -I." LDFLAGS="-L/j/finder/geoshare/lib ../src/libfinder.a -lc" -f ../src/Makefile
+  588  make -f ../src/Makefile nl_to_ascii
+  589  make -f ../src/Makefile nl_to_ascii
+  590  gcc-3 -ansi -Dsun  -I/cygdrive/c/cygnus/cygwin-b20/H-i586-cygwin32/i586-cygwin32/include -I/usr/include -I../inc -I../gen -I. -DMOTIF -DUNIX=1 -DSYSV -O -DUSE_X=1    nl_to_ascii.c   -o nl_to_ascii libfinder.a
+  591  ls -ltr
+  592  gcc-3 -ansi -Dsun  -I/cygdrive/c/cygnus/cygwin-b20/H-i586-cygwin32/i586-cygwin32/include -I/usr/include -I../inc -I../gen -I. -DMOTIF -DUNIX=1 -DSYSV -O -DUSE_X=1    nl_to_ascii.c   -o nl_to_ascii libfinder.a
+  593  gcc-3 -ansi -Dsun  -I/cygdrive/c/cygnus/cygwin-b20/H-i586-cygwin32/i586-cygwin32/include -I/usr/include -I../inc -I../gen -I. -DMOTIF -DUNIX=1 -DSYSV -O -DUSE_X=1    nl_to_ascii.c   -o nl_to_ascii -L/j/finder/src libfinder.a
+  594  gcc-3 -ansi -Dsun  -I/cygdrive/c/cygnus/cygwin-b20/H-i586-cygwin32/i586-cygwin32/include -I/usr/include -I../inc -I../gen -I. -DMOTIF -DUNIX=1 -DSYSV -O -DUSE_X=1    nl_to_ascii.c   -o nl_to_ascii /j/finder/src/libfinder.a
+  595  cd ../src
+  596  ls nlm*
+  597  less nlm_print_nl.c
+  598  vi ../inc/esi_gl_defs.h 
+  599  vi ../inc/esi_stdio.h 
+  600  gcc-3 -ansi -Dsun  -I/cygdrive/c/cygnus/cygwin-b20/H-i586-cygwin32/i586-cygwin32/include -I/usr/include -I../inc -I../gen -I. -DMOTIF -DUNIX=1 -DSYSV -O -DUSE_X=1    nl_to_ascii.c   -o nl_to_ascii /j/finder/src/libfinder.a
+  601  cd ../main
+  602  gcc-3 -ansi -Dsun  -I/cygdrive/c/cygnus/cygwin-b20/H-i586-cygwin32/i586-cygwin32/include -I/usr/include -I../inc -I../gen -I. -DMOTIF -DUNIX=1 -DSYSV -O -DUSE_X=1    nl_to_ascii.c   -o nl_to_ascii /j/finder/src/libfinder.a
+  603  cd ../src
+  604  make nlm_print_nl.o
+  605  rm nlm_print_nl.o
+  606  make nlm_print_nl.o
+  607  nm nlm_print_nl.o
+  608  man ld
+  609  man libc
+  610  less /usr/include/stdio.h 
+  611  cd /usr/include/
+  612  grep iob *.h
+  613  cd sys
+  614  grep iob *.h
+  615  cd ..
+  616  less stdio.h 
+  617  grep iob */*.h
+  618  cd /j/finder
+  619  cd inc
+  620  vi esi_stdio.h 
+  621  cd ../main
+  622  ls nl*
+  623  make nl_to_ascii LCFLAGS="-I/j/finder/inc -I/j/finder/gen -I." LDFLAGS="-L/j/finder/geoshare/lib ../src/libfinder.a -lc" -f ../src/Makefile
+  624  vi ../inc/esi_stdio.h
+  625  make nl_to_ascii LCFLAGS="-I/j/finder/inc -I/j/finder/gen -I." LDFLAGS="-L/j/finder/geoshare/lib ../src/libfinder.a -lc" -f ../src/Makefile
+  626  vi ../inc/esi_stdio.h
+  627  make nl_to_ascii LCFLAGS="-I/j/finder/inc -I/j/finder/gen -I." LDFLAGS="-L/j/finder/geoshare/lib ../src/libfinder.a -lc" -f ../src/Makefile
+  628  make nl_to_ascii LCFLAGS="-I/j/finder/inc -I/j/finder/gen -I." LDFLAGS="-L/j/finder/geoshare/lib ../src/libfinder.a -lc" -f ../src/Makefile ../src/libfinder.a 
+  629  make nl_to_ascii LCFLAGS="-I/j/finder/inc -I/j/finder/gen -I." LDFLAGS="-L/j/finder/geoshare/lib ../src/libfinder.a -lc libfinder.a" -f ../src/Makefile
+  630  cd ../geoshare/
+  631  cd lib
+  632  less Makefile 
+  633  ls *ake*
+  634  grep -i shared *
+  635   ls
+  636  cd ..
+  637  ls
+  638  grep -i share */*ake*
+  639  grep -i share */*
+  640  grep -i pic *
+  641  grep -i pic */*
+  642  cd ../gh
+  643  ls
+  644  grep -i shared *
+  645  grep -i shared */*
+  646  grep -i pic */*
+  647  ls *atc*
+  648  cd ..
+  649  ls
+  650  cd patch1022/
+  651  ls
+  652  cd lib
+  653  ls
+  654  cd ..
+  655  ls */share*
+  656  ls share  */*
+  657  grep -i shared */*
+  658  grep -i shared */*/*
+  659  grep -i fpic */*/*
+  660  ls
+  661  cd findersrc/
+  662  ls
+  663  ls main
+  664  ls maint
+  665  ls src
+  666  ls src/*ake*
+  667  cd ..
+  668  ls
+  669  ls install/
+  670  cd install/
+  671  ls
+  672  ls linking/
+  673  less linking/FINDER.LINK 
+  674  grep -i ld.so *
+  675  grep -i ld.so */*
+  676  grep -i ld.so */*/*
+  677  grep -i .so. */*/*
+  678  grep -i .so. */*
+  679  ls
+  680  cd linking/
+  681  ls -ltr
+  682  less flink.log 
+  683  grep -i share *
+  684  grep -i share */*
+  685  grep -i share */*/*
+  686  cd ..
+  687  grep -i share */*/*
+  688  grep -i share */*
+  689  cd ..
+  690  grep -i share */*
+  691  grep -i share */*/*
+  692  ls
+  693  cd ..
+  694  ls
+  695  grep -i share */*/*
+  696  ls
+  697  ls tools
+  698  cd bin
+  699  less flink
+  700  man ld.so
+  701  man ld
+  702  man gcc
+  703  ls -ltr
+  704  cd ../main
+  705  ls -ltr
+  706  ls nl*
+  707  make nl_to_ascii
+  708  make -f ../src/Makefile nl_to_ascii
+  709  make -f ../src/Makefile nl_to_ascii -n
+  710  gcc-3 -ansi -Dsun  -I/cygdrive/c/cygnus/cygwin-b20/H-i586-cygwin32/i586-cygwin32/include -I/usr/include -I../inc -I../gen -I. -DMOTIF -DUNIX=1 -DSYSV -O -DUSE_X=1    nl_to_ascii.c   ../src/libfinder.a  -o nl_to_ascii
+  711  ls lib*
+  712  cd ../src
+  713  make nlm_print_nl.o
+  714  touch nlm_print*
+  715  make nlm_print_nl.o
+  716  touch nlm_print*c
+  717  make nlm_print_nl.o
+  718  ar crul libfinder.a nlm_print_nl.o
+  719  ranlib libfinder.a
+  720  gcc-3 -ansi -Dsun  -I/cygdrive/c/cygnus/cygwin-b20/H-i586-cygwin32/i586-cygwin32/include -I/usr/include -I../inc -I../gen -I. -DMOTIF -DUNIX=1 -DSYSV -O -DUSE_X=1    nl_to_ascii.c   ../src/libfinder.a  -o nl_to_ascii
+  721  cd ../main
+  722  gcc-3 -ansi -Dsun  -I/cygdrive/c/cygnus/cygwin-b20/H-i586-cygwin32/i586-cygwin32/include -I/usr/include -I../inc -I../gen -I. -DMOTIF -DUNIX=1 -DSYSV -O -DUSE_X=1    nl_to_ascii.c   ../src/libfinder.a  -o nl_to_ascii
+  723  ls -ltr
+  724  ./nl_to_ascii.exe 
+  725  cp ../maint/test_nl.c  .
+  726  gcc-3 -ansi -Dsun  -I/cygdrive/c/cygnus/cygwin-b20/H-i586-cygwin32/i586-cygwin32/include -I/usr/include -I../inc -I../gen -I. -DMOTIF -DUNIX=1 -DSYSV -O -DUSE_X=1    test_nl.c  ../src/libfinder.a  -o test_nl
+  727  ls -ltr
+  728  ./test_nl
+  729  ./test_nl
+  730  ./test_nl
+  731  ls -ltr
+  732  ls -ltr /tmp
+  733  ./test_nl
+  734  ls -ltr
+  735  ./test_nl
+  736  ls
+  737  cd ../maint
+  738  ls
+  739  gcc-3 -ansi -Dsun  -I/cygdrive/c/cygnus/cygwin-b20/H-i586-cygwin32/i586-cygwin32/include -I/usr/include -I../inc -I../gen -I. -DMOTIF -DUNIX=1 -DSYSV -O -DUSE_X=1    test_wm.c  ../src/libfinder.a  -o test_wm
+  740  gcc-3 -ansi -Dsun  -I/cygdrive/c/cygnus/cygwin-b20/H-i586-cygwin32/i586-cygwin32/include -I/usr/include -I../inc -I../gen -I. -DMOTIF -DUNIX=1 -DSYSV -O -DUSE_X=1    test_wi.c  ../src/libfinder.a  -o test_wi
+  741  ls
+  742  gcc-3 -ansi -Dsun  -I/cygdrive/c/cygnus/cygwin-b20/H-i586-cygwin32/i586-cygwin32/include -I/usr/include -I../inc -I../gen -I. -DMOTIF -DUNIX=1 -DSYSV -O -DUSE_X=1    test_bt.c  ../src/libfinder.a  -o test_bt
+  743  gcc-3 -ansi -Dsun  -I/cygdrive/c/cygnus/cygwin-b20/H-i586-cygwin32/i586-cygwin32/include -I/usr/include -I../inc -I../gen -I. -DMOTIF -DUNIX=1 -DSYSV -O -DUSE_X=1    rs_compiler.c  ../src/libfinder.a  -o rs_compiler
+  744  ./rs_cpompiler
+  745  ./rs_compiler.exe 
+  746  cp rs_compiler.exe ../bin
+  747  cd ../src
+  748  ls *.rs
+  749  ../bin/rs_compiler.exe *.rs
+  750  ls -ltr
+  751  cd ../cd ../main
+  752  cd ../main
+  753  cd ../maint
+  754  less test_bt.c 
+  755  make -f ../src/Makefile test_bt
+  756  make -f ../src/Makefile test_bt.o
+  757  vi test_bt.c
+  758  make -f ../src/Makefile test_bt
+  759  gcc-3 -ansi -Dsun  -I/cygdrive/c/cygnus/cygwin-b20/H-i586-cygwin32/i586-cygwin32/include -I/usr/include -I../inc -I../gen -I. -DMOTIF -DUNIX=1 -DSYSV -O -DUSE_X=1    tbh_test_app.c  ../src/lib[Cfinder.a  -o tbh_test_app
+  760  gcc-3 -ansi [B-Dsun  -I/cygdrive/c/cygnus/cygwin-b20/H-i586-cygwin32/i586-cygwin32/include -I/usr/include -I../inc -I../gen -I. -DMOTIF -DUNIX=1 -DSYSV -O -DUSE_X=1    tbh_test_app.c  ../src/libfinder.a  -o tbh_test_app
+  761  ar tv ../src/libfinder.a  | grep tg_register
+  762  ar tv ../src/libfinder.a  | grep tg_re
+  763  j:
+  764  cd /cygdrive/l/src/
+  765  less allsql_again.sql 
+  766  cat /cygdrive/c/Users/julian/Downloads/cleanup.sql 
+  767  cygstart tunnels.bat
+  768  tnsping nlopprod
+  769  tnsping nlopprod
+  770  tnsping nlopprod
+  771  cat /cygdrive/c/Users/julian/Downloads/cleanup.sql 
+  772  less allsql_again.sql 
+  773  sqlplus cupid/R1vercard@denver
+  774  ssh -X oracle@reporting.nlop.com
+  775  ls *z
+  776  ls *Z
+  777  ls *z
+  778  ls -ltr
+  779  mstsc/?
+  780  mstsc /?
+  781  mstsc Default.rdp 
+  782  cat /etc/hosts
+  783  mstsc /v:testrail
+  784  mstsc /v:cdb
+  785  ssh nj
+  786  ping build
+  787  ping ewinbuild
+  788  ping winbuild
+  789  mstsc /v:winbuild
+  790  ssh mgmt01.sing
+  791  pwd
+  792  ls
+  793  cd..
+  794  ls
+  795  dc ..
+  796  ls
+  797  exit
+  798  ppmview
+  799  ppm
+  800  ppmrainbow
+  801  locate ps.exe
+  802  locate ps.exe | grep -i adob
+  803  locate photoshop
+  804  locate photoshop.exe
+  805  locate -i photoshop.exe
+  806  j:
+  807  exit
+  808  cd /cygdrive/c/Program Files (x86)/Adobe/Adobe Dreamweaver CS5.5/configuration/TagLibraries/HTML/
+  809  cd "/cygdrive/c/Program Files (x86)/Adobe/Adobe Dreamweaver CS5.5/configuration/TagLibraries/HTML/"
+  810  dir
+  811  dir *gen*
+  812  ./keygen
+  813  locate -i keygen
+  814  locate -i keygen.exe
+  815  cd /cygdrive/f/l
+  816  cd tmp
+  817  ./keygen_x64 
+  818  ./KeyGen.exe 
+  819  locate -i adobe | grep .exe
+  820  locate -i key | grep exe$
+  821  g:
+  822  j:
+  823  exit
+  824  \
+  825  ping google.com
+  826  ssh nlopmai@nlopmail.com
+  827  ssh root@zengamingnetwork.com
+  828  ssh oracle@reporting.nlop.com -X
+  829  scp oracle@reporting.nlop.com:month.csv .
+  830  ls -ltr gp*
+  831  ./gpf.sh 
+  832  ssh root@zengamingnetwork.com
+  833  scp  root@zengamingnetwork.com:/tmp/pri*.csv .
+  834  ssh root@zengamingnetwork.com
+  835  pwd
+  836  exit
+  837  cd /etc/
+  838  cd /cygdrive/c/Windows/System32/drivers
+  839  ls -ltr
+  840  cd etc
+  841  ls -ltr
+  842  tar tvzf data.tgz 
+  843  export here=$PWD
+  844  echo $here
+  845  cd /tmp
+  846  df -h .
+  847  tar xvzf /cygdrive/c/Windows/System32/drivers/etc/data.tgz 
+  848  cd data-connector-agent/
+  849  ls -ltr
+  850  cd src
+  851  ls
+  852  jar tvf agent-src.jar 
+  853  jar xvf agent-src.jar 
+  854  gfind . -iname '*.jar'
+  855  cd ..
+  856  gfind . -iname '*.jar'
+  857  cd src
+  858  ls
+  859  cd com
+  860  ls
+  861  cd google/
+  862  ls
+  863  cd dataconnector/
+  864  ls
+  865  ls
+  866  ls util
+  867  cd util
+  868  ls
+  869  less Pair.java 
+  870  ls
+  871  less LocalConf.java 
+  872  less ClockUtil.java 
+  873  less SystemUtil.java 
+  874  wc -l *
+  875  less ClientGuiceModule.java 
+  876  cd ..
+  877  ls
+  878  ls client
+  879  wc -l */*.java
+  880  cd client/
+  881  less SdcConnection.java 
+  882  cd ..
+  883  ls
+  884  cd ..
+  885  ls
+  886  cd ..
+  887  ls
+  888  cd ..
+  889  ls
+  890  cd ..
+  891  ls
+  892  ls bin
+  893  cd ..
+  894  ls -ltr
+  895  less db.dmp
+  896  ls juliancarlisle
+  897  du -sh juliancarlisle
+  898  cd juliancarlisle
+  899  ls -ltr
+  900  ls -ltrh
+  901  ls chatsync/
+  902  cd chatsync/
+  903  ls
+  904  ls *
+  905  df -h
+  906  l:
+  907  df -h
+  908  exit
+  909  ssh julian.carlisle@bastion
+  910  tnsping nlopprod
+  911  cygstart tunnels.bat
+  912  tnsping nlopprod
+  913  tunnels.bat
+  914  tnsping nlopprod
+  915  ssh oracle@reporting.nlop.com -X
+  916  mv --help
+  917  man gzip
+  918  ssh oracle@reporting.nlop.com -X
+  919  ssh oracle@reporting.nlop.com -X
+  920  cd
+  921  vi /etc/passwd
+  922  xhost +
+  923  ping bastion
+  924  unalias ls
+  925  ls
+  926  xhost +
+  927  ssh -X bastion
+  928  ssh -X bastion
+  929  ping bastion
+  930  ping bastion
+  931  ssh -X bastion
+  932  ssh -X bastion
+  933  ssh -X bastion
+  934  ssh  bastion
+  935  ssh -x bastion
+  936  ssh -X bastion
+  937  ssh -X bastion
+  938  ssh -X bastion
+  939  ping julian-desktop
+  940  ping julian-desktop.engr.wavemarket.com
+  941  ssh -X julian-desktop.engr.wavemarket.com
+  942  ssh bastion
+  943  ssh bastion -X
+  944  ssh mgmt01.sing
+  945  ssh mgmt01.sing -l julian
+  946  ssh mgmt01.sing -l  oracle
+  947  ssh mgmt01.sing -l  oracle
+  948  ssh com01.sing 
+  949  ssh com01.sing -l julian
+  950  ssh bastion
+  951  tunnels.bat
+  952  sqlplus justin/justin@nlopprod
+  953  vi recompile_views.sh
+  954  chmod a+rx recompile_views.sh
+  955  recompile_views.sh
+  956  ./recompile_views.sh
+  957  vi ./recompile_views.sh
+  958  ./recompile_views.sh
+  959  ls -ltr /tmp
+  960  less /tmp/vl
+  961  ./recompile_views.sh
+  962  mktemp
+  963  mktemp XXXXXXXXXXXXXXX
+  964  mktemp -d XXXXXXXXXXXXXXX
+  965  mktemp XXXXXXXXXXXXXXX /tmp
+  966  mktemp XXXXXXXXXXXXXXX -p /tmp
+  967  vi recompile_views.sh 
+  968  ./recompile_views.sh
+  969  ls -ltr /tmp
+  970  vi recompile_views.sh 
+  971  ./recompile_views.sh
+  972  ls -ltr /tmp
+  973  umask
+  974  vi recompile_views.sh 
+  975  ./recompile_views.sh
+  976  less /tmp/compile_invalid_views_lTjEL5AtJr.sql
+  977  ls -ltr /tmp
+  978  ./recompile_views.sh
+  979  vi recompile_views.sh 
+  980  vi recompile_views.sh 
+  981  ./recompile_views.sh
+  982  ls -ltr /tmp
+  983  df -h
+  984  vi recompile_views.sh 
+  985  ./recompile_views.sh
+  986  ls -ltr /tmp
+  987  vi recompile_views.sh 
+  988  ./recompile_views.sh
+  989  man mktemp
+  990  vi recompile_views.sh 
+  991  ./recompile_views.sh
+  992  vi recompile_views.sh 
+  993  vi recompile_views.sh 
+  994  ./recompile_views.sh
+  995  vi recompile_views.sh 
+  996  ./recompile_views.sh
+  997  vi recompile_views.sh 
+  998  ./recompile_views.sh
+  999  vi recompile_views.sh 
+ 1000  ./recompile_views.sh
+ 1001  set -x
+ 1002  ./recompile_views.sh
+ 1003  set +x
+ 1004  ./recompile_views.sh
+ 1005  set verbose
+ 1006  ./recompile_views.sh
+ 1007  vi ./recompile_views.sh 
+ 1008  ./recompile_views.sh
+ 1009  vi ./recompile_views.sh 
+ 1010  ./recompile_views.sh
+ 1011  ls -ltr
+ 1012  touch f
+ 1013  vi recompile_views.sh 
+ 1014  ./recompile_views.sh
+ 1015  vi recompile_views.sh 
+ 1016  ./recompile_views.sh
+ 1017  vi recompile_views.sh 
+ 1018  ./recompile_views.sh
+ 1019  vi recompile_views.sh 
+ 1020  ./recompile_views.sh
+ 1021  vi recompile_views.sh 
+ 1022  ./recompile_views.sh
+ 1023  vi recompile_views.sh 
+ 1024  ./recompile_views.sh
+ 1025  vi recompile_views.sh 
+ 1026  ./recompile_views.sh
+ 1027  vi recompile_views.sh 
+ 1028  echo $tempname
+ 1029  echo $tempnam
+ 1030  echo $TEMP 
+ 1031  man bash
+ 1032  man tempname
+ 1033  vi recompile_views
+ 1034  vi recompile_views.sh 
+ 1035  ./recompile_views.sh
+ 1036  . ./recompile_views.sh 
+ 1037  vi recompile_views.sh 
+ 1038  cat recompile_views.sh 
+ 1039  sqlplus -s justin/justin@nlopprod <<EOF
+ 1040  select 'alter '||object_type||' '||owner||'.'||object_name||' compile;'
+ 1041  from all_objects        where status = 'INVALID'
+ 1042                          and owner in ('JUSTIN','CUPID')
+ 1043                          and object_type in ('VIEW','PROCEDURE');
+ 1044  exit
+ 1045  EOF
+ 1046  sqlplus -s justin/justin@nlopprod <<EOF
+ 1047  select 'alter '||object_type||' '||owner||'.'||object_name||' compile;'
+ 1048  from all_objects        where status = 'INVALID'
+ 1049                          and owner in ('JUSTIN','CUPID')
+ 1050                          and object_type in ('VIEW','PROCEDURE');
+ 1051  exit
+ 1052  EOF
+ 1053  exit
+ 1054  sqlplus -s justin/justin@nlopprod <<EOF > fff
+ 1055  select 'alter '||object_type||' '||owner||'.'||object_name||' compile;'
+ 1056  from all_objects        where status = 'INVALID'
+ 1057                          and owner in ('JUSTIN','CUPID')
+ 1058                          and object_type in ('VIEW','PROCEDURE');
+ 1059  exit
+ 1060  EOF
+ 1061  ls -ltr 
+ 1062  less fff
+ 1063  vi recompile_views.sh 
+ 1064  ./recompile_views.sh
+ 1065  ls -ltr 
+ 1066  vi recompile_views.sh 
+ 1067  ./recompile_views.sh
+ 1068  ls -ltr
+ 1069  sqlplus -s justin/justin@nlopprod <<EOF > fff
+ 1070  select 'alter '||object_type||' '||owner||'.'||object_name||' compile;'
+ 1071  from all_objects        where status = 'INVALID'
+ 1072                          and owner in ('JUSTIN','CUPID')
+ 1073                          and object_type in ('VIEW','PROCEDURE');
+ 1074  exit
+ 1075  EOF
+ 1076  :q
+ 1077  vi recompile_views.sh 
+ 1078  ./recompile_views.sh
+ 1079  vi recompile_views.sh 
+ 1080  ./recompile_views.sh
+ 1081  ./recompile_views.sh
+ 1082  ls -ltr
+ 1083  less recompile_views.sh 
+ 1084  vi recompile_views.sh 
+ 1085  ./recompile_views.sh
+ 1086  vi recompile_views.sh 
+ 1087  ./recompile_views.sh
+ 1088  vi recompile_views.sh 
+ 1089  ./recompile_views.sh
+ 1090  ssh oracle@reporting.nlop.com -X
+ 1091  ./recompile_views.sh
+ 1092  ./recompile_invalid_objects.sh 
+ 1093  ssh oracle@reporting.nlop.com -X
+ 1094  sftp mgmt01.sing
+ 1095  sftp julian@mgmt01.sing
+ 1096  cat expit.sh
+ 1097  vi expit.sh
+ 1098  cat expit.sh 
+ 1099   locate -i fraps
+ 1100   locate -i fraps | grep julian
+ 1101  cd fraps\ 3.4.7\ registered\[A4\]
+ 1102  ls -ltr
+ 1103  sftp dukeofur@n2-n.com
+ 1104  ssh dukeofur@n2-n.com
+ 1105  strings fraps\ 3.4.7\ registered\[A4\].exe  | grep -i hotmail
+ 1106  grep -il hotmail *
+ 1107  strings -el fraps\ 3.4.7\ registered\[A4\].exe 
+ 1108  strings -es fraps\ 3.4.7\ registered\[A4\].exe 
+ 1109  strings -es fraps\ 3.4.7\ registered\[A4\].exe | grep -i hot
+ 1110  ping ironwolves.com
+ 1111  nmap ironwolves.com
+ 1112  whois ironwolves.com
+ 1113  cd ..
+ 1114  ls -ltr
+ 1115  less cmds.sql
+ 1116  vi cmds.sql
+ 1117  tr 'A-Z' 'a-z' < cmds.sql
+ 1118  tr 'A-Z' 'a-z' < cmds.sql > shrink.sql
+ 1119  vi shrink.sql 
+ 1120  cd /cygdrive/t/
+ 1121  ls all*
+ 1122  cd e
+ 1123  cd l
+ 1124  ls all*
+ 1125  ls -l all*
+ 1126  less allsql_again.sql 
+ 1127  exit
+ 1128  vi recompile_views.sh 
+ 1129  ./recompile_views.sh 
+ 1130  sqlplus justin/justin@nlopprod
+ 1131  vi recompile_views.sh 
+ 1132  ./recompile_views.sh 
+ 1133  sqlplus justin/justin@nlopprod
+ 1134  sqlplus -s justin/justin@nlopprod
+ 1135  vi recompile_views.sh 
+ 1136  ./recompile_views.sh 
+ 1137  vi recompile_views.sh 
+ 1138  ./recompile_views.sh 
+ 1139  mv recompile_views.sh recompile_invalid_objects.sh
+ 1140  cat  recompile_invalid_objects.sh 
+ 1141  ssh mgmt01.sing
+ 1142  ssh mgmt01.sing -l julian
+ 1143  ssh mgmt01.sing -l julian
+ 1144  ssh oracle@reporting.nlop.com -X
+ 1145  tunnels
+ 1146  tunnels.bat
+ 1147  ssh root@puppet
+ 1148  ssh root@puppet
+ 1149  ssh bastion
+ 1150  ssh bastion -l root
+ 1151  ssh bastion -l root
+ 1152  ssh bastion -l root
+ 1153  cd /etc/
+ 1154  dir sa*
+ 1155  ls sa*
+ 1156  locate samba
+ 1157  ssh bastion 
+ 1158  ssh bastion -X
+ 1159  startxwin
+ 1160  less cleanup.sql 
+ 1161  l s-ltr
+ 1162  ls -ltr
+ 1163  unzip log4plsql-4.0.2-beta.zip 
+ 1164  cd log4plsql
+ 1165  ls -ltr
+ 1166  cd src
+ 1167  ls
+ 1168  cd java/
+ 1169  ls
+ 1170  cd log4plsql/
+ 1171  ls
+ 1172  cd backgroundProcess/
+ 1173  ls
+ 1174  less Run.java 
+ 1175  ls
+ 1176  cd ..
+ 1177  ls
+ 1178  cd ..
+ 1179  ls
+ 1180  cd ..
+ 1181  ls
+ 1182  cd ..
+ 1183  ls
+ 1184  less ReadMe.txt 
+ 1185  less docs/UserGuide
+ 1186  cygstart firefox docs/UserGuide.html 
+ 1187  tunnels.bat
+ 1188  tunnels.bat
+ 1189  cd ..
+ 1190  ls -ltr
+ 1191  vi shrink.sql 
+ 1192  cat shrink.sql
+ 1193  tunnels.bat
+ 1194  ssh -L902:toms:902 bastion -f -N
+ 1195  xhost +
+ 1196  ssh -X bastion
+ 1197  ssh -X bastion
+ 1198  ssh -X bastion
+ 1199  ssh -X bastion
+ 1200  ssh -X bastion
+ 1201  ssh -X bastion
+ 1202  cd
+ 1203  cd .ssh
+ 1204  ls
+ 1205  less config
+ 1206  ssh -X bastion
+ 1207  ssh -X bastion
+ 1208  ssh -X bastion
+ 1209  ssh -L902:toms:902 bastion -f -N
+ 1210  netstat -ntlp
+ 1211  netstat -na | grep 902
+ 1212  netstat -na | grep 902
+ 1213  netstat -ntpb
+ 1214  netstat -napb
+ 1215  netstat -nb
+ 1216  netstat -nbl
+ 1217  netstat -nba
+ 1218  netstat -nba
+ 1219  lsof
+ 1220  ssh -L1902:toms:902 bastion -f -N
+ 1221  vi /cygdrive/c/Windows/System32/drivers/etc/hosts
+ 1222  top
+ 1223  ls /proc
+ 1224  cat /proc/net
+ 1225  cat /proc/net/if_inet6
+ 1226  cat /proc/sys/UxSmsApiPort 
+ 1227  cat /proc/sys/UxSmsApiPort 
+ 1228  gfind /proc -iname '*port*'
+ 1229  gfind /proc -type f -iname '*port*'
+ 1230  gfind /proc -type f -iname '*'
+ 1231  gfind /proc -type f -iname '*ip*'
+ 1232  gfind /proc -type f -iname '*port*'
+ 1233  cd ../
+ 1234  cd ..
+ 1235  cd Program\ Files\ \(x86\)/VMware/Infrastructure/Virtual\ Infrastructure\ Client/Launcher/
+ 1236  ls
+ 1237  vi VpxClient.exe.config 
+ 1238  ping vmwarehq4
+ 1239  nmap vmwarehq4
+ 1240  netstat -na
+ 1241  netstat -nab
+ 1242  taskmgr
+ 1243  taskmgr
+ 1244  netstat -nab
+ 1245  netstat -nab
+ 1246   services.msc
+ 1247  cygstart  services.msc
+ 1248  netstat -nab
+ 1249   pkill ssh
+ 1250  netstat -nab
+ 1251  netstat -nab | grep 902 -A1 -B1
+ 1252  netstat -nab 
+ 1253  netstat -ab 
+ 1254   ssh toms
+ 1255  startxwin
+ 1256  startxwin
+ 1257  cd
+ 1258  pwd
+ 1259  . .bashrc
+ 1260  . .bash_profile 
+ 1261  xhost +
+ 1262  ssh -X bastion
+ 1263  ssh -X bastion
+ 1264  ssh bastion
+ 1265  ssh oracle@reporting.nlop.com -X
+ 1266  l:
+ 1267  ssh bastion -X
+ 1268  snmpwalk
+ 1269  locate snmpwalk
+ 1270  cd /cygdrive/t/temp/net-snmp-5.6.1.1/win32/
+ 1271  ls -ltr
+ 1272  cd snmpwalk/
+ 1273  ls
+ 1274  less snmpwalk.dsp 
+ 1275  cd ..
+ 1276  ls
+ 1277  exit
+ 1278  ./configure
+ 1279  ls -ltr
+ 1280  cd win32/
+ 1281  dir
+ 1282  build
+ 1283  build.bat
+ 1284  exit
+ 1285  tunnels
+ 1286  tunnels.bat
+ 1287  ssh oracle@reporting.nlop.com -X
+ 1288  ssh root@puppet
+ 1289  ssh bastion
+ 1290  ssh root@puppet
+ 1291  ssh root@puppet
+ 1292  route
+ 1293  arp -a
+ 1294  ping bastion
+ 1295  ssh root@puppet
+ 1296  ssh root@puppet
+ 1297  ls -ltr
+ 1298  gfind . -type f -mtime -20 -print0 | xargs egrep public
+ 1299  gfind . -type f -mtime -20 -print0 | xargs -0 egrep public
+ 1300   tnsping nlopprod
+ 1301  ssh com01.sing -l julian
+ 1302  ssh com02.sing -l julian
+ 1303  ssh game01.sing -l julian
+ 1304  ssh game02.sing -l julian
+ 1305  ssh lobby01.sing -l julian
+ 1306  ssh lobby02.sing -l julian
+ 1307  ssh web01.sing -l julian
+ 1308  ssh web02.sing -l julian
+ 1309  ssh ad01.sing
+ 1310  ssh ad02.sing
+ 1311  ssh ad03.sing
+ 1312  ssh ad01.sing -l julian
+ 1313  ssh ad02.sing -l julian
+ 1314  ssh ad03.sing -l julian
+ 1315  ssh vp01.sing -l julian
+ 1316  ssh db03.sing -l julian
+ 1317  ssh db02.sing -l julian
+ 1318  ssh db01.sing -l julian
+ 1319  ssh mgmt01.sing -l julian
+ 1320  ssh db03.sing -l julian
+ 1321  ssh vp01.sing -l julian
+ 1322  ssh ad02.sing -l julian
+ 1323  ssh ad01.sing -l julian
+ 1324  ssh web02.sing -l julian
+ 1325  ssh web01.sing -l julian
+ 1326  ssh game01.sing -l julian
+ 1327  ssh game02.sing -l julian
+ 1328  ssh lobby01.sing -l julian
+ 1329  ssh lobby02.sing -l julian
+ 1330  ssh com02.sing -l julian
+ 1331  ssh db03.sing -l julian
+ 1332  ssh admin01.sing -l julian
+ 1333  ssh com01.sing -l julian
+ 1334  ssh com02.sing -l julian
+ 1335  ssh game01.sing -l julian
+ 1336  ssh lobby01.sing -l julian
+ 1337  ssh lobby02.sing -l julian
+ 1338  ssh game02.sing -l julian
+ 1339  ssh com02.sing -l julian
+ 1340  ssh web01.sing -l julian
+ 1341  ssh web02.sing -l julian
+ 1342  ssh admin01.sing -l julian
+ 1343  ssh ad01.sing -l julian
+ 1344  ssh ad02.sing -l julian
+ 1345  ssh vp01.sing -l julian
+ 1346  ssh db03.sing -l julian
+ 1347  ssh game02.sing -l julian
+ 1348  ssh game01.sing -l julian
+ 1349  ssh game02.sing -l julian
+ 1350  ssh ad01.sing -l julian
+ 1351  ssh mgmt01.sing -l julian
+ 1352  tnsping nlopprod
+ 1353  ssh oracle@reporting.nlop.com -X
+ 1354  ssh oracle@reporting.nlop.com -X
+ 1355  ssh ad01.sing -l julian
+ 1356  history
+ 1357  cd ~julian
+ 1358  cd 
+ 1359  cd ..
+ 1360  ls
+ 1361  cd julian
+ 1362  grep sed .??*
+ 1363  ls -ltr
+ 1364  exit
+ 1365  tracert -d bastion
+ 1366  ping jira
+ 1367  ipconfig
+ 1368  route print
+ 1369  arp -a
+ 1370  ping 192.168.91.1
+ 1371  nmap 192.168.91.1
+ 1372  tunels.bat
+ 1373  tunnels.bat
+ 1374  ssh oracle@reporting.nlop.com -X
+ 1375  ssh mgmt01.sing
+ 1376  ssh -l julian mgmt01.sing
+ 1377  ssh -l julian mgmt01.sing
+ 1378  ssh oracle@reporting.nlop.com -X
+ 1379  ssh -l julian mgmt01.sing
+ 1380  ssh oracle@reporting.nlop.com -X
+ 1381  ssh bastion
+ 1382  ssh -v bastion
+ 1383  arp -a
+ 1384  tracert -d bastion
+ 1385  tracert -d 172.31.254.169
+ 1386  ssh -f -N -L2381:172.31.254.169 bastion
+ 1387  ssh -f -N -L2381:172.31.254.169:2381 bastion
+ 1388  tracert -d 172.31.254.169
+ 1389  ssh bastion
+ 1390  ssh -f -N -L2381:172.31.254.169:2381 bastion
+ 1391  ssh bastion -X
+ 1392  startxwin
+ 1393  sqlplus cupid/R1vercard
+ 1394  sqlplus cupid/R1vercard@nlopprod
+ 1395  sqlplus cupid/R1vercard@nlopprod
+ 1396  sqlplus cupid/R1vercard@nlopprod
+ 1397  ssh oracle@reporting.nlop.com -X
+ 1398  ssh bastion
+ 1399  ls -ltr
+ 1400  mysql -u root
+ 1401  services.msc
+ 1402  gfind * -prune -type d | awk '{print "xcopy " $1 " p:\" $1 "/s/e"}'
+ 1403  gfind * -prune -type d | awk '{print "xcopy " $1 " p:\\" $1 "/s/e"}'
+ 1404  vi doit.bat
+ 1405  exit
+ 1406  ssh bastion
+ 1407  ssh bastion
+ 1408  ssh bastion
+ 1409  ssh bastion
+ 1410  ssh bastion
+ 1411  cd /cygdrive/t/gource
+ 1412  sed -f P tg3
+ 1413  sed -f P tg4
+ 1414  sed -f P tg3 > tg33
+ 1415  vi tg33
+ 1416  ls -ltr
+ 1417  vi g.opt
+ 1418  gource 
+ 1419  ./gource
+ 1420  ./gource --load-config g.opt tg33
+ 1421  sed -f P tg4 > tg44
+ 1422  vi g.opt
+ 1423  ./gource --load-config g.opt tg44
+ 1424  vi tg33
+ 1425  ./gource --load-config g.opt tg33
+ 1426  ls
+ 1427  d data/
+ 1428  cd data/
+ 1429  ls
+ 1430  less ls -l
+ 1431  ls -l
+ 1432  ls shaders/
+ 1433  ls
+ 1434  cd ..
+ 1435  ls -ltr
+ 1436  ./gource --load-config g.opt allgit
+ 1437  less allgit
+ 1438  less :
+ 1439  less LL
+ 1440  vi tg33
+ 1441  vi tg44
+ 1442  vi tg33
+ 1443  ./gource --load-config g.opt tg33
+ 1444  vi tg33
+ 1445  ./gource --load-config g.opt tg33
+ 1446  vi g.opt 
+ 1447  ./gource --load-config g.opt tg33
+ 1448  vi tg33
+ 1449  ./gource --load-config g.opt tg33
+ 1450  vi tg33
+ 1451  less README
+ 1452  less README.txt 
+ 1453  cd ..
+ 1454  cd gs
+ 1455  ls 
+ 1456  cd gource/
+ 1457  ls -ltr
+ 1458  ls -ltra
+ 1459  ls data
+ 1460  cd data
+ 1461  ls -ltr
+ 1462  ls shaders
+ 1463  ls fonts
+ 1464  cd ..
+ 1465  ls
+ 1466  less allgit 
+ 1467  vi tg33
+ 1468  ./gource --load-config g.opt tg33
+ 1469  vi tg33
+ 1470  ./gource --load-config g.opt tg33
+ 1471  less tg33
+ 1472  less tg3
+ 1473  less tg33
+ 1474  cp tg33 cms3
+ 1475  vi cms3
+ 1476  ./gource --load-config g.opt cms3
+ 1477  sftp dukeofur@dev0ps.com
+ 1478  ls
+ 1479  pwd
+ 1480  cd ..
+ 1481  wget http://dev0ps.com/cms3
+ 1482  cd gource
+ 1483  sftp dukeofur@dev0ps.com
+ 1484  cd ..
+ 1485  mget dev0ps.com/g.opt
+ 1486  wget dev0ps.com/g.opt
+ 1487  sftp dukeofur@dev0ps.com
+ 1488  cd gource
+ 1489  sftp dukeofur@dev0ps.com
+ 1490  cd ..
+ 1491  wget dev0ps.com/g.opt
+ 1492  wget http://dev0ps.com/g.opt
+ 1493  ssh dukeofur@dev0ps.com
+ 1494  wget dev0ps.com/g.opt
+ 1495  ssh oracle@reporting.nlop.com -X
+ 1496  locate keygen
+ 1497  cd "/cygdrive/c/Users/julian/Documents/Vuze Downloads/Quest Toad DBA Suite for Oracle 10.6.1 Commercial/Quest Toad DBA Suite for Oracle 10.6.1 Commercial/Quest Toad DBA Suite for Oracle 10.6.1 Commercial/"
+ 1498  ls -ltr
+ 1499  keygen.exe
+ 1500  ./keygen.exe
+ 1501  ping dev0ps.com
+ 1502  ping dev0ps.com
+ 1503  ssh -l dukeofur@dukeofurl.net
+ 1504  ssh  dukeofur@dukeofurl.net
+ 1505  ssh  dukeofur@dukeofurl.net
+ 1506  ping bastion
+ 1507  ssh bastion
+ 1508  ssh bastion
+ 1509  ssh oracle@reporting.nlop.com -X
+ 1510  locate tc_alloc
+ 1511  cd /cygdrive/t/l/finder/MyUnderstandProject4_html/src/finder/src/
+ 1512  ls -ltr
+ 1513   
+ 1514  ls
+ 1515  cd ..
+ 1516  ls
+ 1517  ls inc
+ 1518  ls
+ 1519  find . \! -iname '*.html'
+ 1520  gfind . \! -iname '*.html'
+ 1521  gfind . -type f  \! -iname '*.html'
+ 1522  ls
+ 1523  ls SqlFormPalette/
+ 1524  cd ..
+ 1525  ls
+ 1526  tar cvzf /tmp/f.tgz finder
+ 1527  cd ..
+ 1528  ls
+ 1529  ls -ltr
+ 1530  cygstart index.html 
+ 1531  gfind . -iname 'index*'
+ 1532  cd ..
+ 1533  dir
+ 1534  dir/od
+ 1535  ls -ltr
+ 1536  ls flist 
+ 1537  less flist 
+ 1538  locate motif
+ 1539  locate /mwm.
+ 1540  locate Motif
+ 1541  ls
+ 1542  ls -ltr
+ 1543  ls pref
+ 1544  less pref
+ 1545  ls -ltr
+ 1546  less ff
+ 1547  less jf
+ 1548  ls -ltrc
+ 1549  ls util
+ 1550  ls
+ 1551  ls -ltr
+ 1552  file core
+ 1553  less pref
+ 1554  cp pref /cygdrive/t
+ 1555  cd /cygdrive/t
+ 1556  ls -ltr
+ 1557  cd gource/
+ 1558  ls -ltr
+ 1559  less tg4
+ 1560  less tg2
+ 1561  less tg3
+ 1562  cp ../pref .
+ 1563  vi pref
+ 1564  awk '{print toupper($1) " " $2}' pref
+ 1565  awk -F" '{print toupper($1) " " $2}' pref
+ 1566  awk -F\" '{print toupper($1) " " $2}' pref
+ 1567  awk -F\" '{print toupper($1) "|" $2}' pref
+ 1568  awk -F\" '{print toupper($1) " " $2}' pref | sed '1,$ s/ /|/'
+ 1569  awk -F\" '{print toupper($1) " " $2}' pref | sed '1,$ s/ /|/' > P
+ 1570  vi P
+ 1571  less tg3
+ 1572  less tg4
+ 1573  less tg
+ 1574  less tg1
+ 1575  less tg2
+ 1576  vi P
+ 1577  sed -f P tg3
+ 1578  vi P
+ 1579  sed -f P tg3
+ 1580  vi P
+ 1581  man sed
+ 1582  sed -f P tg3
+ 1583  vi P
+ 1584  sed -f P tg3
+ 1585  vi P
+ 1586  sed -f P tg3
+ 1587  vi P
+ 1588  sed -f P tg3
+ 1589  vi P
+ 1590  sed -f P tg4
+ 1591  ssh bastion
+ 1592  cd /j/fl
+ 1593  cd /j
+ 1594  ls
+ 1595  cd src
+ 1596  ls
+ 1597  make
+ 1598  cd ..
+ 1599  ls
+ 1600  cd finder
+ 1601  ls
+ 1602  cd src
+ 1603  make
+ 1604  make -i
+ 1605  grep -i esi\$include *
+ 1606  less ld_ukoparea.for
+ 1607  man f77
+ 1608  reset
+ 1609  man f77
+ 1610  man f77 | less
+ 1611  man f77 | cat
+ 1612  vi ld_ukoparea.for
+ 1613  make ld_ukoparea.o
+ 1614  vi ld_ukoparea.for
+ 1615  make ld_ukoparea.o
+ 1616  sed -i -e '1,$ s/ESI\$INCLUDE://' *.for
+ 1617  sed -i -e '1,$ s/ESI\$INCLUDE://' *.f77
+ 1618  for i in *.for; do echo make ${i/for/o}; done
+ 1619  make angdif.o
+ 1620  make atsio.o
+ 1621  make atslls.o
+ 1622  make atsndx.o
+ 1623  make atsrda.o
+ 1624  make border.o
+ 1625  make bound.o
+ 1626  make chadd.o
+ 1627  make change.o
+ 1628  make chcomp.o
+ 1629  make chloc.o
+ 1630  make chnot.o
+ 1631  make chsep.o
+ 1632  make chsub.o
+ 1633  make chtrim.o
+ 1634  make chval.o
+ 1635  make chword.o
+ 1636  make clcmnd.o
+ 1637  make cldefn.o
+ 1638  make cloptf.o
+ 1639  make clpxyl.o
+ 1640  make cms_reserve2100111c.o
+ 1641  make co_new_file.o
+ 1642  make copyright.o
+ 1643  make cparxy.o
+ 1644  make cstore.o
+ 1645  make ct_gctp.o
+ 1646  make ct_gtp0.o
+ 1647  make degsec.o
+ 1648  make dls49.o
+ 1649  make dls_main.o
+ 1650  make dlscol.o
+ 1651  make dlsll.o
+ 1652  make dlsrow.o
+ 1653  make dlstll.o
+ 1654  make dscalr.o
+ 1655  make dstore.o
+ 1656  make findcrss.o
+ 1657  make geoscl.o
+ 1658  make ho_gfunit.o
+ 1659  make hopath.o
+ 1660  make hypotr.o
+ 1661  make inany.o
+ 1662  make inout.o
+ 1663  make inreport.o
+ 1664  make intsec.o
+ 1665  make ishift.o
+ 1666  make ld_ukdecod.o
+ 1667  make ld_ukoparea.o
+ 1668  make ld_ukotool.o
+ 1669  make ld_ukstrln.o
+ 1670  make ld_ukutil.o
+ 1671  make ldextrfn.o
+ 1672  make limits.o
+ 1673  make llangl.o
+ 1674  make lldls.o
+ 1675  make llnts.o
+ 1676  make lsdxy.o
+ 1677  make mo_array.o
+ 1678  make mo_emp_drv.o
+ 1679  make mo_emp_son.o
+ 1680  make mo_flt_dlg.o
+ 1681  make mo_fplot.o
+ 1682  make mo_getvers.o
+ 1683  make mo_modplot.o
+ 1684  make mo_modsubs.o
+ 1685  make mo_tie_drv.o
+ 1686  make mo_tie_son.o
+ 1687  make mo_tie_trc.o
+ 1688  make mo_tiep_drv.o
+ 1689  make mo_tieplot.o
+ 1690  make mo_trcp_drv.o
+ 1691  make ni_neutint.o
+ 1692  make nl_dls.o
+ 1693  make nl_nts.o
+ 1694  make np_calcomp.o
+ 1695  make np_disco.o
+ 1696  make np_neutplt.o
+ 1697  make np_test.o
+ 1698  make np_tools.o
+ 1699  make np_zeta.o
+ 1700  make nts_main.o
+ 1701  make polrco.o
+ 1702  make prxy.o
+ 1703  make pxylab.o
+ 1704  make pxynts.o
+ 1705  make reduce.o
+ 1706  make rotate.o
+ 1707  make rset.o
+ 1708  make rstore.o
+ 1709  make rthin.o
+ 1710  make rtrans.o
+ 1711  make se_ld_line.o
+ 1712  make seclab.o
+ 1713  make seldline.o
+ 1714  make sense.o
+ 1715  make setclp.o
+ 1716  make sf_filtlib.o
+ 1717  make sf_plot.o
+ 1718  make shift.o
+ 1719  make syn_flt_dlg.o
+ 1720  make syn_plt_drv.o
+ 1721  make syn_plt_subs.o
+ 1722  make syn_subs.o
+ 1723  make syn_synth.o
+ 1724  make syn_tvfilt.o
+ 1725  make template.o
+ 1726  make template_m.o
+ 1727  make tf_agc.o
+ 1728  make tf_binexp.o
+ 1729  make tf_corr.o
+ 1730  make tf_delfil.o
+ 1731  make tf_fft.o
+ 1732  make tf_hogfnt.o
+ 1733  make tf_lag.o
+ 1734  make tf_minmax.o
+ 1735  make tf_rmsarray.o
+ 1736  make tf_strtool.o
+ 1737  make tfleftjs.o
+ 1738  make tg_gfabreak.o
+ 1739  make tmll.o
+ 1740  make tmxy.o
+ 1741  make tslower.o
+ 1742  make tsupper.o
+ 1743  make tszeroes.o
+ 1744  make ugescape.o
+ 1745  make ugopenio.o
+ 1746  make ugoperr.o
+ 1747  make ugrect.o
+ 1748  make ugrqband.o
+ 1749  make ugrqdrag.o
+ 1750  make ugsscaxf.o
+ 1751  make ugstabxf.o
+ 1752  make unscl.o
+ 1753  make upcase.o
+ 1754  make xyints.o
+ 1755  make xynear.o
+ 1756  make xynear.o
+ 1757  rm newlib.a 
+ 1758  make xynear.o
+ 1759  vi Makefile
+ 1760  man ar
+ 1761  echo $TERM
+ 1762  export TERM=xterm
+ 1763  echo $TERM
+ 1764  man ar
+ 1765  export TERM=console
+ 1766  man ar
+ 1767  export TERM=pcconsole
+ 1768  man ar
+ 1769  export TERM=linux
+ 1770  man ar
+ 1771  export TERM=ansi
+ 1772  man ar
+ 1773  export TERM=vt100
+ 1774  man ar
+ 1775  export TERM=color
+ 1776  man ar
+ 1777  export TERM=pcansi
+ 1778  man ar
+ 1779  export TERM=console
+ 1780  man ar\
+ 1781  export TERM=xterm
+ 1782  man ar\
+ 1783  export TERM=linux
+ 1784  man ar
+ 1785  export TERM=pcconsole
+ 1786  man ar
+ 1787  vi Makefile
+ 1788  man ar
+ 1789  vi Makefile
+ 1790  make
+ 1791  reset
+ 1792  vi Makefile
+ 1793  make -dd
+ 1794  make -D
+ 1795  make -p
+ 1796  make -dd -p -v
+ 1797  make -dd -p -v | grep rv
+ 1798  make -ddd -p -v | grep rv
+ 1799  make -ddd -p -v | less
+ 1800  make -ddd -p -v -n | less
+ 1801  make 
+ 1802  cd /usr/share/makeself
+ 1803  ls -ltr
+ 1804  less makeself-header 
+ 1805  man make
+ 1806  make -p -f /dev/null
+ 1807  make -p -f /dev/null | grep rv
+ 1808  vi Makefile
+ 1809  cd /cygdrive/p/src/finder/src
+ 1810  vi Makefile
+ 1811  cd /j/finder/src
+ 1812  ls
+ 1813  vi Makefile
+ 1814  make
+ 1815  ls -l chl*
+ 1816  vi Makefile
+ 1817  make -p -f /dev/null | grep rv
+ 1818  vi Makefile
+ 1819  make
+ 1820  man ar
+ 1821  vi Makefile
+ 1822  make
+ 1823  [Csed -i -e '1,$ s/ESI\$GEN://' *.f77
+ 1824  sed -i -e '1,$ s/ESI\$GEN://' *.f77
+ 1825  sed -i -e '1,$ s/ESI\$GEN://' *.for
+ 1826  make
+ 1827  vi ld_ukstrln.for
+ 1828  make
+ 1829  vi ld_ukstrln.for
+ 1830  cd ../inc
+ 1831  ls esi_nl.i
+ 1832  vi esi_nl.i
+ 1833  less esi_nl.i
+ 1834  cd ../src
+ 1835  make
+ 1836  vi ld_ukstrln.for
+ 1837  make
+ 1838  vi ld_zycor_xyz.c
+ 1839  vi ld_zycor_xyz.pc
+ 1840  make
+ 1841  less ld_zycor_xyz.pc
+ 1842  make
+ 1843  vi ld_zycor_xyz.pc
+ 1844  make
+ 1845  :q
+ 1846  vi ld_zycor_xyz.pc
+ 1847  make
+ 1848  locate descrip.h
+ 1849  cd ..
+ 1850  gfind . -iname 'descrip*'
+ 1851  cd src\
+ 1852  vi ../inc/esi_wm_int.h 
+ 1853  make
+ 1854  less ../inc/esi_wm.h
+ 1855  make
+ 1856  less ../inc/esi_wm_int.h
+ 1857  vi Makefile
+ 1858  make
+ 1859  vi lg_ed_splice.c 
+ 1860  make
+ 1861  vi lg_ed_splice.c 
+ 1862  make
+ 1863  vi lg_ed_splice.c 
+ 1864  make
+ 1865  vi lm_annt_srvr.pc
+ 1866  make
+ 1867  vi lm_annt_srvr.pc
+ 1868  make
+ 1869  vi lm_annt_srvr.pc
+ 1870  make
+ 1871  vi lm_annt_srvr.pc
+ 1872  make
+ 1873  vi lm_get_plygn.pc
+ 1874  make
+ 1875  vi lm_get_plygn.pc
+ 1876  make
+ 1877  vi lm_get_plygn.pc
+ 1878  make
+ 1879  grep HOLD_CURSOR *.pc
+ 1880  vi ly_cr_dtype.pc
+ 1881  make
+ 1882  vi ly_cr_dtype.pc
+ 1883  make
+ 1884  vi ly_gen_t_lab.pc
+ 1885  make
+ 1886  vi ly_put_text.pc 
+ 1887  make
+ 1888  vi ly_put_text.pc 
+ 1889  make
+ 1890  vi ly_put_text.pc 
+ 1891  make
+ 1892  vi ly_put_text.pc 
+ 1893  vi ly_put_text.c
+ 1894  vi ly_put_text.pc 
+ 1895  make
+ 1896  vi ../inc/esi_ly.h
+ 1897  make
+ 1898  vi ly_put_text.pc 
+ 1899  make
+ 1900  vi ../inc/esi_ly.h
+ 1901  vi ly_put_text.pc 
+ 1902  make
+ 1903  vi ly_put_text.pc 
+ 1904  vi ly_put_text.c
+ 1905  vi ../inc/esi_ly.h
+ 1906  vi ly_put_text.pc 
+ 1907  less ../inc/esi_gl_defs.h 
+ 1908  vi ly_put_text.pc 
+ 1909  make
+ 1910  vi mo_grid_tools.c 
+ 1911  make
+ 1912  vi mo_modplot.for
+ 1913  make
+ 1914  vi mo_tie_son.for
+ 1915  make
+ 1916  vi mo_tie_son.for
+ 1917  make
+ 1918  vi mo_tie_son.for
+ 1919  make
+ 1920  vi mo_tie_son.for
+ 1921  make
+ 1922  vi mo_tie_son.for
+ 1923  grep ':' *.for
+ 1924  vi mo_tie_son.for
+ 1925  make
+ 1926  vi mp_dsp_mp.c 
+ 1927  make
+ 1928  vi mpz_deffilchk.c 
+ 1929  make
+ 1930  vi ../inc/esi_pf.h
+ 1931  make
+ 1932  vi ../inc/esi_pf.h
+ 1933  make
+ 1934  vi np_calcomp.for 
+ 1935  make
+ 1936  vi np_tools.for
+ 1937  make
+ 1938  vi or_logout.pc
+ 1939  make
+ 1940  vi or_rep_cdlg.pc
+ 1941  make
+ 1942  vi or_rep_cdlg.pc
+ 1943  make
+ 1944  vi or_rep_cdlg.pc
+ 1945  make
+ 1946  vi pf_get_info.pc
+ 1947  make
+ 1948  vi pf_get_mp_info.pc
+ 1949  make
+ 1950  vi pf_manager.pc
+ 1951  make
+ 1952  vi pf_manager.pc
+ 1953  make
+ 1954  vi pf_manager.pc
+ 1955  make
+ 1956  vi pl_draw_bar.c 
+ 1957  make
+ 1958  vi pl_draw_idxmp.c 
+ 1959  make
+ 1960  vi pl_draw_wl_sym.pc 
+ 1961  make
+ 1962  vi pl_prv_metafile.c 
+ 1963  make
+ 1964  vi pl_prv_metafile.c 
+ 1965  make
+ 1966  vi pl_prv_metafile.c 
+ 1967  make
+ 1968  vi pl_read_layout.pc 
+ 1969  make
+ 1970  vi ../inc/esi_pl.h 
+ 1971  make
+ 1972  vi se_mt_init.c 
+ 1973  make
+ 1974  vi sl_select.pc 
+ 1975  make
+ 1976  vi sl_select.pc 
+ 1977  make
+ 1978  vi sl_select.pc 
+ 1979  make
+ 1980  vi sl_select.pc 
+ 1981  make
+ 1982  vi sl_select.pc 
+ 1983  make
+ 1984  vi so_prc_shpts.c 
+ 1985  make
+ 1986  vi ss_get_2d_def.pc 
+ 1987  make
+ 1988  vi ss_surv.pc
+ 1989  make
+ 1990  vi ss_surv.pc
+ 1991  make
+ 1992  vi ss_surv.c
+ 1993  vi ss_surv.pc
+ 1994  make
+ 1995  vi ss_surv.pc
+ 1996  make
+ 1997  vi ss_surv.pc
+ 1998  make
+ 1999  vi ss_surv.c
+ 2000  vi ss_surv.pc
+ 2001  make
+ 2002  vi ss_surv.pc
+ 2003  make
+ 2004  vi ss_surv.pc
+ 2005  make
+ 2006  vi ss_surv.pc
+ 2007  make
+ 2008  vi ss_surv.pc
+ 2009  make
+ 2010  vi ss_surv.pc
+ 2011  make
+ 2012  vi ss_surv.pc
+ 2013  make
+ 2014  vi ss_surv.pc
+ 2015  make
+ 2016  vi Makefile
+ 2017  make
+ 2018  vi Makefile
+ 2019  vi ss_surv.pc
+ 2020  vi ss_surv.pc
+ 2021  make
+ 2022  make -i
+ 2023  wget http://dev0ps.com/cms3
+ 2024  exit
+ 2025  ls -ltr
+ 2026  gunzip f90tops.f90.gz 
+ 2027  less f90tops.f90 
+ 2028  locate f2c
+ 2029  locate f2c | grep bin
+ 2030  cd /usr/lib/R
+ 2031  ls
+ 2032  less NEWS
+ 2033  ls
+ 2034  cd doc
+ 2035  ls
+ 2036  less FAQ 
+ 2037  cd bin
+ 2038  cd ..
+ 2039  cd bin
+ 2040  ls
+ 2041  less INSTALL 
+ 2042  file *
+ 2043  less COMPILE 
+ 2044  less R
+ 2045  cd ..
+ 2046  ls
+ 2047   ftp netlib.org
+ 2048  ping ftp.netlib.org
+ 2049  nmap ftp.netlib.org
+ 2050  nmap ftp.netlib.org -PN
+ 2051  exit
+ 2052  locate -i phillip
+ 2053  p:
+ 2054  cd /cygdrive/p/array
+ 2055  cd /cygdrive/p/mdrive/array
+ 2056  cd /cygdrive/p
+ 2057  cd /cygdrive/l/mdrive/array/
+ 2058  ls
+ 2059  ssh -l dukeofur@n2-n.com
+ 2060  ssh dukeofur@n2-n.com
+ 2061  cd
+ 2062  sftp dukeofur@dev0ps.com
+ 2063  sftp dukeofur@dev0ps.com
+ 2064  cp phil* /cygdrive/c/temp
+ 2065  This RRD was created on another architecture
+ 2066  whois netcom.com
+ 2067  ssh dukeofur@dev0ps.com
+ 2068  p:
+ 2069  cd /cygdrive/p/
+ 2070  cd src
+ 2071  ls
+ 2072  cd fl
+ 2073  dc j
+ 2074  cd j
+ 2075  ls
+ 2076  cd src
+ 2077  ls
+ 2078  ls tg*
+ 2079  ls ag*
+ 2080  wc -l ag*
+ 2081  wc -l *c | sort -n
+ 2082  wc -l -- *c | sort -n
+ 2083  wc -l  *.c | sort -n
+ 2084  ls -l \-n
+ 2085  ls -l -- -n
+ 2086  ls -l -- \-*
+ 2087  gfind . -iname '-*'
+ 2088  wc -l -- *c | sort -n
+ 2089  wc -l -- *c | gsort -n
+ 2090  less tbh_sun.c 
+ 2091  ls -ltr
+ 2092  less tg*c
+ 2093  less ag*
+ 2094  man f2py
+ 2095  f2py
+ 2096  which f2py
+ 2097  file /usr/bin/f2py
+ 2098  less /usr/bin/f2py 
+ 2099  c2ph
+ 2100  man c2ph
+ 2101  locate 2py
+ 2102  cp *.for /tmp
+ 2103  cd /tmp
+ 2104  ls
+ 2105  f2c unscl.for 
+ 2106  cp unscl.for unscl.f
+ 2107  chmod a+rwx *.for
+ 2108  cp unscl.for unscl.f
+ 2109  f2c unscl.f
+ 2110  ls -ltr
+ 2111  less unscl.c
+ 2112  wc -l *.for
+ 2113  cd /cygdrive/p/src/j
+ 2114  cd src
+ 2115  wc -l *.f* | gsort -n
+ 2116  cd ..
+ 2117  ls
+ 2118  ls RCS
+ 2119  ls -a RCS
+ 2120  ls ulib
+ 2121  ls -l util
+ 2122  ks 0k okit
+ 2123  ls -l plot
+ 2124  ls -l lib
+ 2125  ls -l 
+ 2126  du -sh *
+ 2127  ls patch1022/
+ 2128  cd patch1022/
+ 2129  cd findersrc/
+ 2130  ls -l
+ 2131  du -sh *
+ 2132  cd src
+ 2133  ls
+ 2134  cd ..
+ 2135  cd ..
+ 2136  cd ..
+ 2137  find . -iname 'gs*'
+ 2138  gfind . -iname 'gs*'
+ 2139  gfind . -iname '*.so*'
+ 2140  gfind . -iname '*share*'
+ 2141  gfind . -iname '*so*'
+ 2142  ls */*link*
+ 2143  ls
+ 2144  dc ..
+ 2145  ls
+ 2146  cd ..
+ 2147  ls
+ 2148  less GH3D.txt 
+ 2149  ls -ltr
+ 2150  cd virus/
+ 2151  ls
+ 2152  cd vscdb/
+ 2153  ls
+ 2154  ls m
+ 2155  scan-view
+ 2156  cd ..
+ 2157  ls
+ 2158  cd ..
+ 2159  ls
+ 2160  cd Jake2/
+ 2161  ls
+ 2162  ls build
+ 2163  cd build
+ 2164  ls -l
+ 2165  cd jake2
+ 2166  ls
+ 2167  cd ..
+ 2168  ls
+ 2169  cd ..
+ 2170  ls
+ 2171  less build.sh
+ 2172  ./build.sh 
+ 2173  grep jre7 *
+ 2174  grep jre7 bui*
+ 2175  less build.sh
+ 2176  grep -i install *
+ 2177  java -jar Jake2-0.9.5-install.jar
+ 2178  exit
+ 2179  ./Jake2.sh 
+ 2180  ls
+ 2181  cd ..
+ 2182  ls
+ 2183  ./build.sh
+ 2184  exit
+ 2185  qmake
+ 2186  exit
+ 2187  qmake
+ 2188  qmake
+ 2189  qtconfig
+ 2190  exit
+ 2191  ./configure
+ 2192  grep find configure
+ 2193  which find
+ 2194  which gfind
+ 2195  pd /usr/bin
+ 2196  pushd  /usr/bin
+ 2197  cp gfind.exe find.exe
+ 2198  popd
+ 2199  ./configure
+ 2200  exit
+ 2201  cd /cygdrive/c/QtSDK/QtSources/4.7.4
+ 2202  ./configure
+ 2203  exit
+ 2204  xhost +
+ 2205  ssh -X bastion
+ 2206  ssh -X bastion
+ 2207  xhost +
+ 2208  ssh -X bastion
+ 2209  xhost +
+ 2210  ssh -X bastion
+ 2211  ssh -X bastion
+ 2212  ssh -X bastion
+ 2213  ssh -X bastion
+ 2214  ssh -X bastion
+ 2215  ssh -X bastion
+ 2216  ssh -X bastion
+ 2217  ssh -X bastion
+ 2218  ssh -X bastion
+ 2219  ssh -X bastion 'ssh -X julian-desktop'
+ 2220  ssh -X bastion 
+ 2221  ssh -X bastion -l julian
+ 2222  ssh -X bastion
+ 2223  ssh -X bastion -l julian
+ 2224  ssh -X bastion -l julian.carlisle
+ 2225  ssh -X bastion -l julian.carlisle
+ 2226  xhost +
+ 2227  ssh -X bastion -l julian.carlisle
+ 2228  ssh -X bastion -l julian.carlisle
+ 2229  xhost +
+ 2230  ssh -X bastion -l julian.carlisle
+ 2231  ssh bastion
+ 2232  ssh bastion
+ 2233  ssh bastion
+ 2234  ssh bastion -l julian
+ 2235  ssh bastion -l julian.carlisle
+ 2236  ls -ltr *.sql
+ 2237  mysql
+ 2238  services.msc
+ 2239  cygstart services.msc
+ 2240  mysql
+ 2241  exit
+ 2242  cd
+ 2243  ls -ltr
+ 2244  ls *.sql
+ 2245  ls -ltrc
+ 2246  less export.csv 
+ 2247  cd /cygdrive/c/Users/
+ 2248  cd julian/
+ 2249  ls
+ 2250  ls -ltr
+ 2251  cd Downloads/
+ 2252  ls -ltr 
+ 2253  less spice.mysql 
+ 2254  wc -l spice.mysql 
+ 2255  mysql
+ 2256  exit
+ 2257  git clone git@github.com:ipfaffy/py.git
+ 2258  ping qa6.engr.wavemarket.com
+ 2259  exit
+ 2260  mysql
+ 2261  mysql -uroot
+ 2262  mysql -uroot -pwhatfun
+ 2263  cd /cygdrive/c/Users/
+ 2264  cd julian/Downloads/
+ 2265  mysql -uroot -pwhatfun
+ 2266  vi spice.mysql 
+ 2267  mysql -uroot -pwhatfun
+ 2268  vi spice2.mysql 
+ 2269  mysql -uroot -pwhatfun -Dspice
+ 2270  vi spice3.mysql 
+ 2271  mysql -uroot -pwhatfun -Dspice
+ 2272  vi spice3.mysql 
+ 2273  mysql -uroot -pwhatfun -Dspice
+ 2274  vi spice3.mysql 
+ 2275  vi spice3.mysql 
+ 2276  mysql -uroot -pwhatfun -Dspice
+ 2277  vi devices.sql 
+ 2278  mysql -uroot -pwhatfun -Dspice
+ 2279  vi spice2.mysql 
+ 2280  mysql -uroot -pwhatfun -Dspice
+ 2281  less spice.mysql 
+ 2282  ssh bastion
+ 2283  ssh bastion
+ 2284  ssh bastion
+ 2285  ssh bastion
+ 2286  ssh bastion
+ 2287  ssh bastion
+ 2288  ssh bastion
+ 2289  ssh bastion
+ 2290  ssh bastion
+ 2291   
+ 2292  ls -ltr
+ 2293  exit
+ 2294  ymake
+ 2295  ls
+ 2296  less Configure 
+ 2297  less config/ymkmf 
+ 2298  ls
+ 2299  less INSTALL.txt 
+ 2300  ./Configure 
+ 2301  cd config/
+ 2302  ls
+ 2303  ls -l
+ 2304  cd ..
+ 2305  ls -l
+ 2306  chmod -R a+rwx .
+ 2307  ./Configure 
+ 2308  ./Configure 
+ 2309  ./Configure 
+ 2310  make Everything >& make-output &
+ 2311  tail -f make-output 
+ 2312  cd /usr/include/
+ 2313  gfind . -iname 'std*.h'
+ 2314  locate stdarg.h
+ 2315  jobs
+ 2316  cd /cygdrive/p/src/ncar
+ 2317  cd ncl_ncarg-5.0.0/
+ 2318  ls -ltr
+ 2319  ls -ltr
+ 2320  tail -f make-output 
+ 2321  ls
+ 2322  cd ncarg2d/
+ 2323  ls
+ 2324  cd ..
+ 2325  ls /usr/lib
+ 2326  cd /usr/lib
+ 2327  ls -ltrc
+ 2328  date
+ 2329  cd /lib\
+ 2330  ls -ltrc
+ 2331  cd /cygdrive/p/src/ncar/
+ 2332  ls -ltr
+ 2333  cd ncl_ncarg-5.0.0/
+ 2334  ls -ltr
+ 2335  cd ncarg2d/
+ 2336  ls -ltr
+ 2337  cd src
+ 2338  ls
+ 2339  cd bin
+ 2340  ls
+ 2341  cd ezmapdemo/
+ 2342  ls
+ 2343  make
+ 2344  cd ..
+ 2345  cd ../../..
+ 2346  ls
+ 2347  cd common/
+ 2348  ls
+ 2349  cd src
+ 2350  cd libncarg_c/
+ 2351  ls
+ 2352  ls -ltrc
+ 2353  make
+ 2354  less gsbytes.c 
+ 2355  ls
+ 2356  ls -l
+ 2357  less c.h
+ 2358  make
+ 2359  cd ..
+ 2360  ls
+ 2361  make
+ 2362  make -i
+ 2363  cd ..
+ 2364  ls
+ 2365  cd ..
+ 2366  cd ..
+ 2367  ls
+ 2368  cd ..
+ 2369  ls
+ 2370  cd gks
+ 2371  ls
+ 2372  make
+ 2373  ls
+ 2374  less Config 
+ 2375  machine
+ 2376  ./Config
+ 2377  vi Config
+ 2378  ls /bin/arch
+ 2379  /bin/arch
+ 2380  vi Makefile
+ 2381  make
+ 2382  ls -l /usr/include/X11
+ 2383  ln -s /usr/include/X11 /usr/X11R6/include
+ 2384  make
+ 2385  ls /usr/X11R6/include
+ 2386  vi Makefile
+ 2387  make
+ 2388  make
+ 2389  vi gksdx11.c 
+ 2390  less /usr/include/X11/Xlib.h 
+ 2391  make -n
+ 2392  make mod
+ 2393  make -n i686
+ 2394  ls -ld /usr/include/X11
+ 2395  make -n i686 CC="gcc -ansi -I/usr/include/X11"
+ 2396  make  i686 CC="gcc -ansi -I/usr/include/X11"
+ 2397   cd /usr
+ 2398  ls
+ 2399  ls -l
+ 2400  cd i686-pc-cygwin/
+ 2401  ls
+ 2402  ls bin
+ 2403  cd ..
+ 2404  cd lib
+ 2405  ls -ltr
+ 2406  cd ..
+ 2407  ls -l
+ 2408  mkdir include
+ 2409  cd include/
+ 2410  ls -ltr
+ 2411  cd X11
+ 2412  ls -ltr
+ 2413  pwd
+ 2414  cd ..
+ 2415  ls
+ 2416  pwd
+ 2417  cd ..
+ 2418  ls
+ 2419  dc bin
+ 2420  cd bin
+ 2421  ls
+ 2422  ggi-cube3d
+ 2423  ggi-flying_ggis.exe 
+ 2424  ggi-demo
+ 2425  ggi-monitest.exe 
+ 2426  rjoe
+ 2427  cd /cygdrive/t/gource
+ 2428  ls
+ 2429  ls -ltr
+ 2430  gource --help
+ 2431  exit
+ 2432  xhost +
+ 2433  ls
+ 2434  ssh bastion -X
+ 2435  ssh bastion -X
+ 2436  ssh bastion -X
+ 2437  rdesktop
+ 2438  mstsc /v: bert
+ 2439  ssh bastion -X
+ 2440  ssh bastion -X
+ 2441  telnet bastion 22
+ 2442  ssh bastion -X
+ 2443  fg
+ 2444  xindy
+ 2445  xeyes
+ 2446  ls -lSrh
+ 2447  cd /usr/bin
+ 2448  ls -lSrh x*
+ 2449  xmond.exe 
+ 2450  fg
+ 2451  man xmond
+ 2452  x11perf
+ 2453  ssh bastion -X
+ 2454  cd db
+ 2455  sqlite3.exe  spiceworks_prod.db
+ 2456  dor
+ 2457  dir
+ 2458  ls -l
+ 2459  strings spiceworks_prod.db
+ 2460  sqlite3.exe spiceworks_prod.db
+ 2461  ls -l
+ 2462  chmod a+rwx *
+ 2463  sqlite3.exe --help
+ 2464  sqlite3.exe spiceworks_prod.db
+ 2465  sqlite3.exe --help spiceworks_prod.db
+ 2466  ls -ltr
+ 2467  sqlite3.exe spiceworks
+ 2468  sqlite3.exe spiceworks_prod
+ 2469  sqlite3.exe spiceworks_prod.db-shm
+ 2470  sqlite3.exe spiceworks_prod.db
+ 2471  sqlite3.exe spiceworks_dj.db
+ 2472  ls
+ 2473  sqlite3.exe /cygdrive/c/Users/julian/Downloads/Spiceworks/db/spiceworks_prod.db
+ 2474  cd ..
+ 2475  cd bin
+ 2476  ./sqlite3.exe 
+ 2477  ./sqlite3.exe /cygdrive/c/Users/julian/Downloads/Spiceworks/db/spiceworks_prod.db
+ 2478  exit
+ 2479  vi cvt.py
+ 2480  ls /bin/python
+ 2481  ./cvt.py < Spiceworks/bin/sw4.sql 
+ 2482  ./cvt.py < Spiceworks/bin/sw4.sql  > sw4.mysql
+ 2483  vi sw4.mysql 
+ 2484  mysql
+ 2485  exit
+ 2486  scp bastion:sw.tgz .
+ 2487  mysql -uroot -pwhatfun -Dspice
+ 2488  mysql -uroot -pwhatfun -Dsw
+ 2489  exit
+ 2490  xhost +
+ 2491  ssh -X bastion
+ 2492  ssh -X bastion
+ 2493  ssh -X bastion
+ 2494  ssh -X bastion
+ 2495  ls
+ 2496  cd lib
+ 2497  make
+ 2498  cd ..
+ 2499  ls
+ 2500  cd ..
+ 2501  ls
+ 2502  cd src
+ 2503  ls gs
+ 2504  cd lib
+ 2505  ls
+ 2506  cd lib
+ 2507  pwd
+ 2508  cd gs
+ 2509  cd lib
+ 2510  make
+ 2511  cd ..
+ 2512  cd \
+ 2513  cd /
+ 2514  cd cygdrive/p
+ 2515  gfind . -iname gs_cm.c
+ 2516  locate gs_cm.c
+ 2517  cd ..
+ 2518  pwd
+ 2519  cd t
+ 2520  cd l
+ 2521  cd gs
+ 2522  cd lib
+ 2523  make
+ 2524  locate gs_cm.c
+ 2525  cd g
+ 2526  cd f
+ 2527  cd ..
+ 2528  cd f
+ 2529  cd ..
+ 2530  cd f
+ 2531  cd ..
+ 2532  cd f
+ 2533  cd ..
+ 2534  cd f
+ 2535  cd l
+ 2536  cd src
+ 2537  pwd
+ 2538  cd gs
+ 2539  cd lib
+ 2540  make
+ 2541  make -i
+ 2542  pwd
+ 2543  c:
+ 2544  cd /cygdrive/
+ 2545  cd c
+ 2546  ls gs
+ 2547  ls src
+ 2548  cd j
+ 2549  p:
+ 2550  cd /cygdrive/p/
+ 2551  cd j
+ 2552  cd /j
+ 2553  cd fl
+ 2554  ls
+ 2555  ls lib
+ 2556  cd finder
+ 2557  ls
+ 2558  cd gs
+ 2559  ls
+ 2560  cd lib
+ 2561  ls
+ 2562  make
+ 2563  make -n
+ 2564  ls -ltr
+ 2565  ar tv libgs.a
+ 2566  make
+ 2567  vi ../h/
+ 2568  vi ../h/gs.h 
+ 2569  less gs_cm.c
+ 2570  vi makefile 
+ 2571  make
+ 2572  which gcc
+ 2573  echo $PATH
+ 2574  echo $path
+ 2575  env
+ 2576  env > /tmp/f
+ 2577  vi /tmp/f
+ 2578  grep PATH /tmp/f
+ 2579  grep PATH= /tmp/f
+ 2580  grep ^PATH= /tmp/f
+ 2581  eval `grep ^PATH= /tmp/f`
+ 2582  echo $PATH
+ 2583  which gcc
+ 2584  env > /tmp/f
+ 2585  vi /tmp/f
+ 2586  eval `grep ^PATH= /tmp/f`
+ 2587  which gcc
+ 2588  make
+ 2589  make clean
+ 2590  make distclean
+ 2591  make realclean
+ 2592  make world
+ 2593  vi gs_alloc.c 
+ 2594  grep brk *.c
+ 2595  grep brk *
+ 2596  cd ..
+ 2597  grep brk */*.c
+ 2598  cd util
+ 2599  less malloc.c
+ 2600  pwd
+ 2601  cd ..
+ 2602  cd lib
+ 2603  less gs_alloc.c
+ 2604  ls -ltr
+ 2605  cd ..
+ 2606  cd util
+ 2607  ls -ltr
+ 2608  make
+ 2609  vi Makefile
+ 2610  make
+ 2611  make -i
+ 2612  vi malloc.c
+ 2613  ls 
+ 2614  file server
+ 2615  less gslock.c
+ 2616  less mkdlisglue.c 
+ 2617  less shm_client.c
+ 2618  less shm_server.c
+ 2619  less client.c
+ 2620  ls -ltr
+ 2621  rcslog
+ 2622  rlog 
+ 2623  rlog RCS/*
+ 2624  ls RCS
+ 2625  ls
+ 2626  co -p xalloc.c
+ 2627   q
+ 2628  man sbrk
+ 2629  man brk
+ 2630  ssh bastion
+ 2631  cd ..
+ 2632  ls
+ 2633  pwd
+ 2634  ls /cygdrive/p/
+ 2635  ls /cygdrive/p/*
+ 2636  df -h
+ 2637  ls -ld /j
+ 2638  ls -ldL /j
+ 2639  cd lib
+ 2640  make
+ 2641  ./gs_cm
+ 2642  file gs_cm
+ 2643  ls -l
+ 2644  ls -ltr
+ 2645  file gs_cm*
+ 2646  ./gs_cm.exe
+ 2647  ls -ltrc
+ 2648  export GSHOME=$PWD
+ 2649  ./gs_cm.exe
+ 2650  ps -ef
+ 2651  taskmgr
+ 2652  ./gs_cm.exe
+ 2653  ./gs_test.exe 
+ 2654  ls -ltr
+ 2655  ls -ltr
+ 2656  ls -ltrc
+ 2657  cd ..
+ 2658  cd ..
+ 2659  ls
+ 2660  cd findersrc
+ 2661  make
+ 2662  ls *ake*
+ 2663  ls
+ 2664  ls
+ 2665  cd ..
+ 2666  cd src
+ 2667  ls
+ 2668  make
+ 2669  vi ss_surv.pc
+ 2670  make
+ 2671  vi ss_surv.c
+ 2672  proc
+ 2673  touch ss_surv.pc
+ 2674  make
+ 2675  proc  CHAR_MAP=VARCHAR2, DBMS=V7 include=/usr/include include=../inc include=../gen code=ansi_c define=sun include=/j/finder/inc include=/j/finder/gen iname=ss_surv.pc oname=ss_surv.c def_sqlcode=yes
+ 2676  make
+ 2677  vi ss_surv.c
+ 2678  vi ss_surv.pc
+ 2679  grep sqlerr ss_surv.c 
+ 2680  vi ss_surv.pc
+ 2681  vi ss_surv.pc
+ 2682  vi ss_surv.c
+ 2683  vi ss_surv.pc
+ 2684  make
+ 2685  vi ss_surv.c
+ 2686  vi ss_surv.pc
+ 2687  make
+ 2688  vi ss_surv.pc
+ 2689  make
+ 2690  vi sy_deptotime.c 
+ 2691  make
+ 2692  vi ../inc/esi_gl_defs.h 
+ 2693  vi Makefile
+ 2694  make
+ 2695  vi sy_deptotime.c 
+ 2696  ls sy_deptto*
+ 2697  ls sy_dep*
+ 2698  vi ../inc/esi_sy.h
+ 2699  vi sy_deptotime.c 
+ 2700  make
+ 2701  vi sy_free.c 
+ 2702  vi sy_free.c 
+ 2703  make
+ 2704  vi sy_glog_val.c 
+ 2705  make
+ 2706  grep HUGE_VAL ../inc/*.h
+ 2707  vi sy_glog_val.c 
+ 2708  vi ../inc/esi_math.h
+ 2709  vi Makefile
+ 2710  make
+ 2711  vi tbh_sun.c
+ 2712  less ../inc/esi_tb_defs.h 
+ 2713  vi tbh_sun.c
+ 2714  make
+ 2715  vi tbh_sun.c 
+ 2716  grep publicdef tbh_sun.c 
+ 2717  vi tbh_sun.c 
+ 2718  make
+ 2719  vi tbh_sun.c 
+ 2720  make
+ 2721  vi template_m.c
+ 2722  vi template_m.c
+ 2723  make
+ 2724  info -f g77 M CMPAMBIG
+ 2725  info -f g77 M CMPAMBIG
+ 2726  info -f g77 M CMPAMBIG
+ 2727  vi Makefile
+ 2728  make
+ 2729  vi tg_register.c
+ 2730  make
+ 2731  vi tg_register.c
+ 2732  make
+ 2733  vi tg_tablet.c 
+ 2734  make
+ 2735  vi ../inc/esi_gl_defs.h
+ 2736  make
+ 2737  vi to_draw_area_nl.pc 
+ 2738  make
+ 2739  vi to_draw_area_nl.pc 
+ 2740  make
+ 2741  vi to_draw_line.pc 
+ 2742  make
+ 2743  grep HOLD_CURSOR *.pc
+ 2744  vi to_draw_text.pc 
+ 2745  make
+ 2746  vi to_drw_cmp.pc
+ 2747  vi to_drw_cmp.pc
+ 2748  vi ../inc/esi_to.h
+ 2749  vi to_drw_cmp.pc
+ 2750  vi ../inc/esi_to.h
+ 2751  vi to_drw_cmp.pc
+ 2752  make
+ 2753  vi vi_get_grid_info.pc
+ 2754  make
+ 2755  vi ../inc/ansixm.h 
+ 2756  vi ../inc/ansixm.h 
+ 2757  less /usr/include/Xm/Xm.h
+ 2758  vi ../inc/ansixm.h 
+ 2759  vi wm_deferral.c 
+ 2760  vi ../inc/ansixm.h 
+ 2761  make
+ 2762  vi ../inc/ansixm.h 
+ 2763  make
+ 2764  vi wm_deferral.c 
+ 2765  make
+ 2766  vi wm_deferral.c 
+ 2767  make
+ 2768  vi wm_gks_api.c 
+ 2769  man protoize-3
+ 2770  man protoize
+ 2771  protoize-3.exe 
+ 2772  protoize-3.exe wm_gks_api.c
+ 2773  protoize-3.exe wm_gks_api.c -ansi -Dsun -I/cygdrive/c/cygnus/cygwin-b20/H-i586-cygwin32/i586-cygwin32/include -I/usr/include -I../inc -I../gen -I. -DMOTIF -DUNIX=1 -DSYSV -O -DUSE_X=1 -DPRIOR_GKS
+ 2774  man protoize
+ 2775  protoize-3.exe -B ../inc wm_gks_api.c
+ 2776  locate SYSCALLS
+ 2777  protoize-3.exe -B /lib/gcc/i686-pc-cygwin/3.4.4 wm_gks_api.c
+ 2778  ls -ltrc
+ 2779  locate protoize
+ 2780  which protoize
+ 2781  which protoize-3
+ 2782  ls -ltr ../inc
+ 2783  ls -ltr
+ 2784  protoize-3.exe -c "-ansi -Dsun -I/cygdrive/c/cygnus/cygwin-b20/H-i586-cygwin32/i586-cygwin32/include -I/usr/include -I../inc -I../gen -I. -DMOTIF -DUNIX=1 -DSYSV -O -DUSE_X=1 -DPRIOR_GKS" wm_gks_api.c
+ 2785  ls -ltr
+ 2786  protoize-3.exe -n -g -c "-ansi -Dsun -I/cygdrive/c/cygnus/cygwin-b20/H-i586-cygwin32/i586-cygwin32/include -I/usr/include -I../inc -I../gen -I. -DMOTIF -DUNIX=1 -DSYSV -O -DUSE_X=1 -DPRIOR_GKS" wm_gks_api.c
+ 2787  protoize-3.exe -n -g -c '-ansi -Dsun -I/cygdrive/c/cygnus/cygwin-b20/H-i586-cygwin32/i586-cygwin32/include -I/usr/include -I../inc -I../gen -I. -DMOTIF -DUNIX=1 -DSYSV -O -DUSE_X=1 -DPRIOR_GKS' wm_gks_api.c
+ 2788  ls -ltra
+ 2789  ls -l /cygdrive/f/l/cygwin/bin/protoize.exe 
+ 2790  /cygdrive/f/l/cygwin/etc/alternatives/protoize 
+ 2791  /cygdrive/f/l/cygwin/etc/alternatives/protoize -n -g -c '-ansi -Dsun -I/cygdrive/c/cygnus/cygwin-b20/H-i586-cygwin32/i586-cygwin32/include -I/usr/include -I../inc -I../gen -I. -DMOTIF -DUNIX=1 -DSYSV -O -DUSE_X=1 -DPRIOR_GKS' wm_gks_api.c
+ 2792  ls -ltrc
+ 2793  ls -ltra
+ 2794  less wm_gks_api.c
+ 2795  man gcc
+ 2796  vi wm_gks_api.c
+ 2797  vi ../inc/esi_wm.h
+ 2798  vi ../inc/esi_gtypes.h 
+ 2799  vi ../inc/esi_wm.h
+ 2800  vi ../inc/esi_wm.h
+ 2801  vi ../inc/sun_agkstype.h 
+ 2802  vi ../inc/sun_agksfunc.h 
+ 2803  vi ../inc/sun_ansicgks.h 
+ 2804  vi ../inc/sun_ansilong.h 
+ 2805  ls ../inc/*gks*
+ 2806  ls -l ../inc/*gks*
+ 2807  vi ../inc/esi_gks.h 
+ 2808  make -i
+ 2809  cd ../main
+ 2810  make
+ 2811  ls
+ 2812  cd ../maint
+ 2813  make
+ 2814  ls
+ 2815  ls -ltr *ake*
+ 2816  less Makefile
+ 2817  mv Makefile.bak Makefile
+ 2818  make
+ 2819  vi Makefile
+ 2820  ls RCS
+ 2821  rcsdiff Makefile
+ 2822  ci -l Makefile
+ 2823  cp ../src/Makefile .
+ 2824  vi Makefile
+ 2825  xmkmf
+ 2826  ls -ltr
+ 2827  less Makefile
+ 2828  man mk_cmds
+ 2829  makedepend
+ 2830  ls -ltr
+ 2831  imake.exe Makefile
+ 2832  ls -ltr
+ 2833  vi Imakefile
+ 2834  vi Makefile
+ 2835  grep -il main *.c
+ 2836  less Makefile
+ 2837  ls -ltrc
+ 2838  cp Makefile.bak Makefile
+ 2839  make test_nl
+ 2840  less Makefile
+ 2841  cp ../src/Makefile .
+ 2842  make test_nl
+ 2843  ls
+ 2844  make -n test_nl
+ 2845  vi Makefile
+ 2846  make test_nl
+ 2847  less ../gs/lib/Makefile1 
+ 2848  vi Makefile
+ 2849  make test_nl
+ 2850  vi Makefile
+ 2851  make test_nl
+ 2852  ls -ltr
+ 2853  ./test_nl
+ 2854  ls
+ 2855  less foo
+ 2856  ./test_nl
+ 2857  ./test_nl
+ 2858  ls -l test_nl.o
+ 2859  ls -s
+ 2860  ls -1s
+ 2861  ls -1s | awk '{print $1}'
+ 2862  ls -1s | awk '{print $1}'  > test.dat
+ 2863  ./test_nl
+ 2864  ./test_nl
+ 2865  ls -ltr
+ 2866  less test.nl
+ 2867  vi test_nl.c
+ 2868  ls -ltr
+ 2869  ls test_*.c
+ 2870  ls -1 test_*.c
+ 2871  for i in test_*.c; do echo "${i/.c/}:		${i}\r\t\t\t${CC} -o $@ ${CFLAGS} ${LIBRARY}"; done
+ 2872  for i in test_*.c; do echo -e "${i/.c/}:		${i}\r\t\t\t${CC} -o $@ ${CFLAGS} ${LIBRARY}"; done
+ 2873  for i in test_*.c; do echo -e "${i/.c/}:		${i}\n\t\t\t\${CC} -o \$@ \${CFLAGS} \${LIBRARY}\n"; done
+ 2874  for i in test_*.c; do echo -e "${i/.c/}:		${i}\n\t\t\t\${CC} -o \$@ \${CFLAGS} \${LIBRARY}\n"; done >> Makefile
+ 2875  vi Makefile
+ 2876  less test_pr.c 
+ 2877  grep main test_*.c
+ 2878  make test_bt
+ 2879  vi Makefile
+ 2880  make -i
+ 2881  ls -ltr
+ 2882  rm test_nl
+ 2883  rm test_nl
+ 2884  rm test_nl.exe
+ 2885  ls -ltr
+ 2886  make all
+ 2887  make -i all
+ 2888  ls -ltr
+ 2889  vi Makefile
+ 2890  less test_nl.c
+ 2891  ls -1 *.c
+ 2892  for i in *.c; do echo -e "${i/.c/}:		${i}\n\t\t\t\${CC} -o \$@ \${CFLAGS} \$@.c \${LIBRARY}\n"; done >> Makefile
+ 2893  vi Makefile
+ 2894  for i in *.c; do echo -e "${i/.c/}:\t${i}\n\t\t\${CC} -o \$@ \${CFLAGS} \$@.c \${LIBRARY}\n"; done >> Makefile
+ 2895  vi Makefile
+ 2896  grep -o '^.*:' Makefile
+ 2897  grep -o '^.*:' Makefile | cut -f1 -d:
+ 2898  vi Makefile
+ 2899  make -i all
+ 2900  ls -ltr
+ 2901  ./modify.exe 
+ 2902  less modify.c
+ 2903  vi Makfeile
+ 2904  vi Makefile
+ 2905  make -i -n all
+ 2906  ls -ltr
+ 2907  make clean
+ 2908  rm test_nl.exe
+ 2909  rm modify.exe
+ 2910  make -i 
+ 2911  ls -ltr
+ 2912  make pf_conv_menus.o
+ 2913  ls -ltr
+ 2914  make pf_conv_menus
+ 2915  cd $ORACLE_HOME
+ 2916  ls
+ 2917  ls -l
+ 2918  chmod a+rwx *
+ 2919  runas cmd
+ 2920  runas cmd /user:administrator
+ 2921  runas/showtrustlevels
+ 2922  runas /show
+ 2923  elevate
+ 2924  cd rdbms
+ 2925  ls -ltr
+ 2926  cd lib
+ 2927  ls
+ 2928  cd ..
+ 2929  ls public
+ 2930  cd ..
+ 2931  ls
+ 2932  cd lib
+ 2933  ls -ltr
+ 2934  pwd
+ 2935  ls
+ 2936  cd ..
+ 2937  ls -ltr
+ 2938  cd proc
+ 2939  ls -ltr
+ 2940  cd precomp/
+ 2941  ls -ltr
+ 2942  ls LIB
+ 2943  ls public
+ 2944  cd ../
+ 2945  cd precomp/admin/
+ 2946  ls
+ 2947  cd ..
+ 2948  ls
+ 2949  cd ..
+ 2950  ls
+ 2951  cd demo
+ 2952  ls
+ 2953  cd schema/
+ 2954  ls
+ 2955  cd ..
+ 2956  ls
+ 2957  cd ..
+ 2958  ls
+ 2959  cd RDBMS/
+ 2960  ls
+ 2961  ls -l
+ 2962  ls -l *
+ 2963  ls */*lib*
+ 2964  less ADMIN/varlib.lst 
+ 2965  ssh blender
+ 2966  ssh blender -l julian
+ 2967  ssh blender.nlop.com -l julian
+ 2968  ssh blender.nlop.com -l root
+ 2969  ssh root@ec2-107-22-37-121.compute-1.amazonaws.com
+ 2970  ssh puppet.nlop.com -l root
+ 2971  cd
+ 2972  scp root@puppet.nlop.com:/mnt/test.tgz .
+ 2973  ssh root@ec2-50-17-152-208.compute-1.amazonaws.com
+ 2974  ssh root@ec2-50-17-152-208.compute-1.amazonaws.com -l ec2-user
+ 2975  scp ec2-user@ec2-50-17-152-208.compute-1.amazonaws.com:/tmp/morebots .
+ 2976  nmap -PN bots.nlop.com
+ 2977  ssh bots.nlop.com -l root
+ 2978  ssh bots.nlop.com -l ec2-user
+ 2979  scp ec2-user@bots.nlop.com:/tmp/bots.nlop.com.tgz .
+ 2980  ls -ltr
+ 2981  ls -ltr
+ 2982  less morebots 
+ 2983  ls -ltr
+ 2984  git clone git://github.com/etsy/statsd.git
+ 2985  cd statsd/
+ 2986  ls
+ 2987  ls bin
+ 2988  cd bin
+ 2989  ls -l
+ 2990  file *
+ 2991  less statsd 
+ 2992  node
+ 2993  ./statsd 
+ 2994  ls
+ 2995  dc ..
+ 2996  cd ..
+ 2997  ls
+ 2998  ./run_tests.sh \
+ 2999  npm install nodeunit
+ 3000  ls
+ 3001  cd test
+ 3002  ls
+ 3003  cd ..
+ 3004  cd bin
+ 3005  ls
+ 3006  ./statsd 
+ 3007  vi statsd 
+ 3008  ls /usr/bin/env
+ 3009  ls -l
+ 3010  which node
+ 3011  exit
+ 3012  cd $ORACLE_HOME
+ 3013  ls -l
+ 3014  chmod a+rx -R .
+ 3015  cd
+ 3016  ping blender
+ 3017  cd /j/finder/src
+ 3018  make -n "CC=gcc -traditional"
+ 3019  make  "CC=gcc -traditional -Dsun"
+ 3020  lc
+ 3021  cl
+ 3022  ll
+ 3023  cc
+ 3024  which cc
+ 3025  cc -V
+ 3026  cc -v
+ 3027  gcc -v
+ 3028  make -i CC="cc -Dsun -ansi"
+ 3029  ls -ltr
+ 3030  source .finder
+ 3031  . ../.finder
+ 3032  . ../.finderrc 
+ 3033  $FCC wm_deferral.c
+ 3034  $FCC_CMD wm_deferral.c
+ 3035  tcsh
+ 3036  c:
+ 3037  exit
+ 3038  ssh bastion
+ 3039  cd /j/finder
+ 3040  ls
+ 3041  cd gs
+ 3042  cd lib
+ 3043  make
+ 3044  which gcc
+ 3045  make CC="cc -ansi"
+ 3046  df -h
+ 3047  df
+ 3048  df -h
+ 3049  cd ..
+ 3050  cd ..
+ 3051  cp -r gs /cygdrive/h/
+ 3052  sync
+ 3053  cd 
+ 3054  ls -ltr
+ 3055  cp morebots /cygdrive/h/
+ 3056  sync
+ 3057  cd /j/finder
+ 3058  cd gs
+ 3059  ls
+ 3060  cd ..
+ 3061  cd src
+ 3062  grep publicdef nl*c
+ 3063  cd ../inc
+ 3064  less esi_nl.h
+ 3065  tr '();' ''
+ 3066  tr -d '();'
+ 3067  echo 'nl_add_rows ();
+ 3068  nl_add_rows_convert ();
+ 3069  nl_clean_file ();
+ 3070  nl_clear_nlist ();
+ 3071  nl_close_nlist_file ();
+ 3072  nl_compare_nlist ();
+ 3073  nl_copy_nlist ();
+ 3074  nl_copy_table ();
+ 3075  nl_delete_nlist ();
+ 3076  nl_delete_recover ();
+ 3077  nl_delete_rows ();
+ 3078  nl_delete_table ();
+ 3079  nl_draw_nlist ();
+ 3080  nl_draw_table ();
+ 3081  nl_find_row ();
+ 3082  nl_first_row ();
+ 3083  nl_free_nlist ();
+ 3084  nl_get_rows ();
+ 3085  nl_get_rows_convert ();' | tr -d '();'
+ 3086  cd ../src
+ 3087   vi Makefile
+ 3088  make
+ 3089  vi Makefile
+ 3090  ls -l atsll*
+ 3091  make -n
+ 3092  cd /j/finder/src
+ 3093  vi Makefile
+ 3094  make ar
+ 3095  man ar
+ 3096  make
+ 3097  vi Makefile
+ 3098  cd /cygdrive/p
+ 3099  ls
+ 3100  ls -lR
+ 3101  ls *ake*
+ 3102  ls */*ake*
+ 3103  c dsrc
+ 3104  ls */Makefile
+ 3105  cd src
+ 3106  ls */Makefile
+ 3107  cd rlwrap-0.26/
+ 3108  ls
+ 3109  less Makefile
+ 3110  man make
+ 3111  info make
+ 3112  cd /j/finder/src
+ 3113  make 'newlib.a(*.o)'
+ 3114  make 'newlib.a(%.o)'
+ 3115  make 'newlib.a(am_allocate.o)'
+ 3116  rm am_allocate.o
+ 3117  make 'newlib.a(am_allocate.o)'
+ 3118  touch am_allocate.c
+ 3119  make 'newlib.a(am_allocate.o)'
+ 3120  make clean
+ 3121  rm *.o
+ 3122  make
+ 3123  vi Makefile
+ 3124  make
+ 3125  vi Makefile
+ 3126  vi Makefile
+ 3127  make
+ 3128  make am_allocate.o
+ 3129  vi Makefile
+ 3130  make
+ 3131  make library
+ 3132  make newlib.a
+ 3133  make 'newlib.a(am_allocate.o)'
+ 3134  ci -l Makefile
+ 3135  vi Makefile
+ 3136  make
+ 3137  vi gq_ftrace_f.c
+ 3138  ls gq_ftrace_f.:q
+ 3139  vi Makefile
+ 3140  for i in *.pc; do echo ${i/.pc/.c}; done
+ 3141  for i in *.pc; do rm ${i/.pc/.c}; done
+ 3142  ls
+ 3143  make
+ 3144  vi gq_ftrace_f.pc
+ 3145  vi gq_ftrace_f.pc
+ 3146  vi Makefile
+ 3147  make
+ 3148  vi Makefile
+ 3149  make
+ 3150  vi ../inc/interface.h 
+ 3151  vi ../inc/esi_gl_defs.h
+ 3152  vi ../inc/interface.h 
+ 3153  vi gq_ftrace_f.pc
+ 3154  make
+ 3155  vi Makefile
+ 3156  make
+ 3157  vi gq_seis_f.pc
+ 3158  make
+ 3159  make
+ 3160  vi ld_lg_ascii.c
+ 3161  make
+ 3162  vi ld_lg_ascii.c
+ 3163  make
+ 3164  vi ld_lg_ascii.c
+ 3165  make
+ 3166  vi lg_log_dig.c 
+ 3167  vi lg_log_dig.c 
+ 3168  man strcpy
+ 3169  cd ../inc
+ 3170  grep strcpy *h
+ 3171  vi esi_string.h
+ 3172  cd ../src
+ 3173  make
+ 3174  vi lm_get_plygn.c
+ 3175  grep '[][]' *c
+ 3176  grep '\[\]\[\]' *c
+ 3177  vi lm_get_plygn.pc
+ 3178  make
+ 3179  vi lm_get_plygn.pc
+ 3180  make
+ 3181  vi lm_get_plygn.pc
+ 3182  make
+ 3183  vi lm_get_plygn.pc
+ 3184  make
+ 3185  vi pl_read_base_win.c 
+ 3186  vi pl_read_base_win.c 
+ 3187  vi pl_read_base_win.c 
+ 3188  make
+ 3189  vi pl_read_base_win.c 
+ 3190  make
+ 3191  vi pl_read_base_win.c 
+ 3192  make
+ 3193  vi pl_read_base_win.c 
+ 3194  make
+ 3195  make -i
+ 3196  vi pl_read_base_win.c 
+ 3197  make
+ 3198  vi pl_read_base_win.c 
+ 3199  make
+ 3200  vi pl_read_base_win.c 
+ 3201  make
+ 3202  vi rs_manager.c 
+ 3203  vi rs_manager.c 
+ 3204  make
+ 3205  vi ss_surv.c
+ 3206  vi ../inc/esi_se.h
+ 3207  vi ../inc/esi_se.h
+ 3208  vi ss_surv.c
+ 3209  vi ss_surv.pc
+ 3210  grep -A3 get_surv_3d ../inc/esi_se.h ss_surv.pc
+ 3211  vi ss_surv.pc
+ 3212  make
+ 3213  grep -A3 sx_do_draw ../inc/esi_sx.h sx_do_draw.c
+ 3214  ci sx_do_draw.c 
+ 3215  vi sx_do_draw.c 
+ 3216  make
+ 3217  vi to_draw_area_nl.c
+ 3218  vi to_draw_area_nl.pc
+ 3219  make
+ 3220  vi ug_plot_gks.c
+ 3221  vi ug_plot_gks.c
+ 3222  make
+ 3223  vi wm_control.c
+ 3224  make
+ 3225  vi wmz_cr_gks_widget.c 
+ 3226  vi wmz_cr_gks_widget.c 
+ 3227  make
+ 3228  vi xf_initialize.c 
+ 3229  make
+ 3230  vi xf_initialize.c 
+ 3231  make
+ 3232  make -i
+ 3233  make -n
+ 3234  make -n
+ 3235  make
+ 3236  grep _XExtension *c
+ 3237  cd ../inc
+ 3238  grep _XExtension *h
+ 3239  cd /usr/include/X11
+ 3240  grep _XExtension *h
+ 3241  cd /j/finder/src
+ 3242  vi xf_initialize.c 
+ 3243  less ../inc/esi_x.h 
+ 3244  less /usr/include/X11/Xm.h
+ 3245  less /usr/include/X11/Xmd.h 
+ 3246  less /usr/include/X11/*/Xm.h
+ 3247  locate /Xm.h
+ 3248  less /usr/include/Xm/Xm.h 
+ 3249  cd /usr/include/X11
+ 3250  grep _XExten *
+ 3251  grep xlibint *h
+ 3252  grep Xlibint *h
+ 3253   cd /j/finder/inc
+ 3254  grep Xlib *h
+ 3255  less /usr/include/X11/Xlib.h 
+ 3256  grep Xlibint *
+ 3257  grep Xlibint /usr/include/X11/*
+ 3258  grep Xlibint /usr/include/X11/*/*
+ 3259  vi esi_x.h
+ 3260  cd ../src
+ 3261  make -n
+ 3262  less ../inc/esi_x.h 
+ 3263  vi ../inc/esi_x.h
+ 3264  make
+ 3265  vi ../inc/esi_x.h
+ 3266  make
+ 3267  locate Xlibint
+ 3268  vi Makefile
+ 3269  make
+ 3270  vi ../inc/esi_stdlib.h 
+ 3271  less /usr/include/stdlib.h 
+ 3272  vi ../inc/esi_stdlib.h 
+ 3273  vi ../inc/esi_stdlib.h 
+ 3274  gcc --help
+ 3275  gcc --dumpspecs
+ 3276  gcc -dumpspecs
+ 3277  gcc --help
+ 3278  man cpp
+ 3279  gcc -dM
+ 3280  touch foo.c
+ 3281  gcc -dM foo.c
+ 3282  ls -ltr
+ 3283  gcc -E -dM foo.c
+ 3284  gcc -E -dM -ansi foo.c
+ 3285  vi ../inc/esi_stdlib.h 
+ 3286  make
+ 3287  vi xf_initialize.c 
+ 3288  less /usr/include/X11/Xlib*.h
+ 3289  grep _XExten ../inc/*h
+ 3290  grep _XExten /usr/include/X11/*
+ 3291  grep _XExten /usr/include/*/*
+ 3292  ssh bastion
+ 3293  ps -ef
+ 3294  gs_cm
+ 3295  cd ../gs
+ 3296  cd lib
+ 3297  ./gs_cm
+ 3298  ls -l gs_cm
+ 3299  make
+ 3300  make CC=cc
+ 3301  ./gs_cm
+ 3302  ls -ltr
+ 3303  ./gs_cm.exe
+ 3304  export GSHOME=$PWD
+ 3305  ./gs_cm.exe
+ 3306  ps -ef
+ 3307  top
+ 3308  ls -ltr
+ 3309  gs_cm.exe -d
+ 3310  ./gs_cm.exe -d
+ 3311  ls -ltr
+ 3312  less gscm_messages.log 
+ 3313  date >> gscm_messages.log 
+ 3314  ./gs_cm.exe -d
+ 3315  less gscm_messages.log 
+ 3316  vi gs_config.c 
+ 3317  man findcap
+ 3318  less udps.c
+ 3319  make udps
+ 3320  make CC=cc udps
+ 3321  ls -ltr
+ 3322  ./udps.exe 
+ 3323  ./udps.exe  &
+ 3324  make CC=cc udpc
+ 3325  ./udpc
+ 3326  ./udpc.exe
+ 3327  less udpc.c
+ 3328  less udps.c
+ 3329  ls -ltr
+ 3330  less gsh
+ 3331  less gsi
+ 3332  ls -ltr RCS
+ 3333  co -p inetd.c
+ 3334  co -p inetd.c | less
+ 3335  cd /usr/dict
+ 3336  locate /words
+ 3337  cd /cygdrive/j
+ 3338  ls
+ 3339  cd someprd01/
+ 3340  wc -l words
+ 3341  locate -r /words$
+ 3342  locate | grep /dict | grep words
+ 3343  locate  /dict | grep words
+ 3344  locate -r /words$
+ 3345  cd /cygdrive/c/Perl/eg
+ 3346  cd PerlEx/
+ 3347  ls -ltr
+ 3348  wc -l words
+ 3349  grep me$ words
+ 3350  locate /word[s]*$
+ 3351  locate -r /word[s]*$
+ 3352  xargs wc -l 
+ 3353  locate Crack
+ 3354  locate dict
+ 3355  cd /cygdrive/c/Program Files/Wireshark/radius/
+ 3356  cd "/cygdrive/c/Program Files/Wireshark/radius"
+ 3357  ls
+ 3358  wc -l *
+ 3359  less dictionary.unix
+ 3360  locate dict | less
+ 3361  cd /usr/share/texmf-dist/tex/latex/glossaries/dict/glossaries-dictionary-English.dict
+ 3362  cd /usr/share/texmf-dist/tex/latex/glossaries/dict
+ 3363  ls
+ 3364  wc -l *
+ 3365  ls -l
+ 3366  locate -ir words$ | less
+ 3367  locate -ir words$ | less -X
+ 3368  locate -r words$ | less -X
+ 3369  xargs -1 wc -l 
+ 3370  xargs wc -l
+ 3371  cd /cygdrive/j/someprd01/
+ 3372  ls
+ 3373  wc -l *
+ 3374  wc -l * | sort -n
+ 3375  wc -l * | gsort -n
+ 3376  grep -l ream *
+ 3377  grep -l antastic *
+ 3378  less 1.txt
+ 3379  grep -l antastic */*
+ 3380  locate allword
+ 3381  ls -ltr
+ 3382  ls -ltr dic*
+ 3383  unzip dic-0294.zip 
+ 3384  wc -l dic*
+ 3385  less dic-0294.txt 
+ 3386  grep -i 'me$' dic-0294.txt  | less
+ 3387  grep -i whatfun dic-0294.txt 
+ 3388  ls -l dic-0294.txt 
+ 3389  grep '^..me$' dic-0294.txt 
+ 3390  whois devo.ps
+ 3391   
+ 3392  ping acmlm.com
+ 3393  nmap -PN acmlm.com
+ 3394  exit
+ 3395  ssh-copy-id dukeofur@dev0ps.com
+ 3396  ssh dukeofur@dev0ps.com
+ 3397  ssh dukeofur@dev0ps.com
+ 3398  scp cpulimit-1.1.tar.gz dukeofur@dev0ps.com:
+ 3399  ssh dukeofur@dev0ps.com
+ 3400  locate sshd_config
+ 3401  ssh bastion
+ 3402  tunnels.bat
+ 3403  start toad
+ 3404  ls -ltr
+ 3405  cd ..
+ 3406  cd Documents/
+ 3407  ls -ltr
+ 3408  cd ..
+ 3409  cd Downloads/
+ 3410  ls -ltr
+ 3411  cygstart monthly_2013-08-01.csv 
+ 3412  cygstart monthly_2013-08-01.csv 
+ 3413  cygstart monthly_2013-08-01.csv 
+ 3414  ping bastion
+ 3415  ssh bastion
+ 3416  cd /j/finder
+ 3417  ls
+ 3418  cd gs
+ 3419  cd ..
+ 3420  cd gh
+ 3421  ls -ltr
+ 3422  less fdirs 
+ 3423  ls SOURCE 
+ 3424  ls log
+ 3425  les dir.list 
+ 3426  less dir.list 
+ 3427  less verify
+ 3428  ls RCS
+ 3429  less kk.csh 
+ 3430  ls *
+ 3431  cd scripts/
+ 3432  ls -ltr
+ 3433  less abc 
+ 3434  less new
+ 3435  grep -i Mapp *
+ 3436  cd ..
+ 3437  grep -i Mapp *
+ 3438  grep -i Mapp */*
+ 3439  pwd
+ 3440  cd ..
+ 3441  cd ..
+ 3442  cd finder
+ 3443  ls -ltr
+ 3444  less jf
+ 3445  ls install/
+ 3446  cd src
+ 3447  ls -ltr
+ 3448  cd ..
+ 3449  grep '^SE ' *
+ 3450  cd ..
+ 3451  grep '^SE ' */*
+ 3452  grep '^esi_se' */*
+ 3453  grep '^se ' */*
+ 3454  grep '^se' */*
+ 3455  grep '^xs' */*
+ 3456  cd finder
+ 3457  grep '^xs' */*
+ 3458  grep -i '^xs' */*
+ 3459  grep -i '^xs' */*/*
+ 3460  grep -i '^xs' */*/*/*
+ 3461  grep -i '^xs' */*/*/*/*
+ 3462  ks
+ 3463  ls
+ 3464  less jj
+ 3465  less jf
+ 3466  cd gh
+ 3467  ls
+ 3468  cd scripts/
+ 3469  ls
+ 3470  less filelist
+ 3471  ls -l
+ 3472  less gah.2 
+ 3473  less tar.dirs 
+ 3474  cd ..
+ 3475  ls
+ 3476  cd ..
+ 3477  ls
+ 3478  cd patch1022/
+ 3479  ls
+ 3480  cd install/
+ 3481  ls
+ 3482  cd ..
+ 3483  ls
+ 3484  cd ..
+ 3485  ls
+ 3486  ls *
+ 3487  cd ..
+ 3488  ls
+ 3489  [Cgrep -i '^xs' */*
+ 3490  grep -i '^xs' */*
+ 3491  grep -i '^xs' *
+ 3492  ls
+ 3493  ls core
+ 3494  dc finder
+ 3495  cd finder
+ 3496  ls
+ 3497  ls bin
+ 3498  grep -i '^am' */*
+ 3499  grep 'Mapping' *
+ 3500  grep 'Mapping' */*
+ 3501  grep 'Mapping Overlay' *
+ 3502  grep 'Mapping Overlay' */*
+ 3503  grep 'Mapping Overlay' */*/*
+ 3504  grep 'Mapping Overlay' */*/*/*
+ 3505  cd ..
+ 3506  grep 'Mapping Overlay' */*/*/*
+ 3507  grep 'Mapping Overlay' */*/*
+ 3508  grep 'Mapping Overlay' */*
+ 3509  cd finder
+ 3510  grep -i 'Mapping Overlay' */*
+ 3511  grep -l 'Mapping Overlay' */*
+ 3512  gfind . -type f -print |   xargs grep 'Mapping Overlay'
+ 3513  cd ..
+ 3514  gfind . -type f -print |   xargs grep 'Mapping Overlay'
+ 3515  gfind . -type f -print |   xargs grep -l 'Mapping Overlay'
+ 3516  cd /cygdrive/p/src/finder
+ 3517  gfind . -type f -print |   xargs grep -l 'Mapping Overlay'
+ 3518  ls
+ 3519  cd ..
+ 3520  cp -r finder finder2
+ 3521  cd finder2
+ 3522  ls
+ 3523  less pref
+ 3524  whoami
+ 3525  chmod a+rwx -R .
+ 3526  less pref
+ 3527  vi pref
+ 3528  awk '{print $2}' pref
+ 3529  cut -f2- -d' ' pref
+ 3530  awk -F'"' '{print $2}' pref
+ 3531  vi pref
+ 3532  awk '{print $2}' pref
+ 3533  cut -f2- -d' ' pref
+ 3534  cut -f2- -d' ' pref
+ 3535  vi pref
+ 3536  vi pref
+ 3537  cut -f2- -d' ' pref
+ 3538  cut -f2- -d' ' pref | xargs echo
+ 3539  cut -f2- -d' ' pref | xargs mkdir 
+ 3540  ls -ltr
+ 3541  less pref
+ 3542  ls
+ 3543  cut -f2- -d' ' pref | xargs mkdir /tmp/
+ 3544  cp prefs /tmp
+ 3545  cp pref /tmp
+ 3546  cd /tmp
+ 3547  cut -f2- -d' ' pref | xargs mkdir 
+ 3548  ls
+ 3549   mkdir p
+ 3550  mkdir src
+ 3551  cd src
+ 3552  cp ../pref .
+ 3553  cut -f2- -d' ' pref | xargs mkdir 
+ 3554  ls
+ 3555  cd /cygdrive/p/src/finder
+ 3556  ls
+ 3557  cd ../finder2
+ 3558  ls
+ 3559  vi pref
+ 3560  ls src
+ 3561  chmod a+rx pref
+ 3562  ./pref
+ 3563  vi pref
+ 3564  ./pref
+ 3565  ls inc
+ 3566  vi pref
+ 3567  ./pref
+ 3568  ls gen
+ 3569  vi pref
+ 3570  ./pref
+ 3571  vi pref
+ 3572  ./pref
+ 3573  ls
+ 3574  ls glue
+ 3575  vi pref
+ 3576  ./pref
+ 3577  ls glue/wl*
+ 3578  ls glue/w*
+ 3579  ls
+ 3580  ls ulib
+ 3581  ls forms
+ 3582  ls plot
+ 3583  ls util
+ 3584  ls main
+ 3585  ls maint
+ 3586  vi pref
+ 3587  ./pref
+ 3588  vi pref
+ 3589  ./pref
+ 3590  ls
+ 3591  ls tools
+ 3592  ls util
+ 3593  ls ulib
+ 3594  ls customized/
+ 3595  ls
+ 3596  ls *
+ 3597  echo */*
+ 3598  gfind . -print
+ 3599  gfind . -iname '*.o' -delete
+ 3600  gfind . -iname '*.pc'
+ 3601  for i in `gfind . -iname '*.pc'`; do echo $i; done
+ 3602  for i in `gfind . -iname '*.pc'`-printf '"%s"' ; do echo $i; done
+ 3603  for i in `gfind . -iname '*.pc'`-printf '\"%s\"' ; do echo $i; done
+ 3604  for i in `gfind . -iname '*.pc'`-printf '\""%s\""' ; do echo $i; done
+ 3605  for i in `gfind . -iname '*.pc'`-printf0 '\""%s\""' ; do echo $i; done
+ 3606  for i in `gfind . -iname '*.pc'`-print0 '\""%s\""' ; do echo $i; done
+ 3607  echo *
+ 3608  find * -typd d -prune -print
+ 3609  gfind * -type d -prune -print
+ 3610  gfind * -type d -prune -print0 
+ 3611  gfind * -type d -prune -print0 | xargs -0 echo
+ 3612  gfind * -type d -prune -print0 | xargs -0 -n 1 echo
+ 3613  gfind * -iname '*.pc
+ 3614  gfind * -iname '*.pc
+ 3615  gfind * -iname '*.pc'
+ 3616  ls
+ 3617  gfind . -type d -ctime +1 
+ 3618  gfind . -type d -cmin +20 
+ 3619  gfind . -type d -cmin +20 -prune
+ 3620  gfind . -type d -cmin +20 -prune -print0 | xargs -0 rm -rf
+ 3621  ls -ltr
+ 3622  ls src
+ 3623  rm -rf src
+ 3624  ls -ltr
+ 3625  ls
+ 3626  rm -rf bin main maint tools 
+ 3627  ls -ltr
+ 3628  for i in `gfind . -iname '*.pc'`-print0 '\""%s\""' ; do echo $i; done
+ 3629  for i in `gfind . -iname '*.pc'`-printf0 '\""%s\""' ; do echo $i; done
+ 3630  for i in `gfind . -iname '*.pc'`-print0`; do echo $i; done
+ 3631  for i in `gfind . -iname '*.pc'`-print0`; do echo $i; done
+ 3632  for i in `gfind . -iname '*.pc'`-print0`; do echo $i; done
+ 3633  for i in `gfind . -iname '*.pc'-print0`; do echo $i; done
+ 3634  for i in `gfind . -iname '*.pc' -print0`; do echo $i; done
+ 3635  for i in `gfind * -iname '*.pc' -print0`; do echo $i; done
+ 3636  for i in `gfind * -iname '*.pc' -print`; do echo $i; done
+ 3637  FS='|' for i in `gfind * -iname '*.pc' -print`; do echo $i; done
+ 3638  IFS='|' for i in `gfind * -iname '*.pc' -print`; do echo $i; done
+ 3639  IFS=| for i in `gfind * -iname '*.pc' -print`; do echo $i; done
+ 3640  FS=| for i in `gfind * -iname '*.pc' -print`; do echo $i; done
+ 3641  FS=| for i in `gfind . -iname '*.pc' -print`; do echo $i; done
+ 3642  ls -1
+ 3643  ls -1 > fff
+ 3644  vi fff
+ 3645  ls pref
+ 3646  less pref
+ 3647  [Ccut -f2- -d' ' pref 
+ 3648  cut -f2- -d' ' pref 
+ 3649  cut -f2- -d'"' pref 
+ 3650  cut -f2- -d' ' pref 
+ 3651  cut -f3- -d' ' pref 
+ 3652  echo *
+ 3653  gfind * -type d -prune
+ 3654  gfind * -type d -prune -printf "echo %s | tr ' ' '_'"
+ 3655  gfind * -type d -prune -printf "echo %s | tr ' ' '_'\n"
+ 3656  gfind * -type d -prune -printf "echo %n | tr ' ' '_'\n"
+ 3657  gfind * -type d -prune -printf "echo %f | tr ' ' '_'\n"
+ 3658  gfind * -type d -prune -printf "echo %f | tr ' ' '_'\n" | bash
+ 3659  gfind * -type d -prune -printf "echo mv %f `echo %f | tr ' ' '_'`\n" | bash
+ 3660  gfind * -type d -prune -printf "echo mv %f `echo %f | tr ' ' '_'\n`" | bash
+ 3661  ls
+ 3662  for i in *; do echo ; done
+ 3663  for i in *; do echo ; done
+ 3664  for i in *; do echo $i ; done
+ 3665  for i in *; do echo $i $(echo $i| tr ' ' '_') ; done
+ 3666  for i in *; do echo \"$i\" $(echo $i| tr ' ' '_') ; done
+ 3667  for i in *; do echo mv \"$i\" $(echo $i| tr ' ' '_') ; done
+ 3668  for i in *; do echo mv \"$i\" $(echo $i| tr ' ' '_') ; done | bash
+ 3669  ls
+ 3670  ls
+ 3671  ls Line_Editor/
+ 3672  gfind * -iname '*.pc
+ 3673  gfind * -iname '*.pc'
+ 3674  for i in `gfind * -iname '*.pc'`; echo ${i/pc$/c} ; done
+ 3675  for i in `gfind * -iname '*.pc'`; do echo ${i/pc$/c} ; done
+ 3676  for i in `gfind * -iname '*.pc'`; do echo ${i/pc/c} ; done
+ 3677  for i in `gfind * -iname '*.pc'`; do rm ${i/pc/c} ; done
+ 3678  gfind * -iname '*.pc'
+ 3679  gfind * -iname '*.pc'
+ 3680  for i in `gfind * -iname '*.pc'`; do rm ${i/.pc/.c} ; done
+ 3681  cd Database/
+ 3682  ls
+ 3683  for i in `gfind * -iname '*.pc'`; do echo rm ${i/.pfo/.f} ; done
+ 3684  for i in `gfind * -iname '*.pfo'`; do echo rm ${i/.pfo/.f} ; done
+ 3685  cd ..
+ 3686  for i in `gfind * -iname '*.pfo'`; do echo rm ${i/.pfo/.f} ; done
+ 3687  for i in `gfind * -iname '*.pfo'`; do rm ${i/.pfo/.f} ; done
+ 3688  cd Loader/
+ 3689  ls
+ 3690  ls *.pfo
+ 3691  ls -l ld_uk*
+ 3692  cd ..
+ 3693  for i in `gfind * -iname '*.pfo'`; do rm ${i/.pfo/.for} ; done
+ 3694  gfind . -iname '*.lis'
+ 3695  gfind . -iname '*.lis' -delete
+ 3696  ls
+ 3697  gfind . -iname '*.o'
+ 3698  gfind . -iname '*.a;
+ 3699  gfind . -iname '*.a'
+ 3700  gfind . -iname '*.[pfh]*'
+ 3701  gfind . \!  -iname '*.[pfh]*'
+ 3702  gfind . \!  -iname '*.[pfhc]*'
+ 3703  gfind . \!  -iname '*.[pfhcsi]*'
+ 3704  gfind . \!  -iname '*.[pfhcsir]*'
+ 3705  gfind . \!  -iname '*.{c,pc,pfo}'
+ 3706  gfind . \!  {-iname \'*}.{c,pc,pfo}'
+ 3707  echo gfind . \!  {-iname \'*}.{c,pc,pfo}'
+ 3708  echo gfind . \!  {-iname \'*}.{c,pc,pfo}\'
+ 3709  echo gfind . \!  {-iname \'*},{c,pc,pfo}\'
+ 3710  echo gfind . \!  {-iname\ \'*},{c,pc,pfo}\'
+ 3711  echo gfind . \!  {-iname\ \'*}.{c,pc,pfo}\'
+ 3712  echo gfind . \!  {-iname\ \'*.{c,pc,pfo}\'
+ 3713  echo gfind . \!  -iname\ \'*.{c,pc,pfo}\'
+ 3714  echo gfind . \!  -iname\ \'*.{c,pc,pfo}\' -o
+ 3715  echo gfind . \!  -iname\ \'*.{c,pc,pfo}\'\ -o
+ 3716  echo gfind . \\!  -iname\ \'*.{c,pc,pfo}\'\ -o
+ 3717  echo gfind . \\!  -iname\ \'*.{c,pc,pfo,h,ah,f77,for,i,x,rs,sql,inp}\'\ -o
+ 3718  echo gfind . \\!  -iname\ \'*.{c,pc,pfo,h,ah,f77,for,i,x,rs,sql,inp}\'\ -o | bash
+ 3719  echo gfind . \\!  -iname\ \'*.{c,pc,pfo,h,ah,f77,for,i,x,rs,sql,inp}\' | bash
+ 3720  echo gfind .   -iname\ \'*.{c,pc,pfo,h,ah,f77,for,i,x,rs,sql,inp}\' | bash
+ 3721  echo gfind .   -iname\ \'*.{c,pc,pfo,h,ah,f77,for,i,x,rs,sql,inp}\' | bash
+ 3722  gfind .   -iname\ \'*.{c,pc,pfo,h,ah,f77,for,i,x,rs,sql,inp}\' 
+ 3723  echo gfind .   -iname\ \'*.{c,pc,pfo,h,ah,f77,for,i,x,rs,sql,inp}\' 
+ 3724  gfind . -iname '*.c' -iname '*.pc' -iname '*.pfo' -iname '*.h' -iname '*.ah' -iname '*.f77' -iname '*.for' -iname '*.i' -iname '*.x' -iname '*.rs' -iname '*.sql' -iname '*.inp'
+ 3725  echo gfind .   -iname\ \'*.{c,pc,pfo,h,ah,f77,for,i,x,rs,sql,inp}\'\ -o
+ 3726  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql'
+ 3727  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^/\* '
+ 3728  cd /cygdrive/p/src/finder2
+ 3729  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^/\* \*[0-9]'
+ 3730  less Loader/*.pfo
+ 3731  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep ' \*[0-9]'
+ 3732  less */*.rs
+ 3733  less */*.x
+ 3734  less */*.ah
+ 3735  less */*.f77
+ 3736  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^... \*[0-9]'|less
+ 3737  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|less
+ 3738  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|gsort -n -t' ' -k1 -k2
+ 3739  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|gsort -n -t' ' -k1 -k2 > list
+ 3740  cp list list2
+ 3741  vi list2
+ 3742  head -5 list32
+ 3743  head -5 list3
+ 3744  head -5 list2
+ 3745  gsort -n -t'|' -k1 -k2
+ 3746  gsort -n -t'|' -k1 -k2 list2
+ 3747  gsort -n -t'|' -k 1 -k 2 list2
+ 3748  gsort -n -t'|' -k 0 -k 1 list2
+ 3749  gsort -n -t'|' list2
+ 3750  gsort -n -t'|' list2 > list4
+ 3751  less list4
+ 3752  gsort -n -t'|' -k 2 -k 1 list2 | less
+ 3753  gsort -n -t'|' -k 1 -k 2 list2 | less
+ 3754  gsort -n -t\| -k 1 -k 2 list2 | less
+ 3755  gsort -n -t\| -k 1 -k 2 list2 | less
+ 3756  vi list3
+ 3757  vi list2
+ 3758  gsort -n -t\| -k 1 -k 2 list2 | less
+ 3759  gsort -n -t'|' -k 2 -k 1 list2 | less
+ 3760  gsort -n -t'|' list2 |less
+ 3761  man awk
+ 3762  gsort -n -t'|' list2 > list3
+ 3763  head -5 list3
+ 3764  awk -F\| '{print $1 "|" $2 "|" time($3) "|" $4}' list3
+ 3765  awk -F\| '{print $1 "|" $2 "|" mktime($3) "|" $4}' list3
+ 3766  man awk
+ 3767  head -5 list3
+ 3768  awk -F\| '{print $1 "|" $2 "|" strftime('%d-%M-%YYYY %H:%m:%s',$3) "|" $4}' list3
+ 3769  awk -F\| '{print $1 "|" $2 "|" strftime(\'%d-%M-%YYYY %H:%m:%s\',$3) "|" $4}' list3
+ 3770  man date
+ 3771  vi list3
+ 3772  man date
+ 3773  man date | less -X
+ 3774  awk -F\| '{print $1 "|" $2 "|" strftime(\'%d-%b-%Y %H:%M:%S\',$3) "|" $4}' list3
+ 3775  awk -F\| '{print $1 "|" $2 "|" strftime(''%d-%b-%Y %H:%M:%S'',$3) "|" $4}' list3
+ 3776  awk -F\| '{print $1 "|" $2 "|" strftime('''%d-%b-%Y %H:%M:%S''',$3) "|" $4}' list3
+ 3777  awk -F\| '{print $1 "|" $2 "|" strftime(%d-%b-%Y %H:%M:%S,$3) "|" $4}' list3
+ 3778  awk -F\| '{print $1 "|" $2 "|" strftime("%d-%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 3779  awk -F\| 'BEGIN{PROCINFO["strftime"]="%d-%b-%Y %H:%M:%S"} {print $1 "|" $2 "|" strftime("%s",$3) "|" $4}' list3
+ 3780  awk -F\| '{print $1 "|" $2 "|" strftime("%d-%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 3781  awk -F\| '{print $1 "|" $2 "|" strftime("%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 3782  man date | less -X
+ 3783  awk -F\| '{print $1 "|" $2 "|" strftime("%Y %m %d %H %M %S",$3) "|" $4}' list3
+ 3784  less list3
+ 3785  less list3 -X
+ 3786  less -X list3 
+ 3787  ls
+ 3788  cp /cygdrive/t/gource/tg3 .
+ 3789  head -2 tg3
+ 3790  awk -F\| '{print $3 "|" $4 "|" $2 "|" $1}' list3
+ 3791  IFS=\|; while true; do read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 3792  cat list3 | IFS=\|; while true; do read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 3793  cat list3 | IFS=\|; read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 3794  cat list3 | FS=\|; read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 3795  man read
+ 3796  man bash
+ 3797  cat list3 | FS=\|; read a b c d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 3798  cat list3 | FS=\|; while true; do read a b c d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 3799  cat list3 | FS=\|; while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 3800  cat list3 | IFS=\| while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 3801  cat list3 | IFS=\|; while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 3802  cat list3 | IFS=\|; while true; do read a b c d; echo -n `date -r $a +"%d-%b-%Y %H:%M:%S"`\|$b\|$c\|$d; done
+ 3803  echo $a
+ 3804  echo $b
+ 3805  echo $c
+ 3806  cat list3 | IFS=\|; while true; do read a b c d; echo -n "$a $b $c $d"; done
+ 3807  cat list3 | IFS=\|; while read a b c d; do echo -n "$a $b $c $d"; done
+ 3808  cat list3 | IFS=\|; while read a b c d; do echo -n "$a $b $c $d"; done
+ 3809  cat list3 |  while read a b c d; do echo -n "$a $b $c $d"; done
+ 3810  cd /cygdrive/p/src/finder2
+ 3811  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^/\* \*[0-9]'
+ 3812  less Loader/*.pfo
+ 3813  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep ' \*[0-9]'
+ 3814  less */*.rs
+ 3815  less */*.x
+ 3816  less */*.ah
+ 3817  less */*.f77
+ 3818  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^... \*[0-9]'|less
+ 3819  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|less
+ 3820  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|gsort -n -t' ' -k1 -k2
+ 3821  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|gsort -n -t' ' -k1 -k2 > list
+ 3822  cp list list2
+ 3823  vi list2
+ 3824  head -5 list32
+ 3825  head -5 list3
+ 3826  head -5 list2
+ 3827  gsort -n -t'|' -k1 -k2
+ 3828  gsort -n -t'|' -k1 -k2 list2
+ 3829  gsort -n -t'|' -k 1 -k 2 list2
+ 3830  gsort -n -t'|' -k 0 -k 1 list2
+ 3831  gsort -n -t'|' list2
+ 3832  gsort -n -t'|' list2 > list4
+ 3833  less list4
+ 3834  gsort -n -t'|' -k 2 -k 1 list2 | less
+ 3835  gsort -n -t'|' -k 1 -k 2 list2 | less
+ 3836  gsort -n -t\| -k 1 -k 2 list2 | less
+ 3837  gsort -n -t\| -k 1 -k 2 list2 | less
+ 3838  vi list3
+ 3839  vi list2
+ 3840  gsort -n -t\| -k 1 -k 2 list2 | less
+ 3841  gsort -n -t'|' -k 2 -k 1 list2 | less
+ 3842  gsort -n -t'|' list2 |less
+ 3843  man awk
+ 3844  gsort -n -t'|' list2 > list3
+ 3845  head -5 list3
+ 3846  awk -F\| '{print $1 "|" $2 "|" time($3) "|" $4}' list3
+ 3847  awk -F\| '{print $1 "|" $2 "|" mktime($3) "|" $4}' list3
+ 3848  man awk
+ 3849  head -5 list3
+ 3850  awk -F\| '{print $1 "|" $2 "|" strftime('%d-%M-%YYYY %H:%m:%s',$3) "|" $4}' list3
+ 3851  awk -F\| '{print $1 "|" $2 "|" strftime(\'%d-%M-%YYYY %H:%m:%s\',$3) "|" $4}' list3
+ 3852  man date
+ 3853  vi list3
+ 3854  man date
+ 3855  man date | less -X
+ 3856  awk -F\| '{print $1 "|" $2 "|" strftime(\'%d-%b-%Y %H:%M:%S\',$3) "|" $4}' list3
+ 3857  awk -F\| '{print $1 "|" $2 "|" strftime(''%d-%b-%Y %H:%M:%S'',$3) "|" $4}' list3
+ 3858  awk -F\| '{print $1 "|" $2 "|" strftime('''%d-%b-%Y %H:%M:%S''',$3) "|" $4}' list3
+ 3859  awk -F\| '{print $1 "|" $2 "|" strftime(%d-%b-%Y %H:%M:%S,$3) "|" $4}' list3
+ 3860  awk -F\| '{print $1 "|" $2 "|" strftime("%d-%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 3861  awk -F\| 'BEGIN{PROCINFO["strftime"]="%d-%b-%Y %H:%M:%S"} {print $1 "|" $2 "|" strftime("%s",$3) "|" $4}' list3
+ 3862  awk -F\| '{print $1 "|" $2 "|" strftime("%d-%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 3863  awk -F\| '{print $1 "|" $2 "|" strftime("%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 3864  man date | less -X
+ 3865  awk -F\| '{print $1 "|" $2 "|" strftime("%Y %m %d %H %M %S",$3) "|" $4}' list3
+ 3866  less list3
+ 3867  less list3 -X
+ 3868  less -X list3 
+ 3869  ls
+ 3870  cp /cygdrive/t/gource/tg3 .
+ 3871  head -2 tg3
+ 3872  awk -F\| '{print $3 "|" $4 "|" $2 "|" $1}' list3
+ 3873  IFS=\|; while true; do read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 3874  cat list3 | IFS=\|; while true; do read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 3875  cat list3 | IFS=\|; read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 3876  cat list3 | FS=\|; read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 3877  man read
+ 3878  man bash
+ 3879  cat list3 | FS=\|; read a b c d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 3880  cat list3 | FS=\|; while true; do read a b c d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 3881  cat list3 | FS=\|; while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 3882  cat list3 | IFS=\| while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 3883  cat list3 | IFS=\|; while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 3884  cat list3 | IFS=\|; while true; do read a b c d; echo -n `date -r $a +"%d-%b-%Y %H:%M:%S"`\|$b\|$c\|$d; done
+ 3885  echo $a
+ 3886  echo $b
+ 3887  echo $c
+ 3888  cat list3 | IFS=\|; while true; do read a b c d; echo -n "$a $b $c $d"; done
+ 3889  cat list3 | IFS=\|; while read a b c d; do echo -n "$a $b $c $d"; done
+ 3890  cat list3 | IFS=\|; while read a b c d; do echo -n "$a $b $c $d"; done
+ 3891  cat list3 |  while read a b c d; do echo -n "$a $b $c $d"; done
+ 3892  IFS=\| cat list3 |  while read a b c d; do echo -n "$a $b $c $d"; done
+ 3893  cd /cygdrive/p/src/finder2
+ 3894  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^/\* \*[0-9]'
+ 3895  less Loader/*.pfo
+ 3896  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep ' \*[0-9]'
+ 3897  less */*.rs
+ 3898  less */*.x
+ 3899  less */*.ah
+ 3900  less */*.f77
+ 3901  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^... \*[0-9]'|less
+ 3902  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|less
+ 3903  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|gsort -n -t' ' -k1 -k2
+ 3904  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|gsort -n -t' ' -k1 -k2 > list
+ 3905  cp list list2
+ 3906  vi list2
+ 3907  head -5 list32
+ 3908  head -5 list3
+ 3909  head -5 list2
+ 3910  gsort -n -t'|' -k1 -k2
+ 3911  gsort -n -t'|' -k1 -k2 list2
+ 3912  gsort -n -t'|' -k 1 -k 2 list2
+ 3913  gsort -n -t'|' -k 0 -k 1 list2
+ 3914  gsort -n -t'|' list2
+ 3915  gsort -n -t'|' list2 > list4
+ 3916  less list4
+ 3917  gsort -n -t'|' -k 2 -k 1 list2 | less
+ 3918  gsort -n -t'|' -k 1 -k 2 list2 | less
+ 3919  gsort -n -t\| -k 1 -k 2 list2 | less
+ 3920  gsort -n -t\| -k 1 -k 2 list2 | less
+ 3921  vi list3
+ 3922  vi list2
+ 3923  gsort -n -t\| -k 1 -k 2 list2 | less
+ 3924  gsort -n -t'|' -k 2 -k 1 list2 | less
+ 3925  gsort -n -t'|' list2 |less
+ 3926  man awk
+ 3927  gsort -n -t'|' list2 > list3
+ 3928  head -5 list3
+ 3929  awk -F\| '{print $1 "|" $2 "|" time($3) "|" $4}' list3
+ 3930  awk -F\| '{print $1 "|" $2 "|" mktime($3) "|" $4}' list3
+ 3931  man awk
+ 3932  head -5 list3
+ 3933  awk -F\| '{print $1 "|" $2 "|" strftime('%d-%M-%YYYY %H:%m:%s',$3) "|" $4}' list3
+ 3934  awk -F\| '{print $1 "|" $2 "|" strftime(\'%d-%M-%YYYY %H:%m:%s\',$3) "|" $4}' list3
+ 3935  man date
+ 3936  vi list3
+ 3937  man date
+ 3938  man date | less -X
+ 3939  awk -F\| '{print $1 "|" $2 "|" strftime(\'%d-%b-%Y %H:%M:%S\',$3) "|" $4}' list3
+ 3940  awk -F\| '{print $1 "|" $2 "|" strftime(''%d-%b-%Y %H:%M:%S'',$3) "|" $4}' list3
+ 3941  awk -F\| '{print $1 "|" $2 "|" strftime('''%d-%b-%Y %H:%M:%S''',$3) "|" $4}' list3
+ 3942  awk -F\| '{print $1 "|" $2 "|" strftime(%d-%b-%Y %H:%M:%S,$3) "|" $4}' list3
+ 3943  awk -F\| '{print $1 "|" $2 "|" strftime("%d-%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 3944  awk -F\| 'BEGIN{PROCINFO["strftime"]="%d-%b-%Y %H:%M:%S"} {print $1 "|" $2 "|" strftime("%s",$3) "|" $4}' list3
+ 3945  awk -F\| '{print $1 "|" $2 "|" strftime("%d-%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 3946  awk -F\| '{print $1 "|" $2 "|" strftime("%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 3947  man date | less -X
+ 3948  awk -F\| '{print $1 "|" $2 "|" strftime("%Y %m %d %H %M %S",$3) "|" $4}' list3
+ 3949  less list3
+ 3950  less list3 -X
+ 3951  less -X list3 
+ 3952  ls
+ 3953  cp /cygdrive/t/gource/tg3 .
+ 3954  head -2 tg3
+ 3955  awk -F\| '{print $3 "|" $4 "|" $2 "|" $1}' list3
+ 3956  IFS=\|; while true; do read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 3957  cat list3 | IFS=\|; while true; do read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 3958  cat list3 | IFS=\|; read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 3959  cat list3 | FS=\|; read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 3960  man read
+ 3961  man bash
+ 3962  cat list3 | FS=\|; read a b c d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 3963  cat list3 | FS=\|; while true; do read a b c d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 3964  cat list3 | FS=\|; while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 3965  cat list3 | IFS=\| while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 3966  cat list3 | IFS=\|; while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 3967  cat list3 | IFS=\|; while true; do read a b c d; echo -n `date -r $a +"%d-%b-%Y %H:%M:%S"`\|$b\|$c\|$d; done
+ 3968  echo $a
+ 3969  echo $b
+ 3970  echo $c
+ 3971  cat list3 | IFS=\|; while true; do read a b c d; echo -n "$a $b $c $d"; done
+ 3972  cat list3 | IFS=\|; while read a b c d; do echo -n "$a $b $c $d"; done
+ 3973  cat list3 | IFS=\|; while read a b c d; do echo -n "$a $b $c $d"; done
+ 3974  cat list3 |  while read a b c d; do echo -n "$a $b $c $d"; done
+ 3975  IFS=\| cat list3 |  while read a b c d; do echo -n "$a $b $c $d"; done
+ 3976  cat list3 | IFS=\|; while read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 3977  cat list3 | IFS=\|; while read a b c d; do echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 3978  date -r "01-Jan-1989 22:01:23" +%d
+ 3979  date -d "01-Jan-1989 22:01:23" +%d
+ 3980  cat list3 | IFS=\|; while read a b c d; do echo -n $(date -d $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 3981  IFS=\| cat list3 | while read a b c d; do echo -n $(date -d $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 3982  cd /cygdrive/p/src/finder2
+ 3983  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^/\* \*[0-9]'
+ 3984  less Loader/*.pfo
+ 3985  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep ' \*[0-9]'
+ 3986  less */*.rs
+ 3987  less */*.x
+ 3988  less */*.ah
+ 3989  less */*.f77
+ 3990  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^... \*[0-9]'|less
+ 3991  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|less
+ 3992  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|gsort -n -t' ' -k1 -k2
+ 3993  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|gsort -n -t' ' -k1 -k2 > list
+ 3994  cp list list2
+ 3995  vi list2
+ 3996  head -5 list32
+ 3997  head -5 list3
+ 3998  head -5 list2
+ 3999  gsort -n -t'|' -k1 -k2
+ 4000  gsort -n -t'|' -k1 -k2 list2
+ 4001  gsort -n -t'|' -k 1 -k 2 list2
+ 4002  gsort -n -t'|' -k 0 -k 1 list2
+ 4003  gsort -n -t'|' list2
+ 4004  gsort -n -t'|' list2 > list4
+ 4005  less list4
+ 4006  gsort -n -t'|' -k 2 -k 1 list2 | less
+ 4007  gsort -n -t'|' -k 1 -k 2 list2 | less
+ 4008  gsort -n -t\| -k 1 -k 2 list2 | less
+ 4009  gsort -n -t\| -k 1 -k 2 list2 | less
+ 4010  vi list3
+ 4011  vi list2
+ 4012  gsort -n -t\| -k 1 -k 2 list2 | less
+ 4013  gsort -n -t'|' -k 2 -k 1 list2 | less
+ 4014  gsort -n -t'|' list2 |less
+ 4015  man awk
+ 4016  gsort -n -t'|' list2 > list3
+ 4017  head -5 list3
+ 4018  awk -F\| '{print $1 "|" $2 "|" time($3) "|" $4}' list3
+ 4019  awk -F\| '{print $1 "|" $2 "|" mktime($3) "|" $4}' list3
+ 4020  man awk
+ 4021  head -5 list3
+ 4022  awk -F\| '{print $1 "|" $2 "|" strftime('%d-%M-%YYYY %H:%m:%s',$3) "|" $4}' list3
+ 4023  awk -F\| '{print $1 "|" $2 "|" strftime(\'%d-%M-%YYYY %H:%m:%s\',$3) "|" $4}' list3
+ 4024  man date
+ 4025  vi list3
+ 4026  man date
+ 4027  man date | less -X
+ 4028  awk -F\| '{print $1 "|" $2 "|" strftime(\'%d-%b-%Y %H:%M:%S\',$3) "|" $4}' list3
+ 4029  awk -F\| '{print $1 "|" $2 "|" strftime(''%d-%b-%Y %H:%M:%S'',$3) "|" $4}' list3
+ 4030  awk -F\| '{print $1 "|" $2 "|" strftime('''%d-%b-%Y %H:%M:%S''',$3) "|" $4}' list3
+ 4031  awk -F\| '{print $1 "|" $2 "|" strftime(%d-%b-%Y %H:%M:%S,$3) "|" $4}' list3
+ 4032  awk -F\| '{print $1 "|" $2 "|" strftime("%d-%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 4033  awk -F\| 'BEGIN{PROCINFO["strftime"]="%d-%b-%Y %H:%M:%S"} {print $1 "|" $2 "|" strftime("%s",$3) "|" $4}' list3
+ 4034  awk -F\| '{print $1 "|" $2 "|" strftime("%d-%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 4035  awk -F\| '{print $1 "|" $2 "|" strftime("%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 4036  man date | less -X
+ 4037  awk -F\| '{print $1 "|" $2 "|" strftime("%Y %m %d %H %M %S",$3) "|" $4}' list3
+ 4038  less list3
+ 4039  less list3 -X
+ 4040  less -X list3 
+ 4041  ls
+ 4042  cp /cygdrive/t/gource/tg3 .
+ 4043  head -2 tg3
+ 4044  awk -F\| '{print $3 "|" $4 "|" $2 "|" $1}' list3
+ 4045  IFS=\|; while true; do read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 4046  cat list3 | IFS=\|; while true; do read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 4047  cat list3 | IFS=\|; read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 4048  cat list3 | FS=\|; read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 4049  man read
+ 4050  man bash
+ 4051  cat list3 | FS=\|; read a b c d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 4052  cat list3 | FS=\|; while true; do read a b c d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 4053  cat list3 | FS=\|; while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4054  cat list3 | IFS=\| while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4055  cat list3 | IFS=\|; while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4056  cat list3 | IFS=\|; while true; do read a b c d; echo -n `date -r $a +"%d-%b-%Y %H:%M:%S"`\|$b\|$c\|$d; done
+ 4057  echo $a
+ 4058  echo $b
+ 4059  echo $c
+ 4060  cat list3 | IFS=\|; while true; do read a b c d; echo -n "$a $b $c $d"; done
+ 4061  cat list3 | IFS=\|; while read a b c d; do echo -n "$a $b $c $d"; done
+ 4062  cat list3 | IFS=\|; while read a b c d; do echo -n "$a $b $c $d"; done
+ 4063  cat list3 |  while read a b c d; do echo -n "$a $b $c $d"; done
+ 4064  IFS=\| cat list3 |  while read a b c d; do echo -n "$a $b $c $d"; done
+ 4065  cat list3 | IFS=\|; while read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4066  cat list3 | IFS=\|; while read a b c d; do echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4067  date -r "01-Jan-1989 22:01:23" +%d
+ 4068  date -d "01-Jan-1989 22:01:23" +%d
+ 4069  cat list3 | IFS=\|; while read a b c d; do echo -n $(date -d $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4070  IFS=\| cat list3 | while read a b c d; do echo -n $(date -d $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4071  man date
+ 4072  IFS=\| cat list3 | while read a b c d; do echo -n $(date -d $a +"%s")\|$b\|$c\|$d; done
+ 4073  cd /cygdrive/p/src/finder2
+ 4074  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^/\* \*[0-9]'
+ 4075  less Loader/*.pfo
+ 4076  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep ' \*[0-9]'
+ 4077  less */*.rs
+ 4078  less */*.x
+ 4079  less */*.ah
+ 4080  less */*.f77
+ 4081  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^... \*[0-9]'|less
+ 4082  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|less
+ 4083  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|gsort -n -t' ' -k1 -k2
+ 4084  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|gsort -n -t' ' -k1 -k2 > list
+ 4085  cp list list2
+ 4086  vi list2
+ 4087  head -5 list32
+ 4088  head -5 list3
+ 4089  head -5 list2
+ 4090  gsort -n -t'|' -k1 -k2
+ 4091  gsort -n -t'|' -k1 -k2 list2
+ 4092  gsort -n -t'|' -k 1 -k 2 list2
+ 4093  gsort -n -t'|' -k 0 -k 1 list2
+ 4094  gsort -n -t'|' list2
+ 4095  gsort -n -t'|' list2 > list4
+ 4096  less list4
+ 4097  gsort -n -t'|' -k 2 -k 1 list2 | less
+ 4098  gsort -n -t'|' -k 1 -k 2 list2 | less
+ 4099  gsort -n -t\| -k 1 -k 2 list2 | less
+ 4100  gsort -n -t\| -k 1 -k 2 list2 | less
+ 4101  vi list3
+ 4102  vi list2
+ 4103  gsort -n -t\| -k 1 -k 2 list2 | less
+ 4104  gsort -n -t'|' -k 2 -k 1 list2 | less
+ 4105  gsort -n -t'|' list2 |less
+ 4106  man awk
+ 4107  gsort -n -t'|' list2 > list3
+ 4108  head -5 list3
+ 4109  awk -F\| '{print $1 "|" $2 "|" time($3) "|" $4}' list3
+ 4110  awk -F\| '{print $1 "|" $2 "|" mktime($3) "|" $4}' list3
+ 4111  man awk
+ 4112  head -5 list3
+ 4113  awk -F\| '{print $1 "|" $2 "|" strftime('%d-%M-%YYYY %H:%m:%s',$3) "|" $4}' list3
+ 4114  awk -F\| '{print $1 "|" $2 "|" strftime(\'%d-%M-%YYYY %H:%m:%s\',$3) "|" $4}' list3
+ 4115  man date
+ 4116  vi list3
+ 4117  man date
+ 4118  man date | less -X
+ 4119  awk -F\| '{print $1 "|" $2 "|" strftime(\'%d-%b-%Y %H:%M:%S\',$3) "|" $4}' list3
+ 4120  awk -F\| '{print $1 "|" $2 "|" strftime(''%d-%b-%Y %H:%M:%S'',$3) "|" $4}' list3
+ 4121  awk -F\| '{print $1 "|" $2 "|" strftime('''%d-%b-%Y %H:%M:%S''',$3) "|" $4}' list3
+ 4122  awk -F\| '{print $1 "|" $2 "|" strftime(%d-%b-%Y %H:%M:%S,$3) "|" $4}' list3
+ 4123  awk -F\| '{print $1 "|" $2 "|" strftime("%d-%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 4124  awk -F\| 'BEGIN{PROCINFO["strftime"]="%d-%b-%Y %H:%M:%S"} {print $1 "|" $2 "|" strftime("%s",$3) "|" $4}' list3
+ 4125  awk -F\| '{print $1 "|" $2 "|" strftime("%d-%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 4126  awk -F\| '{print $1 "|" $2 "|" strftime("%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 4127  man date | less -X
+ 4128  awk -F\| '{print $1 "|" $2 "|" strftime("%Y %m %d %H %M %S",$3) "|" $4}' list3
+ 4129  less list3
+ 4130  less list3 -X
+ 4131  less -X list3 
+ 4132  ls
+ 4133  cp /cygdrive/t/gource/tg3 .
+ 4134  head -2 tg3
+ 4135  awk -F\| '{print $3 "|" $4 "|" $2 "|" $1}' list3
+ 4136  IFS=\|; while true; do read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 4137  cat list3 | IFS=\|; while true; do read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 4138  cat list3 | IFS=\|; read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 4139  cat list3 | FS=\|; read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 4140  man read
+ 4141  man bash
+ 4142  cat list3 | FS=\|; read a b c d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 4143  cat list3 | FS=\|; while true; do read a b c d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 4144  cat list3 | FS=\|; while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4145  cat list3 | IFS=\| while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4146  cat list3 | IFS=\|; while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4147  cat list3 | IFS=\|; while true; do read a b c d; echo -n `date -r $a +"%d-%b-%Y %H:%M:%S"`\|$b\|$c\|$d; done
+ 4148  echo $a
+ 4149  echo $b
+ 4150  echo $c
+ 4151  cat list3 | IFS=\|; while true; do read a b c d; echo -n "$a $b $c $d"; done
+ 4152  cat list3 | IFS=\|; while read a b c d; do echo -n "$a $b $c $d"; done
+ 4153  cat list3 | IFS=\|; while read a b c d; do echo -n "$a $b $c $d"; done
+ 4154  cat list3 |  while read a b c d; do echo -n "$a $b $c $d"; done
+ 4155  IFS=\| cat list3 |  while read a b c d; do echo -n "$a $b $c $d"; done
+ 4156  cat list3 | IFS=\|; while read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4157  cat list3 | IFS=\|; while read a b c d; do echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4158  date -r "01-Jan-1989 22:01:23" +%d
+ 4159  date -d "01-Jan-1989 22:01:23" +%d
+ 4160  cat list3 | IFS=\|; while read a b c d; do echo -n $(date -d $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4161  IFS=\| cat list3 | while read a b c d; do echo -n $(date -d $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4162  man date
+ 4163  IFS=\| cat list3 | while read a b c d; do echo -n $(date -d $a +"%s")\|$b\|$c\|$d; done
+ 4164  cd /cygdrive/p/src/finder2
+ 4165  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^/\* \*[0-9]'
+ 4166  less Loader/*.pfo
+ 4167  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep ' \*[0-9]'
+ 4168  less */*.rs
+ 4169  less */*.x
+ 4170  less */*.ah
+ 4171  less */*.f77
+ 4172  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^... \*[0-9]'|less
+ 4173  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|less
+ 4174  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|gsort -n -t' ' -k1 -k2
+ 4175  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|gsort -n -t' ' -k1 -k2 > list
+ 4176  cp list list2
+ 4177  vi list2
+ 4178  head -5 list32
+ 4179  head -5 list3
+ 4180  head -5 list2
+ 4181  gsort -n -t'|' -k1 -k2
+ 4182  gsort -n -t'|' -k1 -k2 list2
+ 4183  gsort -n -t'|' -k 1 -k 2 list2
+ 4184  gsort -n -t'|' -k 0 -k 1 list2
+ 4185  gsort -n -t'|' list2
+ 4186  gsort -n -t'|' list2 > list4
+ 4187  less list4
+ 4188  gsort -n -t'|' -k 2 -k 1 list2 | less
+ 4189  gsort -n -t'|' -k 1 -k 2 list2 | less
+ 4190  gsort -n -t\| -k 1 -k 2 list2 | less
+ 4191  gsort -n -t\| -k 1 -k 2 list2 | less
+ 4192  vi list3
+ 4193  vi list2
+ 4194  gsort -n -t\| -k 1 -k 2 list2 | less
+ 4195  gsort -n -t'|' -k 2 -k 1 list2 | less
+ 4196  gsort -n -t'|' list2 |less
+ 4197  man awk
+ 4198  gsort -n -t'|' list2 > list3
+ 4199  head -5 list3
+ 4200  awk -F\| '{print $1 "|" $2 "|" time($3) "|" $4}' list3
+ 4201  awk -F\| '{print $1 "|" $2 "|" mktime($3) "|" $4}' list3
+ 4202  man awk
+ 4203  head -5 list3
+ 4204  awk -F\| '{print $1 "|" $2 "|" strftime('%d-%M-%YYYY %H:%m:%s',$3) "|" $4}' list3
+ 4205  awk -F\| '{print $1 "|" $2 "|" strftime(\'%d-%M-%YYYY %H:%m:%s\',$3) "|" $4}' list3
+ 4206  man date
+ 4207  vi list3
+ 4208  man date
+ 4209  man date | less -X
+ 4210  awk -F\| '{print $1 "|" $2 "|" strftime(\'%d-%b-%Y %H:%M:%S\',$3) "|" $4}' list3
+ 4211  awk -F\| '{print $1 "|" $2 "|" strftime(''%d-%b-%Y %H:%M:%S'',$3) "|" $4}' list3
+ 4212  awk -F\| '{print $1 "|" $2 "|" strftime('''%d-%b-%Y %H:%M:%S''',$3) "|" $4}' list3
+ 4213  awk -F\| '{print $1 "|" $2 "|" strftime(%d-%b-%Y %H:%M:%S,$3) "|" $4}' list3
+ 4214  awk -F\| '{print $1 "|" $2 "|" strftime("%d-%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 4215  awk -F\| 'BEGIN{PROCINFO["strftime"]="%d-%b-%Y %H:%M:%S"} {print $1 "|" $2 "|" strftime("%s",$3) "|" $4}' list3
+ 4216  awk -F\| '{print $1 "|" $2 "|" strftime("%d-%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 4217  awk -F\| '{print $1 "|" $2 "|" strftime("%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 4218  man date | less -X
+ 4219  awk -F\| '{print $1 "|" $2 "|" strftime("%Y %m %d %H %M %S",$3) "|" $4}' list3
+ 4220  less list3
+ 4221  less list3 -X
+ 4222  less -X list3 
+ 4223  ls
+ 4224  cp /cygdrive/t/gource/tg3 .
+ 4225  head -2 tg3
+ 4226  awk -F\| '{print $3 "|" $4 "|" $2 "|" $1}' list3
+ 4227  IFS=\|; while true; do read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 4228  cat list3 | IFS=\|; while true; do read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 4229  cat list3 | IFS=\|; read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 4230  cat list3 | FS=\|; read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 4231  man read
+ 4232  man bash
+ 4233  cat list3 | FS=\|; read a b c d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 4234  cat list3 | FS=\|; while true; do read a b c d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 4235  cat list3 | FS=\|; while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4236  cat list3 | IFS=\| while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4237  cat list3 | IFS=\|; while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4238  cat list3 | IFS=\|; while true; do read a b c d; echo -n `date -r $a +"%d-%b-%Y %H:%M:%S"`\|$b\|$c\|$d; done
+ 4239  echo $a
+ 4240  echo $b
+ 4241  echo $c
+ 4242  cat list3 | IFS=\|; while true; do read a b c d; echo -n "$a $b $c $d"; done
+ 4243  cat list3 | IFS=\|; while read a b c d; do echo -n "$a $b $c $d"; done
+ 4244  cat list3 | IFS=\|; while read a b c d; do echo -n "$a $b $c $d"; done
+ 4245  cat list3 |  while read a b c d; do echo -n "$a $b $c $d"; done
+ 4246  IFS=\| cat list3 |  while read a b c d; do echo -n "$a $b $c $d"; done
+ 4247  cat list3 | IFS=\|; while read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4248  cat list3 | IFS=\|; while read a b c d; do echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4249  date -r "01-Jan-1989 22:01:23" +%d
+ 4250  date -d "01-Jan-1989 22:01:23" +%d
+ 4251  cat list3 | IFS=\|; while read a b c d; do echo -n $(date -d $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4252  IFS=\| cat list3 | while read a b c d; do echo -n $(date -d $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4253  man date
+ 4254  IFS=\| cat list3 | while read a b c d; do echo -n $(date -d $a +"%s")\|$b\|$c\|$d; done
+ 4255  date -d "18-Mar-1991 18:06:28" +%s
+ 4256  IFS=\| cat list3 | while read a b c d; do echo -n $(date -d "$a" +"%s")\|$b\|$c\|$d; done
+ 4257  cd /cygdrive/p/src/finder2
+ 4258  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^/\* \*[0-9]'
+ 4259  less Loader/*.pfo
+ 4260  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep ' \*[0-9]'
+ 4261  less */*.rs
+ 4262  less */*.x
+ 4263  less */*.ah
+ 4264  less */*.f77
+ 4265  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^... \*[0-9]'|less
+ 4266  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|less
+ 4267  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|gsort -n -t' ' -k1 -k2
+ 4268  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|gsort -n -t' ' -k1 -k2 > list
+ 4269  cp list list2
+ 4270  vi list2
+ 4271  head -5 list32
+ 4272  head -5 list3
+ 4273  head -5 list2
+ 4274  gsort -n -t'|' -k1 -k2
+ 4275  gsort -n -t'|' -k1 -k2 list2
+ 4276  gsort -n -t'|' -k 1 -k 2 list2
+ 4277  gsort -n -t'|' -k 0 -k 1 list2
+ 4278  gsort -n -t'|' list2
+ 4279  gsort -n -t'|' list2 > list4
+ 4280  less list4
+ 4281  gsort -n -t'|' -k 2 -k 1 list2 | less
+ 4282  gsort -n -t'|' -k 1 -k 2 list2 | less
+ 4283  gsort -n -t\| -k 1 -k 2 list2 | less
+ 4284  gsort -n -t\| -k 1 -k 2 list2 | less
+ 4285  vi list3
+ 4286  vi list2
+ 4287  gsort -n -t\| -k 1 -k 2 list2 | less
+ 4288  gsort -n -t'|' -k 2 -k 1 list2 | less
+ 4289  gsort -n -t'|' list2 |less
+ 4290  man awk
+ 4291  gsort -n -t'|' list2 > list3
+ 4292  head -5 list3
+ 4293  awk -F\| '{print $1 "|" $2 "|" time($3) "|" $4}' list3
+ 4294  awk -F\| '{print $1 "|" $2 "|" mktime($3) "|" $4}' list3
+ 4295  man awk
+ 4296  head -5 list3
+ 4297  awk -F\| '{print $1 "|" $2 "|" strftime('%d-%M-%YYYY %H:%m:%s',$3) "|" $4}' list3
+ 4298  awk -F\| '{print $1 "|" $2 "|" strftime(\'%d-%M-%YYYY %H:%m:%s\',$3) "|" $4}' list3
+ 4299  man date
+ 4300  vi list3
+ 4301  man date
+ 4302  man date | less -X
+ 4303  awk -F\| '{print $1 "|" $2 "|" strftime(\'%d-%b-%Y %H:%M:%S\',$3) "|" $4}' list3
+ 4304  awk -F\| '{print $1 "|" $2 "|" strftime(''%d-%b-%Y %H:%M:%S'',$3) "|" $4}' list3
+ 4305  awk -F\| '{print $1 "|" $2 "|" strftime('''%d-%b-%Y %H:%M:%S''',$3) "|" $4}' list3
+ 4306  awk -F\| '{print $1 "|" $2 "|" strftime(%d-%b-%Y %H:%M:%S,$3) "|" $4}' list3
+ 4307  awk -F\| '{print $1 "|" $2 "|" strftime("%d-%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 4308  awk -F\| 'BEGIN{PROCINFO["strftime"]="%d-%b-%Y %H:%M:%S"} {print $1 "|" $2 "|" strftime("%s",$3) "|" $4}' list3
+ 4309  awk -F\| '{print $1 "|" $2 "|" strftime("%d-%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 4310  awk -F\| '{print $1 "|" $2 "|" strftime("%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 4311  man date | less -X
+ 4312  awk -F\| '{print $1 "|" $2 "|" strftime("%Y %m %d %H %M %S",$3) "|" $4}' list3
+ 4313  less list3
+ 4314  less list3 -X
+ 4315  less -X list3 
+ 4316  ls
+ 4317  cp /cygdrive/t/gource/tg3 .
+ 4318  head -2 tg3
+ 4319  awk -F\| '{print $3 "|" $4 "|" $2 "|" $1}' list3
+ 4320  IFS=\|; while true; do read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 4321  cat list3 | IFS=\|; while true; do read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 4322  cat list3 | IFS=\|; read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 4323  cat list3 | FS=\|; read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 4324  man read
+ 4325  man bash
+ 4326  cat list3 | FS=\|; read a b c d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 4327  cat list3 | FS=\|; while true; do read a b c d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 4328  cat list3 | FS=\|; while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4329  cat list3 | IFS=\| while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4330  cat list3 | IFS=\|; while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4331  cat list3 | IFS=\|; while true; do read a b c d; echo -n `date -r $a +"%d-%b-%Y %H:%M:%S"`\|$b\|$c\|$d; done
+ 4332  echo $a
+ 4333  echo $b
+ 4334  echo $c
+ 4335  cat list3 | IFS=\|; while true; do read a b c d; echo -n "$a $b $c $d"; done
+ 4336  cat list3 | IFS=\|; while read a b c d; do echo -n "$a $b $c $d"; done
+ 4337  cat list3 | IFS=\|; while read a b c d; do echo -n "$a $b $c $d"; done
+ 4338  cat list3 |  while read a b c d; do echo -n "$a $b $c $d"; done
+ 4339  IFS=\| cat list3 |  while read a b c d; do echo -n "$a $b $c $d"; done
+ 4340  cat list3 | IFS=\|; while read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4341  cat list3 | IFS=\|; while read a b c d; do echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4342  date -r "01-Jan-1989 22:01:23" +%d
+ 4343  date -d "01-Jan-1989 22:01:23" +%d
+ 4344  cat list3 | IFS=\|; while read a b c d; do echo -n $(date -d $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4345  IFS=\| cat list3 | while read a b c d; do echo -n $(date -d $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4346  man date
+ 4347  IFS=\| cat list3 | while read a b c d; do echo -n $(date -d $a +"%s")\|$b\|$c\|$d; done
+ 4348  date -d "18-Mar-1991 18:06:28" +%s
+ 4349  IFS=\| cat list3 | while read a b c d; do echo -n $(date -d "$a" +"%s")\|$b\|$c\|$d; done
+ 4350  less list3
+ 4351  head -2 tg3
+ 4352  head -2 list3
+ 4353  IFS=\| cat list3 | while read a b c d; do echo -n $(date -d "$c" +"%s")\|$d\|$b\|$a; done
+ 4354  cd /cygdrive/p/src/finder2
+ 4355  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^/\* \*[0-9]'
+ 4356  less Loader/*.pfo
+ 4357  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep ' \*[0-9]'
+ 4358  less */*.rs
+ 4359  less */*.x
+ 4360  less */*.ah
+ 4361  less */*.f77
+ 4362  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^... \*[0-9]'|less
+ 4363  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|less
+ 4364  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|gsort -n -t' ' -k1 -k2
+ 4365  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|gsort -n -t' ' -k1 -k2 > list
+ 4366  cp list list2
+ 4367  vi list2
+ 4368  head -5 list32
+ 4369  head -5 list3
+ 4370  head -5 list2
+ 4371  gsort -n -t'|' -k1 -k2
+ 4372  gsort -n -t'|' -k1 -k2 list2
+ 4373  gsort -n -t'|' -k 1 -k 2 list2
+ 4374  gsort -n -t'|' -k 0 -k 1 list2
+ 4375  gsort -n -t'|' list2
+ 4376  gsort -n -t'|' list2 > list4
+ 4377  less list4
+ 4378  gsort -n -t'|' -k 2 -k 1 list2 | less
+ 4379  gsort -n -t'|' -k 1 -k 2 list2 | less
+ 4380  gsort -n -t\| -k 1 -k 2 list2 | less
+ 4381  gsort -n -t\| -k 1 -k 2 list2 | less
+ 4382  vi list3
+ 4383  vi list2
+ 4384  gsort -n -t\| -k 1 -k 2 list2 | less
+ 4385  gsort -n -t'|' -k 2 -k 1 list2 | less
+ 4386  gsort -n -t'|' list2 |less
+ 4387  man awk
+ 4388  gsort -n -t'|' list2 > list3
+ 4389  head -5 list3
+ 4390  awk -F\| '{print $1 "|" $2 "|" time($3) "|" $4}' list3
+ 4391  awk -F\| '{print $1 "|" $2 "|" mktime($3) "|" $4}' list3
+ 4392  man awk
+ 4393  head -5 list3
+ 4394  awk -F\| '{print $1 "|" $2 "|" strftime('%d-%M-%YYYY %H:%m:%s',$3) "|" $4}' list3
+ 4395  awk -F\| '{print $1 "|" $2 "|" strftime(\'%d-%M-%YYYY %H:%m:%s\',$3) "|" $4}' list3
+ 4396  man date
+ 4397  vi list3
+ 4398  man date
+ 4399  man date | less -X
+ 4400  awk -F\| '{print $1 "|" $2 "|" strftime(\'%d-%b-%Y %H:%M:%S\',$3) "|" $4}' list3
+ 4401  awk -F\| '{print $1 "|" $2 "|" strftime(''%d-%b-%Y %H:%M:%S'',$3) "|" $4}' list3
+ 4402  awk -F\| '{print $1 "|" $2 "|" strftime('''%d-%b-%Y %H:%M:%S''',$3) "|" $4}' list3
+ 4403  awk -F\| '{print $1 "|" $2 "|" strftime(%d-%b-%Y %H:%M:%S,$3) "|" $4}' list3
+ 4404  awk -F\| '{print $1 "|" $2 "|" strftime("%d-%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 4405  awk -F\| 'BEGIN{PROCINFO["strftime"]="%d-%b-%Y %H:%M:%S"} {print $1 "|" $2 "|" strftime("%s",$3) "|" $4}' list3
+ 4406  awk -F\| '{print $1 "|" $2 "|" strftime("%d-%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 4407  awk -F\| '{print $1 "|" $2 "|" strftime("%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 4408  man date | less -X
+ 4409  awk -F\| '{print $1 "|" $2 "|" strftime("%Y %m %d %H %M %S",$3) "|" $4}' list3
+ 4410  less list3
+ 4411  less list3 -X
+ 4412  less -X list3 
+ 4413  ls
+ 4414  cp /cygdrive/t/gource/tg3 .
+ 4415  head -2 tg3
+ 4416  awk -F\| '{print $3 "|" $4 "|" $2 "|" $1}' list3
+ 4417  IFS=\|; while true; do read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 4418  cat list3 | IFS=\|; while true; do read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 4419  cat list3 | IFS=\|; read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 4420  cat list3 | FS=\|; read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 4421  man read
+ 4422  man bash
+ 4423  cat list3 | FS=\|; read a b c d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 4424  cat list3 | FS=\|; while true; do read a b c d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 4425  cat list3 | FS=\|; while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4426  cat list3 | IFS=\| while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4427  cat list3 | IFS=\|; while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4428  cat list3 | IFS=\|; while true; do read a b c d; echo -n `date -r $a +"%d-%b-%Y %H:%M:%S"`\|$b\|$c\|$d; done
+ 4429  echo $a
+ 4430  echo $b
+ 4431  echo $c
+ 4432  cat list3 | IFS=\|; while true; do read a b c d; echo -n "$a $b $c $d"; done
+ 4433  cat list3 | IFS=\|; while read a b c d; do echo -n "$a $b $c $d"; done
+ 4434  cat list3 | IFS=\|; while read a b c d; do echo -n "$a $b $c $d"; done
+ 4435  cat list3 |  while read a b c d; do echo -n "$a $b $c $d"; done
+ 4436  IFS=\| cat list3 |  while read a b c d; do echo -n "$a $b $c $d"; done
+ 4437  cat list3 | IFS=\|; while read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4438  cat list3 | IFS=\|; while read a b c d; do echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4439  date -r "01-Jan-1989 22:01:23" +%d
+ 4440  date -d "01-Jan-1989 22:01:23" +%d
+ 4441  cat list3 | IFS=\|; while read a b c d; do echo -n $(date -d $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4442  IFS=\| cat list3 | while read a b c d; do echo -n $(date -d $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4443  man date
+ 4444  IFS=\| cat list3 | while read a b c d; do echo -n $(date -d $a +"%s")\|$b\|$c\|$d; done
+ 4445  date -d "18-Mar-1991 18:06:28" +%s
+ 4446  IFS=\| cat list3 | while read a b c d; do echo -n $(date -d "$a" +"%s")\|$b\|$c\|$d; done
+ 4447  less list3
+ 4448  head -2 tg3
+ 4449  head -2 list3
+ 4450  IFS=\| cat list3 | while read a b c d; do echo -n $(date -d "$c" +"%s")\|$d\|$b\|$a; done
+ 4451  IFS=\| cat list3 | while read a b c d; do echo  $(date -d "$c" +"%s")\|$d\|$b\|$a; done
+ 4452  cd /cygdrive/p/src/finder2
+ 4453  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^/\* \*[0-9]'
+ 4454  less Loader/*.pfo
+ 4455  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep ' \*[0-9]'
+ 4456  less */*.rs
+ 4457  less */*.x
+ 4458  less */*.ah
+ 4459  less */*.f77
+ 4460  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^... \*[0-9]'|less
+ 4461  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|less
+ 4462  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|gsort -n -t' ' -k1 -k2
+ 4463  gfind . -iname '*.c' -o -iname '*.pc' -o -iname '*.pfo' -o -iname '*.h' -o -iname '*.ah' -o -iname '*.f77' -o -iname '*.for' -o -iname '*.i' -o -iname '*.x' -o -iname '*.rs' -o -iname '*.sql' -o -iname '*.inp' | xargs egrep '^.. \*[0-9]'|gsort -n -t' ' -k1 -k2 > list
+ 4464  cp list list2
+ 4465  vi list2
+ 4466  head -5 list32
+ 4467  head -5 list3
+ 4468  head -5 list2
+ 4469  gsort -n -t'|' -k1 -k2
+ 4470  gsort -n -t'|' -k1 -k2 list2
+ 4471  gsort -n -t'|' -k 1 -k 2 list2
+ 4472  gsort -n -t'|' -k 0 -k 1 list2
+ 4473  gsort -n -t'|' list2
+ 4474  gsort -n -t'|' list2 > list4
+ 4475  less list4
+ 4476  gsort -n -t'|' -k 2 -k 1 list2 | less
+ 4477  gsort -n -t'|' -k 1 -k 2 list2 | less
+ 4478  gsort -n -t\| -k 1 -k 2 list2 | less
+ 4479  gsort -n -t\| -k 1 -k 2 list2 | less
+ 4480  vi list3
+ 4481  vi list2
+ 4482  gsort -n -t\| -k 1 -k 2 list2 | less
+ 4483  gsort -n -t'|' -k 2 -k 1 list2 | less
+ 4484  gsort -n -t'|' list2 |less
+ 4485  man awk
+ 4486  gsort -n -t'|' list2 > list3
+ 4487  head -5 list3
+ 4488  awk -F\| '{print $1 "|" $2 "|" time($3) "|" $4}' list3
+ 4489  awk -F\| '{print $1 "|" $2 "|" mktime($3) "|" $4}' list3
+ 4490  man awk
+ 4491  head -5 list3
+ 4492  awk -F\| '{print $1 "|" $2 "|" strftime('%d-%M-%YYYY %H:%m:%s',$3) "|" $4}' list3
+ 4493  awk -F\| '{print $1 "|" $2 "|" strftime(\'%d-%M-%YYYY %H:%m:%s\',$3) "|" $4}' list3
+ 4494  man date
+ 4495  vi list3
+ 4496  man date
+ 4497  man date | less -X
+ 4498  awk -F\| '{print $1 "|" $2 "|" strftime(\'%d-%b-%Y %H:%M:%S\',$3) "|" $4}' list3
+ 4499  awk -F\| '{print $1 "|" $2 "|" strftime(''%d-%b-%Y %H:%M:%S'',$3) "|" $4}' list3
+ 4500  awk -F\| '{print $1 "|" $2 "|" strftime('''%d-%b-%Y %H:%M:%S''',$3) "|" $4}' list3
+ 4501  awk -F\| '{print $1 "|" $2 "|" strftime(%d-%b-%Y %H:%M:%S,$3) "|" $4}' list3
+ 4502  awk -F\| '{print $1 "|" $2 "|" strftime("%d-%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 4503  awk -F\| 'BEGIN{PROCINFO["strftime"]="%d-%b-%Y %H:%M:%S"} {print $1 "|" $2 "|" strftime("%s",$3) "|" $4}' list3
+ 4504  awk -F\| '{print $1 "|" $2 "|" strftime("%d-%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 4505  awk -F\| '{print $1 "|" $2 "|" strftime("%b-%Y %H:%M:%S",$3) "|" $4}' list3
+ 4506  man date | less -X
+ 4507  awk -F\| '{print $1 "|" $2 "|" strftime("%Y %m %d %H %M %S",$3) "|" $4}' list3
+ 4508  less list3
+ 4509  less list3 -X
+ 4510  less -X list3 
+ 4511  ls
+ 4512  cp /cygdrive/t/gource/tg3 .
+ 4513  head -2 tg3
+ 4514  awk -F\| '{print $3 "|" $4 "|" $2 "|" $1}' list3
+ 4515  IFS=\|; while true; do read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 4516  cat list3 | IFS=\|; while true; do read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 4517  cat list3 | IFS=\|; read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 4518  cat list3 | FS=\|; read a,b,c,d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 4519  man read
+ 4520  man bash
+ 4521  cat list3 | FS=\|; read a b c d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d;
+ 4522  cat list3 | FS=\|; while true; do read a b c d; echo -n $(date -r $a +%d-%b-%Y %H:%M:%S)\|$b\|$c\|$d; done
+ 4523  cat list3 | FS=\|; while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4524  cat list3 | IFS=\| while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4525  cat list3 | IFS=\|; while true; do read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4526  cat list3 | IFS=\|; while true; do read a b c d; echo -n `date -r $a +"%d-%b-%Y %H:%M:%S"`\|$b\|$c\|$d; done
+ 4527  echo $a
+ 4528  echo $b
+ 4529  echo $c
+ 4530  cat list3 | IFS=\|; while true; do read a b c d; echo -n "$a $b $c $d"; done
+ 4531  cat list3 | IFS=\|; while read a b c d; do echo -n "$a $b $c $d"; done
+ 4532  cat list3 | IFS=\|; while read a b c d; do echo -n "$a $b $c $d"; done
+ 4533  cat list3 |  while read a b c d; do echo -n "$a $b $c $d"; done
+ 4534  IFS=\| cat list3 |  while read a b c d; do echo -n "$a $b $c $d"; done
+ 4535  cat list3 | IFS=\|; while read a b c d; echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4536  cat list3 | IFS=\|; while read a b c d; do echo -n $(date -r $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4537  date -r "01-Jan-1989 22:01:23" +%d
+ 4538  date -d "01-Jan-1989 22:01:23" +%d
+ 4539  cat list3 | IFS=\|; while read a b c d; do echo -n $(date -d $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4540  IFS=\| cat list3 | while read a b c d; do echo -n $(date -d $a +"%d-%b-%Y %H:%M:%S")\|$b\|$c\|$d; done
+ 4541  man date
+ 4542  IFS=\| cat list3 | while read a b c d; do echo -n $(date -d $a +"%s")\|$b\|$c\|$d; done
+ 4543  date -d "18-Mar-1991 18:06:28" +%s
+ 4544  IFS=\| cat list3 | while read a b c d; do echo -n $(date -d "$a" +"%s")\|$b\|$c\|$d; done
+ 4545  less list3
+ 4546  head -2 tg3
+ 4547  head -2 list3
+ 4548  IFS=\| cat list3 | while read a b c d; do echo -n $(date -d "$c" +"%s")\|$d\|$b\|$a; done
+ 4549  IFS=\| cat list3 | while read a b c d; do echo  $(date -d "$c" +"%s")\|$d\|$b\|$a; done
+ 4550  IFS=\| cat list3 | while read a b c d; do echo  $(date -d "$c" +"%s")\|$d\|$b\|$a; done > list5
+ 4551  sort -n list5 > list6
+ 4552  vi list6
+ 4553  gsort -n list5 > list6
+ 4554  vi list6
+ 4555  cp list6 /cygdrive/t/gource/
+ 4556  awk -F\| '{print $4}' list6 
+ 4557  awk -F\| '{print $4}' list6  > list7
+ 4558  vi list7
+ 4559  awk -F/ '{print $1}' list7
+ 4560  awk -F/ '{print $1}' list7 > l8
+ 4561  gsort l8 | uniq
+ 4562  gsort l8 | uniq > l9
+ 4563  vi l9
+ 4564  awk '{print "sed 1,\$ s@" $1 "@" $1 "@" }' l9
+ 4565  awk '{print "sed 1,\$ s@" $1 "@#" $1 "@" }' l9
+ 4566  awk '{print "sed 1,\$ s@" $1 "@#" $1 "@" }' l9 > l10
+ 4567  vivi l10
+ 4568  vi l10
+ 4569  cp l10 l10b
+ 4570  vi l10b
+ 4571  less l9
+ 4572  ls -ltr
+ 4573  less list7
+ 4574  less list6
+ 4575  sed -f l10b list6
+ 4576  vi l10b
+ 4577  sed -f l10b list6 > list7
+ 4578  less list7
+ 4579  ./gource --load-config g.opt list7
+ 4580  vi g.opt
+ 4581  ./gource --load-config g.opt list7
+ 4582  ./gource --load-config g.opt -f list7
+ 4583  ls -ltr
+ 4584  gource
+ 4585  ./gource
+ 4586  exit
+ 4587  cd /cygdrive/p/src/finder
+ 4588  ls
+ 4589  cd ../finder2
+ 4590  ls
+ 4591  less list6
+ 4592  less list5
+ 4593  less list4
+ 4594  less list3
+ 4595  less list2
+ 4596  less list
+ 4597  less list
+ 4598  awk -F" '{print $2}' list
+ 4599  awk -F\" '{print $2}' list
+ 4600  cut -d" " -f3-4 -f5- list
+ 4601  cut -d" " -f3-4,5- list
+ 4602  cut -d" " -f3-4,6- list
+ 4603  cut -d" " -f3-4,7- list
+ 4604  vi list
+ 4605  cut -d" " -f5- list
+ 4606  ls -ltr
+ 4607  cut -d" " -f5- list > l1
+ 4608  vi l1
+ 4609  awk -F\| '{print $4 " " $1 " " $2 }'
+ 4610  awk -F\| '{print $4 " " $1 " " $2 }' l2
+ 4611  awk -F\| '{print $1  " " $2 " " $4 }'
+ 4612  awk -F\| '{print $1  " " $2 " " $4 }' l2
+ 4613  awk -F\| '{print $1  " " $2 " " $4 }' l2 > l3
+ 4614  vi l3
+ 4615  gource -H
+ 4616  less l3
+ 4617  IFS=\| cat l3 | while read a b c; do echo -n $(date -d "$a $b" +"%s")\|$c; done
+ 4618  cd /cygdrive/p/src/finder
+ 4619  ls
+ 4620  cd ../finder2
+ 4621  ls
+ 4622  less list6
+ 4623  less list5
+ 4624  less list4
+ 4625  less list3
+ 4626  less list2
+ 4627  less list
+ 4628  less list
+ 4629  awk -F" '{print $2}' list
+ 4630  awk -F\" '{print $2}' list
+ 4631  cut -d" " -f3-4 -f5- list
+ 4632  cut -d" " -f3-4,5- list
+ 4633  cut -d" " -f3-4,6- list
+ 4634  cut -d" " -f3-4,7- list
+ 4635  vi list
+ 4636  cut -d" " -f5- list
+ 4637  ls -ltr
+ 4638  cut -d" " -f5- list > l1
+ 4639  vi l1
+ 4640  awk -F\| '{print $4 " " $1 " " $2 }'
+ 4641  awk -F\| '{print $4 " " $1 " " $2 }' l2
+ 4642  awk -F\| '{print $1  " " $2 " " $4 }'
+ 4643  awk -F\| '{print $1  " " $2 " " $4 }' l2
+ 4644  awk -F\| '{print $1  " " $2 " " $4 }' l2 > l3
+ 4645  vi l3
+ 4646  gource -H
+ 4647  less l3
+ 4648  IFS=\| cat l3 | while read a b c; do echo -n $(date -d "$a $b" +"%s")\|$c; done
+ 4649  IFS=\| cat l3 | while read a b c; do echo  $(date -d "$a $b" +"%s")\|$c; done
+ 4650  cd /cygdrive/p/src/finder
+ 4651  ls
+ 4652  cd ../finder2
+ 4653  ls
+ 4654  less list6
+ 4655  less list5
+ 4656  less list4
+ 4657  less list3
+ 4658  less list2
+ 4659  less list
+ 4660  less list
+ 4661  awk -F" '{print $2}' list
+ 4662  awk -F\" '{print $2}' list
+ 4663  cut -d" " -f3-4 -f5- list
+ 4664  cut -d" " -f3-4,5- list
+ 4665  cut -d" " -f3-4,6- list
+ 4666  cut -d" " -f3-4,7- list
+ 4667  vi list
+ 4668  cut -d" " -f5- list
+ 4669  ls -ltr
+ 4670  cut -d" " -f5- list > l1
+ 4671  vi l1
+ 4672  awk -F\| '{print $4 " " $1 " " $2 }'
+ 4673  awk -F\| '{print $4 " " $1 " " $2 }' l2
+ 4674  awk -F\| '{print $1  " " $2 " " $4 }'
+ 4675  awk -F\| '{print $1  " " $2 " " $4 }' l2
+ 4676  awk -F\| '{print $1  " " $2 " " $4 }' l2 > l3
+ 4677  vi l3
+ 4678  gource -H
+ 4679  less l3
+ 4680  IFS=\| cat l3 | while read a b c; do echo -n $(date -d "$a $b" +"%s")\|$c; done
+ 4681  IFS=\| cat l3 | while read a b c; do echo  $(date -d "$a $b" +"%s")\|$c; done
+ 4682  IFS=\| cat l3 | while read a b c; do echo  $(date -d "$a $b" +"%s")\|$c; done > cap
+ 4683  gource
+ 4684  gource -f --help
+ 4685  gource -f -H
+ 4686  gource -f --caption-file captions --load-config /cygdrive/t/g.opt /cygdrive/t/list7 
+ 4687  cp /cygdrive/t/g.opt .
+ 4688  cp /cygdrive/t/list* .
+ 4689  ls -ltrc
+ 4690  less list7
+ 4691  gource -f --caption-file captions --load-config g.opt list7 
+ 4692  gource -f -H
+ 4693  gource -f --caption-file captions --caption-duration 2 --dir-color #ffeecc --load-config g.opt list7 
+ 4694  gource -f --caption-file captions --caption-duration 2 --dir-colour #ffeecc --load-config g.opt list7 
+ 4695  gource -f --caption-file captions --caption-duration 2 --dir-colour ffeecc --load-config g.opt list7 
+ 4696  gource -f --caption-file captions --caption-duration 2 --dir-colour ffeecc --max-files 0 --max-file-lag 1 -i 3000 --highlight-dirs --load-config g.opt list7 
+ 4697  less list
+ 4698  less list7
+ 4699  less captions 
+ 4700  less list
+ 4701  less cap
+ 4702  vi l3
+ 4703  less l2
+ 4704  wc -l l2
+ 4705  vi l2
+ 4706  [Cawk -F\| '{print $1  " " $2 " " $4 }' l2 > l3b
+ 4707  awk -F\| '{print $1  " " $2 " " $4 }' l2 > l3b
+ 4708  less l3b
+ 4709  vi l2
+ 4710  awk -F\| '{print $1  " " $3 }' l2 > l3b
+ 4711  less leb
+ 4712  less l3b
+ 4713  vi l3b
+ 4714  IFS=\| cat l3b | while read a b c; do echo  $(date -d "$a $b" +"%s")\|$c; done > cap
+ 4715  gsort -n cap > captions
+ 4716  gource -f --caption-file captions --caption-duration 2 --dir-colour ffeecc --max-files 0 --max-file-lag 1 -i 3000 --highlight-dirs --load-config g.opt list7 
+ 4717  gource -f --caption-file captions --caption-duration 2 --dir-colour ffeecc --max-files 0 --max-file-lag 1 -i 3000 --highlight-dirs --load-config --caption-horizontal-offset 1 g.opt list7 
+ 4718  gource -f --caption-file captions --caption-duration 2 --dir-colour ffeecc --max-files 0 --max-file-lag 1 -i 3000 --highlight-dirs --load-config --caption-horizontal-offset 1 g.opt list7 -H
+ 4719  gource -f --caption-file captions --caption-duration 2 --dir-colour ffeecc --max-files 0 --max-file-lag 1 -i 3000 --highlight-dirs --load-config --caption-offset 1 g.opt list7 -H
+ 4720  gource -f --caption-file captions --caption-duration 2 --dir-colour ffeecc --max-files 0 --max-file-lag 1 -i 3000 --highlight-dirs --load-config --caption-offset 1 g.opt list7
+ 4721  gource -f --caption-file captions --caption-duration 2 --dir-colour ffeecc --max-files 0 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 10 --load-config g.opt list7
+ 4722  gource -f --caption-file captions --caption-duration 2 --dir-colour ffeecc --max-files 0 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 500 --load-config g.opt list7
+ 4723  gource -f --caption-file captions --caption-duration 2 --dir-colour ffeecc --max-files 0 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 900 --load-config g.opt list7
+ 4724  gource -f --caption-file captions --caption-duration 2 --dir-colour ffeecc --max-files 0 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 90 --load-config g.opt list7
+ 4725  gource -f --caption-file captions --caption-duration 2 --dir-colour ffeecc --max-files 0 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 1700 --load-config g.opt list7
+ 4726  gource -f --caption-file captions --caption-duration 2 --dir-colour ffeecc --max-files 0 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 1400 --load-config g.opt list7
+ 4727  gource -f --caption-file captions --caption-duration 2 --caption-size 11 --dir-colour ffeecc --max-files 0 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 1400 --load-config g.opt list7
+ 4728  gource -f --caption-file captions --caption-duration 2 --caption-size 11 --dir-colour ffeecc --max-files 0 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 1400 --load-config g.opt -f list7
+ 4729  gource -f --caption-file captions --caption-duration 3 --caption-size 12 --dir-colour ff00cc --max-files 0 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 1400 --load-config g.opt -f list7
+ 4730  gource -f --caption-file captions --caption-duration 3 --caption-size 12 --dir-colour df205c --max-files 0 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 1400 --load-config g.opt -f list7
+ 4731  gource -f --caption-file captions --caption-duration 3 --caption-size 12 --dir-colour 6f205c --max-files 0 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 1400 --load-config g.opt -f list7
+ 4732  gource -f --caption-file captions --caption-duration 3 --caption-size 12 --dir-colour 9fcc9c --max-files 0 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 1400 --load-config g.opt -f list7
+ 4733  gource -f --caption-file captions --caption-duration 3 --caption-size 12 --dir-colour 2fccdc --max-files 0 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 1400 --load-config g.opt -f list7
+ 4734  gource -f --caption-file captions --caption-duration 3 --caption-size 12 --dir-colour 1ffcfc --max-files 0 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 1400 --load-config g.opt -f list7
+ 4735  gource -f --caption-file captions --caption-duration 3 --caption-size 12 --dir-colour ff1ffcfc --max-files 0 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 1400 --load-config g.opt -f list7
+ 4736  gource -f --caption-file captions --caption-duration 3 --caption-size 12 --dir-colour 1ffc6c --max-files 0 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 1400 --load-config g.opt -f list7
+ 4737  gource -f --caption-file captions --caption-duration 3 --caption-size 12 --dir-colour 1ffc6c --max-files 0 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 1400 --load-config g.opt -f list7 -H
+ 4738  gource -f --caption-file captions --caption-duration 3 --caption-size 12 --dir-colour 1ffc6c --max-files 0 --user-scale 0.5 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 1400 --load-config g.opt -f list7 
+ 4739  less list7
+ 4740  grep -i billj *
+ 4741  grep -i jaek *
+ 4742  cd ..\
+ 4743  cd finder2
+ 4744  gource -h
+ 4745  gource -H
+ 4746  gource -f --caption-file captions --caption-duration 3 --caption-size 12 --dir-colour 1ffc6c --max-files 0 --user-scale 0.5 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 1400 --load-config g.opt -f -o out.ppm -r 25 list7 
+ 4747  gource -f --caption-file captions --caption-duration 3 --caption-size 12 --dir-colour 1ffc6c --max-files 0 --user-scale 0.5 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 1400 --load-config g.opt -f -o out.ppm -r 30 list7 
+ 4748  gource -f --caption-file captions --caption-duration 3 --caption-size 12 --dir-colour 1ffc6c --max-files 0 --user-scale 0.5 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 1400 --load-config g.opt -f -o /cygdrive/t/out.ppm -r 30 list7 
+ 4749  gource -f --caption-file captions --caption-duration 3 --caption-size 12 --dir-colour 1ffc6c --max-files 0 --user-scale 0.5 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 1400 --load-config g.opt -f -o 'tmp/out.ppm  -r 30 list7 
+ 4750  gource -f --caption-file captions --caption-duration 3 --caption-size 12 --dir-colour 1ffc6c --max-files 0 --user-scale 0.5 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 1400 --load-config g.opt -f -o /tmp/out.ppm  -r 30 list7 
+ 4751  gource -f --caption-file captions --caption-duration 3 --caption-size 12 --dir-colour 1ffc6c --max-files 0 --user-scale 0.5 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 1400 --load-config g.opt -f  list7 
+ 4752  gource -f --caption-file captions --caption-duration 3 --caption-size 12 --dir-colour 1ffc6c --max-files 0 --user-scale 0.5 --max-file-lag 1 -i 3000 --highlight-dirs --caption-offset 1400 --load-config g.opt -f  list7 
+ 4753  less list7
+ 4754  less list
+ 4755  ssh bastion
+ 4756  df -h
+ 4757  j:
+ 4758  exit
+ 4759  cd /cygdrive/p/src/finder2
+ 4760  ls -ltr
+ 4761  wc -l l3
+ 4762  wc -l cap
+ 4763  wc -l cap
+ 4764  wc -l cap
+ 4765  wc -l cap
+ 4766  wc -l cap
+ 4767  wc -l cap
+ 4768  wc -l cap
+ 4769  wc -l cap
+ 4770  wc -l cap
+ 4771  wc -l cap
+ 4772  wc -l cap
+ 4773  wc -l cap
+ 4774  wc -l cap
+ 4775  gsort -n cap > captions
+ 4776  ls -ltr
+ 4777  wc -l l3b
+ 4778  wc -l cap
+ 4779  wc -l cap
+ 4780  less cap
+ 4781  wc -l cap
+ 4782  wc -l cap
+ 4783  wc -l cap
+ 4784  wc -l cap
+ 4785  exit
+ 4786  cd /cygdrive/p/src/finder2/
+ 4787  ls
+ 4788  ls -ltr
+ 4789  gource list8
+ 4790  gource --load-config g.opt list8
+ 4791  vi list8
+ 4792  grep "SPR -1" captions 
+ 4793  grep 'SPR -1' list*
+ 4794  grep "SPR -1' list"
+ 4795  grep "SPR -1" list
+ 4796  grep -c "SPR -1" *
+ 4797  less l1
+ 4798  vi list8
+ 4799  grep  "SPR -1" *
+ 4800  locate webdns
+ 4801  cd /cygdrive/f/l/src/
+ 4802  gunzip webdns-1.1.4.pl.gz 
+ 4803  less webdns-1.1.4.pl 
+ 4804  cd /usr/sbin
+ 4805  file * | grep -i python
+ 4806  less dnssec*
+ 4807  mpage
+ 4808  which dnssec-checkds 
+ 4809  locate dnssec_check
+ 4810  ls -l dnssec*
+ 4811  cygstart  winword dnssec_checkds
+ 4812  cygstart  wordpad dnssec_checkds
+ 4813  cygstart  wordpad dnssec_checkds*
+ 4814  cd /cygdrive/c/cygwin/usr/sbin
+ 4815  less dnssec-checkds 
+ 4816  cygstart wordpad dnssec-checkds 
+ 4817  cd /usr/lib/python2.7/encodings/
+ 4818  ls
+ 4819  less *.pyc
+ 4820  cd ..
+ 4821  cd lib-tk/
+ 4822  ls
+ 4823  cd ..
+ 4824  ls
+ 4825  cd ..
+ 4826  ls
+ 4827  cd /cygdrive/p/src/finder/gs
+ 4828  cd /cygdrive/p/src/finder/gs
+ 4829  cd /j/finder/gs
+ 4830  less Makefile
+ 4831  cd lib
+ 4832  less Makefile
+ 4833  cd ../..
+ 4834  ls
+ 4835  cd src
+ 4836  less Makefile
+ 4837  make 
+ 4838  vi xf_initialize.c 
+ 4839  1G/tc_alloc
+ 4840  /tc_
+ 4841  vi xf_initialize.c 
+ 4842  vi xf_initialize.c 
+ 4843  make
+ 4844  vi xs_del_lyt.c
+ 4845  for i in *.pc; do echo rm ${i/pc/c}; done
+ 4846  for i in *.pc; do rm ${i/pc/c}; done
+ 4847  ma
+ 4848  for i in *.pc; do rm ${i/pc/c}; done
+ 4849  make 
+ 4850  vi xs_del_lyt.pc
+ 4851  vi ../inc/esi_am.h
+ 4852  vi ../inc/esi_am.h
+ 4853  vi xs_del_lyt.pc
+ 4854  cd ../inc
+ 4855  grep VOIDPTR esi_gl_defs.h 
+ 4856  vi esi_gl_defs.h 
+ 4857  cd ../src
+ 4858  make
+ 4859  vi xs_del_lyt.pc
+ 4860  make
+ 4861  vi xs_dgz_tops.c 
+ 4862  make
+ 4863  vi xs_disp_sec.c 
+ 4864  make
+ 4865  vi xs_drw_trc.c 
+ 4866  make
+ 4867  vi xs_gr_tools.c 
+ 4868  make
+ 4869  vi xs_gr_tools.c 
+ 4870  make
+ 4871  vi xs_gr_tools.c 
+ 4872  make
+ 4873  vi xs_prefs_2.c 
+ 4874  make
+ 4875  vi xs_prefs_2.c 
+ 4876  make
+ 4877  vi xs_prefs_2.c 
+ 4878  make
+ 4879  vi xs_prefs_2.c 
+ 4880  make
+ 4881  vi xs_prefs_2.c 
+ 4882  vi xs_prefs_2.c 
+ 4883  make
+ 4884  vi xs_prefs_2.c 
+ 4885  vi xs_rtr_tops.c
+ 4886  make
+ 4887  vi xs_rtr_tops.c
+ 4888  make
+ 4889  vi xs_tattr_cdlg.c 
+ 4890  make
+ 4891  vi xs_tattr_cdlg.c 
+ 4892  make
+ 4893  vi xs_tattr_cdlg.c 
+ 4894  make
+ 4895  vi xs_trk_cdlg.c 
+ 4896  make
+ 4897  vi xs_tsel_cdlg.c 
+ 4898  make
+ 4899  ranlib newlib.a
+ 4900  nm ranlib.a | grep T
+ 4901  nm newlib.a | grep T
+ 4902  nm newlib.a | grep -c ' T '
+ 4903  touch Makefile
+ 4904  make
+ 4905  make world
+ 4906  make all
+ 4907  mv newlib.a oldnewlib.a
+ 4908  make
+ 4909  vi ../inc/esi_gl_defs.h 
+ 4910  less /usr/include/X11/Xproto.h
+ 4911  cd gs
+ 4912  cd ..
+ 4913  cd gs
+ 4914  dc lib
+ 4915  cd lib
+ 4916  ls -ltr
+ 4917  rlog
+ 4918  man rlog
+ 4919  rlog RCS/*
+ 4920  for i in *.c; do rlog $i; done
+ 4921  man rlog
+ 4922  c:
+ 4923  cd /j/finder/src
+ 4924  make -n
+ 4925  nake
+ 4926  make
+ 4927  vi /usr/include/X11/Xlibint.h 
+ 4928  vi /usr/include/X11/Xproto.h 
+ 4929  vi /usr/include/X11/Xmd.h 
+ 4930  make
+ 4931  vi ../inc/esi_tc.h
+ 4932  vi /usr/include/stdlib.h 
+ 4933  vi /usr/include/stdlib.h 
+ 4934  vi am_message.c 
+ 4935  vi ../inc/esi_tc.h
+ 4936  make
+ 4937  vi ci_cmdinterp.c 
+ 4938  vi ci_cmdinterp.c 
+ 4939  ls -l
+ 4940  whoami
+ 4941  id
+ 4942  ls -l ci_cmd*
+ 4943  chmod +rw *
+ 4944  vi ci_cmdinterp.c 
+ 4945  make
+ 4946  vi ci_cmdinterp.c 
+ 4947  vi ../inc/esi_ci.h 
+ 4948  make
+ 4949  make
+ 4950  cd ..
+ 4951  cd ..
+ 4952  cd ..
+ 4953  cd /cygdrive/p/src/ncar
+ 4954  ls
+ 4955  cd ncl_ncarg-5.0.0/
+ 4956  ls
+ 4957  less Configure
+ 4958  ls ni
+ 4959  ls ncarg2d/
+ 4960  ls ncarview/
+ 4961  grep -il gks *
+ 4962  less INSTALL.txt 
+ 4963  less makefile 
+ 4964  make 
+ 4965  make all
+ 4966  exit
+ 4967  cd /cygdrive/p/src
+ 4968  ls
+ 4969  ls Main
+ 4970  cd Main
+ 4971  ls
+ 4972  ls c
+ 4973  pwd
+ 4974  cd ..
+ 4975  cd finder
+ 4976  gfind . -type f -print > allf
+ 4977  wc -l allf
+ 4978  gfind . -iname '*.o' -delete
+ 4979  gfind . -type f -print > allf
+ 4980  wc -l allf
+ 4981  less allf
+ 4982  grep -o '\.[a-z][a-z]*$' */*
+ 4983  gfind . -type f -print | xargs grep -o '\.[a-z][a-z]*$' 
+ 4984  gfind . -type f -print | xargs grep -ho '\.[a-z][a-z]*$' 
+ 4985  gfind . -type f -print | xargs grep -ho '\.[a-z][a-z]*$' | gsort | uniq > allf2
+ 4986  less allf2
+ 4987  gfind . -type f -print | xargs grep -ho '\.[a-z][a-z]*$' | gsort | uniq -c  > allf2
+ 4988  less allf2
+ 4989  less allf2
+ 4990  man find
+ 4991  gfind . -P -type f -print | xargs grep -ho '\.[a-z][a-z]*$' | gsort | uniq -c  > allf2
+ 4992  man find
+ 4993  gfind -P . -type f -print | xargs grep -ho '\.[a-z][a-z]*$' | gsort | uniq -c  > allf2
+ 4994  less allf2
+ 4995  ls
+ 4996  ls q
+ 4997  ls -ltr
+ 4998  cd MyUnderstandProject4
+ 4999  cd MyUnderstandProject4_html/
+ 5000  ls -ltr
+ 5001  du -sh src
+ 5002  gfind * -type d -prune
+ 5003  du -sh Borland45/
+ 5004  cd src
+ 5005  ls
+ 5006  ls -l
+ 5007  cd finder/
+ 5008  ls -l
+ 5009  gfind -P . -type f -print | xargs grep -ho '\.[a-z][a-z]*$' | gsort | uniq -c  > allf2
+ 5010  ls -ltr
+ 5011  less allf2 
+ 5012  ls *
+ 5013  ls *.exe
+ 5014  dir *.exe
+ 5015  cd ulib
+ 5016  cd ..
+ 5017  ls inde*
+ 5018  ls *dex*
+ 5019  ls def*
+ 5020  ls *.html
+ 5021  ls
+ 5022  cd src
+ 5023  ls
+ 5024  ls -ltrc
+ 5025  ls -ltr
+ 5026  ls -ltc
+ 5027  ls -lSrh
+ 5028  cd ..
+ 5029  ls -ltr
+ 5030  cd ..
+ 5031  ls
+ 5032  cd ..
+ 5033  ls
+ 5034  cygstart index.html 
+ 5035  ls */*
+ 5036  cd src
+ 5037  ls
+ 5038  ls -l
+ 5039  cd finder/
+ 5040  ls -l
+ 5041  gfind
+ 5042  cd ulib
+ 5043  ls -ltr
+ 5044  cd cmslib/
+ 5045  ls
+ 5046  ls -l
+ 5047  cd ..
+ 5048  cd ..
+ 5049  ls
+ 5050  cd ..
+ 5051  cd ..
+ 5052  ls
+ 5053  cd ..
+ 5054  ls
+ 5055  cd ..
+ 5056  ls
+ 5057  ls dist
+ 5058  cd WolfenQt/
+ 5059  ls
+ 5060  make
+ 5061  pwd
+ 5062  gpg
+ 5063  gpg --help
+ 5064  gpg --search-keys darden
+ 5065  gpg --search-keys adagio
+ 5066  gpg --search-keys "steve darden"
+ 5067  gpg --search-keys steve darden
+ 5068  gpg --search-keys john gillespie
+ 5069  man md5sum
+ 5070  man crypt
+ 5071  ls -ltyr
+ 5072  ls -ltr
+ 5073  gpg -e < Makefile.Release  > mfr.gpg
+ 5074  gpg --help
+ 5075  gpg -I -e < Makefile.Release  > mfr.gpg
+ 5076  gpg -i -e < Makefile.Release  > mfr.gpg
+ 5077  ls -ltr
+ 5078  gpg -i -e < Makefile.Release  > mfr.gpg
+ 5079  ssh dev0ps.com -l dukeofur
+ 5080  cd /cygdrive/p/src
+ 5081  ls finder
+ 5082  cd /j/finder
+ 5083  ls
+ 5084  df -h .
+ 5085  ftp dev0ps.com
+ 5086  sftp dukeofur@dev0ps.com
+ 5087  ls
+ 5088  cd src
+ 5089  make
+ 5090  cd ..
+ 5091  gfind . -iname '*.o'
+ 5092  gfind . -iname '*.o' -delete
+ 5093  du -sh *
+ 5094  ls -l
+ 5095  cd gs
+ 5096  cd lib
+ 5097  make
+ 5098  du -sh
+ 5099  cd ..
+ 5100  cd ..
+ 5101  du -sh
+ 5102  du -sh
+ 5103  ls
+ 5104  cd ..
+ 5105  ls -ltrd find*
+ 5106  tar cvzf finder.tgz finder
+ 5107  df -h
+ 5108  tar cvzf finder.tgz finderls -ltr
+ 5109  ls -ltr
+ 5110  tar tvzf finder.tgz
+ 5111  tar cvzf /cygdrive/g/finder.tgz finder
+ 5112  tar cvzf /cygdrive/g/finder.tgz .
+ 5113  cd finder2
+ 5114  cd /cygdrive/p/src/finder2/
+ 5115  ls
+ 5116  history > allhist

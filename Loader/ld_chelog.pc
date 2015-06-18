@@ -1,0 +1,668 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_CHELOG.PC */
+/* *1    13-NOV-1990 11:27:40 VINCE "initial release" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_CHELOG.PC */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_CHELOG.PC */
+/* *4    27-AUG-1990 13:27:51 PURNA "(SPR 0) init change" */
+/* *3    16-AUG-1990 15:37:09 PURNA "(SPR 0) init change" */
+/* *2    26-JUL-1990 15:32:08 VINCE "(SPR 5700) Changed text of usage messages" */
+/* *1    25-JUL-1990 16:33:58 GILLESPIE "SPECIAL RELEASE FOR CANADIAN HUNTER JULY 1990 BY J CARLISLE" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_CHELOG.PC */
+/*************************************************************************
+* LD_CHELOG 	- Load Chelog log analysis data into WELL_ZONE_VALUES. 
+* 
+* Usage:
+*            ld_chelog  acct/pass [-p project] [-n]  datafile
+*
+* Options: 
+*            -p <project> 	Project to load into.
+*            -n          	Process file, but don't update database. 
+*            -s <source>	Data source (Overrides datafile.) 
+*            -u <uom code> 	Data UOM to use (Overrides datafile)
+*   	 
+*
+*  Julian Carlisle   July 7,1990
+*************************************************************************/
+#include "esi_c_lib.h"
+
+#ifndef ESI_TIME_H
+#include "esi_time.h"
+#endif
+
+#ifndef ESI_CTYPE_H
+#include "ctype.h"
+#endif
+
+#ifndef ESI_HO_H
+#include "esi_ho.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+
+#ifndef ESI_GL_PROJECT_H
+#include "esi_gl_project.h"
+#endif
+
+#ifndef ESI_WE_WELLS_H
+#include "esi_we_wells.h"
+#endif
+
+#ifndef ESI_TU_H
+#include "esi_tu.h"
+#endif
+
+#ifndef ESI_TU_ERR_H
+#include "esi_tu_err.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+
+
+#ifdef USE_PROTOTYPES
+privatedef void  usage();
+privatedef CHAR  *zz_timestamp();
+privatedef void msg();
+#else
+privatedef void  usage(char **argv);
+privatedef CHAR  *zz_timestamp();
+privatedef void msg(CHAR *a);
+#endif
+
+
+#define DEBUG 0
+
+#ifndef isprint
+#define isprint(c)	((_ctype_+1)[c]&(_P|_U|_L|_N|_B))
+#endif
+#ifdef MIN_ARGS
+#undef MIN_ARGS
+#endif
+#if HOST == VMS
+#define	DEFAULT_RECSIZE	257
+#else
+#define	DEFAULT_RECSIZE	256
+#endif
+
+#define	MIN_ARGS	3		   /* pgm  ora_login datafile */
+#define	LDMAXFIELDS	14
+#define	LD_STMAX 	256
+
+privatedef CHAR gblstring1[LD_STMAX];
+privatedef CHAR gblstring2[LD_STMAX];
+privatedef CHAR	msgbuf[DEFAULT_RECSIZE+1];
+privatedef CHAR	inbuf[DEFAULT_RECSIZE+1];
+
+
+typedef union ld_data {
+    CHAR    cbuf[32];
+    INT     ibuf[8];
+    FLOAT   fbuf[8];
+    DOUBLE  dbuf[4];
+} LD_DATA ;
+    
+typedef struct ld_rows { 
+    CHAR    uwi[24];
+    CHAR    top[12];
+    CHAR    base[12];
+    CHAR    h[12];
+    CHAR     zone[12];
+    CHAR     units[32];
+    CHAR     source[32];
+    CHAR     function;
+    INT	     numrows;
+    struct {
+      CHAR     name[32];
+      LD_DATA  value;
+      } zv[16];
+} LD_ZVDAT;
+static LD_ZVDAT zdat;
+
+privatedef void usage(argv)
+char *argv[];
+{
+msg("");
+msg(" Usage: ld_chelog  acct/pass  -p project  datafile",argv[0]);
+msg("");
+msg("     Options: ");
+msg("");
+msg("	  -u <uom>       Depth Unit of Measure code.");
+msg("	  -so <source>   Data source");
+msg("	  -n             Process file, but don't update database. ");
+msg("	  -h             This Help Info.");
+msg("	  -f <filename>  Data file name.");
+msg("	  -c             Don't remove hyphens and slashes from UWI.");
+msg("                  	This is useful for analyzing a datafile.");
+msg("");
+exit(0);
+}
+
+
+/*** BEGIN ***/
+
+main (argc,argv)
+INT argc;
+CHAR *argv[];
+{
+PROJECT_NAME 	project;
+PROJECT_DEFAULT	*proj;
+UOM_STRUCTURE	uom_data;
+FILENAME	fname;
+LD_DATA		*pd;			/* pointer to a data union record */
+UINT 		recsize;
+FILE 		*logfp,*fp;
+
+INT status,
+    noload,
+    uwiconv,
+    curline,
+    len,idx,
+    cnt,
+    i,n,j,k;
+
+DOUBLE	top,
+	base,
+	delta,
+	value;
+
+
+CHAR	*puwi,
+	*pzone,
+	*psource,
+	*punits, 
+	*pproject, 
+	*pvariable;
+
+UWI	uwi;
+
+CHAR	*getstat, *ptr;
+
+CHAR	uom[16],
+	units[16],
+	zone[32],
+	variable[32],
+	function[32],
+	last_update;
+
+BOOL done;
+DOUBLE dbl[32];
+INT wd;
+
+/* ------------------------------------------------------------ */
+
+status  = SUCCESS;
+logfp   = (FILE *)0;
+done = FALSE;
+curline = 0;
+i = 0;
+n = 0;
+wd = 10;
+units[0] = '\0';
+strcpy(zdat.source,ho_user_name(0));
+recsize = DEFAULT_RECSIZE;
+
+noload = FALSE;	/* Default is to load into well_zone_values table.    */
+uwiconv = TRUE;	/* Default is to convert CANADIAN UWI to FINDER style */
+
+if (argc <= MIN_ARGS) 
+	usage(argv[0]);
+
+if (strchr(argv[1],'/') == NULL)
+	{
+	msg("Finder account/password must be first argument.");
+	usage(argv[0]);
+	}
+msg("");
+msg("            ***   Chelog data Loader started   ***");
+
+qs_set_i(QS_IF_BATCH,(ho_user_mode() == HO_BATCH) ? TRUE : FALSE);
+
+/* 
+	Login to Oracle....
+*/
+if (or_login(argc,argv) != SUCCESS)
+	{
+	sprintf(msgbuf,"Problem logging into account %s.\t  status = %d",
+	argv[0],argv[1],status);
+	msg(msgbuf);
+	usage(argv[0]);
+	}
+
+/*
+	Process the arguments, set state variables....
+*/
+for (i = 2; i < argc; i++) 
+    {
+    if (strncmp(argv[i],"-",1) != 0)
+		{
+		if (strlen(fname) == 0)
+			strcpy(fname,argv[i]);
+		else
+			{
+			printf("Argument not understood: %s\n",argv[i]);
+			usage(argv);
+			}
+		continue;
+		}
+
+    ts_sto_upper(argv[i]);
+    if (strncmp(argv[i], "-H", 2) == 0)  
+		{
+		usage(argv[0]);
+		}
+
+					/*  FNAME  */        
+    if (strncmp(argv[i], "-F", 2) == 0)
+    	{
+        if (++i >= argc) usage(argv[0]);
+		strcpy(fname,argv[i]);
+		continue;
+		}
+        
+					/*  SOURCE  */        
+    if (strncmp(argv[i], "-SO", 3) == 0)
+    	{
+        if (++i >= argc) usage(argv[0]);
+		ts_sto_upper(argv[i]);
+		strcpy(zdat.source,argv[i]);
+		sprintf(msgbuf,"\t'SOURCE' set to %s\n",zdat.source);
+		msg(msgbuf);
+		continue;
+		}
+        
+					/*  UOM  */        
+    if (strncmp(argv[i], "-U", 2) == 0)
+		{
+		if (++i >= argc) 
+			usage(argv[0]);
+
+		strcpy(units,argv[i]);
+		continue;
+		}
+		  
+					/*  PROJECT  */        
+    if (strncmp(argv[i], "-P", 2) == 0) 
+		{
+        if (++i >= argc )
+			{
+			msg("Missing project argument.");
+			usage(argv[0]);
+			}
+		ts_sto_upper(argv[i]);
+		strcpy(project, argv[i]);
+		continue;
+		}
+
+    if (strncmp(argv[i], "-C", 2) == 0) 
+		{
+		uwiconv = FALSE;
+		msg("\tUWI codes will not be converted ( -c ).... ");
+		continue;
+		}
+					/*  NO LOAD, CHECK FILE   */        
+    if (strncmp(argv[i], "-N", 2) == 0) 
+		{
+        noload = TRUE;
+		msg("\tLoading Tables Suppressed. (-n)....");
+        continue;
+		}
+    
+    }
+    
+
+/* Set up some default parameters. */
+if ((!project) OR (strlen(project) == 0))
+    {
+    msg("A project must be specified.    (-proj projname)");
+    usage(argv[0]);
+    }
+	
+/* 
+	Verify project account exists...
+*/
+qs_set_c(QS_PROJECT_NAME,project,0);
+if ((status = finder_config_project(FALSE)) != SUCCESS)
+    {
+    sprintf(msgbuf,"Error configuring project %s.\n",project);
+    msg(msgbuf);
+    msg(mg_message(status));
+    msg("Aborting...");
+    exit(0);
+    }
+    
+sprintf(msgbuf,"\tProject is %s",project);
+msg(msgbuf);
+
+if ((fp = (FILE *)ho_open(fname,"r",NULL)) == NULL_FILE_PTR )
+    {
+    sprintf(msgbuf,"Can't find %s...\n", fname);
+    msg(msgbuf);
+    msg("Aborting...");
+    exit(0);
+    }
+else
+     {
+     sprintf(msgbuf,"Processing data in: %s\n",fname);
+     msg(msgbuf);
+     }
+
+
+if (noload == TRUE)
+	{
+	msg("Scanning data only... Database will not be updated.");
+	}
+
+/* 
+	Scan the file, find first data record.
+	The last non-blank line read before the first data
+	record is the column definition header record.
+	Any lines prior to the header record ar treated as
+	comments, (ignored).
+
+
+	Read the header.  Get Uom & # rows.
+*/
+
+
+done = FALSE;
+curline=0;
+while (!done)
+	{
+	curline ++;
+	/* Throw away the first lines before the headerfor now.... */
+	if ((getstat=(char *)fgets((char *)inbuf,recsize,fp)))
+		{
+		inbuf[recsize] = '\0';
+		/* filter nulls into white space */
+		ptr=inbuf;
+		while ((*ptr) AND (! isprint(*ptr)))
+			*ptr++ = ' ';
+
+		if ((ptr=strstr(inbuf,"TOP("))!=NULL) 
+			{
+			ptr=strchr(ptr,'(');
+			ptr++;
+			punits = zdat.units;
+			while(*ptr != ')')
+				{
+				*punits++ = *ptr++;
+				}
+			*punits++ = '\0';
+			}
+		else
+			continue;
+		}
+	
+	/* If the user specified a UOM  use it instead of one in file */
+	if (strlen(units) != 0)
+		strcpy(zdat.units,units);
+	
+	if (tu_verify_uom(zdat.units,&uom_data) == TU_INVALID_UOM)
+	   {
+	   sprintf(msgbuf,"Invalid Depth UOM. [%s]",zdat.units);
+	   msg(msgbuf);
+	   msg("Aborting...");
+	   exit(0);
+	   }
+	else
+	   {
+	   sprintf(msgbuf,"Units are %s\n",zdat.units);
+	   msg(msgbuf);
+	   }
+
+	
+/* Having decoded the units code from the hdr, we read on for the */
+/* zone variables, which are the F10.3 style numeric columns starting */
+/* in the sixth column position. */
+	for (i=0; i<12 ;i++)
+		{
+		ptr = inbuf+61+(wd*i);	/*   magic for now */ 
+		strncpy(zdat.zv[i].name,ptr,wd);
+		zdat.zv[i].name[wd] = '\0';
+		if (strlen(ts_snowhite(zdat.zv[i].name)) <= 0)
+		   {
+		   break;
+		   }
+		else msg(zdat.zv[i].name);
+		}
+	zdat.numrows = i;
+	sprintf(msgbuf,"   %d  zone entries per record.",zdat.numrows);
+	msg(msgbuf);
+	done = TRUE;
+   } 
+
+/*
+MAIN READ LOOP:
+Reads in the first 5 columns & then uses them as 
+keys for inserting the the next 'n' columns each of 
+which get inserted with along with the first 5. 
+*/
+
+msg("	Processing Data..");
+while(getstat=(char *)fgets((char *)inbuf,recsize,fp))
+	{
+	curline++;
+	inbuf[recsize] = '\0';
+	ptr=inbuf;
+	while ((*ptr) AND (! isprint(*ptr)))
+		*ptr++ = ' ';
+
+	/* Read UWI */
+	strncpy(zdat.uwi,ptr,20);
+	if(IS_EMPTY_STRING(zdat.uwi))
+            continue;
+
+	/* Convert uwi */
+	if (uwiconv == TRUE)
+		{
+		uwi[0] = '1';
+		for (j=0,k=1; zdat.uwi[j]; j++)
+			{
+			if (isalnum(zdat.uwi[j]))
+				uwi[k++] = zdat.uwi[j];
+			}
+		uwi[k++] = '0';
+		uwi[k++] = '0';
+		uwi[k] = '\0';
+		if(isalpha(uwi[3])) uwi[0]='2';
+		strcpy(zdat.uwi,uwi);
+		}
+
+	/* Read Zone */
+	ptr=inbuf+21;
+	strncpy(zdat.zone,ptr,8);
+	zdat.zone[8]='\0';
+	if(strlen(ts_snowhite(zdat.zone)) <=0)
+	    {
+	    sprintf(msgbuf,"Rejecting line: %s\n",ts_snowhite(inbuf));
+	    msg(msgbuf);
+	    continue;
+	    }
+
+	/* Read top */
+	ptr=inbuf+30;
+	strncpy(zdat.top,ptr,10);
+	zdat.top[10]='\0';
+	if(strlen(ts_snowhite(zdat.top)) <=0)
+	    {
+	    sprintf(msgbuf,"Rejecting line: %s\n",ts_snowhite(inbuf));
+	    msg(msgbuf);
+	    continue;
+	    }
+
+	/* Read base */
+	ptr=inbuf+40;
+	strncpy(zdat.base,ptr,10);
+	zdat.base[10]='\0';
+	if(strlen(ts_snowhite(zdat.base)) <=0)
+	    {
+	    sprintf(msgbuf,"Rejecting line: %s\n",ts_snowhite(inbuf));
+	    msg(msgbuf);
+	    continue;
+	    }
+
+	/* Read h */
+	ptr=inbuf+50;
+	strncpy(zdat.h,ptr,10);
+	zdat.h[10]='\0';
+	if(strlen(ts_snowhite(zdat.h)) <=0)
+	    strcpy(zdat.h,"NULL");
+
+	/* Read the rest of the columns */
+	for (i=0;  i < zdat.numrows; i++)
+	    {	
+	    ptr = inbuf+60+(wd*i);	/*   magic for now */ 
+	    strncpy(zdat.zv[i].value.cbuf,ptr,10);
+	    zdat.zv[i].value.cbuf[10]='\0';
+	    if(strlen(ts_snowhite(zdat.zv[i].value.cbuf)) <=0)
+		strcpy(zdat.zv[i].value.cbuf,"NULL");
+
+	    if (!noload) 
+		zz_putzval( zdat.uwi, 
+			    zdat.zone, 
+			    zdat.top, 
+			    zdat.base,
+			    zdat.h, 
+			    zdat.zv[i].name,  
+			    zdat.zv[i].value.cbuf, 
+			    zdat.units, 
+			    "ld_chelog", 
+			    zdat.source);
+	    }
+	}
+
+fclose(fp);
+msg("All Done.");
+exit(0);
+}
+/***************************************************************************/
+
+privatedef void msg(str)
+CHAR *str;
+{
+
+printf("%s - %s\n",zz_timestamp(),str);
+ 
+ }
+
+/***************************************************************/
+
+privatedef  INT zz_putzval(uwi,zone,top,base,h,vname,value,units,fn,source)
+
+  CHAR             *uwi;
+  CHAR             *zone;
+  CHAR		   *top;
+  CHAR		   *base;
+  CHAR		   *h;
+  CHAR             *vname;
+  CHAR	           *value;
+  CHAR             *units;
+  CHAR             *fn;
+  CHAR             *source;
+  {
+    INT	    status = SUCCESS;
+    PROJECT_NAME project;
+    CHAR    text[32];
+
+    PROJECT_NAME last_project;
+
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR	select[1024];
+    int		null;
+EXEC SQL END DECLARE SECTION;
+
+
+qs_inq_c(QS_PROJECT_NAME, project,(INT *) 0);
+
+EXEC SQL WHENEVER SQLERROR GOTO errvec;
+EXEC SQL WHENEVER NOT FOUND GOTO NOT_FOUND;
+select.len = sprintf((char *)select.arr,"SELECT NULL \
+FROM %s.WELL_ZONE_VALUES \
+WHERE UWI = '%s' AND ZONE = '%s' AND VARIABLE = '%s' \
+AND TOP = %s AND BASE = %s",
+        project,uwi,zone,vname,top,base);
+
+	EXEC SQL PREPARE S1 FROM :select;
+	EXEC SQL DECLARE C1 CURSOR FOR S1;
+	EXEC SQL OPEN C1;
+	EXEC SQL FETCH C1 INTO :null;
+	EXEC SQL CLOSE C1;
+
+/* if the values selected were found, we update them here */
+/* if the values were not found we go to NOT_FOUND and insert them */
+
+select.len = sprintf((char *)select.arr, "UPDATE %s.WELL_ZONE_VALUES SET \
+TOP = %s, BASE = %s, \
+UNIT = '%s', LAST_UPDATE = SYSDATE, SOURCE = '%s', \
+FUNCTION = '%s', VALUE = %s, H = %s \
+WHERE UWI = '%s' AND ZONE = '%s'  \
+AND VARIABLE = '%s'", 
+    project,top,base,units,source,fn,value,h,uwi,zone,vname);
+
+EXEC SQL EXECUTE IMMEDIATE :select;
+
+EXEC SQL COMMIT WORK;
+return SUCCESS;
+
+
+NOT_FOUND:
+
+    select.len = sprintf((char *)select.arr, "INSERT INTO %s.WELL_ZONE_VALUES \
+        (UWI, ZONE, TOP, BASE, VARIABLE, UNIT, \
+	   LAST_UPDATE, SOURCE, FUNCTION, VALUE, H) \
+	VALUES ('%s', '%s', %s, %s, '%s','%s', \
+	    SYSDATE, '%s', '%s', %s, %s)",
+        project,uwi,zone,top,base,vname,units,source,fn,value,h);
+
+	EXEC SQL EXECUTE IMMEDIATE :select;
+	EXEC SQL COMMIT WORK;
+	return SUCCESS;
+
+errvec:
+	status = OR_STATUS;
+	sprintf(text,"zz_putzval: uwi, source, top, base, variable, \
+value,units,zone = \n\t%s %s, %s %s %s %s %s %s %s",
+			uwi,source,top,base,vname,value,units,zone);
+	msg(text);
+	sprintf(text,"%s",OR_MESSAGE);
+	msg(text);
+
+	EXEC SQL ROLLBACK WORK;
+	return status;
+
+  }
+
+
+/***************************************************************************/
+#define CTIME_TIME_OFFSET 11
+
+privatedef CHAR *zz_timestamp()
+{
+static struct zz_local_time {
+		time_t	bintime;
+		CHAR	timestr[64];
+		CHAR	*timeptr;
+		} ltime;
+		
+time(&ltime.bintime);
+ltime.timeptr = (char *)ctime(&ltime.bintime);
+strncpy(ltime.timestr,ltime.timeptr+CTIME_TIME_OFFSET,9);
+ltime.timestr[8] = '\0';
+    
+return ltime.timestr;
+}
+

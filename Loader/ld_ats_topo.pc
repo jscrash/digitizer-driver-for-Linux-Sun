@@ -1,0 +1,772 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_ATS_TOPO.PC */
+/* *6    26-OCT-1990 13:49:34 GILLESPIE "(SPR 33)  New Lynx 3d changes" */
+/* *5    22-MAY-1990 14:41:36 HALL "(SPR -1) use casting to eliminate portability warnings" */
+/* *4    14-MAY-1990 18:52:27 HALL "(SPR -1) remove -IGNORE option (which is now obsolete)" */
+/* *3     3-MAY-1990 19:06:11 HALL "(SPR -1) Use section NUMBER within section NAME to make it unique." */
+/* *2     3-MAY-1990 11:14:47 VINCE "(SPR 1) moved from cmslib to Mainlib" */
+/* *1     3-MAY-1990 11:12:46 VINCE "dd" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_ATS_TOPO.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1990                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+#include "esi_c_lib.h"
+#include "esi_gl_top.h"
+#include "esi_fi.h"
+#include "esi_am.h"
+#include "esi_ct.h"
+#include "esi_oracle.h"
+#include "esi_qs.h"
+#include "esi_ts.h"
+#include "esi_mg.h"
+#include "esi_ly.h"
+#include "esi_math.h"
+#include "esi_ho_files.h"
+#include "esi_gl_project.h"
+#include <ctype.h>
+
+/*                                                                                  */
+/*                                                                                  */
+/*LD_ATS_TOPO is a program which loads the TOPO DB with ATS info.                   */
+/*                                                                                  */
+/*It was built from pieces of three existing programs:                              */
+/*                                                                                  */
+/*    ATS_ARCS.PC                                                                   */
+/*    ATS_NODES.PC                                                                  */
+/*    LD_GII_TOPO.PC                                                                */
+/*                                                                                  */
+/*which were written by John Gillespie in December 1989.                            */
+/*                                                                                  */
+/*Fragments taken from those three were stitched together (frankenstein-style),     */
+/*with generous amounts of new code/comments, to produce this ATS-loading           */
+/*incarnation by Robb Hall on 23 April 1990.                                        */
+/*                                                                                  */
+/*                                                                                  */
+
+EXEC ORACLE OPTION (REBIND = NO);
+
+EXEC SQL BEGIN DECLARE SECTION;
+
+privatedef VARCHAR stmt[1024];
+privatedef VARCHAR data_type[20];
+privatedef VARCHAR name[84];
+privatedef  long int arc_id;
+privatedef  long int side;
+privatedef  long int lynx_id;
+privatedef  long int last_node;
+privatedef  long int this_node;
+privatedef  char survey_system;
+privatedef varchar source[10];
+privatedef varchar twp[10];
+privatedef varchar rng[10];
+privatedef varchar twp_ns[10];
+privatedef varchar rng_ew[10];
+privatedef varchar section[10];
+privatedef varchar meridian[10];
+privatedef varchar section_name[30];
+privatedef  double x, x1, x2;
+privatedef  double y, y1, y2;
+privatedef  double x_min, x_max;
+privatedef  double y_min, y_max;
+
+EXEC SQL END DECLARE SECTION;
+
+privatedef PROJECT_NAME project;
+privatedef  double tolerance = 0.000005;
+privatedef  double NULL_VALUE = -360.0;
+
+privatedef  int nskip = 0;
+privatedef  int nrejected = 0;
+privatedef  int ndrecords = 0;
+privatedef  int nhrecords = 0;
+privatedef  long int last_header_seek = 0l;
+
+privatedef PROJECTION_STRUCTURE *external_projection, *project_projection;
+privatedef BOOL convert;
+
+privatedef FILE *ats_file;
+privatedef FILE *discard_file;
+privatedef FILENAME discard_filename = "ats.discard";
+privatedef  char inline [256];
+
+
+#define NULL_VALUE_FOUND 100
+
+#if USE_PROTOTYPES
+privatedef INT info_exit (char *program_name);
+privatedef INT error_exit (char *program_name);
+privatedef INT normal_exit (char *program_name);
+privatedef INT process_arc (char *program_name);
+privatedef INT check_sql_error (char *spot, char *program_name);
+privatedef INT write_discards (void);
+privatedef BOOL report_sql_error (char *tag);
+
+#else
+privatedef INT info_exit ();
+privatedef INT error_exit ();
+privatedef INT normal_exit ();
+privatedef INT process_arc ();
+privatedef INT check_sql_error ();
+privatedef INT write_discards ();
+privatedef BOOL report_sql_error ();
+
+#endif
+
+/************************************************************************************/
+
+int main (argc, argv)
+int argc;
+char **argv;
+
+    {                               /* LD_ATS_TOPO start                            */
+    INT ii, i, j;
+    DOUBLE x, y;
+    INT status;
+    char *loop_status;
+    BOOL first_section = TRUE;
+    long int first_node, node_id, last_seek;
+    PROJECT_DEFAULT *project_default;   /* project default workspace ptr            */
+    char *cp, t, corner[5], cbuff[32];
+    privatedef PROJECTION_ID external_projection_id = "GEODETIC";
+    
+    printf ("\n");
+    
+    /* initialize the min/max accumulators                                          */
+    
+    x_min = y_min = HUGE_VAL;
+    x_max = y_max = 0.0;
+    
+    /* thee lack ov arguments generates an informative message                      */
+    
+    if (argc < 4)
+        {
+        info_exit (argv[0]);
+        }
+    /* inspect the command line arguments                                           */
+    
+    for (i = 4; i < argc; i++)
+        {
+        ts_sto_lower (argv[i]);
+        if (ARE_SAME (argv[i], "-skip"))
+            {
+            if (i + 1 > argc)
+                {
+                info_exit (argv[0]);
+                }
+            nskip = atoi (argv[i + 1]);
+            if (nskip < 0)
+                {
+                info_exit (argv[0]);
+                }
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-tolerance"))
+            {
+            if (i + 1 > argc)
+                {
+                info_exit (argv[0]);
+                }
+            tolerance = atof (argv[i + 1]);
+            if (tolerance < 0)
+                {
+                info_exit (argv[0]);
+                }
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-discard"))
+            {
+            if (i + 1 > argc)
+                {
+                info_exit (argv[0]);
+                }
+            strcpy (discard_filename, (argv[i + 1]));
+            i++;
+            }
+        else
+            {
+            info_exit (argv[0]);
+            }
+        }
+    /* open the input file; or exit, if any failure                                 */
+    
+    ats_file = ho_open (argv[3], "r", NULL);
+    if (ats_file == NULL_FILE_PTR)
+        {
+        fprintf (stderr, "Unable to open input file '%s' - aborting.\n", argv[3]);
+        return EXIT_FAILURE;
+        }
+    printf ("Input file '%s' open.\n", argv[3]);
+    
+    /* open the discard file; or exit, if any failure                               */
+    
+    discard_file = ho_open (discard_filename, "w", NULL);
+    if (discard_file == NULL_FILE_PTR)
+        {
+        fprintf (stderr, "Unable to open discard file '%s' - aborting.\n",
+                 discard_filename);
+        return EXIT_FAILURE;
+        }
+    printf ("Discard file '%s' open.\n", discard_filename);
+    
+    /* login to oracle                                                              */
+    
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    
+    status = or_login (argc, argv);
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+        fprintf (stderr, "Unable to log into ORACLE database.\n");
+        return EXIT_FAILURE;
+        }
+    printf ("Logged into Oracle database.\n");
+    
+    /* select a project                                                             */
+    
+    am_initialize ();
+    strcpy (project, argv[2]);
+    qs_set_c (QS_PROJECT_NAME, project, 0);
+    status = finder_config_project (TRUE);
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+        printf ("Unable to configure the project \"%s\" - aborting.\n", project);
+        error_exit (argv[0]);
+        }
+    printf ("Project '%s' configured.\n", project);
+    
+    /* prepare the various SQL statements                                           */
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT LYNX_ID INTO :lynx_id   \
+                  FROM %s.LYNX_CULTURE WHERE NAME = :section_name"
+            , project);
+    EXEC SQL PREPARE S1 FROM :stmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    check_sql_error ("preparing S1", argv[0]);
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"INSERT INTO %s.LYNX_CULTURE (LYNX_ID, DATA_TYPE, NAME, LAST_UPDATE) \
+ VALUES (ESI.LYNX_ID_SEQ.NEXTVAL, :data_type, :section_name, SYSDATE)"
+            , project);
+    EXEC SQL PREPARE S2 FROM :stmt;
+    check_sql_error ("preparing S2", argv[0]);
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"INSERT INTO %s.SECTIONS (LYNX_ID, SURVEY_SYSTEM, \
+     MERIDIAN, TOWNSHIP, TOWNSHIP_DIR, RANGE, RANGE_DIR, \
+     SECTION, SOURCE)  \
+ VALUES (:lynx_id, :survey_system, :meridian, :twp, \
+         :twp_ns, :rng, :rng_ew, :section, 'ATS_LOADER')"
+            , project);
+    EXEC SQL PREPARE S3 FROM :stmt;
+    check_sql_error ("preparing S3", argv[0]);
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"UPDATE %s.LYNX_CULTURE            \
+ SET MINX = :x_min, MAXX = :x_max, \
+     MINY = :y_min, MAXY = :y_max  \
+ WHERE LYNX_ID = :lynx_id"
+            , project);
+    EXEC SQL PREPARE S4 FROM :stmt;
+    check_sql_error ("preparing S4", argv[0]);
+    
+    printf ("SQL statements prepared.\n");
+    
+    /* Determine whether coordinate transformations are required                    */
+    /* If they are different, then query for the projection parameters              */
+    
+    status = am_open_workspace ("PROJECT_DEFAULTS", AM_GLOBAL,
+                                (VOIDPTR)&project_default);
+    
+    convert = ARE_DIFFERENT (external_projection_id, project_default->projection);
+    
+    if (convert)
+        {
+        if ((status = ct_get_projection (external_projection_id,
+                                         &external_projection)))
+            {
+            printf ("Unable to define input cartographic projection %s:\n\%s\n",
+                    external_projection_id, mg_message (status));
+            error_exit (argv[0]);
+            }
+        if ((status = ct_get_projection (project_default->projection,
+                                         &project_projection)))
+            {
+            printf ("Unable to define output cartographic projection %s:\n\%s\n",
+                    project_default->projection, mg_message (status));
+            error_exit (argv[0]);
+            }
+        }
+    printf ("Projection conversions defined.\n");
+    
+    /* Skip the requested number of records, if necessary                           */
+    
+    if (nskip > 0)
+        {
+        printf ("Skipping %d input records ...", nskip);
+        for (i = 0; i < nskip; i++)
+            {
+            if (fgets (inline , sizeof inline , ats_file) == 0)
+                {
+                printf ("End of file detected after reading %d records - aborting\n",
+                        i + 1);
+                error_exit (argv[0]);
+                }
+            if ((i % 500) EQUALS 0)
+                {
+                printf (".");
+                }
+            }
+        printf (" done.\n");
+        }
+    /* make sure there's a LYNX_DATA_TYPE entry for SECTIONS                        */
+    
+    status = ly_create_data_type ("SECTIONS", "");
+    
+    if (status == SUCCESS)
+        {
+        status = ly_set_dtype_gc ("SECTIONS", LYNX_ARC_CLASS, -1, "BLUE");
+        }
+    else
+        {
+        fprintf (stderr, "\nError while creating LYNX_DATA_TYPE (status = %d)\n",
+                 status);
+        error_exit (argv[0]);
+        }
+    /* begin main processing loop                                                   */
+    
+    survey_system = 'D';            /* ATS data is always DOMINION survey system    */
+    
+    strcpy ((char *)data_type.arr, "SECTIONS"); /* and always SECTIONS              */
+    data_type.len = strlen ((char *)data_type.arr);
+    
+    printf ("\n");
+    
+    do                              /* process all records contained in the ATS input file  */
+        {
+        last_seek = ftell (ats_file);
+        loop_status = fgets (inline , sizeof inline , ats_file);
+        
+        if (inline [0] == 'H')
+            {                       /* process a header-type record                 */
+            printf ("\rprocessing header record #%d  ", nhrecords++);
+            
+            /* remember the location of this section's header                       */
+            
+            last_header_seek = last_seek;
+            
+            /* close arcs for previous section, if this ain't thee first            */
+            
+            if (!first_section)     /* skip this stuff for 1st one                  */
+                {
+                /* new section encountered - close section                          */
+                /*     by joining the first and last nodes                          */
+                
+                this_node = first_node;
+                process_arc (argv[0]);
+                
+                /* restart thee minimum/maximum accumulators                        */
+                
+                x_min = y_min = HUGE_VAL;
+                x_max = y_max = 0.0;
+                
+                /* this section's done, commit the insertions                       */
+                
+                EXEC SQL COMMIT WORK;
+                check_sql_error ("committing current section", argv[0]);
+                }
+            /* crack thee incoming header record                                    */
+            
+            sscanf (inline , "%*3s%2s%5[0123456789 ]%1[NnSs]%5[0123456789 ]%1[WwEe]%s",
+                    meridian.arr, twp.arr, twp_ns.arr, rng.arr, rng_ew.arr,
+                    section.arr);
+            
+            /* assign LENs for all the incoming VARCHARs                            */
+            
+            meridian.len = strlen ((char *)meridian.arr);
+            twp.len = strlen ((char *)twp.arr);
+            rng.len = strlen ((char *)rng.arr);
+            twp_ns.len = strlen ((char *)twp_ns.arr);
+            rng_ew.len = strlen ((char *)rng_ew.arr);
+            section.len = strlen ((char *)section.arr);
+            
+            /* prepare section/township name from the various pieces                */
+            
+            strcpy ((char *)section_name.arr, (char *)meridian.arr);
+            strcat ((char *)section_name.arr, ":T");
+            strcat ((char *)section_name.arr, (char *)twp.arr);
+            strcat ((char *)section_name.arr, (char *)twp_ns.arr);
+            strcat ((char *)section_name.arr, "R");
+            strcat ((char *)section_name.arr, (char *)rng.arr);
+            strcat ((char *)section_name.arr, (char *)rng_ew.arr);
+            strcat ((char *)section_name.arr, (char *)section.arr);
+            section_name.len = strlen ((char *)section_name.arr);
+            
+            /* locate LYNX_CULTURE table entry for this section/township            */
+            
+            EXEC SQL OPEN C1 USING :section_name;
+            EXEC SQL FETCH C1 INTO :lynx_id;
+            
+            /* if unable to locate a LYNX_CULTURE entry with this name,             */
+            /* insert entries into LYNX_CULTURE and into SECTIONS; that             */
+            /* is, create a LYNX_CULTURE, a SECTION, and a TOWNSHIP                 */
+            
+            if (OR_STATUS)          /* check for SELECT failure                     */
+                {
+                EXEC SQL EXECUTE S2 USING :data_type, :section_name;
+                check_sql_error ("creating a new LYNX_CULTURE", argv[0]);
+                
+                EXEC SQL SELECT ESI.LYNX_ID_SEQ.CURRVAL
+                               INTO :lynx_id FROM DUAL;
+                check_sql_error ("selecting the new LYNX_ID", argv[0]);
+                
+                EXEC SQL EXECUTE S3 USING :lynx_id, :survey_system, 
+                                         :meridian, :twp, :twp_ns, 
+                                         :rng, :rng_ew, :section;
+                check_sql_error ("creating a new section", argv[0]);
+                }
+            /* now we'll be past thee first header record                           */
+            
+            first_section = FALSE;
+            }
+        /* header-type record processing is over                                    */
+        
+        else if (inline [0] == 'D' && inline [1] != 'P')
+            {                       /* process an ending data-type record           */
+            ndrecords++;
+            
+            /* crack thee data record                                               */
+            t = ' ';
+            sscanf (inline , "%s%9lf%11lf%c", corner, &y, &x, &t);
+            
+            /* perform the coordinate transformations                               */
+            
+            if (convert)
+                {
+                status = ct_transform_point (x, y, external_projection, &x, &y,
+                                             project_projection);
+                if (status != SUCCESS)
+                    {
+                    fprintf (stderr,
+                             "\nError while transforming coordinate (status = %d)\n",
+                             status);
+                    error_exit (argv[0]);
+                    }
+                }
+            /* maintain min/max values                                              */
+            
+            if (x < x_min)
+                x_min = x;
+            if (x < y_min)
+                y_min = y;
+            if (x < x_max)
+                x_max = x;
+            if (x < y_max)
+                y_max = y;
+            
+            /* add it to the tables, if not already there                           */
+            
+            status = ly_process_node (x, y, tolerance, (NODE_ID *)&node_id);
+            
+            if (status != SUCCESS)
+                {
+                fprintf (stderr, "\nError while processing node (status = %d)\n",
+                         status);
+                error_exit (argv[0]);
+                }
+            if (first_section)
+                {
+                first_node = node_id;
+                first_section = FALSE;
+                }
+            else
+                {
+                process_arc (argv[0]);
+                }
+            /* update the MIN/MAX values in the LYNX_CULTURE table                  */
+            
+            EXEC SQL EXECUTE S4 USING :x_min, :x_max, :y_min, :y_max,
+                                     :lynx_id;
+            check_sql_error ("updating LYNX_CULTURE XY MIN/MAX", argv[0]);
+            
+            last_node = node_id;
+            }
+        /* ending data-type record processing is over                               */
+        
+        else if (inline [0] == 'D')
+            {                       /* process a regular data-type record           */
+            ndrecords++;
+            
+            /* crack thee data record                                               */
+            t = ' ';
+            sscanf (inline , "%s%9lf%11lf%c", corner, &y, &x, &t);
+            
+            /* maintain min/max values                                              */
+            
+            if (x < x_min)
+                x_min = x;
+            if (x < y_min)
+                y_min = y;
+            if (x < x_max)
+                x_max = x;
+            if (x < y_max)
+                y_max = y;
+            
+            /* add it to the tables, if not already there                           */
+            
+            status = ly_process_node (x, y, tolerance, (NODE_ID *)&node_id);
+            last_node = node_id;
+            }
+        /* regular data-type record processing is over                              */
+        }
+    /* main DO-WHILE processing loop's end                                          */
+    while (loop_status != NULL);
+    printf ("\n");
+    
+    /* input file has been exhausted ... do one last commit                         */
+    /* (with a RELEASE to logoff thee ORACLE database).                             */
+    
+    EXEC SQL COMMIT WORK RELEASE;
+    /* commit the new table entries                                                 */
+    check_sql_error ("final COMMIT and RELEASE", argv[0]);
+    
+    /* inform the (ab)user about what happened                                      */
+    
+    printf ("\n%s completion summary:\n\n", argv[0]);
+    printf ("   number of data records:     %7d\n", ndrecords);
+    printf ("   number of header records:   %7d\n", nhrecords);
+    printf ("   number of records skipped:  %7d\n", nskip);
+    printf ("   number of records rejected: %7d\n", nrejected);
+    printf ("   total # of records in file: %7d\n\n", nhrecords + ndrecords + nskip);
+    
+    /* that's all folks                                                             */
+    
+    normal_exit (argv[0]);
+    }   /* LD_ATS_TOPO end                                                          */
+
+/************************************************************************************/
+
+privatedef INT process_arc (char *program_name)
+    {                               /* PROCESS_ARC start                            */
+    privatedef BOOL virgin = TRUE;
+    
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    side = -1;
+    
+    /* prepare the statements for this function                                     */
+    
+    if (virgin)
+        {
+        virgin = FALSE;             /* now this function's been called upon         */
+        
+        stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT ARC_ID INTO :arc_id FROM %s.LYNX_IFV  \
+WHERE INIT_NODE = :last_node AND FINAL_NODE = :this_node"
+                , project);
+        EXEC SQL PREPARE S6 FROM :stmt;
+        EXEC SQL DECLARE C6 CURSOR FOR S6;
+        check_sql_error ("preparing S6", program_name);
+        
+        stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT ARC_ID INTO :arc_id FROM %s.LYNX_IFV \
+WHERE FINAL_NODE = :last_node AND INIT_NODE = :this_node"
+                , project);
+        EXEC SQL PREPARE S7 FROM :stmt;
+        EXEC SQL DECLARE C7 CURSOR FOR S7;
+        check_sql_error ("preparing S7", program_name);
+        
+        stmt.len = sprintf ((char *)stmt.arr, 
+"INSERT INTO %s.LYNX_IFV (ARC_ID, INIT_NODE, FINAL_NODE) \
+VALUES (ESI.LYNX_ID_SEQ.NEXTVAL, :last_node, :this_node)"
+                , project);
+        EXEC SQL PREPARE S8 FROM :stmt;
+        check_sql_error ("preparing S8", program_name);
+        
+        stmt.len = sprintf ((char *)stmt.arr, 
+"INSERT INTO %s.LYNX_LRFR (LYNX_PART, LYNX_ID, SIDE_DIREC) \
+VALUES (:arc_id, :lynx_id, :side)"
+                , project);
+        EXEC SQL PREPARE S9 FROM :stmt;
+        check_sql_error ("preparing S9", program_name);
+        }
+    /* See if this arc has been entered                                             */
+    
+    EXEC SQL OPEN C6 USING :last_node, :this_node;
+    EXEC SQL FETCH C6 INTO :arc_id;
+    check_sql_error ("selecting ARC_ID", program_name);
+    
+    if (OR_STATUS == 0)
+        {
+        side = 1;
+        }
+    else
+        {
+        EXEC SQL OPEN C7 USING :last_node,  :this_node;
+        EXEC SQL FETCH C7 INTO :arc_id;
+        check_sql_error ("selecting ARC_ID", program_name);
+        
+        if (OR_STATUS == 0)
+            {
+            side = 0;
+            }
+        }
+    if (side == -1)
+        {
+        /* Insert this new arc into database - thee convention is                   */
+        /* that the direction is 1 if the arc is traversed from                     */
+        /* INIT_NODE to FINAL_NODE                                                  */
+        
+        EXEC SQL EXECUTE S8 USING :last_node, :this_node;
+        check_sql_error ("inserting into IFV", program_name);
+        
+        EXEC SQL SELECT ESI.LYNX_ID_SEQ.CURRVAL INTO :arc_id FROM DUAL;
+        check_sql_error ("selecting the new ARC_ID", program_name);
+        
+        EXEC SQL EXECUTE S9 USING :arc_id, :lynx_id, :side;
+        check_sql_error ("inserting into LRFR", program_name);
+        
+        side = 1;
+        }
+    return SUCCESS;
+    }   /* PROCESS_ARC end                                                          */
+
+/************************************************************************************/
+
+/* Copy the current input record out to the discard file, something                 */
+/* was wrong with it (enough to cause a SQL error).                                 */
+
+privatedef INT write_discards ()
+    {                               /* WRITE_DISCARDS start                         */
+    INT status = 0;
+    BOOL loop_status = TRUE;
+    
+    /* seek the file position of the last header                                    */
+    
+    status = fseek (ats_file, last_header_seek, SEEK_SET);
+    
+    /* move forward, discarding records until the next DP type                      */
+    /* record (that marks the end of the faulty section)                            */
+    
+    do
+        {
+        /* copy records from input file to discard file                             */
+        
+        fgets (inline , sizeof inline , ats_file);  /*  in                          */
+        fputs (inline , discard_file);  /* out                                      */
+        
+        nrejected++;                /* another one rides thee bus                   */
+        
+        if ((inline [0] == 'D') && (inline [1] == 'P'))
+            loop_status = FALSE;    /* thee end is here                             */
+        } while (loop_status);
+    
+    return SUCCESS;
+    }   /* WRITE_DISCARDS end                                                       */
+
+/************************************************************************************/
+
+/* check the status of the previous SQL operation, and take action                  */
+/* if an error occurred (that may include exitting this program)                    */
+
+privatedef INT check_sql_error (char *spot, char *program_name)
+    {                               /* CHECK_SQL_ERROR start                        */
+    INT status = SUCCESS;
+    
+    if (OR_STATUS < 0l)
+        {
+        /* issue an ORACLE complaint, then discard this section                     */
+        
+        status = report_sql_error (spot);
+        write_discards ();
+        
+        /* if the (ab)user aborted (i.e. hit a control-C), exit now                 */
+        
+        if (OR_STATUS == OR_ABORT)
+            error_exit (program_name);
+        }
+    return status;
+    }   /* CHECK_SQL_ERROR end                                                      */
+
+/************************************************************************************/
+
+/* issue an appropriate (hopefully) ORACLE error message;                           */
+/* REPORT_SQL_ERROR returns TRUE if (ab)user hit Control-C                          */
+
+privatedef BOOL report_sql_error (tag)
+char *tag;
+
+    {
+    printf ("\n%s: Oracle error %d encountered:\n\%-70.70s\n", tag, OR_STATUS,
+            OR_MESSAGE);
+    
+    return(OR_STATUS EQUALS OR_ABORT);
+    }
+
+/************************************************************************************/
+
+/* this is the un-informed (ab)user way out                                         */
+
+privatedef INT info_exit (char *program_name)
+    {                               /* INFO_EXIT start                              */
+    printf (
+"\n\nusage: %s <name/password> <project> <infile> [-discard <filename>]\n\
+                                   [-skip n] [-tolerance value]\n\n\
+    -skip <n>           allows you to skip n records before loading begins\n\
+                        (Default: 0)\n\n\
+    -discard <filename> allows you to specify a particular discard file's name\n\
+                        (Default: ATS.DISCARD)\n\n\
+    -tolerance <value>  allows the snapping tolerance to be defined for nodes:\n\
+                        any nodes within +/- tolerance in both x and y in the\n\
+                        project projection units are considered to be the same\n\
+                        (Default: 25)\n\n\n"
+            , program_name);
+    
+    exit (EXIT_FAILURE);
+    }   /* INFO_EXIT end                                                            */
+
+/************************************************************************************/
+
+/* this is the failure way out                                                      */
+
+privatedef INT error_exit (char *program_name)
+    {                               /* ERROR_EXIT start                             */
+    printf ("%s has aborted due to an ERROR.\n\n", program_name);
+    
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL ROLLBACK WORK;
+    
+    fclose (ats_file);              /* close thee input file                        */
+    or_logout (TRUE);               /* log-out from ORACLE                          */
+    
+    exit (EXIT_FAILURE);            /* return FAILURE signal to system              */
+    }   /* ERROR_EXIT end                                                           */
+
+/************************************************************************************/
+
+/* this is the successful way out                                                   */
+
+privatedef INT normal_exit (char *program_name)
+    {                               /* NORMAL_EXIT start                            */
+    printf ("%s has finished successfully.\n\n", program_name);
+    
+    fclose (ats_file);              /* close thee input file                        */
+    or_logout (TRUE);               /* log-out from ORACLE                          */
+    exit (EXIT_SUCCESS);            /* return SUCCESS signal to system              */
+    }   /* NORMAL_EXIT end                                                          */
+
+/************************************************************************************/

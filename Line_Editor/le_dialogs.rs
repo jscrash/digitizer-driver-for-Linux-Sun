@@ -1,0 +1,390 @@
+*UX
+*T CDLG
+,128
+*N DIALOG_LEPKM
+*S PR 0 PU 1
+45 5 710 315
+Line Editor Puck Key Menu
+32
+*I ITEM_LEPKM_BUTTON_1
+BtnItem Disabled
+20 20 45 40
+1
+
+*I ITEM_LEPKM_BUTTON_2
+BtnItem Disabled
+80 20 105 40
+2
+
+*I ITEM_LEPKM_BUTTON_3
+BtnItem Disabled
+140 20 165 40
+3
+
+*I ITEM_LEPKM_BUTTON_4
+BtnItem Disabled
+200 20 225 40
+4
+
+*I ITEM_LEPKM_BUTTON_5
+BtnItem Disabled
+260 20 285 40
+5
+
+*I ITEM_LEPKM_BUTTON_6
+BtnItem Disabled
+320 20 345 40
+6
+
+*I ITEM_LEPKM_BUTTON_7
+BtnItem Disabled
+380 20 405 40
+7
+
+*I ITEM_LEPKM_BUTTON_8
+BtnItem Disabled
+440 20 465 40
+8
+
+*I ITEM_LEPKM_BUTTON_9
+BtnItem Disabled
+500 20 525 40
+9
+
+*I ITEM_LEPKM_STATIC_1
+StatText Disabled
+50 20 70 145
+(1)
+
+*I ITEM_LEPKM_STATIC_2
+StatText Disabled
+110 20 130 145
+(2)
+
+*I ITEM_LEPKM_STATIC_3
+StatText Disabled
+170 20 190 145
+(3)
+
+*I ITEM_LEPKM_STATIC_4
+StatText Disabled
+230 20 250 145
+(4)
+
+*I ITEM_LEPKM_STATIC_5
+StatText Disabled
+290 20 310 145
+(5)
+
+*I ITEM_LEPKM_STATIC_6
+StatText Disabled
+350 20 370 145
+(6)
+
+*I ITEM_LEPKM_STATIC_7
+StatText Disabled
+410 20 430 145
+(7)
+
+*I ITEM_LEPKM_STATIC_8
+StatText Disabled
+470 20 490 145
+(8)
+
+*I ITEM_LEPKM_STATIC_9
+StatText Disabled
+530 20 550 145
+(9)
+
+*I ITEM_LEPKM_PROMPT
+StatText Disabled
+560 5 600 270
+(prompt)
+
+*I ITEM_LEPKM_ERROR
+StatText Disabled
+605 5 645 270
+(error)
+
+*I ITEM_LEPKM_BUTTON_A
+BtnItem Disabled
+20 150 45 170
+A
+
+*I ITEM_LEPKM_BUTTON_B
+BtnItem Disabled
+80 150 105 170
+B
+
+*I ITEM_LEPKM_BUTTON_C
+BtnItem Disabled
+140 150 165 170
+C
+
+*I ITEM_LEPKM_BUTTON_D
+BtnItem Disabled
+200 150 225 170
+D
+
+*I ITEM_LEPKM_BUTTON_E
+BtnItem Disabled
+260 150 285 170
+E
+
+*I ITEM_LEPKM_BUTTON_F
+BtnItem Disabled
+320 150 345 170
+F
+
+*I ITEM_LEPKM_STATIC_A
+StatText Disabled
+50 150 70 275
+(A)
+
+*I ITEM_LEPKM_STATIC_B
+StatText Disabled
+110 150 130 275
+(B)
+
+*I ITEM_LEPKM_STATIC_C
+StatText Disabled
+170 150 190 275
+(C)
+
+*I ITEM_LEPKM_STATIC_D
+StatText Disabled
+230 150 250 275
+(D)
+
+*I ITEM_LEPKM_STATIC_E
+StatText Disabled
+290 150 310 275
+(E)
+
+*I ITEM_LEPKM_STATIC_F
+StatText Disabled
+350 150 370 275
+(F)
+
+,129
+*N DIALOG_LEPD
+*S PR 0 PU 1
+100 100 280 320 
+Nlist Editor Preference
+4
+*I ITEM_LEPD_MSG
+StatText Enabled
+5 20 30 120 
+Input Device:
+
+*I RBT_LEPD_MOUSE
+RadioItem Enabled
+40 40 65 184 
+VAXStation Mouse
+
+*I RBT_LEPD_TABLET
+RadioItem Enabled
+65 40 90 167 
+Tablet Digitizer
+
+*I BTN_LEPD_OK
+BtnItem Enabled
+130 50 155 150 
+OK
+
+
+*UM
+*T CDLG
+,128
+*N DIALOG_LEPKM
+*S PR 0 PU 1
+45 40 335 465
+Line Editor Puck Key Menu
+32
+*I ITEM_LEPKM_BUTTON_1
+BtnItem Disabled
+5 110 27 135
+1
+
+*I ITEM_LEPKM_BUTTON_2
+BtnItem Disabled
+5 215 27 240
+2
+
+*I ITEM_LEPKM_BUTTON_3
+BtnItem Disabled
+5 320 27 345
+3
+
+*I ITEM_LEPKM_BUTTON_4
+BtnItem Disabled
+65 5 87 30
+4
+
+*I ITEM_LEPKM_BUTTON_5
+BtnItem Disabled
+65 110 87 135
+5
+
+*I ITEM_LEPKM_BUTTON_6
+BtnItem Disabled
+65 215 87 240
+6
+
+*I ITEM_LEPKM_BUTTON_7
+BtnItem Disabled
+65 320 87 345
+7
+
+*I ITEM_LEPKM_BUTTON_8
+BtnItem Disabled
+125 5 147 30
+8
+
+*I ITEM_LEPKM_BUTTON_9
+BtnItem Disabled
+125 110 147 135
+9
+
+*I ITEM_LEPKM_STATIC_1
+StatText Disabled
+30 110 61 210
+(1)
+
+*I ITEM_LEPKM_STATIC_2
+StatText Disabled
+30 215 61 315
+(2)
+
+*I ITEM_LEPKM_STATIC_3
+StatText Disabled
+30 320 61 420
+(3)
+
+*I ITEM_LEPKM_STATIC_4
+StatText Disabled
+90 5 121 105
+(4)
+
+*I ITEM_LEPKM_STATIC_5
+StatText Disabled
+90 110 121 210
+(5)
+
+*I ITEM_LEPKM_STATIC_6
+StatText Disabled
+90 215 121 315
+(6)
+
+*I ITEM_LEPKM_STATIC_7
+StatText Disabled
+90 320 121 420
+(7)
+
+*I ITEM_LEPKM_STATIC_8
+StatText Disabled
+150 5 181 105
+(8)
+
+*I ITEM_LEPKM_STATIC_9
+StatText Disabled
+150 110 181 210
+(9)
+
+*I ITEM_LEPKM_PROMPT
+StatText Disabled
+250 5 266 420
+(prompt)
+
+*I ITEM_LEPKM_ERROR
+StatText Disabled
+270 5 286 420
+(error)
+
+*I ITEM_LEPKM_BUTTON_A
+BtnItem Disabled
+125 215 147 240
+A
+
+*I ITEM_LEPKM_BUTTON_B
+BtnItem Disabled
+125 320 147 345
+B
+
+*I ITEM_LEPKM_BUTTON_C
+BtnItem Disabled
+185 5 207 30
+C
+
+*I ITEM_LEPKM_BUTTON_D
+BtnItem Disabled
+185 110 207 135
+D
+
+*I ITEM_LEPKM_BUTTON_E
+BtnItem Disabled
+185 215 207 240
+E
+
+*I ITEM_LEPKM_BUTTON_F
+BtnItem Disabled
+185 320 207 345
+F
+
+*I ITEM_LEPKM_STATIC_A
+StatText Disabled
+150 215 181 315
+(A)
+
+*I ITEM_LEPKM_STATIC_B
+StatText Disabled
+150 320 181 420
+(B)
+
+*I ITEM_LEPKM_STATIC_C
+StatText Disabled
+210 5 241 105
+(C)
+
+*I ITEM_LEPKM_STATIC_D
+StatText Disabled
+210 110 241 210
+(D)
+
+*I ITEM_LEPKM_STATIC_E
+StatText Disabled
+210 215 241 315
+(E)
+
+*I ITEM_LEPKM_STATIC_F
+StatText Disabled
+210 320 241 420
+(F)
+
+,129
+*N DIALOG_LEPD
+*S PR 0 PU 1
+100 100 250 400 
+Nlist Editor Preference
+4
+*I ITEM_LEPD_MSG
+StatText Enabled
+10 20 26 120 
+Input Device:
+
+*I RBT_LEPD_MOUSE
+RadioItem Enabled
+36 40 52 184 
+VAXStation Mouse
+
+*I RBT_LEPD_TABLET
+RadioItem Enabled
+57 40 73 167 
+Tablet Digitizer
+
+*I BTN_LEPD_OK
+BtnItem Enabled
+103 100 137 200 
+OK
+
+

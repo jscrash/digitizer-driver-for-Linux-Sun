@@ -1,0 +1,1057 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_NODES.PC */
+/*  7     6-MAR-1992 10:59:27 CHEW "(SPR 58876064) Fixed bugs to update well_hdr and to set well deviation flag correctly." */
+/* *6    26-OCT-1990 13:49:59 GILLESPIE "(SPR 33)  New Lynx 3d changes" */
+/* *5     1-MAY-1990 15:21:42 WALTERS "(SPR 0) Added ts_snowhite to the macro MOVE to remove trailing blanks" */
+/* *4     1-MAY-1990 12:40:49 WALTERS "(SPR 0) Remove PRIMARY_SOURCE from the WHERE clause of UPDATE WELL_HDR" */
+/* *3     6-APR-1990 11:08:07 WALTERS "(SPR 0) Add bottom hole functionality to loader" */
+/* *2    22-MAR-1990 17:08:31 WALTERS "(SPR 0) Initial release of nodes loader" */
+/* *1    22-MAR-1990 17:07:22 WALTERS "Nodes loader" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_NODES.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1990                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+#include "esi_c_lib.h"
+#include "esi_gl_top.h"
+
+#ifndef ESI_FI_H
+
+#include "esi_fi.h"
+
+#endif
+
+#ifndef ESI_AM_H
+
+#include "esi_am.h"
+
+#endif
+
+#ifndef ESI_CT_H
+
+#include "esi_ct.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+
+#ifndef ESI_MG_H
+
+#include "esi_mg.h"
+
+#endif
+
+#ifndef ESI_HO_FILES_H
+
+#include "esi_ho_files.h"
+
+#endif
+
+#ifndef ESI_GL_PROJECT_H
+
+#include "esi_gl_project.h"
+
+#endif
+
+#include "math.h"
+#include <ctype.h>
+#include "esi_time.h"
+
+/* Program loads specified nodes table with nodes info                              */
+/*                                                                                  */
+/*March 1990                                                                        */
+/*                                                                                  */
+/*                                                                                  */
+
+/* --------------------------------------------------------------------             */
+/*                                                                                  */
+/* PROGRAM: ld_nodes  Loads node locations and uwi into a node and                  */
+/*            well table.                                                           */
+/*                                                                                  */
+/* This program accepts the following options on the command line:                  */
+/*                                                                                  */
+/*  Option          Type     Description          Default                           */
+/*  ------------        -------  -----------------------  -----------               */
+/*  -skip           int  Skip n records       0                                     */
+/*  -discard            file     Name of discard file     ld_nodes.dis              */
+/*  -uwi_start          int  Beginning uwi column     1                             */
+/*  -uwi_end            int  Ending uwi column    20                                */
+/*  -x_start            int  Beginning x column   21                                */
+/*  -x_end          int  Ending x column      30                                    */
+/*  -y_start            int  Beginning y column   31                                */
+/*  -y_end          int  Ending y column      40                                    */
+/*  -bx_start       int  Beginning base x column   0                                */
+/*  -bx_end     int      Ending base x column      0                                */
+/*  -by_start       int      Beginning base y column   0                            */
+/*  -by_end     int  Ending base y column      0                                    */
+/*  -x_factor           dbl  Multiply x by        1.0                               */
+/*  -y_factor           dbl  Multiply y by        1.0                               */
+/*  -target_projection  string   Transform to         proj project                  */
+/*  -nodes_table    string   Store nodes in       nodes                             */
+/*  -well_table     string   Store well in        well_hdr                          */
+/*  -source     string   Primary source       user name                             */
+/*  -tolerence          dbl  Node creation tolerence  20                            */
+/*  -report     int  Report every n records   100                                   */
+/*  -no_replace     boolean  Don't update if TRUE     FALSE                         */
+/*                                                                                  */
+/* --------------------------------------------------------------------             */
+EXEC ORACLE OPTION (REBIND = NO);
+
+#define CONVERT(var,string,len) strncpy(cbuff,(char *)(string), len),\
+        cbuff[len] = 0,\
+        var = atof(cbuff)
+        
+#define MOVE(var,string,len) strncpy((char *)var.arr,(char *)(string), len),\
+    ts_snowhite((char *)var.arr),var.len = strlen ((char *)var.arr)
+
+/*                                                                                  */
+/*#define MOVE(var,string,len) strncpy((char *)var.arr,(char *)(string), len),\     */
+/*    var.len = len                                                                 */
+/*                                                                                  */
+
+EXEC SQL BEGIN DECLARE SECTION;
+privatedef VARCHAR stmt[512];
+privatedef VARCHAR source[20];
+privatedef  long int node_id;
+privatedef VARCHAR u_well_i[20];
+privatedef  double node_x;
+privatedef  double node_y;
+privatedef VARCHAR deviation_flag[2];
+privatedef  double base_delta_x, base_delta_y;
+privatedef  double top_delta_x, top_delta_y;
+EXEC SQL END DECLARE SECTION;
+
+typedef struct 
+    {
+    BOOL ignore_duplicates;         /* don't update records if TRUE def = FALSE     */
+    BOOL report;                    /* report progress if TRUE def = TRUE           */
+    INT nreport;                    /* report progress every n records def = 100    */
+    UINT nskip;                     /* skip n records def = 0.0                     */
+    DOUBLE tolerence;               /* node creation tolerence def = 20.0           */
+    struct                          /* multiply x and y by these numbers            */
+        {
+        DOUBLE x;                   /* default = 1.0                                */
+        DOUBLE y;                   /* default = 1.0                                */
+        } xy_factor;
+    struct                          /* use these ORACLE tables                      */
+        {
+        char nodes[30];             /* default = nodes                              */
+        char wells[30];             /* default = well_hdr                           */
+        } target_tables;
+    struct                          /* file definitions                             */
+        {
+        INT uwi_start;              /* def = 1                                      */
+        INT uwi_end;                /* def = 20                                     */
+        INT x_start;                /* def = 21                                     */
+        INT x_end;                  /* def = 30                                     */
+        INT y_start;                /* def = 31                                     */
+        INT y_end;                  /* def = 40                                     */
+        INT bx_start;               /* def =  0                                     */
+        INT bx_end;                 /* def =  0                                     */
+        INT by_start;               /* def =  0                                     */
+        INT by_end;                 /* def =  0                                     */
+        } file_template;
+    } OPTIONS;
+
+privatedef BOOL convert_projections = TRUE;
+privatedef BOOL use_nodes_table = TRUE;
+privatedef BOOL use_wells_table = TRUE;
+privatedef BOOL base_offsets_needed = FALSE;
+privatedef PROJECT_NAME project;
+privatedef PROJECTION_STRUCTURE *external_projection, *project_projection;
+
+/************************************************************************************/
+
+int main (argc, argv)
+int argc;
+char **argv;
+    {
+    int i, len;
+    INT status;
+    INT nignored = 0;
+    INT nrecords = 0;
+    INT nerrors = 0;
+    INT degr;
+    INT degr_slice;
+    BOOL invalid_header = FALSE;
+    char cbuff[1024];
+    char inline [2048];
+    char temp[20];
+    FILE *source_file;
+    FILE *discard_file;
+    time_t bin_time;
+    DOUBLE x, y;
+    DOUBLE base_x, base_y;
+    DOUBLE surface_latitude, surface_longitude;
+    DOUBLE bottom_latitude, bottom_longitude;
+    DOUBLE xt, yt, xb, yb, xp, yp;
+    DOUBLE theta;
+    OPTIONS options;
+    PROJECTION_ID source_projection_id;
+    PROJECTION_ID target_projection_id;
+    PROJECT_DEFAULT *project_default;
+    PROJECTION_STRUCTURE *source_projection;
+    PROJECTION_STRUCTURE *target_projection;
+    PROJECTION_STRUCTURE *geodetic_projection;
+    PROJECTION_STRUCTURE utm_projection;
+    
+    privatedef FILENAME discard_filename = "ld_nodes.discard";
+    
+    if (argc < 5)
+        {
+        goto info_exit;
+        }
+    EXEC SQL WHENEVER SQLERROR GOTO oops;
+    
+    source_file = ho_open (argv[3], "r", NULL);
+    if (source_file == (FILE *)0)
+        {
+        printf ("Bad file name [%s]\n", argv[3]);
+        return EXIT_FAILURE;
+        }
+    printf ("Opened file %s for reading.\n", argv[3]);
+    
+    status = or_login (argc, argv);
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+        return EXIT_FAILURE;
+        }
+    printf ("Successfully logged into Oracle database\n");
+    am_initialize ();
+    strcpy (project, argv[2]);
+    qs_set_c (QS_PROJECT_NAME, project, 0);
+    status = finder_config_project (TRUE);
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+        printf ("Unable to configure the project \"%s\" - aborting\n", project);
+        goto normal_exit;
+        }
+    strcpy (source_projection_id, ts_sto_upper (argv[4]));
+    
+    printf ("Completed configuration of project '%s'\n", project);
+    
+    /* Initialize default values                                                    */
+    
+    status = qs_inq_c (QS_FINDER_ACCOUNT, temp, &len);
+    V_FROMC (source, temp);
+    
+    options.nskip = 0;
+    options.nreport = 100;
+    options.report = TRUE;
+    options.ignore_duplicates = FALSE;
+    options.tolerence = 20.0;
+    strcpy (options.target_tables.nodes, "NODES");
+    strcpy (options.target_tables.wells, "WELL_HDR");
+    options.xy_factor.x = options.xy_factor.y = 1.0;
+    options.file_template.uwi_start = 1;
+    options.file_template.uwi_end = 20;
+    options.file_template.x_start = 21;
+    options.file_template.x_end = 30;
+    options.file_template.y_start = 31;
+    options.file_template.y_end = 40;
+    options.file_template.bx_start = 0;
+    options.file_template.bx_end = 0;
+    options.file_template.by_start = 0;
+    options.file_template.by_end = 0;
+    
+    status = am_open_workspace ("PROJECT_DEFAULTS", AM_GLOBAL,
+                                (VOIDPTR)&project_default);
+    strcpy (target_projection_id, project_default->projection);
+    
+    for (i = 5; i < argc; i++)
+        {
+        ts_sto_lower (argv[i]);
+        if (ARE_SAME (argv[i], "-skip"))
+            {
+            if (i + 1 > argc)
+                {
+                goto info_exit;
+                }
+            if (ts_isfloat (argv[i + 1]))
+                options.nskip = atoi (argv[i + 1]);
+            else
+                goto info_exit;
+            
+            if (options.nskip < 0)
+                {
+                goto info_exit;
+                }
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-discard"))
+            {
+            if (i + 1 > argc)
+                {
+                goto info_exit;
+                }
+            strcpy (discard_filename, ts_sto_upper ((argv[i + 1])));
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-uwi_start"))
+            {
+            if (i + 1 > argc)
+                {
+                goto info_exit;
+                }
+            if (ts_isfloat (argv[i + 1]))
+                options.file_template.uwi_start = atoi (argv[i + 1]);
+            else
+                goto info_exit;
+            
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-uwi_end"))
+            {
+            if (i + 1 > argc)
+                {
+                goto info_exit;
+                }
+            if (ts_isfloat (argv[i + 1]))
+                options.file_template.uwi_end = atoi (argv[i + 1]);
+            else
+                goto info_exit;
+            
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-x_start"))
+            {
+            if (i + 1 > argc)
+                {
+                goto info_exit;
+                }
+            if (ts_isfloat (argv[i + 1]))
+                options.file_template.x_start = atoi (argv[i + 1]);
+            else
+                goto info_exit;
+            
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-x_end"))
+            {
+            if (i + 1 > argc)
+                {
+                goto info_exit;
+                }
+            if (ts_isfloat (argv[i + 1]))
+                options.file_template.x_end = atoi (argv[i + 1]);
+            else
+                goto info_exit;
+            
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-y_start"))
+            {
+            if (i + 1 > argc)
+                {
+                goto info_exit;
+                }
+            if (ts_isfloat (argv[i + 1]))
+                options.file_template.y_start = atoi (argv[i + 1]);
+            else
+                goto info_exit;
+            
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-y_end"))
+            {
+            if (i + 1 > argc)
+                {
+                goto info_exit;
+                }
+            if (ts_isfloat (argv[i + 1]))
+                options.file_template.y_end = atoi (argv[i + 1]);
+            else
+                goto info_exit;
+            
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-bx_start"))
+            {
+            if (i + 1 > argc)
+                {
+                goto info_exit;
+                }
+            if (ts_isfloat (argv[i + 1]))
+                options.file_template.bx_start = atoi (argv[i + 1]);
+            else
+                goto info_exit;
+            
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-bx_end"))
+            {
+            if (i + 1 > argc)
+                {
+                goto info_exit;
+                }
+            if (ts_isfloat (argv[i + 1]))
+                options.file_template.bx_end = atoi (argv[i + 1]);
+            else
+                goto info_exit;
+            
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-by_start"))
+            {
+            if (i + 1 > argc)
+                {
+                goto info_exit;
+                }
+            if (ts_isfloat (argv[i + 1]))
+                options.file_template.by_start = atoi (argv[i + 1]);
+            else
+                goto info_exit;
+            
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-by_end"))
+            {
+            if (i + 1 > argc)
+                {
+                goto info_exit;
+                }
+            if (ts_isfloat (argv[i + 1]))
+                options.file_template.by_end = atoi (argv[i + 1]);
+            else
+                goto info_exit;
+            
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-x_factor"))
+            {
+            if (i + 1 > argc)
+                {
+                goto info_exit;
+                }
+            if (ts_isfloat (argv[i + 1]))
+                options.xy_factor.x = atof (argv[i + 1]);
+            else
+                goto info_exit;
+            
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-y_factor"))
+            {
+            if (i + 1 > argc)
+                {
+                goto info_exit;
+                }
+            if (ts_isfloat (argv[i + 1]))
+                options.xy_factor.y = atof (argv[i + 1]);
+            else
+                goto info_exit;
+            
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-target_projection"))
+            {
+            if (i + 1 > argc)
+                {
+                goto info_exit;
+                }
+            strcpy (target_projection_id, ts_sto_upper ((argv[i + 1])));
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-nodes_table"))
+            {
+            if (i + 1 > argc)
+                {
+                goto info_exit;
+                }
+            strcpy (options.target_tables.nodes, ts_sto_upper ((argv[i + 1])));
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-well_table"))
+            {
+            if (i + 1 > argc)
+                {
+                goto info_exit;
+                }
+            strcpy (options.target_tables.wells, ts_sto_upper ((argv[i + 1])));
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-source"))
+            {
+            if (i + 1 > argc)
+                {
+                goto info_exit;
+                }
+            V_FROMC (source, ts_sto_upper ((argv[i + 1])));
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-tolerence"))
+            {
+            if (i + 1 > argc)
+                {
+                goto info_exit;
+                }
+            if (ts_isfloat (argv[i + 1]))
+                options.tolerence = atof (argv[i + 1]);
+            else
+                goto info_exit;
+            
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-report"))
+            {
+            if (i + 1 > argc)
+                {
+                goto info_exit;
+                }
+            if (ts_isfloat (argv[i + 1]))
+                {
+                options.nreport = atoi (argv[i + 1]);
+                (options.nreport > 0) ?
+                    (options.report = TRUE) : (options.report = FALSE);
+                }
+            else
+                goto info_exit;
+            
+            i++;
+            }
+        else if (ARE_SAME (argv[i], "-no_replace"))
+            {
+            options.ignore_duplicates = TRUE;
+            }
+        else
+            {
+            goto info_exit;
+            }
+        }
+    /* Output current options                                                       */
+    
+    printf ("Running with the following options:\n");
+    printf ("  -uwi_start             %d\n", options.file_template.uwi_start);
+    printf ("  -uwi_end               %d\n", options.file_template.uwi_end);
+    printf ("  -x_start               %d\n", options.file_template.x_start);
+    printf ("  -x_end                 %d\n", options.file_template.x_end);
+    printf ("  -y_start               %d\n", options.file_template.y_start);
+    printf ("  -y_end                 %d\n", options.file_template.y_end);
+    printf ("  -bx_start              %d\n", options.file_template.bx_start);
+    printf ("  -bx_end                %d\n", options.file_template.bx_end);
+    printf ("  -by_start              %d\n", options.file_template.by_start);
+    printf ("  -by_end                %d\n", options.file_template.by_end);
+    printf ("  -x_factor              %7.5f\n", options.xy_factor.x);
+    printf ("  -y_factor              %7.5f\n", options.xy_factor.y);
+    printf ("  -target_projection     %s\n", target_projection_id);
+    printf ("  -nodes_table           %s\n", options.target_tables.nodes);
+    printf ("  -well_table            %s\n", options.target_tables.wells);
+    printf ("  -source                %s\n", (char *)source.arr);
+    printf ("  -tolerence             %3.2f\n", options.tolerence);
+    printf ("  -discard           %s\n", discard_filename);
+    printf ("  -no_replace        %s\n",
+            (options.ignore_duplicates ? "TRUE" : "FALSE"));
+    printf ("  -skip              %d\n", options.nskip);
+    printf ("  -report            %d\n", options.nreport);
+    
+    /* Skip the requested number of records, if necessary                           */
+    
+    if (options.nskip > 0)
+        {
+        printf ("Skipping %d records before starting load: ", options.nskip);
+        for (i = 0; i < options.nskip; i++)
+            {
+            if (fgets (inline , sizeof inline , source_file) == 0)
+                {
+                printf ("End of file detected after reading %d records - aborting\n",
+                        i + 1);
+                goto normal_exit;
+                }
+            if ((i % 500) EQUALS 0)
+                {
+                printf (".");
+                }
+            }
+        printf ("Done.\n");
+        }
+    /* Open discard file for records that encounter error conditions                */
+    
+    if ((discard_file = ho_open (discard_filename, "w", NULL))EQUALS NULL_FILE_PTR)
+        {
+        printf ("Bad discard filename '%s' - aborting.\n", discard_filename);
+        goto normal_exit;
+        }
+    /* Set the source string                                                        */
+    
+    qs_set_c (QS_SOURCE_NAME, (char *)source.arr, source.len);
+    
+    /* Define which nodes and well table to use                                     */
+    
+    use_nodes_table = ARE_SAME (options.target_tables.nodes, "NODES");
+    use_wells_table = ARE_SAME (options.target_tables.wells, "WELL_HDR");
+    
+    /* Determine whether base offsets should be calculated                          */
+    
+    base_offsets_needed = options.file_template.bx_end +
+        options.file_template.bx_start + options.file_template.by_end +
+                          options.file_template.by_start;
+    
+    if (base_offsets_needed > 0)
+        {
+        if (options.file_template.bx_end - options.file_template.bx_start > 0 &&
+            options.file_template.by_end - options.file_template.by_start > 0)
+            {
+            base_offsets_needed = TRUE;
+            
+            if ((status = ct_get_projection ("GEODETIC", &geodetic_projection)))
+                {
+                printf ("Unable to define input cartographic projection %s:\n\%s\n",
+                        "GEODETIC", mg_message (status));
+                goto normal_exit;
+                }
+            }
+        else
+            {
+            printf ("Base XY column specifications are invalid\n");
+            base_offsets_needed = FALSE;
+            }
+        }
+    /* Determine whether coordinate transformations are required                    */
+    /* If they are different, then query for the projection parameters              */
+    
+    convert_projections = ARE_DIFFERENT (target_projection_id, source_projection_id);
+    if (convert_projections)
+        {
+        if ((status = ct_get_projection (source_projection_id, &source_projection)))
+            {
+            printf ("Unable to define input cartographic projection %s:\n\%s\n",
+                    source_projection_id, mg_message (status));
+            goto normal_exit;
+            }
+        if ((status = ct_get_projection (target_projection_id, &target_projection)))
+            {
+            printf ("Unable to define output cartographic projection %s:\n\%s\n",
+                    target_projection_id, mg_message (status));
+            goto normal_exit;
+            }
+        }
+    /* Parse SQL statements that will insert and update records                     */
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"INSERT INTO %s.WELL_HDR (UWI, NODE_ID, PRIMARY_SOURCE, TOP_DELTA_X, \
+TOP_DELTA_Y, BASE_DELTA_X, BASE_DELTA_Y, DEVIATION_FLAG) VALUES \
+(:u_well_i, :node_id, :source, :top_delta_x, :top_delta_y, \
+:base_delta_x, :base_delta_y, :deviation_flag)"
+            , ts_sto_upper (project));
+    EXEC SQL PREPARE S2 FROM :stmt;
+    
+    if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+        report_oops ("Warning");
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"UPDATE %s.%s \
+SET NODE_X = :node_x, NODE_Y = :node_y, LOC_QUAL = 'A', SOURCE = :source \
+WHERE NODE_ID = :node_id"
+            , ts_sto_upper (project), ts_sto_upper (options.target_tables.nodes));
+    EXEC SQL PREPARE S3 FROM :stmt;
+    
+    if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+        report_oops ("Warning");
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"UPDATE %s.WELL_HDR \
+SET NODE_ID = :node_id, \
+    TOP_DELTA_X = :top_delta_x, \
+    TOP_DELTA_Y = :top_delta_y, \
+    BASE_DELTA_X = :base_delta_x, \
+    BASE_DELTA_Y = :base_delta_y, \
+    DEVIATION_FLAG = :deviation_flag \
+WHERE UWI = :u_well_i"
+            , ts_sto_upper (project));
+    EXEC SQL PREPARE S4 FROM :stmt;
+    
+    if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+        report_oops ("Warning");
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"INSERT INTO %s.WELL_HDR_SECOND (UWI, NODE_ID, SOURCE, TOP_DELTA_X, \
+TOP_DELTA_Y, BASE_DELTA_X, BASE_DELTA_Y, DEVIATION_FLAG) VALUES \
+(:u_well_i, :node_id, :source, :top_delta_x, :top_delta_y, \
+:base_delta_x, :base_delta_y, :deviation_flag)"
+            , ts_sto_upper (project));
+    EXEC SQL PREPARE S5 FROM :stmt;
+    
+    if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+        report_oops ("Warning");
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"UPDATE %s.WELL_HDR_SECOND \
+SET NODE_ID = :node_id, \
+    TOP_DELTA_X = :top_delta_x, \
+    TOP_DELTA_Y = :top_delta_y, \
+    BASE_DELTA_X = :base_delta_x, \
+    BASE_DELTA_Y = :base_delta_y, \
+    DEVIATION_FLAG = :deviation_flag \
+WHERE UWI = :u_well_i AND SOURCE = :source"
+            , ts_sto_upper (project));
+    EXEC SQL PREPARE S6 FROM :stmt;
+    
+    if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+        report_oops ("Warning");
+    
+    /********************************************************************************/
+    /*                                                                              */
+    /*                        Begin main processing loop                            */
+    /*                                                                              */
+    /********************************************************************************/
+    
+    /* Process each line in file as a record                                        */
+    
+    while (fgets (inline , sizeof inline , source_file) != NULL)
+        {
+        
+        /* Report progress if needed                                                */
+        
+        if (options.report)
+            {
+            if ((nrecords % options.nreport) == 0)
+                {
+                time (&bin_time);
+                printf ("Status as of %s\n", ctime (&bin_time));
+                printf ("# records      read: %d\n", nrecords + options.nskip);
+                printf ("# records processed: %d\n", nrecords);
+                printf ("# records   ignored: %d\n", nignored);
+                printf ("# records  rejected: %d\n\n", nerrors);
+                }
+            }
+        nrecords++;
+        
+        /* Break out record                                                         */
+        
+        len = options.file_template.uwi_end - options.file_template.uwi_start + 1;
+        MOVE (u_well_i, (inline  + options.file_template.uwi_start - 1), len);
+        
+        len = options.file_template.x_end - options.file_template.x_start + 1;
+        CONVERT (x, (inline  + options.file_template.x_start - 1), len);
+        
+        len = options.file_template.y_end - options.file_template.y_start + 1;
+        CONVERT (y, (inline  + options.file_template.y_start - 1), len);
+        
+        if (base_offsets_needed)
+            {
+            len = options.file_template.bx_end - options.file_template.bx_start + 1;
+            CONVERT (base_x, (inline  + options.file_template.bx_start - 1), len);
+            
+            len = options.file_template.by_end - options.file_template.by_start + 1;
+            CONVERT (base_y, (inline  + options.file_template.by_start - 1), len);
+            }
+        /* multiply node location XY by xy factors                                  */
+        /* if base calculations are to be done                                      */
+        /*    multiply base_x and base_y also                                       */
+        
+        x *= options.xy_factor.x;
+        y *= options.xy_factor.y;
+        
+        if (base_offsets_needed)
+            {
+            base_x *= options.xy_factor.x;
+            base_y *= options.xy_factor.y;
+            }
+        /* Transform points from one projection to another                          */
+        
+        if (convert_projections)
+            {
+            ct_transform_point (x, y, source_projection, &node_x, &node_y,
+                                target_projection);
+            }
+        /* Calculate the base offsets if need be                                    */
+        
+        if (base_offsets_needed)
+            {
+            if (ARE_DIFFERENT (source_projection_id, "GEODETIC"))
+                {
+                ct_transform_point (x, y, source_projection, &surface_longitude,
+                                    &surface_latitude, geodetic_projection);
+                ct_transform_point (base_x, base_y, source_projection,
+                                    &bottom_longitude, &bottom_latitude,
+                                    geodetic_projection);
+                }
+            else
+                {
+                surface_latitude = y;
+                surface_longitude = x;
+                bottom_latitude = base_y;
+                bottom_longitude = base_x;
+                }
+            top_delta_x = top_delta_y = 0.0;
+            if ((x == base_x && y == base_y) || (base_x == 0.0 && base_y == 0.0))
+                {
+                V_FROMC (deviation_flag, "N");
+                base_delta_x = base_delta_y = 0.0;
+                }
+            else if (ARE_SAME (target_projection_id, "GEODETIC"))
+                {
+                degr = -180;
+                degr_slice = 6;
+                for (i = 1; i < 30; i++)
+                    {
+                    if ((surface_longitude >= degr) AND (surface_longitude <
+                                                         degr + degr_slice))
+                        {
+                        utm_projection.zone_code = i;
+                        break;
+                        }
+                    degr += degr_slice;
+                    }
+                utm_projection.projection_type = 1;
+                utm_projection.spheroid_code = 2;
+                utm_projection.spheroid_units = 2;
+                ct_transform_point (surface_longitude, surface_latitude,
+                                    geodetic_projection, &xt, &yt, &utm_projection);
+                ct_transform_point (bottom_longitude, bottom_latitude,
+                                    geodetic_projection, &xb, &yb, &utm_projection);
+                ct_transform_point (surface_longitude, surface_latitude + 0.1,
+                                    geodetic_projection, &xp, &yp, &utm_projection);
+                
+                theta = atan ((xp - xt) / (yp - yt));
+                base_delta_x = (xt + (xb - xt) * cos (theta) - (yb - yt) *
+                                sin (theta)) - xt;
+                base_delta_y = (yt + (yb - yt) * cos (theta) + (xb - xt) *
+                                sin (theta)) - yt;
+                V_FROMC (deviation_flag, "Y");
+                }
+            else
+                {
+                ct_transform_point (bottom_longitude, bottom_latitude,
+                                    geodetic_projection, &xb, &yb, target_projection);
+                ct_transform_point (surface_longitude, surface_latitude + 0.1,
+                                    geodetic_projection, &xp, &yp, target_projection);
+                
+                /* Calculate base delta X and Y                                     */
+                
+                theta = atan ((xp - node_x) / (yp - node_y));
+                base_delta_x = (node_x + (xb - node_x) * cos (theta) - (yb - node_y) *
+                                sin (theta)) - node_x;
+                base_delta_y = (node_y + (yb - node_y) * cos (theta) + (xb - node_x) *
+                                sin (theta)) - node_y;
+                V_FROMC (deviation_flag, "Y");
+                }
+            }
+        /* Insert node info into nodes table                                        */
+        
+        if (use_nodes_table)
+            status = ly_process_node (node_x, node_y, options.tolerence, &node_id);
+        else
+            status = ly_process_node_2nd (node_x, node_y, options.tolerence, &node_id);
+        
+        /* Handle errors                                                            */
+        
+        if (((invalid_header = status) IS_NOT_EQUAL_TO SUCCESS))
+            {
+            if (status EQUALS - 1 AND options.ignore_duplicates)
+                {
+                nignored++;         /* Don't update records                         */
+                }
+            else if (status EQUALS - 1 AND!options.ignore_duplicates)
+                {
+                /* Update node_id record                                            */
+                
+                EXEC SQL WHENEVER SQLERROR continue;
+                EXEC SQL EXECUTE S3 USING :node_x, :node_y, :source, :node_id;
+                }
+            else
+                {
+                /* Other error -- save record to discard file                       */
+                
+                nerrors++;
+                fputs (inline , discard_file);
+                }
+            }
+        /* Insert record into wells table                                           */
+        
+        if (use_wells_table)
+            {
+            EXEC SQL WHENEVER SQLERROR continue;
+            EXEC SQL EXECUTE S2 USING :u_well_i, :node_id, :source, 
+                :top_delta_x, :top_delta_y, :base_delta_x,
+                :base_delta_y, :deviation_flag;
+            }
+        else                        /* Wells second insert                          */
+            {
+            EXEC SQL WHENEVER SQLERROR continue;
+            EXEC SQL EXECUTE S5 USING :u_well_i, :node_id, :source, 
+                :top_delta_x, :top_delta_y, base_delta_x,
+                :base_delta_y, :deviation_flag;
+            }
+        /* Handle errors                                                            */
+        
+        if (((invalid_header = OR_STATUS) IS_NOT_EQUAL_TO SUCCESS))
+            {
+            if (OR_STATUS EQUALS - 1 AND options.ignore_duplicates)
+                {
+                nignored++;         /* Don't update records                         */
+                }
+            else if (OR_STATUS EQUALS - 1 AND!options.ignore_duplicates)
+                {
+                /* Update uwi record                                                */
+                
+                if (use_wells_table)
+                    {
+                    EXEC SQL WHENEVER SQLERROR continue;
+                    EXEC SQL EXECUTE S4 USING :node_id, :u_well_i, :source,
+                        :top_delta_x, :top_delta_y, base_delta_x,
+                        :base_delta_y, :deviation_flag;
+                    }
+                else                /* Nodes second update                          */
+                    {
+                    EXEC SQL WHENEVER SQLERROR continue;
+                    EXEC SQL EXECUTE S6 USING :node_id, :u_well_i, :source,
+                        :top_delta_x, :top_delta_y, base_delta_x,
+                        :base_delta_y, :deviation_flag;
+                    }
+                }
+            else
+                {
+                /* Other error -- save record to discard file                       */
+                
+                nerrors++;
+                fputs (inline , discard_file);
+                }
+            }
+        EXEC SQL COMMIT WORK;
+        }
+    /********************************************************************************/
+    /*                                                                              */
+    /*                        End  main processing loop                             */
+    /*                                                                              */
+    /********************************************************************************/
+    
+    goto normal_exit;
+    
+oops:
+    
+    report_oops ("finish");
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL ROLLBACK WORK;
+    
+normal_exit:
+    printf ("\n\nSummary information:\n");
+    printf ("Total data records      read: %d\n", nrecords + options.nskip);
+    printf ("Total data records processed: %d\n", nrecords);
+    printf ("Number  of records   ignored: %d\n", nignored);
+    printf ("Number  of records  rejected: %d\n", nerrors);
+    if (nerrors > 0)
+        {
+        printf ("Rejected records are in the file named '%s'.\n", discard_filename);
+        }
+    fclose (source_file);
+    fclose (discard_file);
+    or_logout (TRUE);
+    
+    exit (EXIT_SUCCESS);
+    
+info_exit:
+    printf (
+"usage: prg <name/password> <project> <infile> <source projection>\n\n\
+    [-target_projection] [-uwi_start] [-uwi_end] [-x_start] [-x_end]\n\
+    [-y_start] [-y_end] [-x_factor] [-y_factor] [-bx_start] [bx_end]\n\
+    [-skip] [-discard] [-nodes_table] [-well_table] [-source]\n\
+    [-tolerence] [-report] [-no_replace]\n"
+            );
+    
+    exit (EXIT_FAILURE);
+    
+    }
+
+/************************************************************************************/
+
+/* returns TRUE if user hit cancel button                                           */
+privatedef BOOL report_oops (tag)
+char *tag;
+    {
+    printf ("%s: Oracle error %d encountered:\n\%-70.70s\n", tag, OR_STATUS,
+            OR_MESSAGE);
+    return(OR_STATUS EQUALS OR_ABORT);
+    }
+
+/************************************************************************************/
+
+privatedef  int ly_process_node_2nd (x, y, tolerance, node_id)
+DOUBLE x;
+DOUBLE y;
+DOUBLE tolerance;
+NODE_ID *node_id;
+    {
+    privatedef BOOL first = TRUE;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    privatedef  long int theNode;
+    privatedef  double x1, x2;
+    privatedef  double y1, y2;
+    EXEC SQL END DECLARE SECTION;
+    
+    if (first)
+        {
+        PROJECT_NAME project;
+        ANALYST_NAME source;
+        
+        EXEC SQL WHENEVER SQLERROR GOTO wayout;
+        qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+        qs_inq_c (QS_SOURCE_NAME, source, (INT *)0);
+        stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT NODE_ID FROM %s.NODES_SECOND \
+WHERE NODE_X BETWEEN :x1 AND :x2 AND \
+NODE_Y BETWEEN :y1 AND :y2"
+                , project);
+        
+        EXEC SQL PREPARE S1 FROM :stmt;
+        EXEC SQL DECLARE C1 CURSOR FOR S1;
+        
+        stmt.len = sprintf ((char *)stmt.arr, 
+"INSERT INTO %s.NODES_SECOND(NODE_ID, NODE_X, NODE_Y, LOC_QUAL, SOURCE) VALUES \
+(ESI.LYNX_ID_SEQ.NEXTVAL, :x, :y, 'A', '%s')"
+                , project, source);
+        
+        EXEC SQL PREPARE S2 FROM :stmt;
+        
+        first = FALSE;
+        }
+    x1 = x - tolerance;
+    x2 = x + tolerance;
+    y1 = y - tolerance;
+    y2 = y + tolerance;
+    
+    EXEC SQL OPEN C1 USING :x1, :x2, :y1, :y2;
+    EXEC SQL FETCH C1 INTO :theNode;
+    
+    if (OR_STATUS != 0)
+        {
+        x1 = x, y1 = y;
+        EXEC SQL EXECUTE S2 USING :x1, :y1;
+        EXEC SQL SELECT ESI.LYNX_ID_SEQ.CURRVAL INTO :theNode FROM DUAL;
+        }
+    *node_id = theNode;
+wayout:
+    return OR_STATUS;
+    }

@@ -1,0 +1,80 @@
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1991
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Finder Graphics Systems, Inc.
+			201 Tamal Vista Blvd
+			Corte Madera, CA  USA 94925
+			(415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT or_errmsg(struct sqlca *sqlca, char *errmsg)
+
+Parameters:     
+
+    *sqlca        -(I) Pointer to a users Oracle Sql Communications Area.
+    *errmsg       -(I) Optional errmsg which can be used to amplify on the 
+                       Oracle Msg, such as "Error detected in module xxyxxy..."
+Return Value/Status:
+
+     OR_INVALID_FORM_NAME
+     or whatever is passed back from or_run_orfrom
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+Assume datatype "OTHER". If caller wants another datatype, they
+   should call or_run_orfrom directly.
+
+-----------------------------------------------------------------------------*/
+
+/* INCLUDE FILES */
+
+#include "esi_c_lib.h"
+#include "esi_oracle.h"
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+#if USE_PROTOTYPES
+int or_errmsg(struct sqlca *sqlca, char *errmsg)
+#else
+int or_errmsg(sqlca,errmsg)
+struct sqlca *sqlca;
+char *errmsg;
+#endif
+{
+    if (sqlca->sqlcode)
+       {
+
+/* First print application error msg, if any  */
+
+       if ( errmsg != NULL AND *errmsg != NUL )
+          {
+          printf("%s\n", errmsg );
+          }
+
+/* then print oracle error msg */
+
+       sqlca->sqlerrm.sqlerrmc[sqlca->sqlerrm.sqlerrml] = '\0';
+       printf ("%s\n", sqlca->sqlerrm.sqlerrmc);
+
+       }
+    return sqlca->sqlcode ;
+}

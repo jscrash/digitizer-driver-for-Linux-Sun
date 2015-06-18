@@ -1,0 +1,119 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_LOAD_LYNX.PC */
+/* *4    11-JUN-1991 12:44:25 PURNA "(SPR 0) fix compiling error" */
+/* *3     6-MAY-1991 16:46:16 PURNA "(SPR 0) data mover init change" */
+/* *2    30-JUL-1990 17:23:06 PURNA "(SPR 0) add lynx,lease select_list" */
+/* *1    30-JUL-1990 17:12:46 PURNA "load lynx table" */
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_LOAD_LYNX.PC */
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+#include "esi_nl.h"
+#include "esi_oracle.h"
+
+#define MAXARR 100
+
+/******************************************************************************
+
+    OR_LOAD_LYNXS - load the TEMP_LYNX_LISTS table with the specified
+		    select list of LYNXs
+
+******************************************************************************/
+
+EXEC ORACLE OPTION (SELECT_ERROR = NO);
+
+INT or_load_lynx (unique_name, nlist)
+CHAR *unique_name;
+NLIST_HEADER nlist;
+{
+    INT status;
+    UINT ndim;
+    UINT Dim_List[1];
+    VOIDPTR Value_List[1];
+    INT i,loop_count,n_rows;
+    UINT ret_pts;
+
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[255];
+    static int count;
+    static int lynx_id[100];
+    static char *id;
+EXEC SQL END DECLARE SECTION;
+
+		    /* I assume that if the  list name exists in
+			the TEMP_LYNX_LISTS table, then this list
+			has already been inserted, and that the select
+			list has NOT changed its contents since the list
+			was entered.  This implies that any select list editing
+			function should make sure that the TEMP_LYNX_LISTS
+			table entry is brought up to date before allowing other
+			interactions... */
+    id = unique_name;
+    EXEC SQL WHENEVER NOT FOUND GOTO not_yet_loaded;
+    EXEC SQL SELECT NULL FROM TEMP_LYNX_LISTS
+	WHERE TEMP_PROCESS_ID = USERENV('SESSIONID')
+	AND TEMP_LIST_NAME = :id;
+    return SUCCESS;
+
+not_yet_loaded:
+    stmt.len = sprintf((char *)stmt.arr, "INSERT INTO TEMP_LYNX_LISTS \
+(TEMP_LIST_NAME, LYNX_ID, TEMP_PROCESS_ID) VALUES \
+('%s', :lynx_id, USERENV('SESSIONID'))", unique_name);
+    EXEC SQL PREPARE S1 FROM :stmt;
+
+/* retrieve the select list data into a buffer */
+
+    ndim = 1;
+    Dim_List[0] = 1;
+    status = nl_inq_nlist_int(nlist, NL_NLIST_NROWS, &n_rows)
+             OR
+             nl_set_current_row(nlist,1,1);
+    if(status < 0)
+        return status;
+
+    count = 0;
+    loop_count = 0;
+    FOREVER
+        {
+        if (loop_count+MAXARR > n_rows)
+            {
+            count = n_rows - loop_count;
+            loop_count = n_rows;
+            }
+        else
+            {
+            count = MAXARR;
+            loop_count += MAXARR;
+            }
+        for(i=0;i<count;i++)
+           {
+            Value_List[0] = (VOIDPTR)&lynx_id[i];
+            status = nl_get_rows(nlist, 1, ndim, Dim_List, Value_List,&ret_pts);
+            }
+
+        EXEC SQL FOR :count EXECUTE S1 USING :lynx_id;
+        EXEC SQL COMMIT WORK;
+        if (loop_count >= n_rows) break;
+        }
+
+    return SUCCESS;
+orerror:
+    return OR_STATUS;
+}

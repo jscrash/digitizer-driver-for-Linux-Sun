@@ -1,0 +1,371 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LM_GET_PLYGN.PC */
+/*  5     3-MAR-1992 10:51:56 JILL "(SPR 0) Fix bug for large leases (zero oracle mem), check or_load_lease status" */
+/* *4    11-SEP-1991 13:40:53 PURNA "(SPR 0) add comments" */
+/* *3     7-MAY-1991 17:49:17 PURNA "(SPR 1622) init change" */
+/* *2    18-MAR-1991 18:08:48 PURNA "(SPR 0) Lease Mapping Init Checkin" */
+/* *1    18-MAR-1991 17:54:14 PURNA "Lease Mapping" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LM_GET_PLYGN.PC */
+/* * FILE DESCRIPTION * */ 
+/* -------------------- */
+/* **************************************************************************************
+
+   NAME: LM_GET_POLYGON.PC
+   
+   DESCRIPTION: Function to create a n_list of Polygons from a select-list of lease_ids
+
+                The n_list consists of 2 columns x,y in world coordinates.  If there are
+
+                disjoint leases the xs,ys are stored in a table called "COMPLEX".  If a lease
+
+		consists of multiple polygons; each polygons are stored in its own table. 
+ 
+
+   ************************************************************************************** */
+
+#include "esi_sl.h"
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#include "esi_lm.h"
+#include "esi_ct.h"
+#include "esi_ts.h"
+
+#define MAXPLY 500
+#define MAXFETCH 1000
+#define MAXARR 50
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+static INT lmz_build_nlist();
+
+publicdef INT lm_get_polygon(select_list, lease_count, project_out, xylist)
+
+/* * ARGUMENT LIST * */
+/* ----------------- */
+
+NLIST_HEADER select_list;
+INT lease_count;
+PROJECTION_STRUCTURE *project_out;
+NLIST_HEADER *xylist;
+{ 
+
+INT status;
+PROJECT_NAME project_name;
+static INT total_leases,total_pts;
+static NLIST_HEADER *lease_nlists;
+INT nleases,i,j;
+static INT npts,array_index,lease_index;
+static LM_LEASE_ID current_lease_id;
+static BOOL newfetch;
+DOUBLE latarr[MAXPLY];
+DOUBLE lonarr[MAXPLY];
+CHAR in_out[MAXPLY][1];
+static INT nll;
+INT nlist_index;
+
+EXEC SQL BEGIN DECLARE SECTION;
+	VARCHAR select_phrase[1024];   /* SQL STATEMENT TO RETRIEVE LATITUDE, LONGITUDE */
+	static double plat[1000];             /* LATITUDE */
+	static double plong[1000];            /* LONGITUDE */
+	static VARCHAR pflag[1000][2];              /* IN_OUT FLAG */
+        static int seq_no[1000];              /* SEQ_NO */
+	static VARCHAR lease_id[1000][24];
+	static int n_fetch,process_id;
+EXEC SQL END DECLARE SECTION;
+
+EXEC SQL WHENEVER SQLERROR GOTO :errpt; 
+
+
+
+/* * INQUIRE ABOUT THE SELECT LIST OF LEASE_IDS * */
+/* ---------------------------------------------- */
+if(lease_count EQUALS 0)
+    {
+    EXEC SQL SELECT USERENV('SESSIONID') INTO :process_id FROM DUAL;
+
+    	/* * GET PROJECT NAME * */
+	/* -------------------- */
+    qs_inq_c(QS_PROJECT_NAME,project_name,(INT *) 0);
+
+    nl_inq_nlist_int(select_list,NL_NLIST_NROWS,&total_leases);
+    status = or_load_lease("DRAW_POLYGON",select_list);
+    select_phrase.len = sprintf((char *)select_phrase.arr,
+    "SELECT DISTINCT LEASE_ID, LATITUDE, LONGITUDE, IN_OUT, SEQ_NO \
+FROM %s.LEASE_POLYGONS \
+WHERE LEASE_ID IN (SELECT DISTINCT TEMP_LEASE_ID FROM TEMP_LEASE_LISTS \
+WHERE TEMP_LIST_NAME = 'DRAW_POLYGON' AND TEMP_PROCESS_ID = %d) \
+ORDER BY LEASE_ID, SEQ_NO",
+    project_name,process_id);
+    EXEC SQL PREPARE S4 FROM : select_phrase;
+    EXEC SQL DECLARE C4 CURSOR FOR S4;
+    EXEC SQL OPEN C4;
+    newfetch = TRUE;
+    nll = 0;
+    n_fetch = MAXFETCH;
+    total_pts = 0;
+    }
+
+nlist_index = lease_count % MAXARR;
+if(nlist_index EQUALS 0)
+    {
+	/* * INITIALIZE XY NLIST * */
+	/* ----------------------- */
+    nleases = total_leases - lease_count;
+    if(nleases > MAXARR) nleases = MAXARR;
+
+    if(lease_count != 0) tc_free(lease_nlists);
+    lease_nlists = (NLIST_HEADER *)tc_alloc(nleases * sizeof(NLIST_HEADER));
+    lease_index = 0;
+
+    for(i=0;i<nleases;i++)
+	{
+	status = ly_init_line_nlist(&lease_nlists[i]);
+	if (status IS_NOT_EQUAL_TO SUCCESS) return status;
+	}
+
+    FOREVER
+    	{
+    	if(newfetch)
+	    {
+		/* * FETCH DATA FROM POLYGON TABLE * */
+		/* --------------------------------- */
+	    array_index = 0;
+            EXEC SQL FOR :n_fetch FETCH C4 
+		INTO :lease_id, :plat, :plong, :pflag, :seq_no;
+	    npts = OR_ROWCOUNT - total_pts;
+	    if(npts < 1) break;
+	    if (lease_count EQUALS 0)
+	        V_FROMV(current_lease_id,lease_id[0]);
+	    newfetch = FALSE;
+	    }
+
+    	while(ARE_SAME(current_lease_id,lease_id[array_index].arr) AND
+	      array_index < npts)
+	    {
+            latarr[nll] = plat[array_index];
+            lonarr[nll] = plong[array_index];
+            in_out[nll][0] = pflag[array_index].arr[0];
+            nll++;
+	    array_index++;
+            }
+	
+	if (array_index >= npts)
+	    {
+	    if(npts < MAXFETCH)
+		{
+    		status = lmz_build_nlist(lease_nlists[lease_index],latarr,
+			lonarr,in_out,nll,project_out);
+    		if (status != SUCCESS) return status;
+		break;
+		}
+	    newfetch = TRUE;
+    	    total_pts += npts;
+	    continue;
+	    }
+
+    	V_FROMV(current_lease_id,lease_id[array_index]);
+    	status = lmz_build_nlist(lease_nlists[lease_index],latarr,lonarr,
+		in_out,nll,project_out);
+    	if (status != SUCCESS) return status;
+    	if (lease_index >= MAXARR - 1)
+	    {
+	    nll = 0;
+	    break;
+	    }
+        else
+	    {
+	    lease_index++;
+	    nll = 0;
+	    }
+     	}
+    }
+
+*xylist = lease_nlists[nlist_index];
+if(lease_count >= total_leases - 1) 
+    {
+    EXEC SQL SELECT USERENV('SESSIONID') INTO :process_id FROM DUAL;
+    EXEC SQL DELETE TEMP_LEASE_LISTS 
+       WHERE TEMP_LIST_NAME = 'DRAW_POLYGON' AND TEMP_PROCESS_ID = :process_id;
+    EXEC SQL COMMIT WORK;
+    EXEC SQL CLOSE C4;
+    }
+return SUCCESS;
+
+errpt:
+    return OR_STATUS;
+}
+
+
+static INT lmz_build_nlist(nlist,latarr,lonarr,in_out,nll,project_out)
+NLIST_HEADER nlist;
+DOUBLE latarr[MAXPLY];
+DOUBLE lonarr[MAXPLY];
+CHAR in_out[MAXPLY][1];
+INT nll;
+PROJECTION_STRUCTURE *project_out;
+{
+UINT nrws;
+INT i,k;
+INT nin = 0;                     /* number of "ins" coordinates for COMPLEX land
+s */
+INT nout = 0;                    /* number of "outs" coordinates for COMPLEX lan
+ds */
+INT xo = 0;                      /* counter for "outs" coordinates for COMPLEX l
+ands */
+INT xi = 0;                      /* counter for "ins" coordinates for COMPLEX la
+nds */
+INT nlast = 0;                   /* last point of the "ins" coordinats for COMPL
+EX lands */
+INT itotal = 0;                  /* number of coordinates in the seamed polygons
+ */
+UINT table_num;
+PROJECTION_STRUCTURE *project_in;
+static UINT ncols = 2;        /* number of columns in xylist */
+static UINT col_list[2] = {1,2};
+static VOIDPTR var_list[2];
+INT blocksize = 500;
+DOUBLE lat,jlat;
+DOUBLE lon,jlong;
+DOUBLE xin[MAXPLY],XIN[MAXPLY];
+DOUBLE yin[MAXPLY],YIN[MAXPLY];
+DOUBLE xout[MAXPLY];
+DOUBLE yout[MAXPLY];
+DOUBLE xbuf[MAXPLY];
+DOUBLE ybuf[MAXPLY];
+DOUBLE x,y;
+BOOL newtab;
+BOOL cmpl;
+INT status;
+
+    var_list[0] = (VOIDPTR)&x;
+    var_list[1] = (VOIDPTR)&y;
+	
+    status = nl_start_table(nlist, &table_num);
+    if (status IS_NOT_EQUAL_TO SUCCESS) return status;
+        
+   ct_get_projection("GEODETIC",&project_in);
+
+    cmpl = FALSE;
+
+	/* * CHECK FOR DOUGH-NUT SHAPES LANDS/OR COMPLEX LAND SHAPES * */
+	/* ----------------------------------------------------------- */ 
+
+    for (k=0; k<nll; k++)
+	{
+	if (in_out[k][0] EQUALS 'I')
+	    {
+	    status = nl_set_table_string(nlist, table_num,
+	 				NL_TABLE_NAME, "COMPLEX");
+            if (status IS_NOT_EQUAL_TO SUCCESS) return status;	        	
+	    cmpl = TRUE;
+	    break;
+            }
+	}
+
+
+	/* * CONVERT THE LAT/LONG PAIRS TO XY WORLD COORDINATES * */
+	/* ------------------------------------------------------ */
+
+    for (i=0; i<=nll; i++)
+	{
+	if (i EQUALS nll AND cmpl EQUALS TRUE)
+            {
+	    for (k=0; k<nin; k++)
+                {
+                nlast = nin-k-1;
+                xin[k] = XIN[nlast];
+                yin[k] = YIN[nlast];
+                }
+ 
+            ag_donut_shape(xout, yout, nout, xin, yin, nin, 
+			   xbuf, ybuf, &itotal);
+ 
+            for (k=0; k<itotal; k++)
+                {
+                x = xbuf[k];
+                y = ybuf[k];
+                status = nl_add_rows(nlist, 1, ncols, 
+					col_list, var_list);
+                if (status IS_NOT_EQUAL_TO SUCCESS) return status;
+                }
+	    return SUCCESS;
+            }
+	else if (i EQUALS nll AND cmpl EQUALS FALSE)
+	    {
+	    return SUCCESS;
+	    }
+
+	if (cmpl EQUALS TRUE)
+	    {
+	    goto cvrtxy;
+	    }
+
+	if (i EQUALS 0 OR newtab EQUALS TRUE)
+	    {
+	    jlat = latarr[i];
+	    jlong = lonarr[i];
+	    newtab = FALSE;
+	    goto cvrtxy;
+	    }
+
+	if ( (i >= 4) AND (latarr[i] EQUALS jlat AND lonarr[i] EQUALS jlong) )
+	    {
+	    newtab = TRUE;
+	    if (i EQUALS nll-1) newtab = FALSE;
+	    }
+
+cvrtxy:
+	lat = latarr[i];
+        lon = lonarr[i];
+        status = ct_transform_point(lon, lat, project_in, &x, &y, project_out);
+        if (status IS_NOT_EQUAL_TO SUCCESS) return status; 
+
+
+	/* * FOR A "DOUGH-NUT" SHAPE LANDS - SEAM THE "IN/OUT'S" TO A SINGLE POLYGON
+	* */
+	/* ----------------------------------------------------------------------- */
+
+        if (cmpl EQUALS TRUE)
+            {
+            if (in_out[i][0] EQUALS 'O')
+                {
+                xout[xo] = x;
+                yout[xo] = y;
+                xo++;
+		nout = xo;
+                }
+            else if (in_out[i][0] EQUALS 'I')
+                {
+                XIN[xi] = x;
+                YIN[xi] = y;
+                xi++;
+		nin = xi;
+                }
+            continue;
+            }
+
+	status = nl_add_rows(nlist, 1, ncols, col_list, 
+				var_list);
+        if (status IS_NOT_EQUAL_TO SUCCESS) return status;
+
+	if (newtab EQUALS TRUE)
+	    {
+	    status = nl_start_table(nlist, &table_num);
+            if (status IS_NOT_EQUAL_TO SUCCESS) return status;
+	    } 
+	}
+
+    return SUCCESS;
+}
+
+

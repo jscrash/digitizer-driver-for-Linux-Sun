@@ -1,0 +1,51 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DD_GET_MAP.PC */
+/* *4    15-OCT-1990 12:38:32 GILLESPIE "(SPR 1) Move from Ernie" */
+/* *3    15-OCT-1990 12:05:16 GILLESPIE "(SPR 1) Add esi_am_err.h" */
+/* *2     8-OCT-1990 08:32:31 ALLAWAY "(SPR -1) INITIAL CHECKIN" */
+/* *1     8-OCT-1990 08:31:38 ALLAWAY "USER EXIT TO GET CURRENT MAP NAME IN A FORM" */
+/* DEC/CMS REPLACEMENT HISTORY, Element DD_GET_MAP.PC */
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_MP_H
+#include "esi_mp.h"
+#endif
+
+#if USE_PROTOTYPES
+publicdef INT dd_get_map (void)
+#else
+publicdef INT dd_get_map ()
+#endif
+{
+  INT status = SUCCESS;
+  MAP_STRUCTURE *map;
+
+  EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR mp_name[44];
+  EXEC SQL END DECLARE SECTION;
+
+  status = mp_get_current_map (&map);
+
+  if (status != SUCCESS)
+    {
+    status = am_open_workspace ("MAPDEF",AM_APPLICATION,(VOIDPTR *)&map);
+    }
+  
+  if (status != SUCCESS)
+    {
+    am_message (AM_STATUS,"Map is not defined.");
+    return IAPFAIL;
+    }
+ 
+  V_FROMC (mp_name,map->map_name);
+
+  EXEC IAF PUT GLOBAL.TITLE_BLOCK_NAME VALUES (:mp_name);
+
+  return IAPSUCC;
+
+}

@@ -1,0 +1,1278 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element VI_MAIN2.PC */
+/* *6    16-AUG-1991 17:17:26 JESSIE "(SPR 0) for BHP's modification" */
+/* *5     2-JUL-1991 10:17:19 DOUG "(SPR 0) (jtm) Made changes to srcv,srch,gout for Don." */
+/* *4    21-JUN-1991 18:16:17 DOUG "(SPR 0) fix nl_write_grid so user struct surface naming is the same as scatter file." */
+/* *3    20-JUN-1991 17:12:20 DOUG "(SPR 0) Added PROJECT_DEFAULTS workspace to correctly pick up project default map */
+/*projection." */
+/* *2    14-JUN-1991 17:57:16 DOUG "(SPR 0) Initial checkin in correct library." */
+/* *1    14-JUN-1991 17:54:07 DOUG "Grid from velocity analysis functions." */
+/* DEC/CMS REPLACEMENT HISTORY, Element VI_MAIN2.PC */
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1991
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+/* Function Description -------------------------------------------------------
+Description:
+    Compute velocity grids for specified horizons.
+    VERSION 2.0
+
+Prototype:
+    vi_main2 -oid aaa -proj bbb -line ccc -hor ddd -srch eee -vtyp fff \
+             -src ggg -gout hhh -smooth iii -ref jjj -projection kkk
+
+Parameters:
+    -oid aaa                    Oracle ID/Password, e.g. EUREKA/EUREKA
+    -proj bbb                   Project name
+    -line ccc                   Seismic line select list name
+    -hor  ddd                   Seismic horizon names
+    -srch eee                   Owner of horizons
+    -vtyp fff                   Type of input velocity data, legal
+                                values are 'AVG' or 'STK'
+    -src ggg                    Owner of velocity data
+    -gout hhh                   Prefix to be used for output grids
+    -smooth iii                 Type of smoothing requested (optional),
+                                legal values are 
+                                -smooth MEDIAN
+                                -smooth WT 1
+                                -smooth WT 2
+    -ref jjj                    Option reference velocity function, input
+                                is assumed to be in increasing time order
+                                and arranged as t1 v1 t2 v2 ... tn vn
+    -projection kkk             Projection for data, e.g. "UTM-51"
+ 
+Limitations/Assumptions:
+    All velocity functions can support up to and including 30 time, velocity
+    pairs.
+
+Revision:
+    03 Jun 1991: DAV - added 'ts_sto_upper' for projection argument.
+
+    Hung Hoang - Bugs fixed - Mar/1991 - BHPP 
+                 Bug fixed in preventing the crash when
+                 (f2cdp - f1cdp <= 0)  - Mar/1991 
+
+    Doug Canfield - Disabled BHP specific customization.
+		    August 1991
+
+     
+-----------------------------------------------------------------------------*/
+
+#include "esi_c_lib.h"            /* for strings */
+#ifndef ESI_FM_H
+#include "esi_fm.h"
+#endif
+
+#ifndef ESI_GL_PROJECT_H
+#include "esi_gl_project.h"
+#endif
+
+#ifndef ESI_AM_DEFS_H
+#include "esi_am_defs.h"
+#endif
+
+#include "esi_se.h"            /* for se typedefs and prototypes */
+#include "esi_mp.h"
+#include "esi_ct.h"
+#include "esi_ct_msg.h"
+
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+
+#ifndef ESI_NL_H
+#include "esi_nl.h"            /* for shot nlist */
+#endif                                                                   
+
+#ifndef ESI_NL_ERR_H
+#include "esi_nl_err.h"
+#endif
+
+#ifndef ESI_VI_H
+#include "esi_vi.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"            /* for project projection */
+#endif
+
+#ifndef ESI_FI_H
+#include "esi_fi.h"
+#endif
+
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+
+#ifndef ESI_OR_H
+#include "esi_or.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_SE_H
+#include "esi_se.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_SL_METH_AH
+#include "esi_sl_meth.ah"           
+#endif
+
+publicdef INT main (argc, argv)
+INT argc;
+CHAR *argv[];
+    {
+    PROJECT_NAME project;
+    INT status;
+    INT i, j;
+    INT num;
+    BOOL go;
+    CHAR vel[4];
+    CHAR *horz;
+    INT numhorz = 0;
+    INT smu_type = 0;
+    INT smu_wt;
+    INT  nref;
+    DOUBLE rt[30];
+    DOUBLE rv[30];
+    NLIST_ID lines;
+    CHAR srcv[81];
+    CHAR srch[81];
+    CHAR gout[81];
+    CHAR utm[20];
+     
+    /* process command line arguments */
+    /* ------------------------------ */
+    go = TRUE;
+    
+    /* Get ORACLE id/password */
+    /* ---------------------- */
+    i = vi_args (argc, argv, "-oid", &num);
+    if (i < 0)
+        {
+        fprintf (stderr, "No Oracle ID.\n");
+        go = FALSE;
+        }
+    else
+        {
+        if ((status = or_login (argc, argv)) IS_NOT_EQUAL_TO SUCCESS)
+            {
+            fprintf (stderr,
+                    "Unable to connect to Oracle using %s: Terminating.\n",
+                     argv[i + 1]);
+            exit (EXIT_FAILURE);
+            }
+        }
+
+    /* Get owner of horizon data to be used */
+    /* ------------------------------------ */
+    i = vi_args (argc, argv, "-srch", &num);
+    if (i < 0 || num EQUALS 0)
+        {
+        fprintf (stderr, "No horizon source.\n");
+        go = FALSE;
+        }
+    else
+        {
+        strcpy (srch, ts_sto_upper (argv[i + 1]));
+        }
+
+    /* Get owner of velocity data to be used */
+    /* ------------------------------------- */
+    i = vi_args (argc, argv, "-src", &num);
+    if (i < 0 || num EQUALS 0)
+        {
+        fprintf (stderr, "No velocity source.\n");
+        go = FALSE;
+        }
+    else
+        {
+        strcpy (srcv, ts_sto_upper (argv[i + 1]));
+        }
+
+    /* Get output grid prefix */
+    /* ---------------------- */
+    i = vi_args (argc, argv, "-gout", &num);
+    if (i < 0 || num EQUALS 0)
+        {
+        fprintf (stderr, "No output grid prefix.\n");
+        go = FALSE;
+        }
+    else
+        {
+        strcpy (gout, ts_sto_upper (argv[i + 1]));
+        strcat (gout, "_");
+        }
+    
+    /* Get project name */
+    /* ---------------- */
+    i = vi_args (argc, argv, "-proj", &num);
+    if (i < 0 || num EQUALS 0)
+        {
+        fprintf (stderr, "No project.\n");
+        go = FALSE;
+        }
+    else
+        {
+        qs_set_c (QS_PROJECT_NAME, ts_sto_upper (argv[i + 1]), 0);
+        strcpy (project, argv[i + 1]);
+        status = am_initialize ();
+        if (status < SUCCESS)
+            {
+            fprintf (stderr, "AM_INITIALIZE problem: %d\n", status);
+            or_logout (FALSE);
+            goto NO_PROCESS;
+            }
+        if ((status = finder_config_project (FALSE)) IS_NOT_EQUAL_TO SUCCESS)
+            {
+            fprintf (stderr, "Unable to connect to project %s: Terminating.\n",
+                     argv[i + 1]);
+            or_logout (FALSE);
+            goto NO_PROCESS;
+            }
+#if 0
+	status = am_open_workspace("PROJECT_DEFAULTS", AM_GLOBAL, 
+					(VOIDPTR) &project_default);
+	qs_set_c(QS_MAP_PROJECTION, project_default->map.projection, 0);
+#endif
+
+        }
+
+    /* Get input velocity data type */
+    /* ---------------------------- */
+    i = vi_args (argc, argv, "-vtyp", &num);
+    if (i > 0)
+        {
+        ts_sto_upper (argv[i + 1]);
+        if (strcmp (argv[i + 1], "AVG")     != 0
+            AND strcmp (argv[i + 1], "STK") != 0)
+            {
+            go = FALSE;
+            fprintf (stderr, "-vtyp must have 'AVG' or 'STK' as argument\n");
+            }
+        else
+            {
+            strcpy (vel, argv[i + 1]);
+            }
+        }
+    else
+        {
+        strcpy (vel, "AVG");        /* default */
+        }
+
+    /* Get grid smoothing info */
+    /* ----------------------- */
+    i = vi_args(argc,argv,"-smooth",&num);
+    if(i > 0)
+        {
+        ts_sto_upper(argv[i+1]);
+        if (strcmp (argv[i + 1], "MEDIAN")  != 0
+/********************************************* BHP Customization **********
+	    AND strcmp (argv[i + 1], "USRDEF") != 0
+********************************************** End of BHP Code   *********/
+            AND strcmp (argv[i + 1], "1")  != 0
+            AND strcmp (argv[i + 1], "2")  != 0)
+            {
+            go = FALSE;
+/********************************************* BHP Customization **********
+            fprintf(stderr,
+            "-smooth can only have 'MEDIAN', 'USRDEF', '1' or '2' as argument\n");
+********************************************** End of BHP Code   *********/
+	    fprintf(stderr,
+            "-smooth can only have 'MEDIAN', '1' or '2' as argument\n");
+            }   
+        else
+            {
+            if(strcmp(argv[i+1],"MEDIAN") EQUALS 0)
+                smu_type = 2;
+/********************************************* BHP Customization **********
+            else if(strcmp(argv[i+1],"USRDEF") EQUALS 0)
+                smu_type = 4;
+********************************************** End of BHP Code   *********/
+            else if (strcmp (argv[i+1], "1") EQUALS 0)
+                {
+                smu_type = 3;
+                smu_wt = 1;
+                }
+            else if (strcmp (argv[i+1], "2") EQUALS 0)
+                {
+                smu_type = 3;
+                smu_wt = 2;
+                }
+            }
+        }
+
+    /* Get seismic line select list name */
+    /* --------------------------------- */
+    i = vi_args (argc, argv, "-line", &num);
+    if (i > 0 AND num > 0)
+        {
+        strcpy (lines, argv[i + 1]);
+        }
+    else
+        {
+        fprintf (stderr, "No seismic select list.\n");
+        go = FALSE;
+        }
+
+    /* Get list of horizon names */
+    /* ------------------------- */
+    i = vi_args (argc, argv, "-hor", &numhorz);
+    if (i > 0 AND numhorz > 0 AND go == TRUE)
+        {
+        horz = (CHAR *) tc_alloc (30 * numhorz);
+        for (j = 0; j < numhorz; j++)
+            strcpy (&horz[30 * j], ts_sto_upper(argv[i + 1 + j]));
+        }
+    else if(i EQUALS 0)
+        {
+        fprintf(stderr, "No horizons specified.\n");
+        go = FALSE;
+        }
+
+    /* Get reference velocity function */
+    /* ------------------------------- */
+    i = vi_args(argc, argv, "-ref", &nref);
+    if(i > 0)
+        {
+        if(nref EQUALS 0 || (nref%2) > 0)
+            {
+            go = FALSE;
+            fprintf(stderr,"Reference velocity function must have\n");
+            fprintf(stderr,"equal number of T-V pairs.\n");
+            }
+        else
+            {
+            nref /= 2;
+            for(j = 0; j < nref; j++)
+                {
+                rt[j] = atof(argv[i + 1 + 2*j]);
+                rv[j] = atof(argv[i + 2 + 2*j]);
+                }
+            }
+        }
+    
+    /* Get projection */
+    /* -------------- */
+    i = vi_args(argc, argv, "-projection", &num);
+    if(i > 0 AND num > 0)
+        {
+/*        ts_sto_upper (argv[i + 1]);  */
+        strcpy(utm, ts_sto_upper(argv[i + 1]));
+        }
+    else
+        {
+        go = FALSE;
+        fprintf(stderr, "Coordinate projection not specified.\n");
+        }
+        
+    /* If main parameters were present, then can proceed. */
+    /* -------------------------------------------------- */
+    if (go EQUALS FALSE)
+        {
+        or_logout (TRUE);
+        goto NO_PROCESS;
+        }
+
+    /* we're ready to process */
+    /* ---------------------- */
+    status = viz_main2 (project, vel, srcv, lines, numhorz, horz, srch,
+                        smu_type, smu_wt, nref, rt, rv, gout, utm);
+    
+    or_logout (TRUE);
+    
+    exit (EXIT_SUCCESS);
+    
+NO_PROCESS:
+    fprintf (stderr,
+             "Usage: vi_main2 -oid <oracle_login>\n"); 
+    fprintf (stderr,
+             "                -proj <project>\n");
+    fprintf (stderr,
+             "                -line <line list>\n");
+    fprintf (stderr,
+             "                -hor <Horizon list>\n");
+    fprintf (stderr,
+             "                -srch <Horizon owner>\n");
+    fprintf (stderr,
+             "                -vtyp <velocity type 'AVG|STK'>\n");
+    fprintf (stderr,
+             "                -src <Owner of velocity data>\n");
+    fprintf (stderr,
+             "                -gout <Prefix for grid name>\n");
+    fprintf (stderr, 
+             "                -smooth <MEDIAN|WT> <FOR WT: 1|2>\n");
+    fprintf (stderr,
+             "                -ref T1 V1 T2 V2 .... TN VN\n");
+    fprintf (stderr,
+             "                -projection <Map projection>\n");
+    exit (EXIT_FAILURE);
+    
+    }
+    
+/* ========================================================================*/
+
+/* Function Description -------------------------------------------------------
+Description:
+    Function to convert velocity functions to required velocity type.
+
+Prototype:
+    privatedef INT viz_main2(PROJECT_NAME project, CHAR *vel,
+                             CHAR *srcv, NLIST_ID line_list,
+                             INT numhorz, CHAR *horz, CHAR *srch,
+                             INT smu_type, INT smu_wt, INT nref,
+                             DOUBLE *rt, DOUBLE *rv, CHAR *gout,
+                             CHAR *utm)
+    
+Parameters:
+    (I) project     -(PROJECT_NAME) Name of project containing data.
+    (I) vel         -(CHAR *)   Type of input velocity function
+                                to process - 'STK' or 'INT'.
+    (I) srcv        -(CHAR *)   Source name (analyst) for velocity data.
+    (I) line_list   -(NLIST_ID) Seismic select list name.
+    (I) numhorz     -(INT)      Number of horizon names input.
+    (I) horz        -(CHAR *)   Horizon name array.  Each horizon name
+                                starts 30 characters from the start of
+                                the previous horizon name.  
+    (I) srch        -(CHAR *)   Horizon owner name.
+    (I) smu_type    -(INT)      Smoothing type code
+                                = 0, No smooth of output grid
+                                = 1, Bi-directional application of
+                                     median of 3 filtering
+                                = 2, FFT filtering
+                                = 3, Weighted average smoothing    
+    (I) smu_wt      -(INT)      Smoothing code associated with smu_type.
+    (I) nref        -(INT)      Number of time,velocity pairs in 
+                                reference velocity function; if > 0,
+                                this velocity function will be subtracted
+                                from each velocity function used in
+                                processing so that velocity residuals or
+                                'anomalies' will be processed.     
+    (I) rt          -(DOUBLE *) Array of times for the velocity function.
+    (I) rv          -(DOUBLE *) Array of velocities for velocity function.
+    (I) gout        -(CHAR *)   Output grid name prefix.
+    (I) utm         -(CHAR *)   Coordinate projection.
+
+Return Value/Status:
+    SUCCESS.
+    FAIL.
+
+Scope:
+    PUBLIC
+
+Limitations/Assumptions:
+    All velocity functions can support up to and including 30 time, velocity
+    pairs.
+
+-----------------------------------------------------------------------------*/
+
+#ifdef PROTOTYPES
+privatedef INT viz_main2(PROJECT_NAME project, CHAR *vel,
+                         CHAR *srcv, NLIST_ID line_list,
+                         INT numhorz, CHAR *horz, CHAR *srch,
+                         INT smu_type, INT smu_wt, INT nref,
+                         DOUBLE *rt, DOUBLE *rv, CHAR *gout,
+                         CHAR *utm)
+#else
+privatedef INT viz_main2(project, vel, srcv, line_list, numhorz,
+                         horz, srch, smu_type, smu_wt, nref,
+                         rt, rv, gout, utm)
+PROJECT_NAME project;
+CHAR        *vel;
+CHAR        *srcv;
+NLIST_ID     line_list;
+INT          numhorz;
+CHAR        *horz;
+CHAR        *srch;
+INT          smu_type;
+INT          smu_wt;
+INT          nref;
+DOUBLE      *rt;
+DOUBLE      *rv;
+CHAR        *gout;
+CHAR        *utm;
+#endif
+    {
+    
+    INT numlines;         /* no. lines to actually process            */
+    INT *lines;           /* internal line_id's                       */
+    SEIS_SURV survey;     /* seismic survey name                      */
+    INT status;           /* status flag for function calls           */
+    INT stat_save;        /* error status save                        */
+    INT stat_flag = 0;    /* error occurrance flag                    */
+    INT *line;            /* lineid array pointer                     */
+    INT cur_line;         /* current line instance                    */
+    INT skip_line;        /* skip line value when know no data        */
+    INT cur_horz;         /* current horizon instance                 */
+    CDP *cdp;             /* cdp array pointer                        */
+    SP *sp;               /* sp array pointer                         */
+    COORD *spx;           /* x-array pointer                          */
+    COORD *spy;           /* y-array pointer                          */
+    DOUBLE *time;         /* time array pointer                       */
+    DOUBLE *vavg;         /* avg vel array pointer                    */
+    INT *ntv;             /* tv pair array cnt pntr                   */
+    INT tvsiz = 30;       /* max no. elements for each vel function   */
+    INT i;                /* loop index                               */
+    INT num;              /* counter for number of vel funs           */
+    INT isp;              /* loop index                               */
+    INT j;                /* loop index                               */
+    INT horknt;           /* working horizon counter                  */
+    NLIST_HEADER hlist;   /* seis_surface nlist work space            */
+    NLIST_HEADER alist;   /* seis_surface nlist work space - avg vel  */
+    NLIST_HEADER scatt;   /* scat file ptr array for avg vel data     */
+    FM_LONG namesc;       /* horizon scatter file array for avg data  */
+    FILENAME osname;      /* horizon scatter file array for rms data  */
+    FULL_LINE_NAME fname; /* working version                          */
+    CHAR source[31];      /* source name array for se_get             */
+    INT version = 0;      /* version value for se_get                 */
+    FLOAT upper_time;     /* 'upper' time returned from se_get        */
+    FLOAT lower_time;     /* 'lower' time returned from se_get        */
+    CDP_FLOAT first_cdp;  /* first cdp value returned by se_get       */
+    CDP_FLOAT last_cdp;   /* last cdp value returned by se_get        */
+    CDP_FLOAT cdp_dist;   /* cdp-to-cdp spacing                       */
+    COORD wx;             /* shot-point (cdp) x-coordinate            */
+    COORD wy;             /* shot-point (cdp) y-coordinate            */
+    COORD wx_out;         /* shot-point (cdp) x-coordinate            */
+    COORD wy_out;             /* shot-point (cdp) y-coordinate            */
+    DOUBLE min_x;         /* min x-value for all cdp values           */
+    DOUBLE max_x;         /* max x-value for all cdp values           */
+    DOUBLE min_y;         /* min y-value for all cdp values           */
+    DOUBLE max_y;         /* max y-value for all cdp values           */
+    CDP_FLOAT fcdp;       /* cdp value returned from surface nlist    */
+    CDP_FLOAT old_cdp;    /* cdp value to test for end of data        */
+    DOUBLE ftime;         /* time value returned from surface nlist   */
+    CDP icdp;             /* INT version of 'fcdp'                    */
+    CDP ifcdp;            /* INT version of 'first_cdp'               */
+    CDP ilcdp;            /* INT version of 'last_cdp'                */
+    FLOAT fx;             /* x-value for use with scatter file        */
+    FLOAT fy;             /* y-value for use with scatter file        */
+    FLOAT fz;             /* z-value for use with scatter file        */
+    DOUBLE fvel;          /* working velocity value from interpolation*/
+    FLOAT *grida;         /* grid pointer for average vel grid        */
+    FLOAT *grida_out;     /* smoothed grid pointer for average vel grid */
+    INT grows;            /* number rows in grids                     */
+    INT gcols;            /* number columns in grids                  */
+    DOUBLE gint;          /* computed grid interval                   */
+    DOUBLE znull;         /* null value for grid                      */
+    DOUBLE avel;          /* interpolated avg-velocity                */
+    UINT Col_List[2];     /* Column list for nlist access             */
+    VOIDPTR Var_List[2];  /* Address list for nlist access            */
+    INT Units[2];         /* UOM codes                                */
+    size_t Data_Sizes[2]; /* Data width in bytes                      */
+    INT Data_Types[2];    /* Data type codes                          */
+    UINT nallocated;      /* no. input values allocated               */
+    UINT ncols;           /* no. columns in Col_List                  */
+    UINT nrows;           /* no. rows actually returned               */
+    INT jj;               /* working index                            */
+    DOUBLE f1cdp;         /* 1st cdp for interpolation                */
+    DOUBLE f1tim;         /* 1st time for interpolation               */
+    DOUBLE f2cdp;         /* 2nd cdp for interpolation                */
+    DOUBLE f2tim;         /* 2nd time for interpolation               */
+    PROJECTION_ID project_default;    /* Ptr to project defaults wkspace */
+    BOOL xy_transform;
+    PROJECTION_STRUCTURE *projection_in;
+    PROJECTION_STRUCTURE *projection_out;
+
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+        long lcount;
+        long spcount;                                         
+        long tvcount;
+        long lineid;
+        double shotpt;
+        long velid;
+        double tim;
+        double velocity;
+        double cdpsp;
+        double sp_spac;
+        VARCHAR linename[25];
+        VARCHAR surv[25];  
+        VARCHAR lcntstmt[400];
+        VARCHAR scntstmt[400];
+        VARCHAR hcntstmt[400];
+        VARCHAR lhorstmt[400];
+        VARCHAR lhdstmt[400];
+        VARCHAR hdrstmt[400];
+        VARCHAR spstmt[512];
+        VARCHAR vdstmt[400];
+        VARCHAR tvstmt[400];
+        VARCHAR lnstmt[400];
+    EXEC SQL END DECLARE SECTION;
+    
+    /* Set error handling */
+    /* ------------------ */
+    EXEC SQL WHENEVER SQLERROR GOTO :serr;
+
+    /* Compare two projections : project default and current map -HH Jul/1991- */
+
+    xy_transform = FALSE;
+     status = qs_inq_c (QS_PROJECT_PROJECTION, project_default, (INT *)0);
+    if (status EQUALS SUCCESS)
+       {                                                    
+       if (strcmp (project_default, utm) != 0)
+          {
+          xy_transform = TRUE;
+          ct_get_projection (project_default, &projection_in);
+          ct_get_projection (utm, &projection_out);
+          }
+       }
+
+    /* Get line ids specified by select list now */
+    /* ----------------------------------------- */
+    status = vi_lines(project, line_list, &lines, &numlines);
+    if(status < SUCCESS)
+        {
+        fprintf(stderr, "Could not get lineids.\n");
+        return status;
+        }
+
+    /* Get count of velocity functions to be processed */
+    /* ----------------------------------------------- */
+    lcntstmt.len = sprintf ((char *)lcntstmt.arr, 
+    "SELECT COUNT(*) \
+    FROM %s.SEIS_VEL_HDR \
+    WHERE VELOCITY_TYPE = '%s' \
+    AND Z_UNIT = 'MSEC' \
+    AND SOURCE = '%s'", project, vel, srcv);
+    
+    EXEC SQL PREPARE S10 FROM  :lcntstmt;
+    EXEC SQL DECLARE C10 CURSOR FOR S10;
+    EXEC SQL OPEN C10;
+    EXEC SQL FETCH C10 INTO :lcount;
+    EXEC SQL CLOSE C10;
+    
+    if (lcount EQUALS 0)            /* minimum processing case */
+        {
+        fprintf (stderr, "No velocity function data found.\n");
+        status = SUCCESS;
+        return status;
+        }
+
+    /* Begin allocation of work space */
+    /* ------------------------------ */
+    line = (INT *) tc_alloc (lcount * sizeof(INT));
+    if (line EQUALS (INT *)0)
+        {
+        goto nospace;
+        }
+    cdp = (CDP *) tc_alloc (lcount * sizeof(CDP));
+    if (cdp EQUALS (CDP *)0)
+        {
+        goto nospace;
+        }
+    sp = (SP *) tc_alloc (lcount * sizeof(SP));
+    if (sp EQUALS (SP *)0)
+        {
+        goto nospace;
+        }
+    spx = (COORD *) tc_alloc (lcount * sizeof(COORD));
+    if (spx EQUALS (COORD *)0)
+        {
+        goto nospace;
+        }
+    spy = (COORD *) tc_alloc (lcount * sizeof(COORD));
+    if (spy EQUALS (COORD *)0)
+        {
+        goto nospace;
+        }
+    time = (DOUBLE *) tc_alloc (tvsiz * lcount * sizeof(DOUBLE));
+    if (time EQUALS (DOUBLE *)0)
+        {
+        goto nospace;
+        }
+    vavg = (DOUBLE *) tc_alloc (tvsiz * lcount * sizeof(DOUBLE));
+    if (vavg EQUALS (DOUBLE *)0)
+        {
+        goto nospace;
+        }
+    ntv = (INT *) tc_alloc (lcount * sizeof(INT));
+    if (ntv EQUALS (INT *)0)
+        {
+        goto nospace;
+        }
+    
+    /* Build the cursor for SEIS_VEL_HDR */
+    /* --------------------------------- */
+    
+    hdrstmt.len = sprintf ((char *)hdrstmt.arr, 
+    "SELECT SHOT_POINT,VEL_ID \
+    FROM %s.SEIS_VEL_HDR \
+    WHERE VELOCITY_TYPE = '%s' \
+    AND Z_UNIT = 'MSEC' \
+    AND LINE_ID = :lineid \
+    AND SOURCE = '%s' \
+    ORDER BY SHOT_POINT", project, vel, srcv);
+        
+    EXEC SQL PREPARE S1 FROM :hdrstmt;
+
+    EXEC SQL DECLARE HDR_CUR CURSOR FOR S1;
+
+    /*  Build the cursor for SEIS_VEL_DATA */
+    /* ----------------------------------- */
+    
+    vdstmt.len = sprintf ((char *)vdstmt.arr, 
+    "SELECT Z_VALUE,VELOCITY \
+    FROM %s.SEIS_VEL_DATA \
+    WHERE VEL_ID = :velid \
+    ORDER BY Z_VALUE" , project);
+    
+    EXEC SQL PREPARE S2 FROM :vdstmt;
+    EXEC SQL DECLARE VD_CUR CURSOR FOR S2;
+    
+    /*  Build the cursor for SEIS_HOR_CODES */
+    /* ------------------------------------ */
+    
+    lhorstmt.len = sprintf ((char *)lhorstmt.arr, 
+    "SELECT HOR_CODE \
+    FROM %s.SEIS_HOR_CODES", project);
+    
+    EXEC SQL PREPARE S4 FROM :lhorstmt;
+    EXEC SQL DECLARE LHOR_CUR CURSOR FOR S4;
+    
+    /* ---------------------------- */
+    /* Now input velocity functions */
+    /* ---------------------------- */
+    EXEC SQL WHENEVER NOT FOUND GOTO serr;
+
+    num = 0;
+    for (i = 0; i < numlines; i++)
+        {
+        lineid = lines[i];
+    
+        /* Open hdr cursor now */
+        /* ------------------- */
+        EXEC SQL OPEN HDR_CUR USING :lineid;
+
+        /* Get count of shotpoints to be processed */
+        /* --------------------------------------- */
+        spstmt.len = sprintf ((char *)spstmt.arr, 
+        "SELECT COUNT(*) \
+        FROM %s.SEIS_VEL_HDR \
+        WHERE VELOCITY_TYPE = '%s' \
+        AND Z_UNIT = 'MSEC' \
+        AND LINE_ID = %d"
+            , project, vel, lineid);
+    
+        EXEC SQL PREPARE S3 FROM  :spstmt;
+        EXEC SQL DECLARE C3 CURSOR FOR S3;
+        EXEC SQL OPEN C3;
+        EXEC SQL FETCH C3 INTO :spcount;
+        EXEC SQL CLOSE C3;
+    
+        for(isp = 0; isp < spcount; isp++)
+            {
+            EXEC SQL FETCH HDR_CUR INTO :shotpt,:velid;
+        
+            /* Get count of T-V pairs */
+            /* ---------------------- */
+            tvstmt.len = sprintf ((char *)tvstmt.arr, 
+            "SELECT COUNT(*) \
+            FROM %s.SEIS_VEL_DATA \
+            WHERE VEL_ID = %d", project, velid);
+        
+            EXEC SQL PREPARE S13 FROM  :tvstmt;
+            EXEC SQL DECLARE C13 CURSOR FOR S13;
+            EXEC SQL OPEN C13;
+            EXEC SQL FETCH C13 INTO :tvcount;
+            EXEC SQL CLOSE C13;
+        
+#if 0
+            line[num] = lineid;
+            sp[num] = shotpt;
+            ntv[num] = tvcount;
+#endif
+
+            *(line + num) = lineid;
+            *(sp + num)   = shotpt;
+            *(ntv + num)  = tvcount;
+        
+            if (tvcount EQUALS 0)
+                {
+                continue;
+                }
+        
+            EXEC SQL OPEN VD_CUR USING :velid;
+        
+            for (j = 0; j < tvcount; j++)
+                {
+                EXEC SQL FETCH VD_CUR INTO :tim, :velocity;
+                time[num * tvsiz + j] = tim;
+                vavg[num * tvsiz + j] = velocity;
+                }
+            
+            EXEC SQL CLOSE VD_CUR;
+
+            /* If reference velocity function specified - compute residuals */
+            /* ------------------------------------------------------------ */
+            if(nref > 0)
+                {
+                for(j = 0; j < tvcount; j++)
+                    {
+                    vavg[num*tvsiz + j] = vavg[num*tvsiz + j]
+                        - vi_lin_intp(nref, rt, rv, time[num*tvsiz + j]);
+                    }
+                }
+
+            /* Get line name, survey */
+            /* --------------------- */
+            lnstmt.len = sprintf ((char *)lnstmt.arr, 
+            "SELECT LINE_NAME, SURVEY \
+            FROM %s.SEIS_LINE_HDR \
+            WHERE LINE_ID = %d", project, lineid);
+        
+            EXEC SQL PREPARE S14 FROM  :lnstmt;
+            EXEC SQL DECLARE C14 CURSOR FOR S14;
+            EXEC SQL OPEN C14;
+            EXEC SQL FETCH C14 INTO :linename, :surv;
+            EXEC SQL CLOSE C14;
+        
+            fname.id = *(line + num);
+            V_FROMV (survey, surv);
+            strcpy (fname.survey, survey);
+            V_FROMV (fname.line_name, linename);
+        
+            cdp_dist = 0.0;
+            status = se_cdp_from_sp (&fname, *(sp + num), (cdp + num));
+            if (status != SUCCESS)
+                {
+                fprintf (stderr, "Failed in 'se_cdp_from_sp:status = %d\n",
+                        status);
+                stat_flag = 1;
+                stat_save = status;
+                goto CLEANUP;
+                }
+
+            status = se_xy_from_cdp (&fname, *(cdp + num), cdp_dist, 
+                                     (spx + num), (spy + num));
+            if (status != SUCCESS)
+                {
+                fprintf (stderr, "Failed in 'se_xy_from_cdp:status = %d\n",
+                         status);
+                stat_flag = 1;
+                stat_save = status;
+                goto CLEANUP;
+                }
+        
+            num += 1;
+            } /* end of shotpoint loop */
+            
+        EXEC SQL CLOSE HDR_CUR;
+        
+        } /* end of line loop */
+        
+    EXEC SQL WHENEVER NOT FOUND CONTINUE;
+    
+    /* Open horizon cursor now */
+    /* ----------------------- */
+    EXEC SQL OPEN LHOR_CUR;
+    
+    horknt = numhorz; 
+
+    /* -------------------------------------- */
+    /* Loop over horizons and build scatter   */
+    /* files for velocity processing          */
+    /* -------------------------------------- */
+    EXEC SQL OPEN LHOR_CUR;
+    
+    znull = -2000000000.0;
+    min_x = 1.0e+30;
+    max_x = -min_x;
+    min_y = 1.0e+30;
+    max_y = -min_y;
+    
+    cur_horz = 0;
+    for (i = 0; i < horknt; i++)
+        {
+
+        /* Build scatter/grid file names */
+        /* ----------------------------- */
+        strcpy (namesc, gout);
+        strcat (namesc, &horz[30 * i]);
+        
+        /* Open scatter file for this horizon */
+        /* ---------------------------------- */
+        status = ov_open_scatter (&scatt, namesc, "w", osname);
+        if (status < SUCCESS)
+            {
+            fprintf (stderr, "Problem with ov_open_scatter: %d\n", status);
+            stat_flag = 1;
+            stat_save = status;
+            goto CLEANUP;
+            }
+
+        /* Give it the horizon name */
+        /* ------------------------ */
+        status = ov_set_scatter_horizons (scatt, "", namesc);
+        if (status < SUCCESS)
+            {
+            fprintf (stderr, "Problem with ov_set_scatter_horizons: %d\n", 
+                     status);
+            stat_flag = 1;
+            stat_save = status;
+            goto CLEANUP;
+            }
+
+        /* Loop over lines - line data repeated for each CDP */
+        /* ------------------------------------------------- */
+        nallocated = 1;
+        ncols = 2;
+        Col_List[0] = 1;
+        Col_List[1] = 2;
+        Var_List[0] = (VOIDPTR)&fcdp;
+        Var_List[1] = (VOIDPTR)&ftime;
+        Units[0] = 0;
+        Units[1] = 0;
+        Data_Sizes[0] = sizeof(DOUBLE);
+        Data_Sizes[1] = sizeof(DOUBLE);
+        Data_Types[0] = FLOAT_TYPE;
+        Data_Types[1] = FLOAT_TYPE;
+        cur_line = 0;
+#if 0
+        for (j = 0; j < numlines; j++)
+#endif
+        skip_line = -1;
+        for (j = 0; j < num; j++)
+            {
+            old_cdp = -1.;
+            
+            /* Skip if no vel data */
+            /* ------------------- */
+            if (*(ntv + j) EQUALS 0)
+                {
+                continue;
+                }
+            
+            /* This makes for only one se_get/line instead of each CDP */
+            /* ------------------------------------------------------- */
+            if (cur_line != *(line + j))
+                {
+                cur_line = *(line + j);
+                
+                /* If we already know no data on line, then skip */
+                /* --------------------------------------------- */
+                if(cur_line EQUALS skip_line)
+                    {
+                    cur_line = 0;
+                    continue;
+                    }
+
+                /* Get line name, survey */
+                /* --------------------- */
+                lnstmt.len = sprintf ((char *)lnstmt.arr, 
+                "SELECT LINE_NAME, SURVEY \
+                FROM %s.SEIS_LINE_HDR \
+                WHERE LINE_ID = %ld", project, cur_line);
+        
+                EXEC SQL PREPARE S15 FROM  :lnstmt;
+                EXEC SQL DECLARE C15 CURSOR FOR S15;
+                EXEC SQL OPEN C15;
+                EXEC SQL FETCH C15 INTO :linename, :surv;
+                EXEC SQL CLOSE C15;
+        
+                V_FROMV (survey, surv);
+                strcpy (fname.survey, survey);
+                V_FROMV (fname.line_name, linename);
+                fname.id = cur_line;
+#if 0
+                    fprintf (stderr, "  Data going to se_get:\n");
+                    fprintf (stderr, "    horizon= %s\n", &horz[30 * i]);
+                    fprintf (stderr, "    lineid= %d\n", cur_line);
+                    fprintf (stderr, "    survey= %s\n", survey);
+                    fprintf (stderr, "    linename= %s\n", fname.line_name);
+#endif           
+                strcpy (source, srch);
+                version = 0;
+                status = se_get (&hlist, &horz[30 * i], SE_HORIZ,
+                                 SE_TIME, &fname, source, SE_AT_NM,
+                                 SE_FINDER, &version,
+                                 &upper_time, &lower_time,
+                                 &first_cdp, &last_cdp);
+                if (status != SUCCESS)
+                    {
+                    fprintf (stderr, "se_get:status= %d\n", status);
+                    fprintf (stderr, "  No data for:\n");
+                    fprintf (stderr, "    horizon= %s\n", &horz[30 * i]);
+                    fprintf (stderr, "    lineno= %d\n", cur_line);
+                    fprintf (stderr, "    survey= %s\n", survey);
+                    fprintf (stderr, "    linename= %s\n", fname.line_name);
+                    skip_line = cur_line;
+                    cur_line = 0;
+                    continue;
+                    }
+
+                status = se_xy_from_cdp_float (&fname, first_cdp, cdp_dist,
+                                               &wx, &wy);
+            
+                min_x = MIN (min_x, wx);
+                max_x = MAX (max_x, wx);
+                min_y = MIN (min_y, wy);
+                max_y = MAX (max_y, wy);
+                status = se_xy_from_cdp_float (&fname, last_cdp, cdp_dist,
+                                               &wx, &wy);
+                min_x = MIN (min_x, wx);
+                max_x = MAX (max_x, wx);
+                min_y = MIN (min_y, wy);
+                max_y = MAX (max_y, wy);
+                
+                ifcdp = (CDP)first_cdp;
+                ilcdp = (CDP)last_cdp;
+                jj = ifcdp - 1;
+                f2cdp = first_cdp;
+                }
+                                                
+            cdp_dist = 0.0;
+            jj = (INT)*(cdp + j);                      
+            if (jj < ifcdp || jj > ilcdp)
+               {
+               cur_line = 0;
+               continue;
+               }               
+            
+        cdp_loop:
+            /* get next row from nlist */
+            /* ----------------------- */
+            status = nl_get_rows_convert (hlist, nallocated, ncols, Col_List, 
+                                          Var_List, Units, Data_Sizes, 
+                                          Data_Types, &nrows);
+            if (status < SUCCESS)
+                {
+                fprintf (stderr, "Problem with 'nl_get_rows':status = %d\n",
+                         status);
+                fprintf (stderr, "    Horizon name = %s\n", namesc);
+                fprintf (stderr, "    Line No = %d\n", cur_line);
+                fprintf (stderr, "    Status = %d\n", status);
+                stat_flag = 1;
+                stat_save = status;
+                goto CLEANUP;
+                }
+
+            /* Check for end of data (endless loop) */
+            /* ------------------------------------ */
+            if(fcdp EQUALS old_cdp)
+                {
+                continue;
+                }
+            old_cdp = fcdp;
+            
+            f1cdp = f2cdp;
+            f2cdp = fcdp;
+            f1tim = f2tim;             
+            f2tim = ftime;
+            
+            /* Must now test if this is cdp we are looking for */
+            /* ----------------------------------------------- */
+            icdp = (CDP)fcdp;
+            if (jj > icdp && jj < ilcdp)
+                {
+                goto cdp_loop;
+                }
+                
+            if (jj <= icdp)
+                {
+                /** H. Hoang - BHPP Mar/1991  **/
+                /** Condition is set up to prevent a crash 
+                    when f2cdp-f1cdp = 0 **/
+
+                if ((f2cdp-f1cdp) <= 0)
+                    {
+                    goto cdp_loop;
+                    }                                               
+                ftime = f1tim + (f2tim - f1tim) * (jj - f1cdp) /
+                                                  (f2cdp - f1cdp);
+               
+                }
+
+            /* We have a match - now build x,y,z's for scatter files */
+            /* ----------------------------------------------------- */
+            status = se_xy_from_cdp_float (&fname, jj, cdp_dist, &wx, &wy);
+            /* If two projections are different so then do the transform -HH- */
+
+            if (xy_transform != TRUE)
+                {
+                fx = (FLOAT)wx;
+                fy = (FLOAT)wy;
+                }
+            else                                  
+               {
+	        wx_out = 0.0;
+                wy_out = 0.0;
+                ct_transform_point(wx, wy, projection_in,
+                                           &wx_out, &wy_out, projection_out);
+                fx = (FLOAT)wx_out;
+                fy = (FLOAT)wy_out;
+                }                                                      
+                                                                                         
+            /* Interpolate velocity */
+            /* -------------------- */
+            fvel = vi_lin_intp (*(ntv + j), (time + j * tvsiz), 
+                                 (vavg + j * tvsiz), ftime);
+            fz = (FLOAT)fvel;
+            status = ov_write_scatter (scatt, &fx, &fy, &fz, 1);
+            if (status < SUCCESS)
+                {
+                fprintf (stderr, "Problem with ov_write_scatter: %d\n",
+                         status);
+                stat_flag = 1;
+                stat_save = status;
+                goto CLEANUP;
+                }
+            }
+
+        /* Close scatter files for this horizon */
+        /* ------------------------------------ */
+        status = ov_close_scatter (scatt, namesc, "w", osname);
+        if (status < SUCCESS)
+            {
+            fprintf (stderr, "Problem with ov_close_scatter: %d\n", status);
+            fprintf (stderr, " Scatter name: '%s'\n", namesc);
+            fprintf (stderr, " System  name: '%s'\n", osname);
+            stat_flag = 1;
+            stat_save = status;
+            goto CLEANUP;
+            }
+
+        /* Calculate velocity grid surface */
+        /* ------------------------------- */
+        
+        status = vi_make_grid (namesc, min_x, max_x, min_y, max_y, &grida,
+                               &grows, &gcols, &gint);
+        if (status < SUCCESS)
+            {
+            fprintf (stderr, "Problem from 'vi_make_grid':status = %d\n",
+                     status);
+            stat_flag = 1;
+            stat_save = status;                          
+            goto CLEANUP;                   
+            }
+            
+        /* Now is the time to do smoothing */
+        /* ------------------------------- */                      
+        if (smu_type EQUALS 2)
+            {                                              
+            status = vi_median_2d (grows, gcols, grida);
+            if (status < SUCCESS)
+                {
+                fprintf (stderr, "Could not get workspace for filtering\n");
+                fprintf (stderr, "Grid is not filtered\n");
+                }
+            }
+/********************************************* BHP Customization **********
+        else if (smu_type EQUALS 4)
+            {
+            grida_out = (FLOAT *) tc_alloc (grows * gcols * sizeof (FLOAT));
+	    status = vi_usrdef_smooth (grida, grida_out, min_x, min_y,
+                                       grows, gcols, gint);
+            if (status == SUCCESS)
+               {
+               grida = grida_out;
+               }
+            else
+               {
+               fprintf (stderr, "Could not get workspace for filtering\n");
+               fprintf (stderr, "Grid is not filtered\n");
+               }
+            }
+********************************************* End of BHP Code ***********/
+        else if (smu_type EQUALS 3)
+            {
+            status = vi_wt_avg (smu_wt, grows, gcols, grida);
+            if (status < SUCCESS)
+                {
+                fprintf (stderr, "Could not get workspace for filtering\n");
+                fprintf (stderr, "Grid is not filtered\n");
+                }
+            }
+
+        /* Store grid in nlist -- put in DB, then done */
+        /* ------------------------------------------- */
+        status = nl_write_grid (namesc, znull, min_x, max_x, min_y, max_y,
+                                grows, gcols, grida, utm, "XY", "",
+				"VI_MAIN", namesc, "" );
+/* Changed line below to line above per Don Vossler's fax to make    */
+/* the grid user struct surface naming the same as for scatter files */
+/*                             "VI_MAIN", "", &horz[30 * i]);        */
+        if (status < SUCCESS)
+            {
+            fprintf (stderr, "Problem from 'vi_store_grid':status = %d\n",
+                     status);
+            stat_flag = 1;
+            stat_save = status;
+            goto CLEANUP;
+            }
+        status = am_free (grida);
+        } /* end of horizon loop */
+    
+    EXEC SQL CLOSE LHOR_CUR;
+    
+    /* All ok - clear status flag */
+    /* -------------------------- */
+    stat_flag = 0;
+    
+    /* Deallocate work space */
+    /* --------------------- */
+CLEANUP:
+    status = tc_free (line);
+    status = tc_free (cdp);
+    status = tc_free (sp);
+    status = tc_free (spx);
+    status = tc_free (spy);
+    status = tc_free (vavg);
+    status = tc_free (ntv);
+    status = tc_free (grida_out);
+    
+    /* Clear out old pointer values */
+    /* ---------------------------- */
+    line = (INT *)0;
+    cdp = (CDP *)0;
+    sp = (SP *)0;
+    spx = (COORD *)0;
+    spy = (COORD *)0;
+    time = (DOUBLE *)0;
+    vavg = (DOUBLE *)0;
+    ntv = (INT *)0;
+    grida_out = (FLOAT *)0;
+    
+    if (stat_flag)
+        {
+        status = stat_save;
+        }
+    else
+        {
+        status = SUCCESS;
+        }
+    return status;
+    
+nospace:
+    fprintf (stderr, "Could not allocate space for one or more variables.\n");
+    stat_save = -1;
+    stat_flag = 1;
+    goto CLEANUP;
+    
+serr:
+    stat_save = OR_STATUS;
+    stat_flag = 1;
+    fprintf (stderr, "SQL error: %d occurred.\n%-70.70s\n",
+             OR_STATUS, OR_MESSAGE);
+    goto CLEANUP;
+    }

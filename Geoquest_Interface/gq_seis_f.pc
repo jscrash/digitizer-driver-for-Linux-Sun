@@ -1,0 +1,977 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element GQ_SEIS_F.PC*/
+/* *9    19-DEC-1991 10:19:01 PURNA "(SPR 0) UNOCAL mods"*/
+/* *8    11-SEP-1991 13:50:33 PURNA "(SPR 0) fixed crashes when moving wells"*/
+/* *7    30-OCT-1990 16:26:15 GILLESPIE "(SPR 37) More sun fixes"*/
+/* *6    30-OCT-1990 13:44:55 GILLESPIE "(SPR 37) Fixes for Sun compiles"*/
+/* *5    23-JUL-1990 16:05:23 GILLESPIE "(SPR 1) Fix syntax problems with last checkin"*/
+/* *4    20-JUL-1990 12:41:54 VINCE "(SPR 5644) Header Standardization"*/
+/* *3    10-JUL-1990 15:15:54 GILLESPIE "(SPR 1) C Pumroy deltas from Enron Houston"*/
+/* *2     1-JUL-1990 13:22:14 GILLESPIE "(SPR 1) IES Link - The Next Generation"*/
+/* *1    21-JUN-1990 19:23:41 GILLESPIE "Geoquest Link"*/
+/* DEC/CMS REPLACEMENT HISTORY, Element GQ_SEIS_F.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_se.h"
+#include "esi_se_err.h"
+#include "esi_qs.h"
+#include "esi_tc.h"
+#include "esi_ts.h"
+#include "esi_ct.h"
+#include "esi_nl_meth_hdr.h"
+#include "esi_oracle.h"
+#include "interface.h"
+#include "esi_am.h"
+#include "esi_gl_project.h"
+
+#if USE_PROTOTYPES
+static DOUBLE rat2double (rational_t *rat);
+static INT sez_put_line_2d (SEISMIC_SURVEY *seis_struc_ptr, SEISMIC_LINE *pLine,
+                                FULL_LINE_NAME *fullLine);
+static INT sez_put_line_3d (SEISMIC_SURVEY *seis_struc_ptr, SEISMIC_LINE *pLine,
+                                FULL_LINE_NAME *fullLine);
+#else
+static DOUBLE rat2double ();
+static INT sez_put_line_2d ();
+static INT sez_put_line_3d ();
+#endif
+EXEC SQL BEGIN DECLARE SECTION;
+static VARCHAR stmt[512];
+EXEC SQL END DECLARE SECTION;
+
+static PROJECT_NAME project;
+static PROJECT_DEFAULT *defaults;
+static PROJECTION_STRUCTURE *input_projection;
+static PROJECTION_STRUCTURE *project_projection;
+
+/* File Description ---------------------------------------------------------
+Overview:
+    IES to Finder seismic line interface
+
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT c_put_seis_finder(SEISMIC_SURVEY *seis_struc_ptr,
+                                opt_list_t *options_ptr, int_t *status_ptr);
+
+Private_Functions:
+    static DOUBLE rat2double(rational_t *rat);
+    
+    static INT sez_put_line_2d(SEISMIC_SURVEY *seis_struc_ptr, SEISMIC_LINE *pLine,
+                               FULL_LINE_NAME *fullLine);
+
+    static INT sez_put_line_3d(SEISMIC_SURVEY *seis_struc_ptr, SEISMIC_LINE *pLine,
+                               FULL_LINE_NAME *fullLine);
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+This routine takes seismic data as defined in the file interface.h
+and loads it into the Finder database.
+
+The basic unit is a seismic survey, which contains one or more
+seismic lines.  Each seismic line can contain shot point locations
+and interpretations.  There can be several interpretations per line.
+
+Each seismic surface can contain multiple attributes.  IES comingles
+all of the attributes in one segment set.  This forces us to continually
+scan through the data set to match thecommon data attributes, since the
+Finder model is to store each set of attributes as a separate surface.
+
+Status handling is as follows:
+Each Vector is checked to make sure it is of the correct type and has the
+correct element size.  This detectd bad versions of the structures.
+If the data are structurally sound, then each data type is loaded.  If
+a seismic line fails to load, then the status field of the seismic line
+structure is set to the failure status.
+If a surface fails to load, then the status field of the surface is set
+to the failure status, and the line and survey statuses are also set
+to a non-zero value.  This enables the caller to analyze the success of
+the entire load.  If any failure is detected, then the return status
+pointer is set to a non-zero value. The caller can then examine the
+status of each line for failure status codes.
+
+If a line does not already exist, then it is created.  The cdp to shot point
+correspondence of the line to be entered is honored.  If the line already
+exists, then the stored cdp to shot point correspondence is used.  This
+is important, because it may require translation of any input cdp number to
+a new 'cdp' number in Finder.  There is therefore no guarantee that returned
+cdp numbers will be the same as originally input
+
+Prototype:
+    publicdef INT c_put_seis_finder(SEISMIC_SURVEY *seis_struc_ptr,
+                                opt_list_t *options_ptr, int_t *status_ptr);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    seis_struct_ptr -(SEISMIC_SURVEY *)
+    options_ptr     -(opt_list_t *)
+    status_ptr      -(int_t *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT c_put_seis_finder (SEISMIC_SURVEY *seis_struc_ptr,
+                                 opt_list_t *options_ptr, int_t *status_ptr)
+#else
+publicdef INT c_put_seis_finder (seis_struc_ptr, options_ptr, status_ptr)
+SEISMIC_SURVEY *seis_struc_ptr;
+opt_list_t *options_ptr;
+int_t *status_ptr;
+#endif
+    {
+    UINT nlines;
+    UINT nhor;
+    UINT nsegments;
+    UINT nattributes;
+    UINT npoints;
+    UINT nvalid_rows;
+    UINT nCol = 2;
+    INT i, ii, j, k, l, m;
+    INT status;
+    FULL_LINE_NAME line;
+    LINE_HDR *pseis;
+    SEISMIC_CLASS *pClass;
+    SEISMIC_LINE *pLine;
+    SEISMIC_SURFACE *pSurface;
+    SEGMENT *pSegment;
+    SEISMIC_DATA_POINT *pPoint;
+    SEIS_SURFACE_HDR *pSurf, **finder_surface;
+    SEIS_SURFACE_DATA_CLASS data_class;
+    VECTOR *pLineVector;
+    VECTOR *pSurfaceVector;
+    VECTOR *pClassVector;
+    VECTOR *pSegmentVector;
+    VECTOR *pPointVector;
+    INT units[2];
+    UINT Col_List[2];
+    VOIDPTR Var_List[2];
+    INT column_types[2];
+    size_t column_widths[2];
+    DOUBLE *pcdp;
+    DOUBLE *pvalue;
+    
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    
+    /*  Initialize variables used for surface                                       */
+    /*  n-Lists                                                                     */
+    
+    for (i = 0; i < nCol; i++)
+        {
+        Col_List[i] = i + 1;
+        units[i] = 0;
+        column_types[i] = FLOAT_TYPE;
+        column_widths[i] = sizeof(DOUBLE);
+        }
+    /* Retrieve the project defaults structure
+    This is filled out in the FINDER_CONFIG_PROJECT function
+    (which must have been executed before this function is called) */
+    
+    status = am_open_workspace ("PROJECT_DEFAULTS", AM_GLOBAL, (VOIDPTR)&defaults);
+    if (status != SUCCESS)
+        {
+        return status;
+        }
+    /* Get the project projection information ready to go                           */
+    status = ct_get_projection (defaults->projection, &project_projection);
+    if (status != SUCCESS)
+        {
+        return status;
+        }
+#if 0
+    /* In order to accomplish coordinate conversion, we should take the
+        provided projection info and use it.  This release does not have
+        sufficient information filled out to handle it (ah well...) */
+#endif
+    
+    /*  Line processor                                                              */
+    
+    pLineVector = &seis_struc_ptr->seis_line;
+    
+    if (pLineVector->element_size != sizeof(SEISMIC_LINE))
+        {
+        return *status_ptr = SE_INVALID_VECTOR_SIZE;
+        }
+    if (pLineVector->element_format != VEC_TYPE_SEIS_LINE)
+        {
+        return *status_ptr = SE_INVALID_VECTOR_TYPE;
+        }
+    for (i = 0, nlines = pLineVector->number_elements; i < nlines; i++)
+        {
+        pLine = ((SEISMIC_LINE *)(pLineVector->vector_pointer)) + i;
+        
+        /*  Retrieve seismic line                                                   */
+        
+        switch (pLine->line_type)
+            {
+        case LINE_2D:
+            /* The following is a temporary kludge to handle the case where seismic
+            line names are encoded by IES to be of the form survey^line. */
+            if (IS_EMPTY_STRING (seis_struc_ptr->name))
+                {
+                sscanf (pLine->line_name, "%s^%s", line.survey, line.line_name);
+                }
+            else
+                {
+                strcpy (line.line_name, pLine->line_name);
+                strcpy (line.survey, seis_struc_ptr->name);
+                }
+            break;
+        case LINE_3DI:              /* 3-D In-Line                                  */
+            sprintf (line.line_name, "%dI", pLine->line_number);
+            strcpy (line.survey, seis_struc_ptr->name);
+            break;
+        case LINE_XLN:              /* 3-D Crossing Line                            */
+            sprintf (line.line_name, "%dX", pLine->line_number);
+            strcpy (line.survey, seis_struc_ptr->name);
+            break;
+        case LINE_RCN:              /* 3-D reconstruction cut                       */
+            strcpy (line.line_name, pLine->line_name);
+            strcpy (line.survey, seis_struc_ptr->name);
+            break;
+        default:
+            return -1;
+            }
+        line.id = 0;
+        ts_sto_upper (line.survey);
+        ts_sto_upper (line.line_name);
+        status = se_retrieve_header (&line, &pseis);
+        
+        switch (status)
+            {
+        case OR_EOF:
+            /*  Line does not exist - add it                                        */
+            switch (seis_struc_ptr->svy_type)
+                {
+            case SVY_2D:
+                /* A 2-D line does not exist - if possible, try and load the
+                location information from the line data structure */
+                status = sez_put_line_2d (seis_struc_ptr, pLine, &line);
+                break;
+            case SVY_3D:
+                /* A 3-D line does not exist - make entries in the seis_line_hdr
+                table as needed, but make sure the 3-D SEIS_GRID_3D structure
+                is loaded first */
+                status = sez_put_line_3d (seis_struc_ptr, pLine, &line);
+                status = OR_EOF;
+                break;
+                }
+            if (status IS_NOT_EQUAL_TO SUCCESS)
+                {
+                pLine->status = status;
+                continue;
+                }
+            break;
+        default:
+            return *status_ptr = status;
+        case SUCCESS:
+            break;
+            }
+        /*  Seismic line exists - process                                           */
+        /*  interpretations                                                         */
+        
+        pClassVector = &pLine->seismic_class;
+        if (pClassVector->element_size != sizeof(SEISMIC_CLASS))
+            {
+            pLine->status = SE_INVALID_VECTOR_SIZE;
+            continue;
+            }
+        if (pClassVector->element_format != VEC_TYPE_SEIS_CLASS)
+            {
+            pLine->status = SE_INVALID_VECTOR_TYPE;
+            continue;
+            }
+        for (ii = 0, pClass = pClassVector->vector_pointer;
+             ii < pClassVector->number_elements; ii++, pClass++)
+            {
+            pSurfaceVector = &pClass->surface;
+            
+            if (pSurfaceVector->element_size != sizeof(SEISMIC_SURFACE))
+                {
+                pLine->status = SE_INVALID_VECTOR_SIZE;
+                continue;
+                }
+            if (pSurfaceVector->element_format != VEC_TYPE_SURFACE)
+                {
+                pLine->status = SE_INVALID_VECTOR_TYPE;
+                continue;
+                }
+            for (j = 0, nhor = pSurfaceVector->number_elements; j < nhor; j++)
+                {
+                pSurface = ((SEISMIC_SURFACE *)(pSurfaceVector->vector_pointer)) + j;
+                
+                /*  Translate the surface type code                                 */
+                
+                switch (pSurface->surface_type)
+                    {
+                case SRF_TYPE_HOR:
+                    data_class = SE_HORIZ;
+                    break;
+                case SRF_TYPE_FLT:
+                    data_class = SE_FAULT;
+                    break;
+                default:
+                    pSurface->status = SE_INVALID_SURFACE_TYPE;
+                    continue;
+                    }
+                pSegmentVector = &pSurface->segment;
+                if (pSegmentVector->element_size != sizeof(SEGMENT))
+                    {
+                    pSurface->status = SE_INVALID_VECTOR_SIZE;
+                    continue;
+                    }
+                if (pSegmentVector->element_format != VEC_TYPE_SEGMENT)
+                    {
+                    pSurface->status = SE_INVALID_VECTOR_TYPE;
+                    continue;
+                    }
+                /*  Cycle through all segments.  Since IES
+                    sends us merged data types, we have to
+                    examine the data type of each segment and
+                    determine whether we have seen it before.
+                    If yes, then start a new table and add the
+                    data points.  If not, create a new surface
+                    and continue... */
+                
+                for (k = 0, nattributes = 0,
+                     nsegments = pSegmentVector->number_elements,
+                     finder_surface = (SEIS_SURFACE_HDR * *)0; k < nsegments; k++)
+                    {
+                    SEIS_SURFACE_DATA_TYPE data_type;
+                    CHAR buffer[128];
+                    BOOL found;
+                    UINT ntab;
+                    
+                    pSegment = ((SEGMENT *)(pSegmentVector->vector_pointer)) + k;
+                    pPointVector = &pSegment->point;
+                    if (pPointVector->element_size != sizeof(SEISMIC_DATA_POINT))
+                        {
+                        pSurface->status = SE_INVALID_VECTOR_SIZE;
+                        break;
+                        }
+                    if (pPointVector->element_format != VEC_TYPE_POINT)
+                        {
+                        pSurface->status = SE_INVALID_VECTOR_TYPE;
+                        break;
+                        }
+                    /*  Convert the data type for this segment to                   */
+                    /*  the corresponding Finder type                               */
+                    
+                    switch (pSegment->z_type)
+                        {
+                    case AMPLITUDE:
+                        data_type = SE_AMPL;
+                        break;
+                    case TIME_UNSNAPPED:
+                        data_type = SE_TIME;
+                        break;
+                    case TIME_REFINED:
+                        data_type = SE_TIME_REFINED;
+                        break;
+                    default:
+                        data_type = SE_UNKNOWN;
+                        break;
+                        }
+                    /*  see if this attribute type has already been                 */
+                    /*  found for this surface                                      */
+                    
+                    for (l = 0, found = FALSE; l < nattributes; l++)
+                        {
+                        if (finder_surface[l]->data_type EQUALS data_type)
+                            {
+                            found = TRUE;
+                            }
+                        }
+                    /*  This is the first time we've seen this
+                       attribute.  Build another seismic surface
+                       and load up the header               */
+                    
+                    if (!found)
+                        {
+                        if (nattributes++ == 0)
+                            {
+                            finder_surface = (SEIS_SURFACE_HDR *
+                                              *) tc_alloc ((nattributes + 1) *
+                                                           sizeof(SEIS_SURFACE_HDR *));
+                            }
+                        else
+                            {
+                            finder_surface = (SEIS_SURFACE_HDR *
+                                              *) tc_realloc (finder_surface,
+                                                             (nattributes + 1) *
+                                                             sizeof(
+                                                                  SEIS_SURFACE_HDR *));
+                            }
+                        pSurf = ALLOCATE (SEIS_SURFACE_HDR);
+                        finder_surface[nattributes - 1] = pSurf;
+                        finder_surface[nattributes] = (SEIS_SURFACE_HDR *)0;
+                        status = se_init_hor_nlist (&pSurf->nlist);
+                        pSurf->line = line;
+                        pSurf->data_type = data_type;
+                        pSurf->data_class = data_class;
+                        switch (pClass->seis_line_hdr.migration_type)
+                            {
+                        default:
+                        case NO_MIGRATION:
+                            pSurf->attribute = SE_AT_NM;
+                            break;
+                        case PRESTACK_MIGRATION:
+                        case POSTSTACK_MIGRATION:
+                            pSurf->attribute = SE_AT_MG;
+                            break;
+                            }
+                        strcpy (pSurf->name, pSurface->surface_name);
+                        strcpy (pSurf->source, "IES");
+                        }
+                    status = nl_start_table (pSurf->nlist, &ntab);
+                    
+                    /*  After all this, we are now prepared to                      */
+                    /*  store away the cdp/value data points for                    */
+                    /*  this segment                                                */
+                    
+                    npoints = pSegment->point.number_elements;
+                    pcdp = (DOUBLE *) tc_alloc (sizeof(DOUBLE) * npoints);
+                    pvalue = (DOUBLE *) tc_alloc (sizeof(DOUBLE) * npoints);
+                    Var_List[0] = (VOIDPTR)pcdp;
+                    Var_List[1] = (VOIDPTR)pvalue;
+                    for (m = 0, nvalid_rows = 0,
+                         pPoint = (SEISMIC_DATA_POINT *)pPointVector->vector_pointer;
+                         m < npoints; m++, pPoint++)
+                        {
+                        CDP cdp;
+                        
+                        /* If the z value is not provided, then why
+                           bother doing anything... */
+                        
+                        if (NOT (pPoint->valid& VALID_Z))
+                            {
+                            continue;
+                            }
+                        if (pPoint->valid& VALID_SP)
+                            {
+                            /*  We may need to check each point to find out
+                               if we have been given CDP, SP or X-Y.  This
+                               would be found in the mask.  In this
+                               version, I am assuming that only the CDP
+                               and Z fields are filled and/or necessary    */
+                            
+                            status = se_cdp_from_sp (&line, pPoint->shot_point, &cdp);
+                            *pcdp++ = cdp;
+                            }
+                        else if (pPoint->valid& VALID_CDP)
+                            {
+                            *pcdp++ = pPoint->cdp;
+                            }
+                        else
+                            {
+                            continue;
+                            }
+                        *pvalue++ = pPoint->z;
+                        nvalid_rows++;
+                        }
+                    pSurface->status = nl_add_rows_convert (pSurf->nlist, nvalid_rows,
+                                                            nCol, Col_List, Var_List,
+                                                            units, column_widths,
+                                                            column_types);
+                    tc_free (Var_List[0]);
+                    tc_free (Var_List[1]);
+                    }
+                /*  We have now cycled through all segments.
+                   Now save each into the Finder database.      */
+                
+                for (m = 0; m < nattributes; m++)
+                    {
+                    pSurf = finder_surface[m];
+                    pSurf->version = 0;
+                    pSurface->status = se_put (pSurf->nlist, pSurf->name,
+                                               pSurf->data_class, pSurf->data_type,
+                                               &pSurf->line, pSurf->source,
+                                               pSurf->attribute, SE_FINDER,
+                                               pSurf->version);
+                    /* Make sure this horizon is entered into the SEIS_HOR_CODES table.
+                    If the current account has insert access to the table, and the horizon
+                    does not exist, then the statement will succeed.  Otherwise, it will
+                    bite the big one, but who cares...
+                    */
+                    stmt.len = sprintf ((char *)stmt.arr,
+           "INSERT INTO %s.SEIS_HOR_CODES(HOR_CODE, DISPLAY_NAME) VALUES ('%s','%s')",
+                                        project, pSurf->name, pSurf->name);
+                    EXEC SQL EXECUTE IMMEDIATE : stmt;
+                    EXEC SQL COMMIT WORK;
+                    nl_free_nlist (pSurf->nlist);
+                    }
+                }
+            }
+        }
+    return *status_ptr = status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT sez_put_line_2d(SEISMIC_SURVEY *seis_struc_ptr, SEISMIC_LINE *pLine,
+                               FULL_LINE_NAME *fullLine);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    seis_struc_ptr  -(SEISMIC_SURVEY *)
+    pLine           -(SEISMIC_LINE *)
+    fullLine        -(FULL_LINE_NAME *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    OR_STATUS
+    
+Scope:
+    PRIVATE to <gq_seis_f.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT sez_put_line_2d (SEISMIC_SURVEY *seis_struc_ptr, SEISMIC_LINE *pLine,
+                                FULL_LINE_NAME *fullLine)
+#else
+static INT sez_put_line_2d (seis_struc_ptr, pLine, fullLine)
+SEISMIC_SURVEY *seis_struc_ptr;
+SEISMIC_LINE *pLine;
+FULL_LINE_NAME *fullLine;
+#endif
+    {
+    INT status;
+    char line_type[16];
+    LINE_HDR line;
+    FILENAME xy_filename;
+    FILENAME optim_xy_filename;
+    UINT nCol = 3;
+    UINT Col_List[3];
+    VOIDPTR Var_List[3];
+    static CHAR *Column_Names[] = 
+        {
+        "CDP", "X", "Y"
+        };
+    size_t Widths[3];
+    INT Types[3];
+    INT Units[3];
+    INT Comp_types[3];
+    FLOAT x, y;                     /* 4 byte floats                                */
+    COORD xd, yd;
+    UINT i;
+    UINT npoints;
+    SEISMIC_DATA_POINT *pPoint;
+    NLIST_HEADER nlist;
+    CDP cdp;
+    NLM_SORT_HEADER sort_control;
+    INT Sort_Flags[1];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    int seisline_id;
+    EXEC SQL END DECLARE SECTION;
+    
+    tc_zeroes (&line, sizeof(LINE_HDR));
+    /* First, load up the x-y locations                                             */
+    /* Next, build up the cdp/shot point correlation                                */
+    /* Now place the information into the SEIS_LINE_HDR table                       */
+    
+    switch (pLine->line_type)
+        {
+    case X_2D:
+        strcpy (line_type, "X_2D");
+        break;
+    case R_2D:
+        strcpy (line_type, "R_2D");
+        break;
+    case X_3D:
+        strcpy (line_type, "X_3D");
+        break;
+    case Y_3D:
+        strcpy (line_type, "Y_3D");
+        break;
+    case T_3D:
+        strcpy (line_type, "T_3D");
+        break;
+    case R_3D:
+        strcpy (line_type, "R_3D");
+        break;
+    default:
+        strcpy (line_type, "X_2D");
+        break;
+        }
+    switch (pLine->line_type)
+        {
+    case X_2D:
+    case R_2D:
+    case R_3D:
+    default:
+        line.cdp_per_sp = rat2double (&pLine->loc.cdp_per_sp);
+        line.init_cdp = rat2double (&pLine->loc.cdp1);
+        line.init_sp = rat2double (&pLine->loc.sp1);
+        line.sp_spacing = pLine->loc.shotpoint_interval;
+        
+        /* Load the 2-D location information                                        */
+        
+        npoints = pLine->loc.point.number_elements;
+        if (npoints > 0)
+            {
+            Units[0] = Units[1] = Units[2] = 0;
+            Types[0] = INT_TYPE, Types[1] = Types[2] = FLOAT_TYPE;
+            Widths[0] = sizeof(INT), Widths[1] = Widths[2] = sizeof(FLOAT);
+            Comp_types[0] = Comp_types[1] = Comp_types[2] = VALUE_LIST;
+            Col_List[0] = 1, Col_List[1] = 2, Col_List[2] = 3;
+            status = nl_init_nlist (&nlist, nCol, Units, Widths, Types, Comp_types,
+                                    npoints);
+            nl_set_nlist_info (nlist, NL_NLIST_COLUMN_NAME, nCol, Col_List,
+                               (VOIDPTR *)Column_Names);
+            nl_start_table (nlist, &i);
+            Var_List[0] = (VOIDPTR)&cdp;
+            Var_List[1] = (VOIDPTR)&x;
+            Var_List[2] = (VOIDPTR)&y;
+            for (i = 0, pPoint = (SEISMIC_DATA_POINT *)pLine->loc.point.vector_pointer;
+                 i < npoints; i++, pPoint++)
+                {
+                if (pPoint->valid& VALID_CDP)
+                    {
+                    cdp = pPoint->cdp;
+                    }
+                else if (pPoint->valid& VALID_SP)
+                    {
+                    /* here we should try and locally look up the cdp;
+                        remember, we can't use our tool, since it hasn't
+                        been loaded into the database yet */
+                    continue;
+                    }
+                else
+                    {
+                    continue;
+                    }
+#if 0
+                /* The coordinates should be transformed into the project coordinates,
+                    but we currently have insufficient information ... */
+                ct_transform_point (pPoint->x, pPoint->y, this_projection, &xd, &yd,
+                                    project_projection);
+                x = xd, y = yd;
+#else
+                x = pPoint->x, y = pPoint->y;
+#endif
+                status = nl_add_rows (nlist, 1, nCol, Col_List, Var_List);
+                }
+            se_bld_nlist_ids (fullLine, (VOIDPTR)0, SEIS_XY_DATA, line.shot_xy_id,
+                              line.nlist_file, xy_filename);
+            
+            sort_control.ncol = 1;
+            Sort_Flags[0] = NL_ASCENDING;
+            sort_control.Col_List = Col_List;
+            sort_control.sortFlags = Sort_Flags;
+            status = nl_invoke_nlist_method (nlist, NL_SORT_METHOD,
+                                             (VOIDPTR)&sort_control);
+            
+            status = nl_write_nlist (sort_control.outNlist, xy_filename,
+                                     line.shot_xy_id);
+            
+            Var_List[0] = (VOIDPTR)&x;
+            Var_List[1] = (VOIDPTR)&y;
+            Col_List[0] = 2;
+            Col_List[1] = 3;
+            nl_inq_nlist_info (nlist, NL_NLIST_MIN, 2, Col_List, Var_List);
+            line.encl_box[0] = x;
+            line.encl_box[1] = y;
+            nl_inq_nlist_info (nlist, NL_NLIST_MAX, 2, Col_List, Var_List);
+            line.encl_box[4] = x;
+            line.encl_box[5] = y;
+            
+            /* Right now, we use the 'non-optimized' list as the 'optimized' one    */
+            se_bld_nlist_ids (fullLine, (VOIDPTR)0, SEIS_OPTIM_XY_DATA,
+                              line.optim_xy_id, line.nlist_file, optim_xy_filename);
+            status = nl_write_nlist (sort_control.outNlist, optim_xy_filename,
+                                     line.optim_xy_id);
+            
+            nl_free_nlist (nlist);
+            nl_free_nlist (sort_control.outNlist);
+            
+            /* For this release, we are VERY interested in the initial and
+                final shot point. If the sequence is not regular, then we
+                are up the proverbial creek without a paddle.  If it is regular, then we use
+                the first and last values as the cdp-sp extents */
+            
+            if (pLine->loc.cdp_sp_reg_flag EQUALS REGULAR_CORRESP)
+                {
+                pPoint = (SEISMIC_DATA_POINT *)pLine->loc.point.vector_pointer;
+                if (pPoint->valid& (VALID_CDP | VALID_SP))
+                    {
+                    line.init_cdp = pPoint->cdp;
+                    line.init_sp = pPoint->shot_point;
+                    }
+                pPoint += npoints - 1;
+                if (pPoint->valid& (VALID_CDP | VALID_SP))
+                    {
+                    line.final_cdp = pPoint->cdp;
+                    line.final_sp = pPoint->shot_point;
+                    }
+                }
+            if (line.init_cdp > line.final_cdp)
+                {
+                CDP temp_cdp = line.init_cdp;
+                SP temp_sp = line.init_sp;
+                
+                line.init_cdp = line.final_cdp;
+                line.init_sp = line.final_sp;
+                line.final_cdp = temp_cdp;
+                line.final_sp = temp_sp;
+                }
+            }
+        break;
+    case X_3D:
+        line.cdp_per_sp = 1;
+        line.init_cdp = rat2double (&seis_struc_ptr->loc.lin1);
+        line.init_sp = rat2double (&seis_struc_ptr->loc.lin1);
+        line.final_cdp = line.init_cdp + seis_struc_ptr->loc.number_inlines - 1;
+        line.sp_spacing = seis_struc_ptr->loc.line_spacing;
+        break;
+    case Y_3D:
+        line.cdp_per_sp = 1;
+        line.init_cdp = rat2double (&seis_struc_ptr->loc.cdp1);
+        line.init_sp = rat2double (&seis_struc_ptr->loc.sp1);
+        line.final_cdp = line.init_cdp + seis_struc_ptr->loc.number_cdps - 1;
+        line.sp_spacing = seis_struc_ptr->loc.inline_dist;
+        break;
+    case T_3D:
+        break;
+        }
+    stmt.len = sprintf ((char *)stmt.arr, 
+"INSERT INTO %s.SEIS_LINE_HDR \
+(LINE_ID, LINE_NAME, SURVEY, INITIAL_CDP, INITIAL_SHOT,\
+FINAL_CDP,FINAL_SHOT,CDPS_PER_SHOT_POINT, SHOT_POINT_SPACING,\
+LOWER_LEFT_X, LOWER_LEFT_Y, UPPER_RIGHT_X, UPPER_RIGHT_Y,\
+REGULAR, SEIS_ASSOC, XY_ASSOC) \
+VALUES \
+(ESI.SEISLINE_ID.NEXTVAL, '%s','%s',%d, %f, \
+%d, %f, %f, %f, %f, %f, %f, %f, %d, %d, %d)"
+            , project, fullLine->line_name, fullLine->survey, line.init_cdp,
+                        line.init_sp, line.final_cdp, line.final_sp, line.cdp_per_sp,
+                        line.sp_spacing, line.encl_box[0], line.encl_box[1],
+                        line.encl_box[4], line.encl_box[5], pLine->loc.cdp_sp_reg_flag,
+                        0, 0);
+    
+    EXEC SQL EXECUTE IMMEDIATE : stmt;
+    
+    EXEC SQL COMMIT WORK;
+    
+    EXEC SQL SELECT ESI.SEISLINE_ID.CURRVAL INTO : seisline_id FROM DUAL;
+    
+    if (OR_STATUS EQUALS SUCCESS)
+        {
+        fullLine->id = seisline_id;
+        }
+    return OR_STATUS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT sez_put_line_3d(SEISMIC_SURVEY *seis_struc_ptr, SEISMIC_LINE *pLine,
+                               FULL_LINE_NAME *fullLine);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    seis_struc_ptr  -(SEISMIC_SURVEY *)
+    pLine           -(SEISMIC_LINE *)
+    fullLine        -(FULL_LINE_NAME *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    OR_STATUS
+    
+Scope:
+    PRIVATE to <gq_seis_f.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT sez_put_line_3d (SEISMIC_SURVEY *seis_struc_ptr, SEISMIC_LINE *pLine,
+                                FULL_LINE_NAME *fullLine)
+#else
+static INT sez_put_line_3d (seis_struc_ptr, pLine, fullLine)
+SEISMIC_SURVEY *seis_struc_ptr;
+SEISMIC_LINE *pLine;
+FULL_LINE_NAME *fullLine;
+#endif
+    {
+    SEISMIC_LOCATION_3D *p3d = &seis_struc_ptr->loc;
+    DOUBLE y_azimuth = p3d->azim_surv + 270.0;
+    GRID_3D NewGrid;
+    INT status;
+    BOOL need_to_update = FALSE;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    double init_cdp;
+    double init_line;
+    double final_cdp;
+    double final_line;
+    double cdp_inc;
+    double line_inc;
+    EXEC SQL END DECLARE SECTION;
+    
+    /* Assumptions:
+        1) The units of the survey are stored in the projection structure
+        2) The grid is a 90 degree grid
+        3) The reported azimuth is along the 'x' axis (inline, or cdp axis)
+        4) The number of lines, cdps in a survey is not currently available
+        5) The rational_t stuff is a pain                                    */
+    
+    while (y_azimuth > 360.0)
+        {
+        y_azimuth -= 360.0;
+        }
+    NewGrid.lower_cdp = rat2double (&p3d->cdp1);
+    NewGrid.upper_cdp = rat2double (&p3d->cdp1) + p3d->number_cdps - 1;
+    NewGrid.cdp_inc = rat2double (&p3d->cdpinc);
+    NewGrid.lower_line = rat2double (&p3d->lin1);
+    NewGrid.upper_line = rat2double (&p3d->lin1) + p3d->number_inlines - 1;
+    NewGrid.line_inc = rat2double (&p3d->lininc);
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"INSERT INTO %s.SEIS_GRID_3D \
+(SURVEY,X_ORIGIN,Y_ORIGIN,X_AZIMUT,Y_AZIMUT,CDP_INTERVAL,\
+LINE_INTERVAL,XY_UNIT,LOWER_CDP,UPPER_CDP,CDP_INC,LOWER_LINE,\
+UPPER_LINE,LINE_INC) VALUES \
+('%s',%f,%f,%f,%f,%f,\
+%f,'%s',%f,%f,%f,%f,%f,%f)"
+            , project, fullLine->survey, p3d->x_surv_0, p3d->y_surv_0, p3d->azim_surv,
+                        y_azimuth, p3d->inline_dist, p3d->line_spacing,
+                        seis_struc_ptr->proj.units, NewGrid.lower_cdp,
+                        NewGrid.upper_cdp, NewGrid.cdp_inc, NewGrid.lower_line,
+                        NewGrid.upper_line, NewGrid.line_inc);
+    
+    EXEC SQL EXECUTE IMMEDIATE : stmt;
+    
+    switch (OR_STATUS)
+        {
+    case SUCCESS:
+        break;
+    default:
+        return OR_STATUS;
+    case -1:                        /* Duplicate value in index                     */
+        /* The 3-D survey exists - check and see if the init/final cdp and/or
+        line values exceed the previously entered values.  If they do,
+        then update the 3-d survey header record */
+        
+        stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT LOWER_CDP, UPPER_CDP, LOWER_LINE, UPPER_LINE \
+FROM %s.SEIS_GRID_3D \
+WHERE SURVEY = '%s'"
+                , project, fullLine->survey);
+        EXEC SQL PREPARE S31 FROM : stmt;
+        EXEC SQL DECLARE C31 CURSOR FOR S31;
+        EXEC SQL OPEN C31;
+        EXEC SQL FETCH C31 INTO : init_cdp,  : final_cdp,  : cdp_inc,  : init_line,
+           : final_line,  : line_inc;
+        if (NewGrid.lower_cdp < init_cdp)
+            {
+            init_cdp = NewGrid.lower_cdp;
+            need_to_update = TRUE;
+            }
+        if (NewGrid.upper_cdp > final_cdp)
+            {
+            final_cdp = NewGrid.upper_cdp;
+            need_to_update = TRUE;
+            }
+        if (NewGrid.lower_line < init_line)
+            {
+            init_line = NewGrid.lower_line;
+            need_to_update = TRUE;
+            }
+        if (NewGrid.upper_line > final_line)
+            {
+            final_line = NewGrid.upper_line;
+            need_to_update = TRUE;
+            }
+        if (need_to_update)
+            {
+            stmt.len = sprintf ((char *)stmt.arr, 
+"UPDATE %s.SEIS_GRID_3D \
+SET LOWER_CDP = %f, UPPER_CDP = %f, LOWER_LINE = %f, UPPER_LINE = %f \
+WHERE SURVEY = '%s'"
+                    , project, init_cdp, final_cdp, init_line, final_line,
+                                fullLine->survey);
+            EXEC SQL EXECUTE IMMEDIATE : stmt;
+            status = OR_STATUS;
+            }
+        else
+            {
+            status = SUCCESS;
+            }
+        }
+    /* At this point, we have the seismic 3d survey in the database.  Now we
+    need to add a row to the SEIS_LINE_HDR table */
+    
+    EXEC SQL COMMIT WORK;
+    
+    return sez_put_line_2d (seis_struc_ptr, pLine, fullLine);
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static DOUBLE rat2double(rational_t *rat);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    rat             -(rational_t *)
+
+Return Value/Status:
+    See function.
+    
+Scope:
+    PRIVATE to <gq_seis_f.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static DOUBLE rat2double (rational_t *rat)
+#else
+static DOUBLE rat2double (rat)
+rational_t *rat;
+#endif
+    {
+    return(rat->den EQUALS 0) ? 0.0 : ((double)(rat->num) / (double)(rat->den));
+    }
+/* END:     */

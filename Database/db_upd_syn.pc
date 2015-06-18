@@ -1,0 +1,193 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_UPD_SYN.PC */
+/* *3    14-AUG-1990 13:11:17 VINCE "(SPR 5644) Header Standardization" */
+/* *2    12-AUG-1989 23:59:03 GILLESPIE "(SPR 5) Initial release" */
+/* *1    30-JUL-1989 11:45:20 GILLESPIE "Create Oracle synonyms" */
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_UPD_SYN.PC */
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+
+#ifndef ESI_AM_H
+
+#include "esi_am.h"
+
+#endif
+
+#ifndef ESI_DB_H
+
+#include "esi_db.h"
+
+#endif
+
+#ifndef ESI_DB_MSG_H
+
+#include "esi_db_msg.h"
+
+#endif
+
+#ifndef ESI_MG_H
+
+#include "esi_mg.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+/* EXEC ORACLE OPTION (REBIND = NO); */
+EXEC ORACLE OPTION (RELEASE_CURSOR = YES);
+
+/* Function Description -----------------------------------------------------
+Description:
+    Routine to update synonyms in ORACLE.
+
+Prototype:
+    publicdef INT dba_update_synonyms(DB_ACCOUNT_STRUCT *db_account);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) db_account  -(DB_ACCOUNT_STRUCT *) Account structure.
+    
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+    Synonyms are created from the FINDER_SYNONYMS table only if
+    the synonym (or table) has not been previously defined.
+        
+    If a table exists that has the same name as the synonym, then
+    the synonym will not be created.
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT dba_update_synonyms (DB_ACCOUNT_STRUCT *db_account) 
+#else
+publicdef INT dba_update_synonyms (db_account)
+DB_ACCOUNT_STRUCT *db_account;
+#endif
+    {
+    INT status;
+    BOOL synonym_cursor = FALSE;
+    INT i = 0;
+    INT *id = (INT *)0;
+    CHAR string[128];
+    CHAR create_synonym_format[128];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sname[31];
+    VARCHAR tname[511];
+    VARCHAR towner[31];
+    VARCHAR scope[11];
+    VARCHAR stmt[1024];
+    int count;
+    EXEC SQL END DECLARE SECTION;
+    
+    /* retrieve string formats */
+    strcpy (create_synonym_format, mg_message (DB_CREATE_SYNONYM));
+    
+    sprintf (string, mg_message (DB_CREATING_SYNONYMS), db_account->scope,
+             db_account->name);
+    am_message (AM_DIALOG, string);
+    am_message (AM_STATUS, string);
+    
+    V_FROMC (scope, db_account->scope);
+    count = 0;
+    EXEC SQL SELECT COUNT (*)INTO : count FROM ESI.FINDER_SYNONYMS WHERE SCOPE =  :
+                                                                                 scope;
+    
+    if (count > 0)
+        {
+        EXEC SQL DECLARE SYNONYM_CURSOR CURSOR FOR SELECT SYNONYM_NAME, TABLE_NAME,
+            TABLE_OWNER FROM ESI.FINDER_SYNONYMS A WHERE SCOPE =  :
+                                                                 scope AND NOT 
+                                                                 EXISTS (
+                                                                   SELECT 
+                                                                     SYNONYM_NAME 
+                                                                    FROM 
+                                                                       USER_SYNONYMS 
+                                                                         B 
+                                                                  WHERE 
+                                                                      A.
+                                                                      SYNONYM_NAME 
+                                                                      = B.SYNONYM_NAME)
+        ORDER BY SYNONYM_NAME;
+        
+        EXEC SQL OPEN SYNONYM_CURSOR;
+        
+        synonym_cursor = TRUE;
+        
+        EXEC SQL WHENEVER SQLERROR CONTINUE;
+        
+        EXEC SQL FETCH SYNONYM_CURSOR INTO : sname,  : tname,  : towner;
+        i = 0;
+        while (OR_STATUS IS_NOT_EQUAL_TO OR_EOF)
+            {
+            V_SETZERO (sname);
+            V_SETZERO (tname);
+            V_SETZERO (towner);
+            sprintf (string, create_synonym_format, sname.arr, ++i, count);
+            am_message (AM_DIALOG, string);
+            
+            if (towner.len > 0)
+                {
+                sprintf (string, "%s.%s", towner.arr, tname.arr);
+                }
+            else
+                {
+                strcpy (string, (char *)tname.arr);
+                }
+            stmt.len = sprintf ((char *)stmt.arr, "CREATE SYNONYM %s FOR %s",
+                                sname.arr, string);
+            
+            EXEC SQL EXECUTE IMMEDIATE : stmt;
+            if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+                {
+                am_message (AM_REPORT,
+                            "Error detected while attempting execute the following:");
+                am_message (AM_REPORT, (CHAR *)stmt.arr);
+                sprintf (string, "%-70.70s", OR_MESSAGE);
+                am_message (AM_REPORT, string);
+                }
+            EXEC SQL FETCH SYNONYM_CURSOR INTO : sname,  : tname,  : towner;
+            }
+        }
+    if (synonym_cursor)
+        {
+        EXEC SQL CLOSE SYNONYM_CURSOR;
+        }
+    status = SUCCESS;
+    
+    return status;
+    }
+/* END:     */

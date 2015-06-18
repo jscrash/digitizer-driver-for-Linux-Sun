@@ -1,0 +1,112 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SL_READ_LIST.PC*/
+/*  4    13-FEB-1992 15:42:19 PURNA "(SPR 5118) updated the select phrase to use binded variables for name"*/
+/* *3    30-JUL-1990 17:24:58 PURNA "(SPR 0) add lynx,lease select_list"*/
+/* *2    13-AUG-1989 00:20:46 GILLESPIE "(SPR 5) Some minor cleanup"*/
+/* *1    19-JUN-1989 12:37:01 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element SL_READ_LIST.PC*/
+
+#include "esi_c_lib.h"
+#ifndef ESI_GL_DEFS_H
+#include "esi_gl_defs.h"
+#endif
+#ifndef ESI_SL_H
+#include "esi_sl.h"
+#endif
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+#ifndef ESI_SL_ERR_H
+#include "esi_sl_err.h"
+#endif
+#ifndef ESI_HO_H
+#include "esi_ho.h"
+#endif
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+/* **********************************************************************
+
+    ROUTINE: SL_READ_LIST
+
+    DESCRIPTION:
+	Fetchs nlist/select list from data base.
+
+    STATUS CODES:
+	SUCCESS;
+	SL_INVALID_SELECT_LIST;
+	SL_INVALID_DATA_TYPE;
+	NL ERROR MESSAGES;
+	SQL ERROR CODES;
+
+    INPUT:
+	DATA_TYPE = (INT )The data type of select list.
+	SELECT_LIST  =(NLIST_HEADER *)A pointer points to the N-list 
+					structured select list.
+	SELECT_LIST_NAME =(CHAR *)The name of select list.
+
+    OUTPUT:
+	STATUS CODES.
+
+    ******************************************************************** */
+publicdef INT sl_read_list(data_type, select_list_name,  select_list)
+    /* ****************************************************************** */
+SL_DATA_TYPE data_type;
+NLIST_HEADER *select_list;   /* select list structure. Contains select
+                                list user structure */
+NLIST_ID select_list_name;
+{
+	INT nbytes = 0;
+	INT status = SUCCESS;
+	FILENAME nlist_file;
+	PROJECT_NAME project_name;
+	CHAR data_type_name[32];
+
+	EXEC SQL BEGIN DECLARE SECTION;
+	VARCHAR select[512];
+	EXEC SQL END DECLARE SECTION;
+	
+	EXEC ORACLE OPTION (RELEASE_CURSOR = YES);
+	
+/* *********************************************************************** */
+					/* Test if select_list is null */
+    if (select_list EQUALS (NLIST_HEADER *)0 )
+    {
+	return SL_INVALID_SELECT_LIST;
+    }
+    
+    status = sl_inq_dtype_string("DATA_TYPE_NAME",data_type,data_type_name);
+    if(status != SUCCESS) return status;
+
+    strcat(data_type_name,"_SELECTS");
+    ho_add_path( "ESI$SELECTS", data_type_name, sizeof (FILENAME), nlist_file );
+
+    status = nl_read_nlist(select_list, nlist_file, select_list_name);
+    if( status )
+    {
+	return status;
+    }	
+					/* If the reading is succeed, updates*/
+					/* the last reference date.	     */
+
+    EXEC SQL WHENEVER SQLERROR GOTO errrpt;
+
+    if( status EQUALS SUCCESS )
+    {
+	qs_inq_c(QS_PROJECT_NAME, project_name,(INT *) 0);
+	select.len = sprintf((char *)select.arr, "UPDATE %s.SLIST_HDR SET \
+			LAST_REFERENCE = sysdate WHERE NAME = '%s'", 
+			project_name, select_list_name);
+	EXEC SQL EXECUTE IMMEDIATE :select;
+	EXEC SQL COMMIT WORK;
+    }
+    return status;
+
+errrpt:
+    status = OR_STATUS;
+    return status;
+    
+}

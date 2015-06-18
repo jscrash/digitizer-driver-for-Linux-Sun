@@ -1,0 +1,264 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SX_DEL_LINE.PC*/
+/* *5    17-AUG-1990 22:20:22 VINCE "(SPR 5644) Code Cleanup"*/
+/* *4     1-SEP-1989 14:38:36 CONROY "(SPR 9999) MODS FOR NEW FULL_LINE_STRUCT"*/
+/* *3    25-JUL-1989 20:10:38 GILLESPIE "(SPR 50) Seismic system revamp"*/
+/* *2    26-JUN-1989 11:03:04 GILLESPIE "(SPR 20) Fix castings"*/
+/* *1    19-JUN-1989 12:41:41 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element SX_DEL_LINE.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_sx.h"
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_GKS_H
+
+#include "esi_gks.h"
+
+#endif
+
+#ifndef ESI_AM_H
+
+#include "esi_am.h"
+
+#endif
+
+#ifndef ESI_SL_H
+
+#include "esi_sl.h" 
+
+#endif
+
+#ifndef ESI_NL_H
+
+#include "esi_nl.h" 
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+
+#ifndef ESI_MG_H
+
+#include "esi_mg.h"
+
+#endif
+
+#ifndef ESI_FI_H
+
+#include "esi_fi.h"
+
+#endif
+
+#ifndef ESI_WI_H
+
+#include "esi_wi.h"
+
+#endif
+
+#include "esi_sx_err.h"
+#include "esi_sx_msg.h"
+#include "sx_cdlgs.rh"
+EXEC ORACLE OPTION (RELEASE_CURSOR = YES);
+
+/* Function Description -----------------------------------------------------
+Description:
+    Delete a line.
+
+Prototype:
+    publicdef INT sx_delete_line(SX_STRUCT *psx);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    psx             -(SX_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT sx_delete_line (SX_STRUCT *psx)
+#else
+publicdef INT sx_delete_line (psx)
+SX_STRUCT *psx;
+#endif
+    {
+    INT status;
+    INT main_wkid = MAIN_WKID;
+    INT ifyes;
+    CHAR prompt[128];
+    CHAR bt_key[62];
+    INT id1, len;
+    CHAR test_string[2];
+    FILENAME filename;
+    INT segment_id;
+    SX_WORKSPACE *w;
+    UINT point, stroke;
+    size_t nbytes;
+    SX_USER_STRUCT user_struct;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    
+    VARCHAR select[512];
+    
+    EXEC SQL END DECLARE SECTION;
+    
+    status = am_open_workspace ("SX_STATIC_SPACE", AM_GLOBAL, (VOIDPTR *) & w);
+    sprintf (bt_key, "%s-%s", psx->pso->current_line.line_name,
+             psx->pso->current_line.survey);
+    
+    fi_push ();
+    sprintf (prompt, "%s%s", mg_message (SX_DELETE_YESNO), bt_key);
+    wiyesno (prompt, "", &ifyes, &status);
+    fi_pop ();
+    
+    /* do not wish to delete, just return */
+    
+    if (!ifyes)
+        {
+        status = SUCCESS;
+        SX_RETURN;
+        }
+    /* delete nlist files */
+    
+    /* NOTE:
+    
+    Under the new regime, the information for a seismic line is scattered
+    all over the disk.  This means we must inquire the name and n-List file
+    for all n-Lists found in the database and issue a separate nl_delete_nlist
+    request for each one.  This code still needs to be written.
+    jgg 10 july 89 */
+    
+    /* Will need to query database tables for the
+       names of each n-List and their
+       corresponding files             */
+
+#if 0
+    /* This bank is obsolete */
+    seis_nl_file (&psx->pso->current_line, filename);
+    /* nl could leave nlist file open, so close it before deleting */
+    /* nl_delete_nlist_file does this for you, ho_delete_file does not */
+    status = nl_delete_nlist_file (filename);
+    if (status != SUCCESS)
+        {
+        am_message (AM_ALERT, mg_message (SX_CANT_DELETE_SEIS_NLIST));
+        }
+#endif
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    
+    select.len = sprintf ((char *)select.arr, "\
+DELETE FROM SEIS_MAP_DISP_OPT WHERE LINE_NAME = '%s' AND SURVEY = '%s'"
+                          , psx->pso->current_line.line_name,
+                          psx->pso->current_line.survey);
+    
+    EXEC SQL PREPARE S1 FROM : select;
+    EXEC SQL EXECUTE S1;
+    
+    select.len = sprintf ((char *)select.arr, "\
+DELETE FROM %s.SEIS_SURFACE WHERE LINE_NAME = '%s' AND SURVEY = '%s'"
+                          , psx->project_name, psx->pso->current_line.line_name,
+                          psx->pso->current_line.survey);
+    
+    EXEC SQL PREPARE S1 FROM : select;
+    EXEC SQL EXECUTE S1;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO errrpt;
+    
+    select.len = sprintf ((char *)select.arr, "\
+DELETE FROM %s.SEIS_LINE_HDR WHERE LINE_NAME = '%s' AND SURVEY = '%s'"
+                          , psx->project_name, psx->pso->current_line.line_name,
+                          psx->pso->current_line.survey);
+    
+    EXEC SQL PREPARE S1 FROM : select;
+    EXEC SQL EXECUTE S1;
+    
+    EXEC SQL COMMIT WORK;
+    
+    btfind (&psx->lines, bt_key, &segment_id);
+    
+    /* delete from screen and local btree */
+    if (segment_id > 0)
+        {
+        wmwopen (psx->graphics.window);
+        wmgopen (psx->graphics.group);
+        status = wmsdelete (segment_id);
+        wm_grsgwk (main_wkid);
+        wmwclose (psx->graphics.window);
+        }
+    segment_id = 0;
+    btrepcur (&psx->lines, bt_key, &segment_id);
+    
+    /* * RE-INIT VARIABLES * */
+    
+    nl_free_nlist (psx->pso->disp_opt.shot_label_nlist);
+    nl_free_nlist (psx->pso->cdp_xy);
+    psx->pso->disp_opt.shot_label_nlist = (NLIST_HEADER)0;
+    psx->pso->cdp_xy = (NLIST_HEADER)0;
+    psx->need_to_save = FALSE;
+    psx->line_selected = FALSE;
+    psx->nshots = 0;
+    psx->nchanges = 0;
+    psx->nlines--;
+    
+    /* UPDATE PICKING STRUCTURE */
+    
+    status = am_open_workspace ("SX_STATIC_SPACE", AM_GLOBAL, (VOIDPTR *) & w);
+    if (w->temp_nlist != (NLIST_HEADER)0)
+        {
+        status = nl_free_nlist (w->temp_nlist);
+        }
+    if (psx->on_map)
+        {
+        nl_free_nlist (w->master_nlist);
+        so_build_common_nlist (psx->pso, &w->master_nlist);
+        }
+    status = nl_copy_nlist (w->master_nlist, &w->temp_nlist);
+    
+    /* reset menus */
+    sx_menu_ls_setup (psx);
+    sx_menu_sp_setup (psx);
+    sx_menu_lp_setup (psx);
+    
+    SX_RETURN;
+    
+errrpt:
+    am_message (AM_ALERT, mg_message (SX_CANT_DELETE_LINE));
+    am_message (AM_ALERT, mg_message (OR_STATUS));
+    SX_RETURN;
+    }
+/* END:     */

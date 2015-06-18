@@ -1,0 +1,2091 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LM_SRVR_UTIL.PC */
+/* *3    11-SEP-1991 13:41:15 PURNA "(SPR 0) add comments" */
+/* *2    12-JUN-1991 14:57:53 PURNA "(SPR 0) upgrade user interface" */
+/* *1    12-JUN-1991 14:51:46 PURNA "lease utility function" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LM_SRVR_UTIL.PC */
+/* include files */
+#include "esi_gl_defs.h"
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_LM_H
+#include "esi_lm.h"
+#endif
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#include "esi_gl_defs.h"
+#ifndef ESI_WI_H
+#include "esi_wi.h"
+#endif
+#ifndef ESI_GTYPES_H
+#include "esi_gtypes.h"
+#endif
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_LM_H
+#include "esi_lm.h"
+#endif
+#ifndef ESI_LU_H
+#include "esi_lu.h"
+#endif
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+/* Resource files */
+
+#ifndef LM_CDLGS_RH
+#define LM_CDLGS_RSRC "LM_CDLGS"
+#include "lm_cdlgs.rh"
+#endif
+
+/* Define Constant Value */
+
+#define MAXENTRYTEXT 32
+
+/* LOCAL FUNCTIONS DEFINED HERE */
+
+#if USE_PROTOTYPES
+static INT lmz_construct_control_selection(LM_DIALOG_STRUCT *pex, 
+				INT *ret_status);
+static INT lmz_construct_selection_entry(LM_DIALOG_STRUCT *pex);
+static INT lmz_construct_defsnames(LM_DIALOG_STRUCT *pex,INT *ret_status);
+static INT lmz_convert_date_format(LM_SAVE_MD_STRUCT *save,CHAR *date,
+			INT prev_type,INT new_type,INT index);
+static INT lmz_convert_numeric_date(CHAR *numeric,INT date_type,CHAR *date);
+static INT lmz_entry_is_date(CHAR *entry,INT date_type);
+static INT lmz_entry_is_numeric(CHAR *entry);
+static INT lmz_get_date_format(CHAR *text,INT **integers,INT *n_int);
+static INT lmz_get_range_entry(CHAR *entry,CHAR *first_entry,
+		    CHAR *second_entry);
+#else
+static INT lmz_construct_control_selection();
+static INT lmz_construct_selection_entry();
+static INT lmz_construct_defsnames();
+static INT lmz_convert_date_format();
+static INT lmz_convert_numeric_date();
+static INT lmz_entry_is_date();
+static INT lmz_entry_is_numeric();
+static INT lmz_get_date_format();
+static INT lmz_get_range_entry();
+#endif
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+/* Function Description -----------------------------------------------------
+Description:
+    Routine to add entry in selector box of controls and value that represent 
+    the control entry.
+
+Prototype:
+    publicdef INT lmz_add_entry(INT id,LM_DIALOG_STRUCT *pex)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) id	- (INT)
+    (I) pex	- (LM_DIALOG_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lmz_add_entry(INT id,LM_DIALOG_STRUCT *pex)
+#else
+publicdef INT lmz_add_entry(id,pex)
+INT id;
+LM_DIALOG_STRUCT *pex;
+#endif
+{
+INT i, nLinks,nChars, status;
+CHAR first_entry[MAXENTRYTEXT],second_entry[MAXENTRYTEXT];
+BOOL append=TRUE,one_entry=FALSE;
+
+			     /*	check if control entry is empty		    */
+    if(IS_EMPTY_STRING(pex->entrs_controlEntry))
+	{
+        am_message(AM_ALERT,"Please enter the Color/Fill Control Criteria.");
+        return SUCCESS;
+        }
+
+			     /*	check if value represent the control	    */
+			     /*	(color/fill by) is not chosen by the user   */
+
+    if(pex->entrs_cfPick[0] == 0)
+	{
+	am_message(AM_ALERT,"Please select the Color/Fill you wish to use \
+to represent the control entry.");
+	return SUCCESS;
+	}
+
+			     /*	if control entry in range value, then	    */
+			     /*	retrieved the entry according to its format */
+    if(pex->entrs_range)		
+	{
+	if(strstr(pex->entrs_controlEntry,"-") == NUL)
+	    {
+	    strcpy(first_entry,pex->entrs_controlEntry);
+	    one_entry=TRUE;
+	    }
+	else
+	    {
+	    status = lmz_get_range_entry(pex->entrs_controlEntry,first_entry,second_entry);
+	    if(status != SUCCESS) return status;
+	    }
+	}
+			     /*	else only one entry is retrieved	    */
+    else 
+	strcpy(first_entry,pex->entrs_controlEntry);
+
+			     /*	for each data type check if the entry is    */
+			     /*	match with the specified type		    */
+    switch (pex->defs_type)
+	{
+	case LM_DATE :
+	    status=lmz_entry_is_date(first_entry,pex->entrs_date_format);
+	    if(status != SUCCESS) return status;
+	    if(pex->entrs_range && ! one_entry)
+		{
+		status=lmz_entry_is_date(second_entry,pex->entrs_date_format);
+		if(status != SUCCESS) return status;
+		}
+	    strcpy(pex->entrs_typeEntry,pex->entrs_controlEntry);
+	    break;	    
+	case LM_TEXT :
+	    if(pex->entrs_range && ! one_entry)
+		{
+		sprintf(pex->entrs_typeEntry,"%s - %s",first_entry,
+		    second_entry);
+		}
+            else
+		strcpy(pex->entrs_typeEntry,first_entry);
+	    break;	    		
+	case LM_NUMERIC :
+	    status=lmz_entry_is_numeric(first_entry);
+	    if(status != SUCCESS) return status;
+	    if(pex->entrs_range && ! one_entry)
+		{
+		status=lmz_entry_is_numeric(second_entry);
+		if(status != SUCCESS) return status;
+		}
+	    strcpy(pex->entrs_typeEntry,pex->entrs_controlEntry);
+	    break;
+	}
+    strcpy(pex->entrs_cfEntry,pex->entrs_cfPick);
+
+			     /*	check if the control entry already exist in */
+			     /*	selector box				    */
+    nLinks = ts_tcp_len(pex->entrs_typeEntry_list);
+    for(i=0;i<nLinks;i++)
+	if(ARE_SAME(pex->entrs_typeEntry_list[i],pex->entrs_typeEntry))
+	    {
+	    append = FALSE;
+	    break;
+	    }
+
+			     /*	if not append to selector box tcp	    */
+    if(append)  
+	{
+	ts_tcp_append(&pex->entrs_typeEntry_list,pex->entrs_typeEntry);
+	ts_tcp_append(&pex->entrs_cfEntry_list,pex->entrs_cfEntry);
+	i = nLinks;
+	nLinks++;
+	wi_insert_cd_line ( id, LM_ENTRS_CONTROL_SEL, nLinks, 
+	    pex->entrs_typeEntry);
+	wi_insert_cd_line ( id, LM_ENTRS_REPRESENT_SEL, nLinks,
+	    pex->entrs_cfEntry);
+	}
+
+    i++;
+			     /*	highlite the newly added entry		    */
+    wi_set_default_sel( id, LM_ENTRS_CONTROL_SEL,  i);
+    wi_set_default_sel( id, LM_ENTRS_REPRESENT_SEL, i);
+
+    return SUCCESS;
+}
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    when user switch from one data type to another, some adjustment must be
+    made so all the control entry match with the current data type 
+
+Prototype:
+    publicdef INT lmz_adjust_controls(INT prev_item,INT item,LM_DIALOG_STRUCT *pex)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) prev_item	-(INT)
+    (I) item		-(INT)
+    (I/O) pex		-(LM_DIALOG_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lmz_adjust_controls(INT prev_item,INT item,LM_DIALOG_STRUCT *pex)
+#else
+publicdef INT lmz_adjust_controls(prev_item,item,pex)
+INT prev_item,item;
+LM_DIALOG_STRUCT *pex;
+#endif
+{
+    INT i, j, nLinks, ifyes, status;
+    CHAR first_entry[MAXENTRYTEXT],second_entry[MAXENTRYTEXT];
+    CHAR text[MAXENTRYTEXT],*t;
+    DOUBLE first_num,second_num;
+    INT *integers,n_int;
+    INT len;
+    BOOL one_entry;
+
+			     /*	if no entry in selector box the return	    */
+			     /*	success					    */
+    if ((nLinks = ts_tcp_len (pex->entrs_typeEntry_list)) <= 0)
+	return SUCCESS;
+			     /*	switch from any type to DATE type currently */
+			     /*	is not implemented			    */
+    if(item == LM_DATE)
+	{
+	wiyesno("Can't convert to DATE, all value will be \
+removed. Do you really want to change type?","",&ifyes,&status);
+	if(ifyes)
+	    {
+	    wi_clear(pex->lm_entrs);
+	    lmz_entrs_free_memory(pex);
+	    pex->defs_type = LM_DATE;
+	    pex->entrs_typeEntry[0]= 0;
+	    pex->entrs_controlEntry[0]= 0;
+	    pex->entrs_cfEntry[0]= 0;
+	    pex->entrs_cfPick[0]= 0;
+	    lmz_set_button_value(pex->lm_entrs,pex);
+	    lmz_enable_radio_buttons(pex->lm_entrs);
+	    pex->entrs_no_changes=TRUE;
+	    lmz_entrs_fill_selEntry(pex->lm_entrs,pex);
+	    return SUCCESS;
+	    }
+	else
+	    return FAIL;
+	}
+
+			     /*	keep track of month and day if switching    */
+			     /*	date format				    */
+    if ((prev_item == LM_MDY || prev_item == LM_DMY || prev_item == LM_MY) && 
+	(item == LM_MY || item == LM_Y))
+	{
+	pex->save_mth_n_day.n_items = nLinks;
+	if(pex->save_mth_n_day.save)
+	    {
+	    pex->save_mth_n_day.mth = (INT *)tc_realloc(pex->save_mth_n_day.mth,
+							nLinks * sizeof(INT));
+	    pex->save_mth_n_day.day = (INT *)tc_realloc(pex->save_mth_n_day.day,
+							nLinks * sizeof(INT));
+	    }
+	else
+	    {
+	    pex->save_mth_n_day.mth = (INT *)tc_zalloc(nLinks * sizeof(INT));
+	    pex->save_mth_n_day.day = (INT *)tc_zalloc(nLinks * sizeof(INT));
+	    }
+	pex->save_mth_n_day.save = TRUE;
+	}
+
+			     /*	loop for every row in selector box	    */
+    for (i = 0; i < nLinks; i++)
+	{
+			     /*	get entry if its in range value		    */
+	if(pex->entrs_range)
+	    {
+	    if(strstr(pex->entrs_typeEntry_list[i],"-") == NUL)
+		{
+		strcpy(first_entry,pex->entrs_typeEntry_list[i]);
+		one_entry=TRUE;
+		}
+	    else
+		lmz_get_range_entry(pex->entrs_typeEntry_list[i],first_entry,second_entry);
+	    }
+	else 
+	    strcpy(first_entry,pex->entrs_typeEntry_list[i]);
+
+			     /*	do switch for each data type to another	    */
+	switch(item)
+	    {
+	    case LM_DATE :
+#if 0
+		if(prev_item == LM_TEXT)
+		    {
+		    strcpy(pex->entrs_controlEntry,pex->entrs_typeEntry_list[i]);
+		    lmz_remove_entry(pex);
+		    break;
+		    }
+		else if (prev_item == LM_NUMERIC)
+		    {
+		    lmz_convert_numeric_date(first_entry,pex->entrs_date_format,text);
+		    status=lmz_entry_is_date(text,pex->entrs_date_format);
+		    if(status != SUCCESS)
+			{
+			strcpy(pex->entrs_controlEntry,pex->entrs_typeEntry_list[i]);
+			lmz_remove_entry(pex);
+			break;
+			}
+		     else 
+			strcpy(first_entry,text);
+		    if(pex->entrs_range && !one_entry)
+			{
+			lmz_convert_numeric_date(second_entry,pex->entrs_date_format,text);
+			status=lmz_entry_is_date(text,pex->entrs_date_format);
+			if(status != SUCCESS)
+			    {
+			    strcpy(pex->entrs_controlEntry,pex->entrs_typeEntry_list[i]);
+			    lmz_remove_entry(pex);
+			    break;
+			    }
+			else 
+			    strcpy(second_entry,text);
+			}
+		    }
+#endif
+		break;		
+	    case LM_TEXT :
+		break;		
+	    case LM_NUMERIC :
+		if(prev_item == LM_TEXT)
+		    {
+		    len=strlen(first_entry);
+		    for(j=1;j<len-1;j++) text[j-1] = first_entry[j];
+		    first_num=atof(text);
+		    sprintf(first_entry,"%f",first_num);
+		    if(pex->entrs_range && !one_entry)
+			{
+			len=strlen(second_entry);
+			for(j=1;j<len-1;j++) text[j-1] = second_entry[j];
+			second_num=atof(text);
+			sprintf(second_entry,"%f",second_num);
+			}
+		    }
+		else if (prev_item == LM_DATE)
+		    {
+		    lmz_get_date_format(first_entry,&integers,&n_int);
+		    first_entry[0]=0;
+		    for(j=0;j<n_int;j++)
+			{
+			sprintf(text,"%d",integers[j]);
+			strcat(first_entry,text);
+			}
+		    if(pex->entrs_range && !one_entry)
+			{	    
+			lmz_get_date_format(second_entry,&integers,&n_int);
+			second_entry[0]=0;
+			for(j=0;j<n_int;j++)
+			    {
+			    sprintf(text,"%d",integers[j]);
+			    strcat(second_entry,text);
+			    }
+			}
+		    }
+		break;		
+	    case LM_MDY : case LM_DMY : case LM_MY : case LM_Y :
+		lmz_convert_date_format(&pex->save_mth_n_day,first_entry,
+					prev_item,item,i);
+		if(pex->entrs_range && !one_entry)
+		    lmz_convert_date_format(&pex->save_mth_n_day,second_entry,
+						prev_item,item,i);
+		break;		
+	    }	
+
+
+
+			     /*	put value back to the selector box	    */
+	if(pex->entrs_range && !one_entry)
+	    sprintf(pex->entrs_typeEntry_list[i],"%s - %s",first_entry,second_entry);	
+	else 
+	    sprintf(pex->entrs_typeEntry_list[i],"%s",first_entry);
+	}
+
+    if ((item == LM_DMY || item == LM_MDY) && pex->save_mth_n_day.save)
+	{
+	pex->save_mth_n_day.save = FALSE;
+	tc_free(pex->save_mth_n_day.mth);
+	tc_free(pex->save_mth_n_day.day);
+	}
+
+			     /*	reset selector box			    */
+    wi_set_dialog_text (pex->lm_entrs, LM_ENTRS_CONTROL_SEL,"");
+    wi_set_selections (pex->lm_entrs, LM_ENTRS_CONTROL_SEL,LM_ENTRS_CNR_SCROLL,
+	nLinks, 1, pex->entrs_typeEntry_list);
+    wi_set_dialog_text (pex->lm_entrs, LM_ENTRS_REPRESENT_SEL,"");
+    wi_set_selections (pex->lm_entrs, LM_ENTRS_REPRESENT_SEL,LM_ENTRS_CNR_SCROLL,
+	nLinks, 1, pex->entrs_cfEntry_list);
+
+    wi_set_default_sel (pex->lm_entrs, LM_ENTRS_CONTROL_SEL, 1);
+    strcpy(pex->entrs_typeEntry,pex->entrs_typeEntry_list[0]);
+    wi_set_dialog_text (pex->lm_entrs, LM_ENTRS_CNTRL_ENT_EDT,pex->entrs_typeEntry);
+
+    wi_set_default_sel (pex->lm_entrs, LM_ENTRS_REPRESENT_SEL, 1);
+    strcpy(pex->entrs_cfEntry,pex->entrs_cfEntry_list[0]);
+
+    tc_free(integers);
+    return status;
+}
+
+    
+/* Function Description -----------------------------------------------------
+Description:
+    put up a dialog box for the user to decide whether changes will be
+    save or not
+
+Prototype:
+    publicdef INT lmz_check_save_changes(LM_DIALOG_STRUCT *pex,CHAR *message)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) message		-(CHAR *) 
+    (I/O) pex		-(LM_DIALOG_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lmz_check_save_changes(LM_DIALOG_STRUCT *pex,CHAR *message)
+#else
+publicdef INT lmz_check_save_changes(pex,message)
+LM_DIALOG_STRUCT *pex;
+CHAR *message;
+#endif
+{
+    INT status, ifyes;
+    
+    wiyesno(message,"",&ifyes,&status);
+    if(ifyes)
+	{
+	status=lmz_get_edittext(pex->lm_entrs,LM_ENTRS_NAME_EDIT,
+				    pex->defs_name,
+				    "Color/Fill Definition Name");
+	if(status != SUCCESS) return status;
+	lmz_save_name(pex);
+	wi_set_dialog_text(pex->lm_entrs,LM_ENTRS_NAME_EDIT,pex->defs_name);
+	}
+    return status;
+}
+
+/* Function Description -----------------------------------------------------
+Description:
+    disable all the date format buttons if date data type is not used 
+
+Prototype:
+    publicdef INT lmz_disable_date_buttons(INT id)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) id	- (INT)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lmz_disable_date_buttons(INT id)
+#else
+publicdef INT lmz_disable_date_buttons(id)
+INT id;
+#endif
+{
+
+    wi_enable_dialog_item(id,LM_ENTRS_DATE_BOX,OFF);
+    wi_enable_dialog_item(id,LM_ENTRS_DATE_FORMAT,OFF);
+    wi_enable_dialog_item(id,LM_ENTRS_MDY_R_BUTTON,OFF);
+    wi_enable_dialog_item(id,LM_ENTRS_DMY_R_BUTTON,OFF);
+    wi_enable_dialog_item(id,LM_ENTRS_MY_R_BUTTON,OFF);
+    wi_enable_dialog_item(id,LM_ENTRS_Y_R_BUTTON,OFF);
+
+    return SUCCESS;
+}
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    disable all the radio buttons if no changes is not permitted in some
+    cases
+
+Prototype:
+    publicdef INT lmz_disable_radio_buttons(INT id)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) id 	- (INT)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lmz_disable_radio_buttons(INT id)
+#else
+publicdef INT lmz_disable_radio_buttons(id)
+INT id;
+#endif
+{
+
+    wi_enable_dialog_item(id,LM_ENTRS_TYPE_OF_TEXT,OFF);
+    wi_enable_dialog_item(id,LM_ENTRS_RANGE_C_ITEM,OFF);
+    wi_enable_dialog_item(id,LM_ENTRS_COLOR_R_BUTTON,OFF);
+    wi_enable_dialog_item(id,LM_ENTRS_FILL_R_BUTTON,OFF);
+    wi_enable_dialog_item(id,LM_ENTRS_DATE_R_BUTTON,OFF);
+    wi_enable_dialog_item(id,LM_ENTRS_TEXT_R_BUTTON,OFF);
+    wi_enable_dialog_item(id,LM_ENTRS_NUMERIC_R_BUTTON,OFF);
+    lmz_disable_date_buttons(id);
+    return SUCCESS;
+}
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    fill selector box for first dialog 
+
+Prototype:
+    publicdef INT lmz_defs_fill_selector(LM_DIALOG_STRUCT *pex)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I/O) pex		-(LM_DIALOG_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lmz_defs_fill_selector(LM_DIALOG_STRUCT *pex)
+#else
+publicdef INT lmz_defs_fill_selector(pex)
+LM_DIALOG_STRUCT *pex;
+#endif
+{
+    INT	  ntables=0,hilite_index,status;
+
+			     /*	build linked lists and TCP's of tables and  */
+			     /*	phrases and place them into the two	    */
+			     /*	selectors				    */
+
+    ntables = lmz_construct_defsnames (pex,&status);
+    if (ntables> 0)
+      {
+        wi_set_selections (pex->lm_defs, LM_DEFS_NAME_SEL,LM_DEFS_NAME_SCROLL,
+                        ntables, 1, pex->defs_name_list);
+      }
+    wi_activate(pex->lm_defs, LM_DEFS_NAME_SEL,ON);
+
+    if(ntables>0)
+      {
+	hilite_index = ts_switch(pex->defs_name,pex->defs_name_list) + 1;
+	wi_set_default_sel (pex->lm_defs, LM_DEFS_NAME_SEL, hilite_index);
+      }
+}
+
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    fill the selector boxes pair of control entries and its represented values
+    in dialog 2
+
+Prototype:
+    publicdef INT lmz_entrs_fill_selName(INT id,LM_DIALOG_STRUCT *pex)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) id		-(INT)
+    (I/O) pex		-(LM_DIALOG_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lmz_entrs_fill_selName(INT id,LM_DIALOG_STRUCT *pex)
+#else
+publicdef INT lmz_entrs_fill_selName(id,pex)
+INT id;
+LM_DIALOG_STRUCT *pex;
+#endif
+{
+    INT	  nitems=0,status;
+
+    nitems = lmz_construct_control_selection (pex,&status);
+    if (nitems> 0)
+        {
+			     /*	build linked lists and TCP's of tables and  */
+			     /*	phrases and place them into the two	    */
+			     /*	selectors				    */
+
+        wi_set_selections (id, LM_ENTRS_CONTROL_SEL,LM_ENTRS_CNR_SCROLL,
+                        nitems, 1, pex->entrs_typeEntry_list);
+        wi_set_selections (id, LM_ENTRS_REPRESENT_SEL,LM_ENTRS_CNR_SCROLL,
+                        nitems, 1, pex->entrs_cfEntry_list);
+
+			     /*	enable tables and phrases selectors to	    */
+			     /*	generate select events, and select the	    */
+			     /*	select phrase edit text field		    */
+
+        wi_set_default_sel (id, LM_ENTRS_CONTROL_SEL, 1);
+	strcpy(pex->entrs_typeEntry,pex->entrs_typeEntry_list[0]);
+
+        wi_set_default_sel (id, LM_ENTRS_REPRESENT_SEL, 1);
+	strcpy(pex->entrs_cfEntry,pex->entrs_cfEntry_list[0]);
+        }
+
+    return SUCCESS;
+}
+
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    fill selector box of all possible values that can represent the control
+    entry
+
+Prototype:
+
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) message		-(CHAR *) 
+    (I/O) pex		-(LM_DIALOG_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lmz_entrs_fill_selEntry(INT id,LM_DIALOG_STRUCT *pex)
+#else
+publicdef INT lmz_entrs_fill_selEntry(id,pex)
+INT id;
+LM_DIALOG_STRUCT *pex;
+#endif
+{
+    INT	  nitems=0;
+
+    nitems = lmz_construct_selection_entry (pex);
+    if (nitems> 0)
+	{
+        wi_set_selections (id, LM_ENTRS_CNTRL_SEL,LM_ENTRS_CNTRL_SEL_SCROLL,
+                        nitems, 1, pex->entrs_cfPick_list);
+
+        wi_set_default_sel (id, LM_ENTRS_CNTRL_SEL, 1);
+	strcpy(pex->entrs_cfPick,pex->entrs_cfPick_list[0]);
+	}
+
+    return SUCCESS;
+}
+
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    enable date format radio buttons if date data type is used 
+
+Prototype:
+    publicdef INT lmz_enable_date_buttons(INT id)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) id	- (INT)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lmz_enable_date_buttons(INT id)
+#else
+publicdef INT lmz_enable_date_buttons(id)
+INT id;
+#endif
+{
+
+    wi_enable_dialog_item(id,LM_ENTRS_DATE_BOX,ON);
+    wi_enable_dialog_item(id,LM_ENTRS_DATE_FORMAT,ON);
+    wi_enable_dialog_item(id,LM_ENTRS_MDY_R_BUTTON,ON);
+    wi_enable_dialog_item(id,LM_ENTRS_DMY_R_BUTTON,ON);
+    wi_enable_dialog_item(id,LM_ENTRS_MY_R_BUTTON,ON);
+    wi_enable_dialog_item(id,LM_ENTRS_Y_R_BUTTON,ON);
+
+    return SUCCESS;
+}
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    enable all radio button in dialog 2 in case any disable of the buttons
+    occured before then
+
+Prototype:
+    publicdef INT lmz_enable_radio_buttons(INT id)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) id	- (INT)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lmz_enable_radio_buttons(INT id)
+#else
+publicdef INT lmz_enable_radio_buttons(id)
+INT id;
+#endif
+{
+
+    wi_enable_dialog_item(id,LM_ENTRS_TYPE_OF_TEXT,ON);
+    wi_enable_dialog_item(id,LM_ENTRS_RANGE_C_ITEM,ON);
+    wi_enable_dialog_item(id,LM_ENTRS_COLOR_R_BUTTON,ON);
+    wi_enable_dialog_item(id,LM_ENTRS_FILL_R_BUTTON,ON);
+    wi_enable_dialog_item(id,LM_ENTRS_DATE_R_BUTTON,ON);
+    wi_enable_dialog_item(id,LM_ENTRS_TEXT_R_BUTTON,ON);
+    wi_enable_dialog_item(id,LM_ENTRS_NUMERIC_R_BUTTON,ON);
+    lmz_enable_date_buttons(id);
+
+    return SUCCESS;
+}
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    free only memory allocation used for dialog 2
+
+Prototype:
+    publicdef INT lmz_entrs_free_memory(LM_DIALOG_STRUCT *pex)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I/O) pex		-(LM_DIALOG_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lmz_entrs_free_memory(LM_DIALOG_STRUCT *pex)
+#else
+publicdef INT lmz_entrs_free_memory(pex)
+LM_DIALOG_STRUCT *pex;
+#endif
+{
+    if(pex->entrs_typeEntry_list != (TCP)0)
+	{
+	ts_tcp_free( pex->entrs_typeEntry_list);
+	pex->entrs_typeEntry_list = (TCP)0;
+	}
+    if(pex->entrs_cfEntry_list != (TCP)0)
+	{
+	ts_tcp_free( pex->entrs_cfEntry_list);
+	pex->entrs_cfEntry_list = (TCP)0;
+	}
+
+    return SUCCESS;
+}
+
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    get edit text from edit text box, and return it in 'name'. 
+    put up a dialog messages if text is too long or edit text is empty
+
+Prototype:
+    publicdef INT lmz_get_edittext(INT id,INT item,CHAR *text,CHAR *name)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) id 	- (INT)
+    (I) item	- (INT)
+    (I) text	- (CHAR *)
+    (I) name	- (CHAR *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lmz_get_edittext(INT id,INT item,CHAR *text,CHAR *name)
+#else
+publicdef INT lmz_get_edittext(id,item,text,name)
+INT id,item;
+CHAR *text,*name;
+#endif
+{
+    CHAR temp_text[TEXT_LEN];
+    INT unused;
+    CHAR message[50];
+
+    wi_query_dialog_item(id,item, &unused, temp_text);
+    strcpy(text,temp_text);
+    if(strlen(text) >= TEXT_LEN)
+	{
+	sprintf(message,"%s is too long.\nPlease shorten it to less than \
+31 characters",name);
+	am_message(AM_ALERT,message);
+        wi_set_dialog_text(id,item," ");
+	return FAIL;
+        }
+    if(strlen(text) <= 0)
+	{
+	sprintf(message,"Please enter %s.",name);
+	am_message(AM_ALERT,message);
+	return FAIL;
+        }
+    return SUCCESS;
+}
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    given a name and data type, take information from already exist nlist and
+    fill the dialog box 
+
+Prototype:
+    publicdef INT lmz_load_name(LM_DIALOG_STRUCT *pex)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I/O) pex	- (LM_DIALOG_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lmz_load_name(LM_DIALOG_STRUCT *pex)
+#else
+publicdef INT lmz_load_name(pex)
+LM_DIALOG_STRUCT *pex;
+#endif
+{
+    INT status=FAIL;
+
+    pex->entrs_no_changes=TRUE;
+
+			     /*	get nlist				    */
+    if(IS_EMPTY_STRING(pex->defs_name))
+	{
+    	pex->entrs_type = LM_COLOR;
+   	pex->entrs_date_format=LM_MDY;
+    	pex->entrs_range=FALSE;
+    	lmz_set_button_value(pex->lm_entrs,pex);
+	}
+    else
+	{
+	lmz_entrs_fill_selName(pex->lm_entrs,pex);
+    	lmz_disable_radio_buttons(pex->lm_entrs);
+	}
+
+    lmz_entrs_fill_selEntry(pex->lm_entrs,pex);
+
+    return SUCCESS;
+}
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    remove an entry from selector box pair of control entry
+
+Prototype:
+    publicdef INT lmz_remove_entry(LM_DIALOG_STRUCT *pex)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I/O) pex	- (LM_DIALOG_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lmz_remove_entry(LM_DIALOG_STRUCT *pex)
+#else
+publicdef INT lmz_remove_entry(pex)
+LM_DIALOG_STRUCT *pex;
+#endif
+{
+INT i, nLinks,nRows, status;
+
+    nLinks = ts_tcp_len (pex->entrs_typeEntry_list);
+    if(nLinks < 1) return SUCCESS;
+
+			     /*	loop thru all entry in TCP		    */
+    for (i = 1; i <= nLinks; i++)
+        {
+
+	if(ARE_SAME(pex->entrs_typeEntry_list[i-1],pex->entrs_controlEntry))
+	    {
+			     /*	delete entry from selector boxes	    */
+	    wi_delete_cd_line( pex->lm_entrs, LM_ENTRS_CONTROL_SEL,  i);	    
+	    wi_delete_cd_line( pex->lm_entrs, LM_ENTRS_REPRESENT_SEL,  i);	    
+
+			     /*	delete entry from TCPs			    */
+	    ts_tcp_delete(pex->entrs_typeEntry_list,i);
+	    ts_tcp_delete(pex->entrs_cfEntry_list,i);	    
+
+			     /*	if deleted entry is the last entry, then    */
+			     /*	hilite the previous entry if possibly	    */
+	    if(nLinks == i)
+		{
+		if(i != 1)
+		    {
+		    wi_set_default_sel( pex->lm_entrs, LM_ENTRS_CONTROL_SEL,  i-1);
+		    wi_set_default_sel( pex->lm_entrs, LM_ENTRS_REPRESENT_SEL, i-1);
+		    strcpy(pex->entrs_typeEntry,pex->entrs_typeEntry_list[i-2]);
+		    strcpy(pex->entrs_cfEntry,pex->entrs_cfEntry_list[i-2]);
+		    }
+		}
+			     /*	highlite to the entry following the deleted */
+			     /*	entry					    */
+	    else
+		{
+		wi_set_default_sel( pex->lm_entrs, LM_ENTRS_CONTROL_SEL,  i);
+		wi_set_default_sel( pex->lm_entrs, LM_ENTRS_REPRESENT_SEL, i);
+		strcpy(pex->entrs_typeEntry,pex->entrs_typeEntry_list[i-1]);
+                strcpy(pex->entrs_cfEntry,pex->entrs_cfEntry_list[i-1]);
+		}
+	    return SUCCESS;
+	    }	    
+	}
+}
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    save all the dialog information in nlist 
+
+Prototype:
+    publicdef INT lmz_save_name(LM_DIALOG_STRUCT *pex)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I/O) pex		-(LM_DIALOG_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lmz_save_name(LM_DIALOG_STRUCT *pex)
+#else
+publicdef INT lmz_save_name(pex)
+LM_DIALOG_STRUCT *pex;
+#endif
+{
+INT i, nLinks, status, ifyes;
+PROJECT_NAME project_name;
+CHAR *temp_string;
+
+    /* ORACLE precompiler declarations */
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[1024];
+    static VARCHAR name[32];
+    static VARCHAR starting_value[32];
+    static VARCHAR ending_value[32];
+    static VARCHAR code[32];
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO oraerror;
+    EXEC SQL WHENEVER NOTFOUND GOTO new_item;
+
+    qs_inq_c(QS_PROJECT_NAME,project_name,(INT *)0);
+
+	/* upper case definition name */
+    temp_string = ts_sto_upper(pex->defs_name);
+    strcpy(pex->defs_name,temp_string);
+
+    stmt.len = sprintf((CHAR *)stmt.arr,
+	"SELECT DEFINITION_NAME FROM %s.LEASE_COLOR_FILL_DEF \
+WHERE DEFINITION_NAME = '%s' AND DEFINITION_TYPE = %d",
+	project_name,pex->defs_name,pex->defs_type);
+    EXEC SQL PREPARE S_SAVE FROM :stmt;
+    EXEC SQL DECLARE C_SAVE CURSOR FOR S_SAVE;
+    EXEC SQL OPEN C_SAVE;
+    EXEC SQL FETCH C_SAVE INTO :name;
+    EXEC SQL CLOSE C_SAVE;
+
+    wiyesno("Name already exists, do you want to replace?","",&ifyes,
+		&status);
+
+    EXEC SQL WHENEVER NOTFOUND CONTINUE;
+
+    if(ifyes)
+	{
+    	stmt.len = sprintf((CHAR *)stmt.arr,
+	"DELETE %s.LEASE_COLOR_FILL_DEF \
+WHERE DEFINITION_NAME = '%s' AND DEFINITION_TYPE = %d",
+	project_name,pex->defs_name,pex->defs_type);
+	EXEC SQL EXECUTE IMMEDIATE :stmt;	
+
+    	stmt.len = sprintf((CHAR *)stmt.arr,
+	"DELETE %s.LEASE_COLOR_FILL_DEF_ENTRIES \
+WHERE DEFINITION_NAME = '%s' AND DEFINITION_TYPE = %d",
+	project_name,pex->defs_name,pex->defs_type);
+	EXEC SQL EXECUTE IMMEDIATE :stmt;	
+	}
+    else
+	return FAIL;
+
+new_item :
+
+    stmt.len = sprintf((CHAR *)stmt.arr,
+    "INSERT INTO %s.LEASE_COLOR_FILL_DEF \
+(DEFINITION_NAME,DATE_FORMAT,RANGE_FLAG,DEFINITION_TYPE,CONTROL_TYPE) \
+VALUES('%s',%d,%d,%d,%d)",
+    project_name,pex->defs_name,pex->entrs_date_format,
+    pex->entrs_range,pex->defs_type,pex->entrs_type);
+    EXEC SQL EXECUTE IMMEDIATE :stmt;
+
+    stmt.len = sprintf((CHAR *)stmt.arr,
+    "INSERT INTO %s.LEASE_COLOR_FILL_DEF_ENTRIES \
+(DEFINITION_NAME,DEFINITION_TYPE,STARTING_VALUE,ENDING_VALUE,COLOR_FILL_CODE) \
+VALUES('%s',%d,:starting_value,:ending_value,:code)",
+    project_name,pex->defs_name,pex->defs_type);
+    EXEC SQL PREPARE S_SAVE1 FROM :stmt;
+
+    if ((nLinks = ts_tcp_len (pex->entrs_typeEntry_list)) > 0)
+	{
+			     /*	loop for number of entry in selector box    */
+	for (i = 0; i < nLinks; i++)
+	    {
+			     /*	if entry is range the third column has to   */
+			     /*	exist even if they are the same value	    */
+	    if(pex->entrs_range)
+		{
+		if(strstr(pex->entrs_typeEntry_list[i],"-") == NUL)
+		    {
+		    V_FROMC(starting_value,pex->entrs_typeEntry_list[i]);
+		    V_FROMC(ending_value,pex->entrs_typeEntry_list[i]);
+		    }
+		else
+		    {
+		    lmz_get_range_entry(pex->entrs_typeEntry_list[i],
+			(char *)starting_value.arr,(char *)ending_value.arr);
+		    V_SETLEN(starting_value);
+		    V_SETLEN(ending_value);
+	  	    }
+		}
+ 	    else 
+		{
+	    	V_FROMC(starting_value,pex->entrs_typeEntry_list[i]);
+	    	V_FROMC(ending_value,pex->entrs_typeEntry_list[i]);
+		}
+
+	    V_FROMC(code,pex->entrs_cfEntry_list[i]);
+	    EXEC SQL EXECUTE S_SAVE1 USING :starting_value, : ending_value,
+					   :code;
+	    }
+	}
+
+    EXEC SQL COMMIT WORK;
+    return SUCCESS;
+
+oraerror :
+    EXEC SQL ROLLBACK WORK;
+    status = OR_STATUS;
+    return status;
+}
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    set button value according to the current structure
+
+Prototype:
+    publicdef INT lmz_set_button_value(INT id,LM_DIALOG_STRUCT *pex)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) id		-(INT)
+    (I/O) pex		-(LM_DIALOG_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lmz_set_button_value(INT id,LM_DIALOG_STRUCT *pex)
+#else
+publicdef INT lmz_set_button_value(id,pex)
+INT id;
+LM_DIALOG_STRUCT *pex;
+#endif
+{
+
+			     /*	name type				    */
+    switch(pex->entrs_type)
+	{
+	case LM_COLOR :
+	    wi_set_dialog_value(id,LM_ENTRS_COLOR_R_BUTTON,ON);
+	    break;
+	case LM_FILL_STYLE :
+	    wi_set_dialog_value(id,LM_ENTRS_FILL_R_BUTTON,ON);
+	    break;
+	}
+
+			     /*	data type buttons			    */
+    switch(pex->defs_type)
+	{
+	case LM_DATE :
+	    wi_set_dialog_value(id,LM_ENTRS_DATE_R_BUTTON,ON);
+	    lmz_enable_date_buttons(id);
+	    switch (pex->entrs_date_format)
+		{
+		case LM_MDY :
+		    wi_set_dialog_value(id,LM_ENTRS_MDY_R_BUTTON,ON);
+		    break;
+		case LM_DMY :	    
+		    wi_set_dialog_value(id,LM_ENTRS_DMY_R_BUTTON,ON);
+		    break;
+		case LM_MY :
+		    wi_set_dialog_value(id,LM_ENTRS_MY_R_BUTTON,ON);
+		    break;
+		case LM_Y:
+		    wi_set_dialog_value(id,LM_ENTRS_Y_R_BUTTON,ON);
+		    break;
+		}
+	    break;
+	case LM_TEXT :
+            wi_set_dialog_value(id,LM_ENTRS_TEXT_R_BUTTON,ON);
+	    lmz_disable_date_buttons(id);
+            break;
+        case LM_NUMERIC :
+	    wi_set_dialog_value(id,LM_ENTRS_NUMERIC_R_BUTTON,ON);
+	    lmz_disable_date_buttons(id);
+            break;
+	}
+
+			     /*	range checkitem				    */
+    if(pex->entrs_range)
+        wiscdv(id,LM_ENTRS_RANGE_C_ITEM,1);
+    else
+	wiscdv(id,LM_ENTRS_RANGE_C_ITEM,0);        
+
+
+    return SUCCESS;
+}
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    set button value according to the current status
+
+Prototype:
+    publicdef INT lmz_set_defs_button_value(INT id,INT button_value)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) id		-(INT)
+    (I) button_value	-(INT)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lmz_set_defs_button_value(INT id,INT button_value)
+#else
+publicdef INT lmz_set_defs_button_value(id,button_value)
+INT id;
+INT button_value;
+#endif
+{
+    switch(button_value)
+        {
+        case LM_DATE :
+            wi_set_dialog_value(id,LM_DEFS_DATE_R_BUTTON,ON);
+            break;
+        case LM_TEXT :
+            wi_set_dialog_value(id,LM_DEFS_TEXT_R_BUTTON,ON);
+            break;
+        case LM_NUMERIC :
+            wi_set_dialog_value(id,LM_DEFS_NUMERIC_R_BUTTON,ON);
+            break;
+        }
+    return SUCCESS;
+
+}
+
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    taken the value from nlist, fill tcp of control entries 
+    and values that represent those entries
+
+Prototype:
+    static INT lmz_construct_control_selection(LM_DIALOG_STRUCT *pex,
+						INT *ret_status)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I/O) pex		-(LM_DIALOG_STRUCT *)
+    (O) ret_status	-(INT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT lmz_construct_control_selection(LM_DIALOG_STRUCT *pex,
+						INT *ret_status)
+#else
+static INT lmz_construct_control_selection(pex,ret_status)
+LM_DIALOG_STRUCT *pex;
+INT *ret_status;
+#endif
+    {
+    INT status,nLinks;
+    PROJECT_NAME project_name;
+    CHAR control_name[64];
+
+    /* ORACLE precompiler declarations */
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[1024];
+    static int range_flag,date_format,control_type;
+    static VARCHAR starting_value[32];
+    static VARCHAR ending_value[32];
+    static VARCHAR code[32];
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO oraerror;
+    EXEC SQL WHENEVER NOTFOUND CONTINUE;
+
+			     /*	initialize tcp				    */
+    pex->entrs_typeEntry_list = (TCP)0;
+    pex->entrs_cfEntry_list = (TCP)0;
+
+    qs_inq_c(QS_PROJECT_NAME,project_name,(INT *)0);
+
+    stmt.len = sprintf((CHAR *)stmt.arr,
+	"SELECT RANGE_FLAG,DATE_FORMAT,CONTROL_TYPE \
+FROM %s.LEASE_COLOR_FILL_DEF \
+WHERE DEFINITION_TYPE = %d AND DEFINITION_NAME = '%s'",
+	project_name,pex->defs_type,pex->defs_name);
+    EXEC SQL PREPARE S_LOAD FROM :stmt;
+    EXEC SQL DECLARE C_LOAD CURSOR FOR S_LOAD;
+    EXEC SQL OPEN C_LOAD;
+    EXEC SQL FETCH C_LOAD INTO :range_flag, :date_format, :control_type;
+    EXEC SQL CLOSE C_LOAD;
+
+    pex->entrs_range = range_flag;
+    pex->entrs_type = control_type;
+    pex->entrs_date_format = date_format;
+
+    stmt.len = sprintf((CHAR *)stmt.arr,
+	"SELECT STARTING_VALUE,ENDING_VALUE,COLOR_FILL_CODE \
+FROM %s.LEASE_COLOR_FILL_DEF_ENTRIES \
+WHERE DEFINITION_NAME = '%s' AND DEFINITION_TYPE = %d",
+	project_name,pex->defs_name,pex->defs_type);
+    EXEC SQL PREPARE S_LOAD1 FROM :stmt;
+    EXEC SQL DECLARE C_LOAD1 CURSOR FOR S_LOAD1;
+    EXEC SQL OPEN C_LOAD1;
+
+    nLinks = 0;
+    FOREVER
+	{
+    	EXEC SQL FETCH C_LOAD1 INTO :starting_value, :ending_value, :code;
+	if(OR_STATUS EQUALS OR_EOF)
+	    break;
+	V_SETZERO(starting_value);
+	V_SETZERO(ending_value);
+	V_SETZERO(code);
+	if(pex->entrs_range && 
+	   ARE_DIFFERENT((char *)starting_value.arr,(char *)ending_value.arr))
+	    sprintf(control_name,"%s - %s",(char *)starting_value.arr,
+		(char *)ending_value.arr);
+	else 
+	    strcpy(control_name,(char *)starting_value.arr);
+
+	ts_tcp_append(&pex->entrs_typeEntry_list,control_name);
+	ts_tcp_append(&pex->entrs_cfEntry_list,(char *)code.arr);
+	nLinks++;
+	}
+
+    EXEC SQL CLOSE C_LOAD1;
+
+    *ret_status = SUCCESS;
+    return nLinks;
+
+oraerror :
+    *ret_status = OR_STATUS;
+    return 0;
+}
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    fill tcp of all possible values can represent the control entry
+    according to the control data type (color/fill by)
+
+Prototype:
+    static INT lmz_construct_selection_entry(LM_DIALOG_STRUCT *pex)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I/O) pex		-(LM_DIALOG_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT lmz_construct_selection_entry(LM_DIALOG_STRUCT *pex)
+#else
+static INT lmz_construct_selection_entry(pex)
+LM_DIALOG_STRUCT *pex;
+#endif
+    {
+    INT nLinks,status;
+    CHAR keyword[30];
+
+			     /*	initialize tcp				    */
+    pex->entrs_cfPick_list = (CHAR**)0;
+
+			     /*	keyword for data type			    */
+    switch(pex->entrs_type)
+	{
+	case LM_COLOR :
+	    strcpy(keyword,"COLOR");
+	    break;
+	case LM_FILL_STYLE :
+	    strcpy(keyword,"FILL_STYLE");
+            break;
+	}
+
+			     /*	fill tcp of selector box		    */
+    status = lu_get_tcp( keyword,&pex->entrs_cfPick_list,&nLinks);	
+    if(status != SUCCESS)
+	return 0;
+
+    return nLinks;
+}
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    fill tcp of table names according to data type (date/numeric/text)
+
+Prototype:
+    static INT lmz_construct_defsnames(LM_DIALOG_STRUCT *pex,
+					INT *ret_status)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I/O) pex		-(LM_DIALOG_STRUCT *)
+    (O) ret_status	-(INT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT lmz_construct_defsnames(LM_DIALOG_STRUCT *pex,
+					INT *ret_status)
+#else
+static INT lmz_construct_defsnames(pex,ret_status)
+LM_DIALOG_STRUCT *pex;
+INT *ret_status;
+#endif
+    {
+    INT status, nLinks;
+    PROJECT_NAME project_name;
+
+    /* ORACLE precompiler declarations */
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[1024];
+    static VARCHAR name[33];
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO oraerror;
+    EXEC SQL WHENEVER NOTFOUND CONTINUE;
+
+    pex->defs_name_list = (TCP)0;
+    
+    qs_inq_c(QS_PROJECT_NAME,project_name,(INT *)0);
+
+    stmt.len = sprintf((CHAR *)stmt.arr,
+	"SELECT DEFINITION_NAME FROM %s.LEASE_COLOR_FILL_DEF \
+WHERE DEFINITION_TYPE = %d",project_name,pex->defs_type);
+    EXEC SQL PREPARE S_DEFS FROM :stmt;
+    EXEC SQL DECLARE C_DEFS CURSOR FOR S_DEFS;
+    EXEC SQL OPEN C_DEFS;
+
+    nLinks = 0;
+    FOREVER
+	{
+	EXEC SQL FETCH C_DEFS INTO :name;
+	if(OR_STATUS EQUALS OR_EOF)
+	    break;
+	V_SETZERO(name);
+	ts_tcp_append(&pex->defs_name_list,(CHAR *)name.arr);
+	nLinks++;
+	}
+
+    *ret_status = SUCCESS;
+    return nLinks;
+oraerror:
+    *ret_status = OR_STATUS;
+    return 0;
+}
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    convert date format from one to the other. if information of month and day
+    are lost during conversion then save those values in temp storage
+
+Prototype:
+    static INT lmz_convert_date_format(LM_SAVE_MD_STRUCT *save_mth_n_day,
+					CHAR *date,
+					INT prev_type,
+				        INT new_type,
+					INT index)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) save_mth_n_day 	- (LM_SAVE_MD_STRUCT *)
+    (I) date		- (CHAR *)
+    (I) prev_type	- (INT)
+    (I) new_type	- (INT)
+    (I) index		- (INT)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT lmz_convert_date_format(LM_SAVE_MD_STRUCT *save_mth_n_day,
+					CHAR *date,
+					INT prev_type,
+				        INT new_type,
+					INT index)
+#else
+static INT lmz_convert_date_format(save_mth_n_day,date,prev_type,
+				new_type,index)
+LM_SAVE_MD_STRUCT *save_mth_n_day;
+CHAR *date;
+INT prev_type,new_type,index;
+#endif
+{
+    INT *integers,n_int;
+
+			     /*	change string of date to digit(s)	    */
+    lmz_get_date_format(date,&integers,&n_int);
+
+			     /*	convert type according to the new and prev  */
+			     /*	type. Save values of month and day or	    */
+			     /*	retrieve from the temp storage if necessary */
+    switch (new_type)
+	{
+	case LM_MDY : 
+	    if (prev_type == LM_DMY)
+		sprintf(date,"%d/%d/%d",integers[1],integers[0],integers[2]);
+	    else if (prev_type == LM_MY)
+		{
+		if (save_mth_n_day->save)
+		    sprintf(date,"%d/%d/%d",integers[0],
+					    save_mth_n_day->day[index],
+					    integers[1]);		
+		else
+		    sprintf(date,"%d/01/%d",integers[0],integers[1]);
+		}
+	    else if (prev_type == LM_Y)
+		{
+		if (save_mth_n_day->save)
+		    sprintf(date,"%d/%d/%d",save_mth_n_day->mth[index],
+					    save_mth_n_day->day[index],
+					    integers[0]);		
+		else
+		    sprintf(date,"01/01/%d",integers[0]);
+		}
+	    break;
+	case LM_DMY : 
+	    if (prev_type == LM_MDY)
+		sprintf(date,"%d/%d/%d",integers[1],integers[0],integers[2]);
+	    else if (prev_type == LM_MY)
+		{
+                if (save_mth_n_day->save)
+                    sprintf(date,"%d/%d/%d",save_mth_n_day->day[index],
+					    integers[0],
+					    integers[1]);
+                else
+                    sprintf(date,"01/%d/%d",integers[0],integers[1]);
+		}
+	    else if (prev_type == LM_Y)
+		{
+                if (save_mth_n_day->save)
+                    sprintf(date,"%d/%d/%d",save_mth_n_day->day[index],
+                                            save_mth_n_day->mth[index],
+                                            integers[0]);
+                else
+		    sprintf(date,"01/01/%d",integers[0]);
+		}
+	    break;
+	case LM_MY :
+	    if (prev_type == LM_MDY)
+		{
+		save_mth_n_day->mth[index]=integers[0];
+		save_mth_n_day->day[index]=integers[1];
+		sprintf(date,"%d/%d",integers[0],integers[2]);
+		}
+	    else if (prev_type == LM_DMY)
+		{
+		save_mth_n_day->mth[index]=integers[1];
+		save_mth_n_day->day[index]=integers[0];
+		sprintf(date,"%d/%d",integers[1],integers[2]);
+		}
+	    else if (prev_type == LM_Y)
+		{
+                if (save_mth_n_day->save)
+                    sprintf(date,"%d/%d",save_mth_n_day->mth[index],
+                                         integers[0]);
+                else
+		    sprintf(date,"01/%d",integers[0]);
+		}
+	    break;
+	case LM_Y :
+	    if (prev_type == LM_MDY)
+		{
+		save_mth_n_day->mth[index]=integers[0];
+		save_mth_n_day->day[index]=integers[1];
+		sprintf(date,"%d",integers[2]);
+		}
+	    else if (prev_type == LM_DMY)
+		{
+		save_mth_n_day->mth[index]=integers[0];
+		save_mth_n_day->day[index]=integers[1];
+		sprintf(date,"%d",integers[2]);
+		}
+	    else if (prev_type == LM_MY)
+		{
+		save_mth_n_day->mth[index]=integers[0];
+		if (save_mth_n_day->day[index] == 0 || 
+		    save_mth_n_day->day[index] > 31)
+		    save_mth_n_day->day[index]=1;
+		sprintf(date,"%d",integers[1]);
+		}
+	    break;
+	}
+    tc_free(integers);
+    return SUCCESS;
+}
+
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    convert numeric to date format 
+
+Prototype:
+    static INT lmz_convert_numeric_date(CHAR *numeric,INT date_type,
+	  				CHAR *date)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) numeric	- (CHAR *)
+    (I) date_type - (INT)
+    (O)	date - (CHAR *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT lmz_convert_numeric_date(CHAR *numeric,INT date_type,
+					CHAR *date)
+#else
+static INT lmz_convert_numeric_date(numeric,date_type,date)
+CHAR *numeric;
+INT date_type;
+CHAR *date;
+#endif
+{
+    INT len,i;
+
+    len=strlen(numeric);
+	       
+    switch(date_type)
+	{
+	case LM_MDY : 
+	case LM_DMY : 
+	    if(len < 6) 
+		{
+		for(i=len;i<6;i++)
+		    numeric[i]='0';
+		numeric[6]=0;
+		}
+	    if(len >=8)
+		sprintf(date,"%c%c/%c%c/%c%c%c%c\0",
+		    numeric[0],numeric[1],numeric[2],numeric[3],
+		    numeric[4],numeric[5],numeric[6],numeric[7]);
+	    else 
+		sprintf(date,"%c%c/%c%c/%c%c\0",
+                    numeric[0],numeric[1],numeric[2],
+		    numeric[3],numeric[4],numeric[5]);
+	    break;
+	case LM_MY : 
+	    if(len < 4)
+                {
+                for(i=len;i<4;i++)
+                    numeric[i]='0';
+                numeric[4]=0;
+                }
+	    if(len >=6)
+                sprintf(date,"%c%c/%c%c%c%c\0",
+                    numeric[0],numeric[1],numeric[2],
+                    numeric[3],numeric[4],numeric[5]);
+            else
+                sprintf(date,"%c%c/%c%c\0",
+		    numeric[0],numeric[1],numeric[2],numeric[3]);
+	    break;
+	case LM_Y :
+	    if(len < 2)
+                {
+                for(i=len;i<2;i++)
+                    numeric[i]='0';
+                numeric[2]=0;
+                }
+            if(len >=4)
+                sprintf(date,"%c%c%c%c\0",
+		    numeric[0],numeric[1],numeric[2],numeric[3]);
+            else
+                sprintf(date,"%c%c\0",numeric[0],numeric[1]);
+            break;
+	}
+}
+
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    check if entry is in the right date format
+
+Prototype:
+    static INT lmz_entry_is_date(CHAR *entry,INT date_type)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) entry 	- (CHAR *) 
+    (I) date_type - (INT)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT lmz_entry_is_date(CHAR *entry,INT date_type)
+#else
+static INT lmz_entry_is_date(entry,date_type)
+CHAR *entry;
+INT date_type;
+#endif
+{
+    INT *integer;
+    INT n_int,i;
+    INT mth,day;
+    CHAR message[64],format[12];
+
+			     /*	convert string to digits		    */
+    lmz_get_date_format(entry,&integer,&n_int);
+
+    switch (date_type)
+	{
+	case LM_MDY :
+	    mth=0,day=1;
+	    strcpy(message,"Please enter the date in MM/DD/YY format!\n\
+ Example : 01/30/1990");
+	    break;
+	case LM_DMY :
+	    mth=1,day=0;
+	    strcpy(message,"Please enter the date in DD/MM/YY format!\n\
+ Example : 30/01/1990");
+	    break;
+	}
+
+    switch (date_type)
+	{
+	case LM_MDY : case LM_DMY :
+	    if(n_int != 3)
+		{
+		am_message(AM_ALERT,message);
+		return FAIL;
+		}
+	    if(integer[mth]<1 OR integer[mth]>12)
+		{
+		am_message(AM_ALERT,"Enter a month between 01 and 12.");
+		return FAIL;
+                }
+	    if(integer[day]<1 OR integer[day]>31)
+		{
+		am_message(AM_ALERT,"Enter a day between 01 and 31.");
+		return FAIL;
+		}
+	    break;
+	case LM_MY :
+	    if(n_int != 2)
+		{
+		am_message(AM_ALERT,"Please enter the date in MM/YY format!\n\
+ Example : 01/1990 ");
+		return FAIL;
+		}
+	    if(integer[0]<1 OR integer[0]>12)
+                {
+                am_message(AM_ALERT,"Please enter a month between 01 and 12.");
+                return FAIL;
+                }
+	    break;
+	case LM_Y :
+	    if(n_int != 1)
+                {
+                am_message(AM_ALERT,"Please enter the date in years.");
+		return FAIL;
+                }
+	    break;
+	}
+     return SUCCESS;
+
+}
+
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    check if entry is in numeric format
+
+Prototype:
+    static INT lmz_entry_is_numeric(CHAR *entry)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) entry 	- (CHAR *)   
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT lmz_entry_is_numeric(CHAR *entry)
+#else
+static INT lmz_entry_is_numeric(entry)
+CHAR *entry;
+#endif
+{
+    DOUBLE num;
+    CHAR *temp_text;
+        
+    num=atof(entry);
+    if(num == 0) return SUCCESS;
+    num=strtod(entry,&temp_text);
+    if(num == 0)
+	{
+	am_message(AM_ALERT,"Please enter a number, select a different \
+control data type.");
+	return FAIL;
+	}
+    return SUCCESS;
+}
+
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    given a string, convert it to digits with delimeter '/' separate the
+    digits to get the number for date format. And also return number of
+    digits found.
+
+Prototype:
+    static INT lmz_get_date_format(CHAR *text,INT **integers,INT *n_int)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) text - (CHAR *)
+    (O) integers - (INT **)
+    (O) n_int - (INT)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT lmz_get_date_format(CHAR *text,INT **integers,INT *n_int)
+#else
+static INT lmz_get_date_format(text,integers,n_int)
+CHAR *text;
+INT **integers;
+INT *n_int;
+#endif
+{
+    CHAR *t;
+    INT i,count,len;
+    TCP ptcp;
+    INT *temp_int;
+    
+    ptcp = ts_token(text,"/");
+    len = ts_tcp_len(ptcp);
+    count = MIN(3,len);        
+    *integers = temp_int = (INT *)tc_alloc(sizeof(INT)*count);
+
+    for(i=0;i < count;i++)
+	temp_int[i]=atoi(ptcp[i]); 
+
+    *n_int=count;
+    return SUCCESS;
+}
+
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    get range entry which is separated by delimeter '-', put up
+    messages if error is detected
+
+Prototype:
+    static INT lmz_get_range_entry(CHAR *entry,
+				   CHAR *first_entry,
+				   CHAR *second_entry)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+   (I) entry 	- (CHAR *)
+   (O) first_entry - (CHAR *)
+   (O) second_entry - (CHAR *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT lmz_get_range_entry(CHAR *entry,
+				   CHAR *first_entry,
+				   CHAR *second_entry)
+#else
+static INT lmz_get_range_entry(entry,first_entry,second_entry)
+CHAR *entry,*first_entry,*second_entry;
+#endif
+{
+    TCP ptcp;
+    INT len;
+
+    ptcp = ts_token(entry,"-");
+    len = ts_tcp_len(ptcp);
+
+    if(len == 1)
+	{
+	am_message(AM_ALERT,"Second value of range expected");
+	return FAIL;
+	}
+    else if (len != 2)
+	{
+	am_message(AM_ALERT,"Value is not in range format");
+	return FAIL;
+	}
+
+    strcpy(first_entry,ptcp[0]);
+    strcpy(second_entry,ptcp[1]);
+
+    return SUCCESS;
+}
+

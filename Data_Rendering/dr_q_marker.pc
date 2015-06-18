@@ -1,0 +1,119 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_Q_MARKER.PC */
+/* *4     3-OCT-1990 12:08:32 GILLESPIE "(SPR 101) Change file type to stream" */
+/* *3    18-JUL-1990 07:15:16 GILLESPIE "(SPR 1) Add esi_dr_err.h" */
+/* *2    10-AUG-1989 08:39:46 GORDON "(SPR 105) This function now does its own database query." */
+/* *1    10-AUG-1989 08:35:51 GORDON "PC version of dr_q_marker.c" */
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_Q_MARKER.PC */
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_Q_MARKER.PC*/
+/* *2    30-SEP-1990 16:31:14 JULIAN "(SPR -1) Fix messed up sources found in Ernie->Bert migration"*/
+/* *1    13-AUG-1990 16:37:17 SYSTEM "Finder 6.1"*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_Q_MARKER.PC*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_Q_MARKER.C*/
+/* *1    19-JUN-1989 12:47:53 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_Q_MARKER.C*/
+
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+/******************************************************************************
+
+NAME:         dr_query_marker_name 
+
+DESCRIPTION:  Get a marker name from a list of markers
+
+
+     Input:   Prompt - The prompt for the selector
+
+     Output:  marker_name - The selected marker
+
+     Status:  SUCCESS
+              DR_CANCEL
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include    "esi_dr.h"
+#ifndef ESI_QS_H
+#include    "esi_qs.h"
+#endif
+#include "esi_oracle.h"
+#include "esi_dr_err.h"
+
+#if USE_PROTOTYPES
+publicdef INT dr_query_marker_name(CHAR *prompt,CHAR *marker_name)
+#else
+publicdef INT dr_query_marker_name(prompt,marker_name)
+CHAR *prompt;
+CHAR *marker_name;
+#endif
+{
+    INT status=0;
+    INT cancel=0;
+    static TCP marker_list = (TCP)0;
+    static INT no_markers;
+    INT nlen;
+    CHAR c_table_name[64];
+
+    EXEC SQL BEGIN DECLARE SECTION;
+	VARCHAR sqlstmt[256];
+	VARCHAR table_name[64];
+	VARCHAR name[32];
+    EXEC SQL END DECLARE SECTION;
+
+/* If need be, load the list   */
+
+    if(marker_list == (CHAR **)0)
+        {
+    	qs_inq_c(QS_PROJECT_NAME, c_table_name, &nlen);
+    	strcat(c_table_name,".SEIS_HOR_CODES");
+	V_C_TO_V( table_name, c_table_name );
+	sqlstmt.len = sprintf( (char*)sqlstmt.arr,
+	    "SELECT HOR_CODE FROM %s ORDER BY HOR_CODE", c_table_name );
+
+	EXEC SQL PREPARE S1 FROM :sqlstmt;
+	EXEC SQL DECLARE MARKER_CUR CURSOR FOR S1;
+	EXEC SQL OPEN MARKER_CUR;
+	if (OR_STATUS != SUCCESS)
+	    return OR_STATUS;
+
+	EXEC SQL WHENEVER NOT FOUND GOTO done;
+
+	for (no_markers=0; TRUE; ++no_markers)
+	    {
+	    EXEC SQL FETCH MARKER_CUR INTO :name;
+	    V_SETZERO( name );
+	    ts_tcp_append( &marker_list, (CHAR*)name.arr );
+	    }
+
+done:
+	EXEC SQL CLOSE MARKER_CUR;
+        }
+	
+    status = dr_get_selection(prompt, marker_list, no_markers, marker_name, &cancel);
+    if (cancel) 
+	{
+	marker_name[0] = 0;
+	status = DR_CANCEL;
+	}
+    else 
+	status = SUCCESS;
+
+    return status;
+} 

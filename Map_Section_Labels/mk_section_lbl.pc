@@ -1,0 +1,415 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element MK_SECTION_LBL.PC */
+/* *6    26-OCT-1990 13:50:30 GILLESPIE "(SPR 33)  New Lynx 3d changes" */
+/* *5     4-APR-1990 17:24:23 MING "(SPR 0) new version" */
+/* *4    27-MAR-1990 18:01:42 GILLESPIE "(SPR 1) Fix up SQL logic" */
+/* *3    21-MAR-1990 18:15:41 MING "(SPR 0) add update of lynx_dtypr_text_gc,lynx_text_bundle" */
+/* *2    21-MAR-1990 14:38:28 MING "(SPR 0) create (need to mod)" */
+/* *1    21-MAR-1990 14:36:54 MING "create section labels" */
+/* DEC/CMS REPLACEMENT HISTORY, Element MK_SECTION_LBL.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1990                      */
+/*         Unpublished -- All rights reserved                                       */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*          Finder Graphics Systems, Inc.                                           */
+/*          201 Tamal Vista Blvd                                                    */
+/*          Corte Madera, CA  USA 94925                                             */
+/*          (415) 927-0100                                                          */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/*****************************************************************************      */
+/*                                                                                  */
+/*  SYSNOSIS : mk_section_lbl                                                       */
+/*             Usage: mk_section_lbl username/passwd@database project               */
+/*                                                                                  */
+/*  DESCRIPTION : This program is used to generate section labels on the            */
+/*                corner of every township in a project.                            */
+/*                                                                                  */
+/*                The program labels section 1,6,31,36 if the township contains     */
+/*                greater than or equal to 36 sections.                             */
+/*                If less than 36 sections, the program will first label the        */
+/*                section with lowest number. Then locate the corner on the         */
+/*                same row if there is one. Finally label the corners of            */
+/*                the corresponding columns with respect to the corners             */
+/*                already found whenever possible.                                  */
+/*                                                                                  */
+/*                This program is limited to rectangles and polygons with           */
+/*                a flat top and a base that is equal to or larger than the         */
+/*                top with the condition that the base covered the top              */
+/*                completely.                                                       */
+/*                                                                                  */
+/*                Many different kind of polygons will not be labeled               */
+/*                correctly. The consideration of improving this program            */
+/*                mainly falls on cost and effect factor. Since the number of       */
+/*                exceptional cases in the township situation is very small,        */
+/*                and a good algorithm to locate the corner of a polygon,           */
+/*                e.g. 4 connectivity, is very expensive, especially when data      */
+/*                are retreiving data in database environment. Further              */
+/*                research is needed if current performance is not desirable.       */
+/*                                                                                  */
+/******************************************************************************     */
+
+
+
+#include "esi_c_lib.h"
+#include "esi_oracle.h"
+#include "esi_am.h"
+#include "esi_mg.h"
+#include "esi_qs.h"
+#include "esi_ly.h"
+
+#define DOWN 1
+#define UP -1
+
+EXEC SQL BEGIN DECLARE SECTION;
+int lynx_id;
+double township;
+VARCHAR township_dir[2];
+double range;
+VARCHAR range_dir[2];
+int count;
+int min;
+int section;
+double x, y;
+int text_id;
+long int node_id;
+VARCHAR stmt[2000];
+EXEC SQL END DECLARE SECTION;
+/* array of increment values for                                                    */
+/* each column of a 6*6 rectangle                                                   */
+privatedef INT dev[8][5] = 
+    {
+    11, 1, 11, 1, 11, 9, 3, 9, 3, 9,/*  11 9..    1  2  3  4  5  6                  */
+    7, 5, 7, 5, 7,                  /*   1 3..    12 11 10  9  8  7                 */
+    5, 7, 5, 7, 5,                  /*  11 9..    13 14 15 16 17 18                 */
+    3, 9, 3, 9, 3,                  /*   1 3..    24 23 22 21 20 19                 */
+    1, 11, 1, 11, 1,                /*  11 9..    25 26 27 28 29 30                 */
+    1, 1, 1, 1, 1,                  /*          36 35 34 33 32 31                   */
+    -1, -1, -1, -1, -1
+    };
+
+
+/* the 7th & 8th are for horizontal                                                 */
+/* rows increment values 1 for left                                                 */
+/* the other for right                                                              */
+
+/* x_array is used for looking for the 2nd corner when the first corner             */
+/* is found. If the first corner is 1 the possible location of the 2nd corner       */
+/* on the same row is 6,same as 2,3,4,5,6.When the first coner is found at          */
+/* the 2nd row, the possible location of the 2nd corner is 12. Same concept         */
+/* apply to the following rows                                                      */
+
+privatedef INT x_array[36] = 
+    {
+    6, 6, 6, 6, 6, 6, 12, 12, 12, 12, 12, 12, 18, 18, 18, 18, 18, 18, 24, 24, 24, 24,
+    24, 24, 30, 30, 30, 30, 30, 30, 36, 36, 36, 36, 36, 36
+    };
+
+
+
+
+/* y_array is used for the 3rd and the 4th corner                                   */
+/* if 1 is one of the corner, the possible corresponding corner on the same         */
+/* column will be 36, 2 - 35, 3 - 34, so on and so forth.                           */
+
+privatedef INT y_array[36] = 
+    {
+    36, 35, 34, 33, 32, 31, 31, 32, 33, 34, 35, 36, 36, 35, 34, 33, 32, 31, 31, 32, 33,
+    34, 35, 36, 36, 35, 34, 33, 32, 31, 31, 32, 33, 34, 35, 36
+    };
+
+
+
+/* col_array is used to locate the column of a element                              */
+/* elmenet 1 is row 0, 2 is 1, 3 is 2,...,6 is 0, 7 is 1....                        */
+
+privatedef INT col_array[36] = 
+    {
+    0, 1, 2, 3, 4, 5, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3,
+    4, 5, 5, 4, 3, 2, 1, 0
+    };
+
+
+
+CHAR *project;
+
+INT main (argc, argv)
+INT argc;
+CHAR **argv;
+    {
+    INT elt;
+    INT col;
+    INT no_township = 0;
+    INT status;
+    CHAR answer[80];
+    
+    if (argc != 3)
+        {
+        printf ("Uasge program username/password@database project\n");
+        exit (EXIT_FAILURE);
+        }
+    printf ("Logging in ORACLE...\n");
+    if (or_login (argc, argv) != SUCCESS)
+        {
+        printf ("Shutting down\n");
+        exit (EXIT_FAILURE);
+        }
+    /*                                                                              */
+    /*  printf("This program is used to generated section labels in townships.\n"); */
+    /*  printf("Do yow want to proceed ? [Y/N]");                                   */
+    /*  scanf("%s",answer);                                                         */
+    /*  if (toupper(answer[0]) != 'Y')                                              */
+    /*  {                                                                           */
+    /*    printf("Stop by user.\n");                                                */
+    /*  exit(EXIT_SUCCESS);                                                         */
+    /*  }                                                                           */
+    /*                                                                              */
+    
+    am_initialize ();
+    qs_set_c (QS_PROJECT_NAME, argv[2], 0);
+    status = finder_config_project ();
+    
+    if (status != SUCCESS)
+        {
+        printf ("%s: %.70s\n", argv[0], mg_message (status));
+        exit (EXIT_FAILURE);
+        }
+    project = argv[2];
+    
+    printf ("Create section labels on project %s...\n", project);
+    
+    EXEC SQL WHENEVER SQLERROR GOTO err;
+    
+    /* look for every township                                                      */
+    stmt.len = sprintf ((CHAR *)stmt.arr, 
+"SELECT TOWNSHIP,TOWNSHIP_DIR,RANGE,RANGE_DIR,COUNT(*) \
+   FROM %s.SECTIONS \
+   GROUP BY TOWNSHIP,TOWNSHIP_DIR,RANGE,RANGE_DIR"
+            , project);
+    
+    EXEC SQL PREPARE S1 FROM :stmt;
+    
+    EXEC SQL DECLARE TOWNSHIP CURSOR FOR S1;
+    
+    EXEC SQL OPEN TOWNSHIP;
+    
+    EXEC SQL FETCH TOWNSHIP INTO :township,:township_dir,:range,:range_dir,:count;
+    
+    while (OR_STATUS == SUCCESS)
+        {
+        
+        printf ("Working on Township: %s%.1f%s%.1f...\n", township_dir.arr, township,
+                range_dir.arr, range);
+        
+        no_township++;
+        
+        if (count >= 36)            /* retangular 6*6 township                      */
+            {                       /* expected corners are 1,6,31,36               */
+            if (exist (1))
+                {
+                corner (1);
+                }
+            if (exist (6))
+                {
+                corner (6);
+                }
+            if (exist (31))
+                {
+                corner (31);
+                }
+            if (exist (36))
+                {
+                corner (36);
+                }
+            }
+        else                        /* if not a 6*6 rectangular township            */
+            {
+            /* locate the 1st section                                               */
+            for (min = 1; !exist (min) && min <= 36; ++min)
+                {
+                }
+            corner (min);
+            
+            /* locate the 2nd possible corner on the same row                       */
+            elt = x_array[min - 1];
+            
+            if (exist (elt))
+                {
+                corner (elt);
+                }
+            else
+                {
+                /* if not exist, backtrack to find the corner                       */
+                elt = backtrack (elt, 7, 1);
+                if (elt != -1)
+                    {
+                    corner (elt);
+                    
+                    /* if the 2nd corner is found, use it to look for the 3rd corner*/
+                    
+                    elt = y_array[elt - 1];
+                    col = col_array[elt - 1];
+                    if (exist (elt))
+                        {
+                        corner (elt);
+                        }
+                    else
+                        {
+                        elt = backtrack (elt, col, UP);
+                        if (elt != -1)
+                            {
+                            corner (elt);
+                            }
+                        }
+                    }
+                }
+            /* look for the 4th corner                                              */
+            elt = y_array[min - 1];
+            col = col_array[min - 1];
+            
+            if (exist (elt))
+                {
+                corner (elt);
+                }
+            else
+                {
+                elt = backtrack (elt, col, UP);
+                if (elt != -1)
+                    {
+                    corner (elt);
+                    }
+                }
+            }
+        EXEC SQL FETCH TOWNSHIP INTO 
+                :township,:township_dir,:range,:range_dir,:count;
+        }
+    EXEC SQL CLOSE TOWNSHIP;
+    printf ("Total number of townships processed:%d.\n", no_township);
+    
+    /* update table lynx_dtype_text_gc & lynx_text_bundle                           */
+    status = ly_put_text_bundle ("SECTION", 0, (TEXT_GC *)0);
+    
+    if (status != SUCCESS)
+        {
+        printf ("ly_put_text_bundle failed\n");
+        exit (EXIT_FAILURE);
+        }
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL COMMIT WORK RELEASE;
+    printf ("Finish creating section labels.\n");
+    exit (EXIT_SUCCESS);
+    
+err:
+    printf ("\n %.70s\n", sqlca.sqlerrm.sqlerrmc);
+    EXEC SQL ROLLBACK RELEASE;
+    exit (EXIT_FAILURE);
+    }
+
+/************************************************************************************/
+
+/* this routine search for a section on a particular township                       */
+/* if found return 1 and update the global variables x and y                        */
+/* which is the x-y location of the node labeled, i.e the center                    */
+/* of the section                                                                   */
+/* return 0 if not found                                                            */
+
+INT exist (elt)
+INT elt;
+    {
+    privatedef BOOL first = TRUE;
+    
+    if (first == TRUE)
+        {
+        stmt.len = sprintf ((CHAR *)stmt.arr, 
+"SELECT A.LYNX_ID,(MAXX+MINX)/2,(MAXY+MINY)/2 \
+FROM %s.SECTIONS A, %s.LYNX_CULTURE B \
+WHERE SECTION = :section AND TOWNSHIP = :township AND  \
+TOWNSHIP_DIR = :township_dir AND RANGE = :range AND \
+RANGE_DIR = :range_dir AND A.LYNX_ID = B.LYNX_ID"
+                , project, project);
+        
+        EXEC SQL PREPARE S2 FROM :stmt;
+        EXEC SQL DECLARE TEXT CURSOR FOR S2;
+        
+        first = FALSE;
+        }
+    lynx_id = 0;
+    section = elt;
+    EXEC SQL OPEN TEXT USING :section,:township,:township_dir,:range,:range_dir;
+    EXEC SQL FETCH TEXT INTO :lynx_id,:x,:y;
+    if (OR_STATUS < 0)
+        {
+        printf ("exist: %.70s\n", OR_MESSAGE);
+        exit (EXIT_FAILURE);
+        }
+    EXEC SQL CLOSE TEXT;
+    
+    /*  printf ("section %d, lynx_id %d\n",section,lynx_id);                        */
+    if (lynx_id == 0)
+        {
+        return 0;
+        }
+    return 1;
+    }
+
+/************************************************************************************/
+
+
+backtrack (elt, col, dir)
+INT elt;
+INT col;
+INT dir;
+    {
+    INT i;
+    
+    elt += dev[col][0] * dir;
+    for (i = 0; i <= 4 && elt > 0; ++i, elt += dev[col][i] * dir)
+        {
+        if (exist (elt))
+            {
+            return elt;
+            }
+        }
+    return -1;
+    }
+
+/************************************************************************************/
+
+corner (elt)
+INT elt;
+    {
+    privatedef BOOL first = TRUE;
+    
+    /*  printf ("\tsection %d\n",elt);                                              */
+    
+    if (first == TRUE)
+        {
+        stmt.len = sprintf ((CHAR *)stmt.arr, 
+"INSERT INTO %s.LYNX_TEXT(TEXT_ID,LYNX_ID,NODE_ID,\
+TEXT_STRING,X_OFFSET,Y_OFFSET) \
+VALUES(ESI.LYNX_ID_SEQ.NEXTVAL,:lynx_id,:node_id,:section,0,0)"
+                , project);
+        
+        EXEC SQL PREPARE S3 FROM :stmt;
+        
+        first = FALSE;
+        }
+    ly_process_node (x, y, (double)0.0, (NODE_ID *)&node_id);
+    EXEC SQL EXECUTE S3 USING :lynx_id,:node_id,:section;
+    if (OR_STATUS < 0)
+        {
+        printf ("corner: %.70s\n", OR_MESSAGE);
+        exit (EXIT_FAILURE);
+        }
+    EXEC SQL COMMIT WORK;
+    
+    }

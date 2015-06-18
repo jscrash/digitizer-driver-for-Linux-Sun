@@ -1,0 +1,387 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element VI_GET_GRID_OUTPUT.PC */
+/* *3     8-JUL-1991 14:11:09 JESSIE "(SPR 0) enlarge the array size for prefix" */
+/* *2    11-JUN-1991 14:31:42 JESSIE "(SPR 0) get output grid name" */
+/* *1    11-JUN-1991 14:30:09 JESSIE "VI user interface" */
+/* DEC/CMS REPLACEMENT HISTORY, Element VI_GET_GRID_OUTPUT.PC */
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_am.h"
+#include "esi_tc.h"
+#include "esi_ts.h"
+#include "esi_wi.h"
+#include "esi_oracle.h"
+#include "esi_qs.h"
+#include "esi_sl.h"
+#include "esi_sl_err.h"
+#include "esi_vi.h"
+#include "vi_grid_io.rh"
+
+#define NullString ""
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+static CHAR VI_RESOURCE_FILE[] = "VI_GRID_IO";
+static CHAR grid_name[] = "GRID";
+
+#if USE_PROTOTYPES
+publicdef INT vi_exist_grid (VI_STRUCT *pvi);
+publicdef INT vi_message_overwrite ();
+#else
+publicdef INT vi_exist_grid ();
+publicdef INT vi_message_overwrite ();
+#endif
+
+/* File Description ---------------------------------------------------------
+Overview:
+
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT vi_get_grid_output (VI_STRUCT *pvi)
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT vi_get_grid_info (VI_STRUCT *pvi);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    pvi		-(VI_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    CANCEL
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+#if USE_PROTOTYPES
+publicdef INT vi_get_grid_output (VI_STRUCT *pvi)
+#else
+publicdef INT vi_get_grid_output (pvi)
+VI_STRUCT *pvi;
+#endif
+  {
+  BOOL done = FALSE;
+  INT status; 
+  INT i;
+  INT src_id = 0;
+  INT event_id = 0;
+  INT event_class = 0;
+  INT item;
+  INT unused;
+  CHAR text1[10],text2[10],text3[10],text[80];
+  PROJECT_NAME project;
+    
+  EXEC SQL BEGIN DECLARE SECTION;
+  VARCHAR vel_src_name[80];
+  VARCHAR stmt[1000];
+  int num_hor;
+  EXEC SQL END DECLARE SECTION;
+    
+/**********************************************************/
+/* display choose grid name dialog on screen              */
+/**********************************************************/
+  status = am_define_resource (AM_DIALOG, VI_RESOURCE_FILE, VI_OUT_GRID,
+                                 NULL_FUNCTION_PTR, &src_id, NULL);
+  fi_push();
+ 
+  /**************************************/
+  /* set grid name prefix on dialog box */
+  /**************************************/
+  
+  /* always construct output grid name from current status */
+
+    strcpy (text1, pvi->vtype);
+
+    if (pvi->smu_type == 1)
+      {
+      strcpy(text2, "NOSMOOTH");
+      }
+    else if (pvi->smu_type == 2)
+      {
+      strcpy(text2, "MEDSMOOTH");
+      }
+    else if (pvi->smu_type == 3)
+      {
+      if (pvi->smu_wt == 1)
+        strcpy(text2, "WT1SMOOTH");
+      else
+        strcpy(text2, "WT2SMOOTH");
+      }
+
+    if (pvi->residual_mode == TRUE)
+      strcpy(text3, "RESID");
+    else
+      strcpy(text3, "NORM");
+
+    sprintf (text,"%s_%s_%s_%s",pvi->grid_source[0],text1,text2,text3);
+  
+  wi_set_dialog_text (src_id,VI_OUT_EDITTEXT,text);
+
+  /*******************/
+  /* open dislog box */
+  /*******************/
+  wiopcd(src_id);
+  
+  done = FALSE;
+  while (done == FALSE)
+    {
+    wi_request_event (0, &event_class, &event_id, &item);
+    switch (item)
+      {
+      case VI_OUT_GRID_OK:
+	wi_query_dialog_item (src_id, VI_OUT_EDITTEXT, &unused, text);
+	if (strlen (ts_noblanks (text)) == 0)
+	  {
+	  wi_beep(1);
+	  am_message (AM_ALERT, "Please input grid name.");
+	  }
+	else
+	  { 
+	  ts_sto_upper (text);
+  qs_inq_c (QS_PROJECT_NAME, project, (INT *) 0);
+  
+  stmt.len = sprintf ((CHAR *) stmt.arr,
+  "SELECT DISTINCT FINDER_FILENAME FROM %s.FM_HDR WHERE FILE_TYPE = '%s' \
+  AND CREATOR_ANALYST = '%s' AND FINDER_FILENAME = '%s'", 
+  project, grid_name, pvi->grid_source[0], text);
+
+  EXEC SQL PREPARE S1 FROM :stmt;
+  EXEC SQL DECLARE C1 CURSOR FOR S1;
+  EXEC SQL OPEN C1 ;
+
+  EXEC SQL FETCH C1 INTO :vel_src_name;
+  for (i = 0; OR_STATUS == SUCCESS; i++)
+    {
+    EXEC SQL FETCH C1 INTO :vel_src_name;
+    }
+  EXEC SQL CLOSE C1;
+
+        if ( i > 0 )
+	  {
+	  status = vi_message_overwrite();
+	  if (status == SUCCESS)
+	    {
+	    strcpy (pvi->grid_oname, text);
+            done = TRUE;
+	    }
+	  }
+        else
+	  {
+	    strcpy (pvi->grid_oname, text);
+            done = TRUE;
+	  }
+	  }
+	break;
+  
+      case VI_OUT_GRID_LIST:
+	status = vi_exist_grid(pvi);
+	break;
+  
+      case VI_OUT_GRID_CANCEL:
+	status = FAIL;
+        done = TRUE;
+	break;
+      }
+    }
+  am_release_resource (src_id);
+  fi_pop ();
+  return status;
+  } 
+  
+#if USE_PROTOTYPES
+publicdef INT vi_exist_grid (VI_STRUCT *pvi)
+#else
+publicdef INT vi_exist_grid (pvi)
+VI_STRUCT *pvi;
+#endif
+  {
+  BOOL done = FALSE;
+  INT status = SUCCESS; 
+  INT i;
+  INT src_id = 0;
+  INT event_id = 0;
+  INT event_class = 0;
+  INT item;
+  CHAR *vel_src_string;
+  PROJECT_NAME project;
+  TCP list_grid = (TCP) 0;
+    
+  EXEC SQL BEGIN DECLARE SECTION;
+  VARCHAR vel_src_name[80];
+  VARCHAR stmt[1000];
+  EXEC SQL END DECLARE SECTION;
+    
+  status = am_define_resource (AM_DIALOG, VI_RESOURCE_FILE, VI_LIST_GRID,
+                                 NULL_FUNCTION_PTR, &src_id, NULL);
+  fi_push();
+  /*******************************************/
+  /* retrieve existing grids  from data base */
+  /*******************************************/
+  
+  qs_inq_c (QS_PROJECT_NAME, project, (INT *) 0);
+ 
+  stmt.len = sprintf ((CHAR *) stmt.arr,
+  "SELECT DISTINCT FINDER_FILENAME FROM %s.FM_HDR WHERE FILE_TYPE = '%s' \
+  AND CREATOR_ANALYST = '%s' ORDER BY FINDER_FILENAME",
+  project, grid_name, pvi->grid_source[0]);
+
+  EXEC SQL PREPARE S2 FROM :stmt;
+  EXEC SQL DECLARE C2 CURSOR FOR S2;
+  EXEC SQL OPEN C2 ;
+
+  EXEC SQL FETCH C2 INTO :vel_src_name;
+  for (i = 0; OR_STATUS == SUCCESS; i++)
+    {
+    V_SETZERO (vel_src_name);
+    ts_tcp_append (&list_grid,(CHAR *) vel_src_name.arr);
+    EXEC SQL FETCH C2 INTO :vel_src_name;
+    }
+  EXEC SQL CLOSE C2;
+  
+  vel_src_string = ts_pack_strings (i,list_grid);
+
+  if (i == 0)
+    {
+    wi_beep(1);
+    am_message (AM_STATUS, "No grid file was retrieved");
+    wi_set_dialog_text (src_id,VI_LIST_SELECTOR,NullString);
+    }
+  else
+    {
+    wi_set_dialog_text (src_id,VI_LIST_SELECTOR,vel_src_string);
+    }
+
+  wiopcd(src_id);
+  
+  done = FALSE;
+  while (done == FALSE)
+    {
+    wi_request_event (0, &event_class, &event_id, &item);
+    switch (item)
+      {
+      case VI_LIST_GRID_OK:
+	    done = TRUE;
+	    break;
+      } /* switch */
+    }   /* while  */
+
+  if (vel_src_string != (CHAR *) 0)
+    tc_free (vel_src_string);
+  if (list_grid != (TCP) 0)
+    ts_tcp_free (list_grid);
+  am_release_resource (src_id);
+  fi_pop ();
+  return status;
+  }
+
+#if USE_PROTOTYPES
+publicdef INT vi_message_overwrite ()
+#else
+publicdef INT vi_message_overwrite ()
+#endif
+  {
+  BOOL done = FALSE;
+  INT status; 
+  INT i;
+  INT src_id = 0;
+  INT event_id = 0;
+  INT event_class = 0;
+  INT item;
+    
+  status = am_define_resource (AM_DIALOG, VI_RESOURCE_FILE, VI_GRID_W_MSG,
+                                 NULL_FUNCTION_PTR, &src_id, NULL);
+  fi_push();
+  wiopcd(src_id);
+  
+  done = FALSE;
+  while (done == FALSE)
+    {
+    wi_request_event (0, &event_class, &event_id, &item);
+    switch (item)
+      {
+      case VI_MSG_W_OK:
+	    status = SUCCESS;
+	    done = TRUE;
+	    break;
+      case VI_MSG_W_CANCEL:
+	    status = FAIL;
+	    done = TRUE;
+	    break;
+      } /* switch */
+    }   /* while  */
+
+  am_release_resource (src_id);
+  fi_pop ();
+  return status;
+  }
+
+
+#if USE_PROTOTYPES
+publicdef INT vi_message_proceed ()
+#else
+publicdef INT vi_message_proceed ()
+#endif
+  {
+  BOOL done = FALSE;
+  INT status; 
+  INT i;
+  INT src_id = 0;
+  INT event_id = 0;
+  INT event_class = 0;
+  INT item;
+    
+  status = am_define_resource (AM_DIALOG, VI_RESOURCE_FILE, VI_GRID_P_MSG,
+                                 NULL_FUNCTION_PTR, &src_id, NULL);
+  fi_push();
+  wiopcd(src_id);
+  
+  done = FALSE;
+  while (done == FALSE)
+    {
+    wi_request_event (0, &event_class, &event_id, &item);
+    switch (item)
+      {
+      case VI_MSG_P_OK:
+	    status = SUCCESS;
+	    done = TRUE;
+	    break;
+      case VI_MSG_P_CANCEL:
+	    status = FAIL;
+	    done = TRUE;
+	    break;
+      } /* switch */
+    }   /* while  */
+
+  am_release_resource (src_id);
+  fi_pop ();
+  return status;
+  }
+

@@ -1,0 +1,126 @@
+/*  DEC/CMS REPLACEMENT HISTORY, Element MP_MAP_LIST.PC*/
+/*  *2    17-AUG-1990 22:06:58 VINCE "(SPR 5644) Code Cleanup"*/
+/*  *1    19-JUN-1989 12:34:47 SYSTEM ""*/
+/*  DEC/CMS REPLACEMENT HISTORY, Element MP_MAP_LIST.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_gl_defs.h"
+#include "esi_mp.h"
+#include "esi_oracle.h"
+#include "esi_ts.h"
+#include "esi_md_msg.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+    Routine to build a TCP of all map names in the 
+    project table "MAP_DEFINITIONS".
+
+Prototype:
+    publicdef INT mp_map_list(PROJECT_NAME project, CHAR ***map_list, INT *no_items);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    project         -(PROJECT_NAME)
+    map_list        -(CHAR ***)
+    no_items        -(INT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    MD_NO_MAP_DEFS
+    OR_STATUS
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT mp_map_list (PROJECT_NAME project, CHAR ***map_list, INT *no_items)
+#else
+publicdef INT mp_map_list (project, map_list, no_items)
+PROJECT_NAME project;
+CHAR ***map_list;
+INT *no_items;
+#endif
+    {
+    
+    INT status;
+    INT i;
+    INT newitems = 0;
+    BOOL first_time;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR map_names[500][41];
+    VARCHAR sqlstmt[250];
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ********************************************************************** */
+    
+    status = SUCCESS;
+    *map_list = (CHAR **)0;
+    
+    /* * DEFINE A CURSOR * */
+    /* ------------------- */
+    
+    sqlstmt.len = sprintf ((char *)sqlstmt.arr,
+                          "SELECT MAP_NAME FROM %s.MAP_DEFINITIONS ORDER BY MAP_NAME",
+                           project);
+    
+    EXEC SQL PREPARE S1 FROM : sqlstmt;
+    EXEC SQL DECLARE MAP_CUR CURSOR FOR S1;
+    
+    EXEC SQL OPEN MAP_CUR;
+    
+    if (OR_STATUS != SUCCESS)
+        {
+        return OR_STATUS;
+        }
+    /* * EXTRACT MAPS FROM THE CURSOR UNTIL THERE ARE NO MAPS * */
+    /* -------------------------------------------------------- */
+    
+    first_time = TRUE;
+    *no_items = 0;
+    
+    FOREVER
+        {
+        EXEC SQL FETCH MAP_CUR INTO : map_names;
+        newitems = OR_ROWCOUNT - *no_items;
+        *no_items = OR_ROWCOUNT;
+        
+        for (i = 0; i < newitems; i++)
+            {
+            V_SETZERO (map_names[i]);
+            ts_tcp_append (map_list, (CHAR *)map_names[i].arr);
+            }
+        if (OR_STATUS == OR_EOF)
+            {
+            break;
+            }
+        }
+    EXEC SQL CLOSE MAP_CUR;
+    
+    return *no_items > 0 ? status : MD_NO_MAP_DEFS;
+    }
+/* END:     */

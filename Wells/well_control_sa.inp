@@ -1,0 +1,1046 @@
+;;This form is designed to be run from the Finder program.  It displays
+;;information about a well, and interacts with the Finder mapping software.
+;Application Title : 
+FINDER WELL INFORMATION
+;ORACLE workspace size : 
+ 
+;Block name / Description : 
+**PRE-FORM
+;SQL>
+#EXEMACRO COPY 'DEFAULT_PROJECT' INTO GLOBAL.PROJECT;
+COPY GLOBAL.PROJECT INTO :CONTROL1.PROJECT;
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+N
+;SQL>
+#EXEMACRO COPY '' INTO GLOBAL.LIST_NAME;
+COPY GLOBAL.LIST_NAME INTO CONTROL1.SELECT_LIST_NAME;
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY :CONTROL1.SELECT_LIST_NAME GLOBAL.ORIG_LIST_NAME
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#EXEMACRO COPY '' INTO GLOBAL.STRATCOL;
+COPY GLOBAL.STRATCOL INTO :CONTROL1.STRATCOL;
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+SELECT USER,SYSDATE,USER
+INTO CONTROL1.USER_NAME, CONTROL1.TODAY,CONTROL1.OWNER
+FROM DUAL
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY CONTROL1.OWNER GLOBAL.OWNER
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+SELECT 'X' FROM DUAL
+WHERE :CONTROL1.PROJECT = 'DEFAULT_PROJECT'
+/
+;Message if value not found : 
+Project mismatch detected - This form is for DEFAULT_PROJECT ONLY
+;Must value exist Y/N : 
+N
+;SQL>
+#COPY 'NONHEADER' GLOBAL.HDRBLK
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY 'ESI$PROJECT:[FORMS]CONTROL_SELECTION' CONTROL1.CONTROL_SELECTION
+ 
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;Block name / Description : 
+**POST-BLOCK
+;SQL>
+#COPY 'NONHEADER' GLOBAL.HDRBLK
+ 
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;Block name / Description : 
+**KEY-STARTUP
+;SQL>
+#COPY 'NULL' GLOBAL.CURRFORM
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY '999' GLOBAL.CURRFORMSEQ
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY 'NULL' GLOBAL.PRVFORM
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY '999' GLOBAL.PRVFORMSEQ
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY 'NULL' GLOBAL.NXTFORM
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY '999' GLOBAL.NXTFORMSEQ
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY 'NULL' GLOBAL.LASTFORM
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY '999' GLOBAL.LASTFORMSEQ
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY '1' GLOBAL.FORMSEQMIN
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY '1' GLOBAL.FORMSEQMAX
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY 'OTHER' GLOBAL.SW
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY '1' GLOBAL.CONTROL_ID
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY GLOBAL.CONTROL_ID CONTROL1.CONTROL_ID
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY 'SEQ' GLOBAL.PRV_FORM_FLAG
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY '' GLOBAL.UWI
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY '' GLOBAL.SCOUT_CMD_STRING
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY 'ESI$FORMS:SCOUT_LOGIN' GLOBAL.SCOUT_LOGIN
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY 'STAND' GLOBAL.FORM_MODE
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY 'BFSC' GLOBAL.CUR_FORM_CODE
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY GLOBAL.PRV_FORM_FLAG CONTROL1.PRV_FORM_FLAG
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+SELECT NVL(MIN(SEQ),1)
+INTO CONTROL1.FORMSEQMIN
+FROM DEFAULT_PROJECT.ORACLE_APPLICATION_LIST
+WHERE PRIMARY_ID = :CONTROL1.CONTROL_ID
+/
+;Message if value not found : 
+Could not set the minimum sequence number
+;Must value exist Y/N : 
+N
+;SQL>
+SELECT NVL(MAX(SEQ),1)
+INTO CONTROL1.FORMSEQMAX
+FROM DEFAULT_PROJECT.ORACLE_APPLICATION_LIST
+WHERE PRIMARY_ID = :CONTROL1.CONTROL_ID
+/
+;Message if value not found : 
+Could not set the maximum sequence number
+;Must value exist Y/N : 
+N
+;SQL>
+#COPY CONTROL1.FORMSEQMIN GLOBAL.FORMSEQMIN
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY CONTROL1.FORMSEQMAX GLOBAL.FORMSEQMAX
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#EXEMACRO GOBLK LIST;EXEQRY;
+ 
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;Block name / Description : 
+**LAUNCH_FORM
+;SQL>
+SELECT FILE_NAME,SEQ INTO CONTROL1.CURRFORM,CONTROL1.CURRFORMSEQ
+FROM DEFAULT_PROJECT.ORACLE_APP_SELECTION
+WHERE PRIMARY_ID = :CONTROL1.CONTROL_ID
+AND SEQ = :LIST.SEQ
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#EXEMACRO COPY CONTROL1.CURRFORM INTO GLOBAL.CURRFORM;
+COPY CONTROL1.CURRFORMSEQ INTO GLOBAL.CURRFORMSEQ;
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#EXEMACRO CALL &CONTROL1.CURRFORM;
+ 
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;Block name / Description : 
+*LIST/List of sub-form names
+;Enter default WHERE and ORDER BY clause : 
+WHERE PRIMARY_ID = :CONTROL1.CONTROL_ID
+;SQL>
+ORDER BY SEQ
+;SQL>
+ 
+;Table name : 
+DEFAULT_PROJECT.ORACLE_APP_SELECTION
+;Check for uniqueness before inserting Y/N : 
+N
+;Display/Buffer how many records : 
+12 / 12
+;Base crt line ? 
+5
+;How many physical lines per record ? 
+1
+;Field name : 
+*KEY-NXTBLK
+;SQL>
+#EXEMACRO EXETRG LAUNCH_FORM;
+ 
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;Field name : 
+DISPLAY
+;Type of field : 
+CHAR
+;Length of field / Display length / Query length : 
+24 / 21 / 24
+;Is this field in the base table Y/N : 
+Y
+;Is this field part of the primary key Y/N : 
+N
+;Default value : 
+ 
+;Page : 
+1
+;Line : 
+1
+;Column : 
+57
+;Prompt : 
+ 
+;Allow field to be entered Y/N : 
+Y
+;Allow field to be updated Y/N : 
+N
+;SQL>
+ 
+;Is field mandatory Y/N : 
+N
+;Is field fixed length Y/N : 
+N
+;Auto jump to next field Y/N : 
+N
+;Convert field to upper case Y/N : 
+Y
+;Help message : 
+ 
+;Lowest value : 
+ 
+;Highest value : 
+ 
+;Field name : 
+SEQ
+;Type of field : 
+INT
+;Length of field / Display length / Query length : 
+2 / 2 / 2
+;Is this field in the base table Y/N : 
+Y
+;Is this field part of the primary key Y/N : 
+N
+;Default value : 
+ 
+;Page : 
+1
+;Line : 
+1
+;Column : 
+79
+;Prompt : 
+ 
+;Allow field to be entered Y/N : 
+Y
+;Allow field to be updated Y/N : 
+N
+;SQL>
+ 
+;Is field mandatory Y/N : 
+N
+;Is field fixed length Y/N : 
+N
+;Auto jump to next field Y/N : 
+N
+;Convert field to upper case Y/N : 
+Y
+;Help message : 
+ 
+;Lowest value : 
+ 
+;Highest value : 
+ 
+;Field name : 
+ 
+;Block name / Description : 
+*CONTROL1/Control form control block
+;Enter default WHERE and ORDER BY clause : 
+ 
+;Table name : 
+*
+;Check for uniqueness before inserting Y/N : 
+N
+;Display/Buffer how many records : 
+1 / 1
+;Field name : 
+*PRE-BLOCK
+;SQL>
+#COPY GLOBAL.PRV_FORM_FLAG CONTROL1.PRV_FORM_FLAG
+ 
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;Field name : 
+*KEY-NXTBLK
+;SQL>
+#EXEMACRO GOBLK LIST;EXEQRY;
+ 
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;Field name : 
+SELECT_LIST_NAME
+;Type of field : 
+CHAR
+;Length of field / Display length / Query length : 
+62 / 18 / 62
+;Is this field in the base table Y/N : 
+N
+;Default value : 
+ 
+;Page : 
+1
+;Line : 
+12
+;Column : 
+35
+;Prompt : 
+ 
+;Allow field to be entered Y/N : 
+*Y
+;Allow field to be updated Y/N : 
+Y
+;Allow entry of query condition Y/N : 
+N
+;SQL>
+**POST-FIELD
+/
+;SQL>
+#COPY :CONTROL1.SELECT_LIST_NAME GLOBAL.LIST_NAME
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+**POST-CHANGE
+/
+;SQL>
+SELECT TEMP_LIST_NAME FROM TEMP_WELL_LISTS
+WHERE TEMP_LIST_NAME=:CONTROL1.SELECT_LIST_NAME
+ 
+;Message if value not found : 
+This select list is not active; return to GLOBAL menu to activate it
+;Must value exist Y/N : 
+N
+;Is field mandatory Y/N : 
+N
+;Is field fixed length Y/N : 
+N
+;Auto jump to next field Y/N : 
+N
+;Convert field to upper case Y/N : 
+Y
+;Help message : 
+Name of control list - clear to allow   all wells to be accessed.
+;Lowest value : 
+@TEMP_WELL_LISTS.TEMP_LIST_NAME
+;Field name : 
+OLD_LIST_FLAG
+;Type of field : 
+CHAR
+;Length of field / Display length / Query length : 
+1 / 1 / 1
+;Is this field in the base table Y/N : 
+N
+;Default value : 
+ 
+;Page : 
+1
+;Line : 
+13
+;Column : 
+52
+;Prompt : 
+ 
+;Allow field to be entered Y/N : 
+Y
+;Allow field to be updated Y/N : 
+Y
+;SQL>
+**POST-CHANGE
+/
+;SQL>
+SELECT 'X' FROM DUAL
+WHERE :CONTROL1.OLD_LIST_FLAG='X'
+/
+;Message if value not found : 
+Type an 'X' to restore the original select list or clear field to continue.
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY GLOBAL.ORIG_LIST_NAME :CONTROL1.SELECT_LIST_NAME
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY GLOBAL.ORIG_LIST_NAME GLOBAL.LIST_NAME
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY '' :CONTROL1.OLD_LIST_FLAG
+ 
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;Is field mandatory Y/N : 
+N
+;Is field fixed length Y/N : 
+Y
+;Auto jump to next field Y/N : 
+Y
+;Convert field to upper case Y/N : 
+Y
+;Help message : 
+Put an X here to restore your original  select list name.
+;Lowest value : 
+ 
+;Highest value : 
+ 
+;Field name : 
+CHANGE_FORM_LIST_FLAG
+;Type of field : 
+CHAR
+;Length of field / Display length / Query length : 
+1 / 1 / 1
+;Is this field in the base table Y/N : 
+N
+;Default value : 
+ 
+;Page : 
+1
+;Line : 
+14
+;Column : 
+52
+;Prompt : 
+ 
+;Allow field to be entered Y/N : 
+*Y
+;Allow field to be updated Y/N : 
+Y
+;Allow entry of query condition Y/N : 
+N
+;SQL>
+**POST-CHANGE
+/
+;SQL>
+#EXEMACRO CALL &CONTROL1.CONTROL_SELECTION;
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY '' CHANGE_FORM_LIST_FLAG
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY GLOBAL.CONTROL_ID CONTROL1.CONTROL_ID
+ 
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;Is field mandatory Y/N : 
+N
+;Is field fixed length Y/N : 
+Y
+;Auto jump to next field Y/N : 
+Y
+;Convert field to upper case Y/N : 
+Y
+;Help message : 
+Enter an X to select from available     data form sets.
+;Lowest value : 
+ 
+;Highest value : 
+ 
+;Field name : 
+SCOUT_LOGIN_FLAG
+;Type of field : 
+CHAR
+;Length of field / Display length / Query length : 
+1 / 1 / 1
+;Is this field in the base table Y/N : 
+N
+;Default value : 
+ 
+;Page : 
+1
+;Line : 
+15
+;Column : 
+52
+;Prompt : 
+ 
+;Allow field to be entered Y/N : 
+*Y
+;Allow field to be updated Y/N : 
+Y
+;Allow entry of query condition Y/N : 
+N
+;SQL>
+**POST-CHANGE
+/
+;SQL>
+#EXEMACRO CALL &GLOBAL.SCOUT_LOGIN;
+/
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;SQL>
+SELECT '' INTO CONTROL1.SCOUT_LOGIN_FLAG FROM DUAL
+ 
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;Is field mandatory Y/N : 
+N
+;Is field fixed length Y/N : 
+Y
+;Auto jump to next field Y/N : 
+Y
+;Convert field to upper case Y/N : 
+Y
+;Help message : 
+ 
+;Lowest value : 
+ 
+;Highest value : 
+ 
+;Field name : 
+PRV_FORM_FLAG
+;Type of field : 
+CHAR
+;Length of field / Display length / Query length : 
+12 / 12 / 12
+;Is this field in the base table Y/N : 
+N
+;Default value : 
+ 
+;Page : 
+1
+;Line : 
+18
+;Column : 
+62
+;Prompt : 
+ 
+;Allow field to be entered Y/N : 
+*Y
+;Allow field to be updated Y/N : 
+Y
+;Allow entry of query condition Y/N : 
+N
+;SQL>
+**POST-CHANGE
+/
+;SQL>
+SELECT 'X' FROM DUAL
+WHERE :CONTROL1.PRV_FORM_FLAG IN('SEQ','LAST')
+/
+;Message if value not found : 
+Enter SEQ for previous form in sequence list, or LAST for last form used.
+;Must value exist Y/N : 
+Y
+;SQL>
+#COPY CONTROL1.PRV_FORM_FLAG GLOBAL.PRV_FORM_FLAG
+ 
+;Message if value not found : 
+ 
+;Must value exist Y/N : 
+Y
+;Is field mandatory Y/N : 
+N
+;Is field fixed length Y/N : 
+N
+;Auto jump to next field Y/N : 
+N
+;Convert field to upper case Y/N : 
+Y
+;Help message : 
+ 
+;Lowest value : 
+ 
+;Highest value : 
+ 
+;Field name : 
+TODAY
+;Type of field : 
+DATE
+;Length of field / Display length / Query length : 
+9 / 9 / 9
+;Is this field in the base table Y/N : 
+N
+;Default value : 
+$$DATE$$
+;Page : 
+1
+;Line : 
+7
+;Column : 
+35
+;Prompt : 
+ 
+;Allow field to be entered Y/N : 
+N
+;SQL>
+ 
+;Field name : 
+PROJECT
+;Type of field : 
+CHAR
+;Length of field / Display length / Query length : 
+30 / 18 / 30
+;Is this field in the base table Y/N : 
+N
+;Default value : 
+ 
+;Page : 
+1
+;Line : 
+8
+;Column : 
+35
+;Prompt : 
+ 
+;Allow field to be entered Y/N : 
+N
+;SQL>
+ 
+;Field name : 
+STRATCOL
+;Type of field : 
+CHAR
+;Length of field / Display length / Query length : 
+30 / 18 / 50
+;Is this field in the base table Y/N : 
+N
+;Default value : 
+ 
+;Page : 
+1
+;Line : 
+9
+;Column : 
+35
+;Prompt : 
+ 
+;Allow field to be entered Y/N : 
+Y
+;Allow field to be updated Y/N : 
+Y
+;SQL>
+ 
+;Is field mandatory Y/N : 
+N
+;Is field fixed length Y/N : 
+N
+;Auto jump to next field Y/N : 
+N
+;Convert field to upper case Y/N : 
+Y
+;Help message : 
+Enter the name of your stratigraphic column
+;Lowest value : 
+@DEFAULT_PROJECT.STRAT_COLUMNS.STRAT_COLUMN_NAME
+;Field name : 
+USER_NAME
+;Type of field : 
+CHAR
+;Length of field / Display length / Query length : 
+18 / 18 / 18
+;Is this field in the base table Y/N : 
+N
+;Default value : 
+ 
+;Page : 
+1
+;Line : 
+10
+;Column : 
+35
+;Prompt : 
+ 
+;Allow field to be entered Y/N : 
+N
+;SQL>
+ 
+;Field name : 
+OWNER
+;Type of field : 
+CHAR
+;Length of field / Display length / Query length : 
+18 / 18 / 18
+;Is this field in the base table Y/N : 
+N
+;Default value : 
+ESI
+;Page : 
+1
+;Line : 
+11
+;Column : 
+35
+;Prompt : 
+ 
+;Allow field to be entered Y/N : 
+Y
+;Allow field to be updated Y/N : 
+Y
+;SQL>
+ 
+;Is field mandatory Y/N : 
+Y
+;Is field fixed length Y/N : 
+N
+;Auto jump to next field Y/N : 
+N
+;Convert field to upper case Y/N : 
+Y
+;Help message : 
+Name of entity that 'owns' the well information record after updates
+;Lowest value : 
+ 
+;Highest value : 
+ 
+;Field name : 
+CURRFORM
+;Type of field : 
+CHAR
+;Length of field / Display length / Query length : 
+80 / 14 / 80
+;Is this field in the base table Y/N : 
+N
+;Default value : 
+ 
+;Page : 
+ 
+;SQL>
+ 
+;Field name : 
+PRVFORM
+;Type of field : 
+CHAR
+;Length of field / Display length / Query length : 
+80 / 17 / 80
+;Is this field in the base table Y/N : 
+N
+;Default value : 
+ 
+;Page : 
+ 
+;SQL>
+ 
+;Field name : 
+NXTFORM
+;Type of field : 
+CHAR
+;Length of field / Display length / Query length : 
+80 / 15 / 80
+;Is this field in the base table Y/N : 
+N
+;Default value : 
+ 
+;Page : 
+ 
+;SQL>
+ 
+;Field name : 
+LASTFORM
+;Type of field : 
+CHAR
+;Length of field / Display length / Query length : 
+80 / 16 / 80
+;Is this field in the base table Y/N : 
+N
+;Default value : 
+ 
+;Page : 
+ 
+;SQL>
+ 
+;Field name : 
+FORMSEQMIN
+;Type of field : 
+INT
+;Length of field / Display length / Query length : 
+5 / 5 / 5
+;Is this field in the base table Y/N : 
+N
+;Default value : 
+ 
+;Page : 
+ 
+;SQL>
+ 
+;Field name : 
+FORMSEQMAX
+;Type of field : 
+INT
+;Length of field / Display length / Query length : 
+5 / 5 / 5
+;Is this field in the base table Y/N : 
+N
+;Default value : 
+ 
+;Page : 
+ 
+;SQL>
+ 
+;Field name : 
+CONTROL_ID
+;Type of field : 
+INT
+;Length of field / Display length / Query length : 
+2 / 2 / 5
+;Is this field in the base table Y/N : 
+N
+;Default value : 
+ 
+;Page : 
+ 
+;SQL>
+ 
+;Field name : 
+CURRFORMSEQ
+;Type of field : 
+INT
+;Length of field / Display length / Query length : 
+6 / 6 / 6
+;Is this field in the base table Y/N : 
+N
+;Default value : 
+ 
+;Page : 
+ 
+;SQL>
+ 
+;Field name : 
+CONTROL_SELECTION
+;Type of field : 
+CHAR
+;Length of field / Display length / Query length : 
+80 / 38 / 80
+;Is this field in the base table Y/N : 
+N
+;Default value : 
+ 
+;Page : 
+ 
+;SQL>
+ 
+;Field name : 
+ 
+;Block name / Description : 
+ 
+%LINE
+2
+                      Welcome to the FINDER Well Data Form Menu
+                                                                          v.6.0
+ Use PREVIOUS BLOCK to modify the setup information     List of Available Forms:
+  below.  Use NEXT BLOCK to return to the list.
+%LINE
+7
+                        Today is:
+         Your Current Project Is:
+    Your Stratigraphic Column is:
+    Your Source for Top Picks is:
+ Your Owner ID for other data is:
+      The current select list is:
+  Type an X to restore your current select list ->
+    Type an X to change List of Available Forms ->
+  Type an X to change Scout Ticket login string ->
+%LINE
+17
+Do you want the PREVIOUS BLOCK key to go to the previous
+form in the sequence or to the last form used (SEQ or LAST)?
+%LINE
+20
+     ESC K shows the list of function keys.     Use  NEXT BLOCK  to go to
+     0 on keypad is HELP.                        selected form in list
+%LINE
+1
+%BOX
+                    p--------------------------------------------q
+                    |                                            |
+                    b--------------------------------------------d
+%LINE
+19
+   p----------------------------------------q  p-----------------------------q
+   |                                        |  |                             |
+   |                                        |  |                             |
+   b----------------------------------------d  b-----------------------------d
+%TEXT
+%END
+/* DEC/CMS REPLACEMENT HISTORY, Element WELL_CONTROL_SA.INP*/
+/*  4    18-NOV-1991 18:12:31 LOEBL "(SPR 0) Convert to SQL*FORMS V3.0 Format"*/
+/* *3     9-JAN-1991 16:03:43 ALLAWAY "(SPR 6049) Update to support scout on sun and host independant file names."*/
+/* *2    24-MAY-1990 13:32:07 ALLAWAY "(SPR 5505) UPDATE TO SUPPORT SCOUT TICKETS"*/
+/* *1    23-MAY-1990 10:30:07 VINCE "Initial Checkin"*/
+/* DEC/CMS REPLACEMENT HISTORY, Element WELL_CONTROL_SA.INP*/

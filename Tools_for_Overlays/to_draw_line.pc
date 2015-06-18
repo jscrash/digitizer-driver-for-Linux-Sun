@@ -1,0 +1,236 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element TO_DRAW_LINE.PC */
+/* *14   13-SEP-1991 12:30:32 LOEBL "(SPR 3951) Eliminate Core Dump and Performance Enhancements" */
+/* *13    6-MAY-1991 16:48:43 PURNA "(SPR 0) add select list in culture overlay for data mover" */
+/* *12    8-NOV-1990 12:54:54 PURNA "(SPR 0) change arc_id to lynx_part" */
+/* *11   26-OCT-1990 13:49:22 GILLESPIE "(SPR 33)  New Lynx 3d changes" */
+/* *10   14-AUG-1990 16:33:23 GILLESPIE "(SPR 2001) Use LINE_GC" */
+/* *9     1-AUG-1990 16:47:32 PURNA "(SPR 0) move init nlist" */
+/* *8    18-JUL-1990 18:11:26 JESSIE "(SPR 1) change include files" */
+/* *7    31-MAY-1990 16:00:00 PURNA "(SPR 0) remove static functions" */
+/* *6    19-APR-1990 13:02:10 VINCE "(SPR 5198) fixed access violation in toz_remove_node by checking for null pointer" */
+/* *5    23-MAR-1990 17:49:17 PURNA "(SPR 5095) add checkpoint" */
+/* *4    22-MAR-1990 10:37:03 PURNA "(SPR 5095) change on external variable, add township labeling & text clip" */
+/* *3    21-MAR-1990 16:26:36 PURNA "(SPR 0) more changes" */
+/* *2    16-MAR-1990 09:09:05 PURNA "(SPR 5095) culture" */
+/* *1    16-MAR-1990 08:48:28 PURNA "culture overlay" */
+/* DEC/CMS REPLACEMENT HISTORY, Element TO_DRAW_LINE.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1990                      */
+/*         Unpublished -- All rights reserved                                       */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*          Finder Graphics Systems, Inc.                                           */
+/*          201 Tamal Vista Blvd                                                    */
+/*          Corte Madera, CA  USA 94925                                             */
+/*          (415) 927-0100                                                          */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+#include "esi_ly.h"
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_TO_H
+#include "esi_to.h"
+#endif
+
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+
+/*****************************************************                              */
+/*                                                                                  */
+/*    FUNCTION : TO_DRAW_LINE                                                       */
+/*    DESCRIPTION : build an nlist for one data type                                */
+/*                                                                                  */
+/*    AUTHOR : Vince Cardinale                                                      */
+/*    modified by Purna Tjahjana (Feb 8,1990)                                       */
+/*                                                                                  */
+/*******************************************************                            */
+
+publicdef INT to_draw_line (data_type, nlist)
+CHAR *data_type;
+NLIST_HEADER *nlist;
+    {
+    INT status;
+    INT total_count, n_visited, n_addr, this_fetch;
+    INT n_rows, n_tables;
+    INT *temp_array;
+    INT bundle_id;
+    LINE_GC line;
+    INT n_arcs;
+    INT *final_node_array = (INT *)0;
+    INT *init_node_array = (INT *)0;
+    INT *visited = (INT *)0;
+    PROJECT_NAME project;
+    static BOOL first_1 = TRUE;
+    
+/*     EXEC ORACLE OPTION REBIND = YES; */
+    EXEC ORACLE OPTION (HOLD_CURSOR = YES);
+
+#define MAXARRAYFETCH 500
+
+    EXEC SQL BEGIN DECLARE SECTION;
+    static  int session_number;
+    static  int n_fetch;
+    static  int arc_id_ptr[500];   /* array size corresponds to MAXARRAYFETCH */
+    static  int init_node_ptr[500];
+    static  int final_node_ptr[500];
+    VARCHAR     data_type_2[30];
+    VARCHAR     sqlstmt[1000];
+    EXEC SQL END DECLARE SECTION;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO :sqlerr;
+    
+    if (first_1)
+    {
+        qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+
+        EXEC SQL SELECT USERENV('SESSIONID')
+            INTO   :session_number
+            FROM   DUAL;
+
+#ifdef DEBUG
+#ifdef VMS
+    lib$show_timer ();
+#endif
+    printf ("in OPEN GET_ARCS\n");
+#endif
+
+    sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+"SELECT DISTINCT L.LYNX_PART, I.INIT_NODE, I.FINAL_NODE \
+FROM  %s.LYNX_IFV I,\
+      %s.LYNX_LRFR L,\
+      %s.LYNX_CULTURE C,\
+      TEMP_LYNX_LISTS T \
+WHERE C.LYNX_ID = T.LYNX_ID  \
+  AND L.LYNX_ID = T.LYNX_ID  \
+  AND C.DATA_TYPE || '' = :data_type_2 \
+  AND I.ARC_ID = L.LYNX_PART \
+  AND T.TEMP_PROCESS_ID = :session_number",
+             project, project, project);
+    EXEC SQL PREPARE S12 FROM :sqlstmt;
+    EXEC SQL DECLARE C12 CURSOR FOR S12;
+	first_1 = FALSE;
+    }
+
+    V_FROMC( data_type_2, data_type);
+    EXEC SQL OPEN C12 USING :data_type_2, :session_number;
+
+#ifdef DEBUG
+#ifdef VMS
+    lib$show_timer ();
+#endif
+#endif
+    total_count = 0;
+    n_fetch = MAXARRAYFETCH;
+    n_visited = 2 * n_fetch;
+    visited = (INT *) tc_alloc (n_visited * sizeof(INT));
+    init_node_array = (INT *) tc_alloc (n_visited * sizeof(INT));
+    final_node_array = (INT *) tc_alloc (n_visited * sizeof(INT));
+    EXEC SQL WHENEVER NOT FOUND CONTINUE;
+    FOREVER
+        {
+        EXEC SQL FETCH C12 INTO
+            :arc_id_ptr, :init_node_ptr, :final_node_ptr;
+        n_rows = OR_ROWCOUNT - total_count;
+        if (n_rows > 0)
+            {
+            temp_array = visited + total_count;
+            hoblockmove (arc_id_ptr, temp_array, n_rows * sizeof(INT));
+            temp_array = init_node_array + total_count;
+            hoblockmove (init_node_ptr, temp_array, n_rows * sizeof(INT));
+            temp_array = final_node_array + total_count;
+            hoblockmove (final_node_ptr, temp_array, n_rows * sizeof(INT));
+            }
+        total_count = OR_ROWCOUNT;
+        if (n_rows < MAXARRAYFETCH)
+            break;
+        else if (OR_ROWCOUNT + MAXARRAYFETCH > n_visited)
+            {
+            n_visited *= 2;
+            visited = (INT *) tc_realloc (visited, n_visited * sizeof(INT));
+            init_node_array = (INT *) tc_realloc (init_node_array,
+                                                  n_visited * sizeof(INT));
+            final_node_array = (INT *) tc_realloc (final_node_array,
+                                                   n_visited * sizeof(INT));
+            }
+        }
+    n_arcs = total_count;
+    if (n_arcs <= 0)
+      /***** how awful!!!  return SUCCESS; *** */   
+      {
+	  status = SUCCESS;
+	  goto othererr;
+      }
+
+#ifdef DEBUG
+#ifdef VMS
+    lib$show_timer ();
+#endif
+    printf ("in threading logic.\n");
+#endif
+    
+    EXEC SQL CLOSE C12;
+    
+    status = to_assemble_nlist (nlist, n_arcs, final_node_array, init_node_array,
+                                visited);
+    if (status != 0) goto othererr; 
+    status = ly_get_arc_bundle (data_type, 0, 0, &line);
+    if (status != 0) goto othererr; 
+    status = nl_set_nlist_method (*nlist, NL_DRAW_METHOD, "TO_DRAW_LINE_METHOD",
+                                  to_draw_line_method);
+    if (status != 0) goto othererr; 
+    status = nl_set_nlist_user_struct (*nlist, (VOIDPTR)&line.line_bundle_id,
+                                       sizeof(INT));
+    if (status != 0) goto othererr; 
+    
+
+#ifdef DEBUG
+    status = nl_inq_nlist_int (*nlist, NL_NLIST_NROWS, &n_rows);
+    status = nl_inq_nlist_int (*nlist, NL_NLIST_NTABLES, &n_tables);
+    printf ("\nnList consists of %d rows in %d tables.\n", n_rows, n_tables);
+#endif
+    /* FREE THE SEARCH ARRAYS                                                       */
+    tc_free (init_node_array);
+    tc_free (final_node_array);
+    tc_free (visited);
+    
+    return status;
+sqlerr:
+    status = OR_STATUS;
+othererr:
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL CLOSE C12;
+    if (init_node_array != (INT *)0)
+        tc_free (init_node_array);
+    if (final_node_array != (INT *)0)
+        tc_free (final_node_array);
+    if (visited != (INT *)0)
+        tc_free (visited);
+    
+    return status;
+    }

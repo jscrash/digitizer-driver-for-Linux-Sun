@@ -1,0 +1,257 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_GET_FAULTS.PC */
+/* *5    15-OCT-1990 17:26:54 GILLESPIE "(SPR 1000) Merge Ernie deltas" */
+/* *4     4-AUG-1990 12:59:38 SCD "(SPR 1) Fix fault requested which does not exist for current user." */
+/* *3    19-JUL-1990 19:12:58 GILLESPIE "(SPR 5411) Restrict selection to the current login source" */
+/* *2    20-JUN-1990 09:54:52 PURNA "(SPR 0) replace ct_get_faults with se_get_faults" */
+/* *1    20-JUN-1990 09:51:23 PURNA "replace ct_get_faults" */
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_GET_FAULTS.PC */
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_GET_FAULTS.PC*/
+/* *2    15-OCT-1990 11:54:28 VINCE "(SPR 1) more fixes for handeling faults"*/
+/* *1    13-AUG-1990 17:09:37 SYSTEM "Finder 6.1"*/
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_GET_FAULTS.PC*/
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/*****************************************************************************
+
+NAME:           se_get_faults
+
+DESCRIPTION:    A routine to build a nlist containing tables for each fault 
+                at a specified horizon.
+
+     Input:     horizon - the desired horizon
+
+     Output:    fault_list - a nlist containing a table for each fault
+                             segment
+
+
+******************************************************************************/
+
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+#ifndef ESI_SE_H
+#include "esi_se.h"
+#endif
+
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+
+#ifndef ESI_MP_H
+#include "esi_mp.h"
+#endif
+
+#if USE_PROTOTYPES
+publicdef INT se_get_faults (CHAR *horizon, CHAR *fault_source,
+                             NLIST_HEADER *fault_list)
+#else
+publicdef INT se_get_faults (horizon, fault_source, fault_list)
+CHAR *horizon;
+CHAR *fault_source;
+NLIST_HEADER *fault_list;
+#endif
+{
+    FILENAME faults_file;
+    NLIST_HEADER temp_list_1;
+    UINT table;
+    UINT ntables;
+    UINT nrows;
+    INT  ii;
+    UINT j;
+    PROJECT_NAME project;
+    ANALYST_NAME source;
+    MAP_STRUCTURE *map;
+    FLOAT *x_out, *y_out;
+    SEIS_FAULT_TRACE *pftrace;
+    VOIDPTR Var_List[2];
+    UINT ndim = 2;
+    UINT Col_List[2];
+    INT units[2];
+    size_t data_sizes[2];
+    INT data_types[2];
+    INT value_inc[2];
+    INT block_size = 20;
+    NLIST_ID nl_id;
+    FILENAME nl_file, full_filename;
+    
+    INT status;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[512];
+        VARCHAR fault_code[32];
+        double	lower_left_x;
+        double	lower_left_y;
+        double	upper_right_x;
+        double	upper_right_y;
+        VARCHAR nlist_id[64];
+	VARCHAR nlist_file[84];
+    EXEC SQL END DECLARE SECTION;
+   
+    EXEC SQL WHENEVER SQLERROR GOTO ora_error;
+
+    for (ii = 0; ii < ndim; ii++)
+	{
+	Col_List[ii] = ii + 1;
+	units[ii] = 0;
+	data_sizes[ii] = sizeof (FLOAT);
+	data_types[ii] = FLOAT_TYPE;
+	value_inc[ii] = VALUE_LIST;
+	}
+
+    *fault_list=(NLIST_HEADER)0 ;
+
+    pftrace=(SEIS_FAULT_TRACE *)tc_alloc(sizeof(SEIS_FAULT_TRACE));
+    strcpy(pftrace->hor_code, horizon);
+
+    /*  Get the project name                       */
+
+    qs_inq_c(QS_PROJECT_NAME, project, (INT *) 0);
+
+    /* if no fault source is given set the source to be the current user. */
+
+    if ((fault_source    == NULL) ||
+        (fault_source[0] == NUL)   )
+        {
+        qs_inq_c(QS_FINDER_ACCOUNT, source, (INT *)0);
+        }
+    else
+        {
+        strcpy (source, fault_source);
+        }
+
+    /*  Get the map corners                        */
+
+    status = mp_get_current_map(&map);
+
+    /* Build the cursor for SEIS_FAULT_TRACE   */
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+    "SELECT FAULT_CODE, XMIN, YMIN, XMAX, YMAX, \
+            DIGITAL_REF, DIGITAL_REF_VOLUME \
+     FROM   %s.SEIS_FAULT_TRACE \
+     WHERE  HOR_CODE = '%s' AND \
+            SOURCE = '%s'",
+    project, horizon, source);
+
+    EXEC SQL PREPARE S1 FROM :sqlstmt;
+    EXEC SQL DECLARE OBJ_CUR CURSOR FOR S1;
+    EXEC SQL OPEN OBJ_CUR;
+
+    /*  Initialize the nlist  */
+
+    nl_init_nlist(fault_list, ndim, units, data_sizes, data_types,
+                  value_inc, block_size);
+
+    /*  Loop on object                               */
+
+    FOREVER
+	{
+        EXEC SQL FETCH OBJ_CUR INTO :fault_code,
+				    :lower_left_x,  :lower_left_y,
+                                    :upper_right_x, :upper_right_y,
+				    :nlist_id,      :nlist_file;
+
+        if (OR_STATUS == OR_EOF) break;
+
+	V_FROMV   (pftrace->fault_name, fault_code);
+	V_SETZERO (nlist_id);
+	V_SETZERO (nlist_file);
+
+        status = ct_map_xy (lower_left_x, lower_left_y,
+                            &lower_left_x, &lower_left_y);
+        if (status != SUCCESS) return status;
+
+        status = ct_map_xy (upper_right_x, upper_right_y,
+                            &upper_right_x, &upper_right_y);
+        if (status != SUCCESS) return status;
+
+        /*  Check to see if object is on the map         */
+
+        if (lower_left_x  > map->upper_right_xy.x  OR
+	    upper_right_x < map->lower_left_xy.x   OR
+	    lower_left_y  > map->upper_right_xy.y  OR
+	    upper_right_y < map->lower_left_xy.y)    continue;
+
+        /* empty string */
+	nl_id[0]   = 0;
+	nl_file[0] = 0;
+	
+        /*  read nlist	*/
+
+	strcpy(pftrace->source, source);
+
+	status = se_bld_nlist_ids (0, (VOIDPTR)pftrace, SEIS_FTRACE_DATA,
+                                   nl_id, nl_file, full_filename);
+	if (status != SUCCESS) return status;
+
+        /* ignore nl_id and use the nlist_id retrieved from seis_fault_trace */
+
+	status = nl_read_nlist (&temp_list_1, full_filename,
+                                (CHAR *)nlist_id.arr);
+	if (status != SUCCESS) return status;
+
+	nl_inq_nlist_int(temp_list_1, NL_NLIST_NTABLES, (INT *)&ntables);
+
+	for(ii=1; ii<=ntables; ii++)
+	    {
+	    nl_start_table(*fault_list, &table);
+	    nl_inq_table_int(temp_list_1, ii, NL_TABLE_NROWS, (INT *)&nrows);
+
+	    x_out = (FLOAT *)tc_alloc(nrows*sizeof(FLOAT));
+	    y_out = (FLOAT *)tc_alloc(nrows*sizeof(FLOAT));
+
+	    Var_List[0] = (VOIDPTR)x_out;
+	    Var_List[1] = (VOIDPTR)y_out;
+
+    	    nl_set_current_row (temp_list_1, 1, ii);
+	    nl_get_rows_convert (temp_list_1, nrows, ndim, Col_List,
+				  Var_List, units, data_sizes,
+                                  data_types, &j);
+	    nl_add_rows( *fault_list, j, ndim, Col_List, Var_List );
+
+	    tc_free(x_out);
+	    tc_free(y_out);
+	    }
+
+	nl_free_nlist(temp_list_1);
+	}
+
+    EXEC SQL CLOSE OBJ_CUR;
+    return SUCCESS;
+
+ora_error:
+    if(*fault_list != (NLIST_HEADER)0)
+	{
+	nl_free_nlist(*fault_list) ;
+	*fault_list =(NLIST_HEADER)0;
+	}
+
+    return OR_STATUS;
+}

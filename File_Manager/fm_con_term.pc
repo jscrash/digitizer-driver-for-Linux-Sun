@@ -1,0 +1,158 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element FM_CON_TERM.PC*/
+/* *4    14-AUG-1990 13:24:22 VINCE "(SPR 5644) Header Standardization"*/
+/* *3     7-NOV-1989 13:23:11 GILLESPIE "(SPR 30) Use esi_fm_int.h include file"*/
+/* *2    17-OCT-1989 15:45:58 PURNA "(SPR 0) mod param type on nl_inq_nlist_user_struct"*/
+/* *1    19-JUN-1989 12:32:02 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element FM_CON_TERM.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_dg_defs.h"
+#include "esi_fm_int.h"
+#include "esi_nl.h"
+#include "esi_qs.h"
+#include "esi_oracle.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+    Function to update the GC_FILE_HDR table for contour files.
+
+Prototype:
+    publicdef INT fm_contour_term_func(INT file_id,FILENAME os_name);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    file_id         -(INT)
+    os_name         -(FILENAME)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    OR_STATUS
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT fm_contour_term_func (INT file_id, FILENAME os_name)
+#else
+publicdef INT fm_contour_term_func (file_id, os_name)
+INT file_id;
+FILENAME os_name;
+#endif
+    {
+    
+    PROJECT_NAME project;
+    NLIST_HEADER contour;
+    CONTOUR_NLIST_USER_STRUCT contour_user;
+    UINT d_list[2];
+    VOIDPTR v_list[2];
+    INT n;
+    FLOAT xmin, xmax, ymin, ymax;
+    CHAR uniform[2];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[500];
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ********************************************************************** */
+    
+    /* * GET NECESSARY INFO FOR GC_FILE_HDR TABLE * */
+    /* -------------------------------------------- */
+    
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    
+    nl_read_nlist (&contour, os_name, "LINES");
+    nl_inq_nlist_user_struct (contour, sizeof(CONTOUR_NLIST_USER_STRUCT),
+                              (VOIDPTR) & contour_user, (size_t *) & n);
+    
+    if (contour_user.uniform)
+        {
+        strcpy (uniform, "Y");
+        }
+    else
+        {
+        strcpy (uniform, "N");
+        }
+    d_list[0] = 1;
+    d_list[1] = 2;
+    
+    v_list[0] = (VOIDPTR)(&xmin);
+    v_list[1] = (VOIDPTR)(&ymin);
+    nl_inq_nlist_info (contour, NL_NLIST_MIN, 2, d_list, v_list);
+    
+    v_list[0] = (VOIDPTR)(&xmax);
+    v_list[1] = (VOIDPTR)(&ymax);
+    nl_inq_nlist_info (contour, NL_NLIST_MAX, 2, d_list, v_list);
+    
+    nl_free_nlist (contour);
+    
+    /* * COMMIT WORK FOR A BASELINE * */
+    /* ------------------------------ */
+    
+    EXEC SQL COMMIT WORK;
+    EXEC SQL WHENEVER SQLERROR GOTO orc_err;
+    
+    /* * DELETE CURRENT RECORD * */
+    /* ------------------------- */
+    
+    EXEC SQL WHENEVER NOT FOUND GOTO sql_insert;
+    
+    sqlstmt.len = sprintf ((char *)sqlstmt.arr,
+                           "DELETE FROM %s.GC_FILE_HDR WHERE FILE_ID = %d", project,
+                           file_id);
+    
+    EXEC SQL EXECUTE IMMEDIATE : sqlstmt;
+    
+    /* * INSERT NEW RECORD * */
+    /* --------------------- */
+    
+sql_insert:
+    sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"INSERT INTO %s.GC_FILE_HDR (FILE_ID,PROJECTION,TOP_SURFACE_NAME, \
+BASE_SURFACE_NAME,LOWER_LEFT_X,LOWER_LEFT_Y,UPPER_RIGHT_X,UPPER_RIGHT_Y, \
+INTERVAL_X,UNIFORMITY_FLAG,FAULT) \
+VALUES (%d,'%s','%s','%s',%f,%f,%f,%f,%f,'%s','%s')"
+            , project, file_id, contour_user.projection, contour_user.top_surface,
+                           contour_user.base_surface, xmin, ymin, xmax, ymax,
+                           contour_user.contour_interval, uniform, contour_user.fault);
+    
+    EXEC SQL EXECUTE IMMEDIATE : sqlstmt;
+    
+    /* * RE- COMMIT WORK FOR A BASELINE * */
+    /* ---------------------------------- */
+    
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL COMMIT WORK;
+    return SUCCESS;
+    
+    /* * ORACLE ERROR * */
+    /* ---------------- */
+    
+orc_err:
+    return OR_STATUS;
+    }
+/* END:     */

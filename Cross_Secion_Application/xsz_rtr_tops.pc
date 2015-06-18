@@ -1,0 +1,141 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element XSZ_RTR_TOPS.PC*/
+/*  3     2-MAR-1992 14:45:35 JILL "(SPR 0) order by LITHOSTRAT code"*/
+/* *2    17-AUG-1990 22:36:33 VINCE "(SPR 5644) Code Cleanup"*/
+/* *1    19-JUN-1989 12:42:25 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element XSZ_RTR_TOPS.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_gl_defs.h"
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_TC_H
+
+#include "esi_tc.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_XS_DEFS_H
+
+#include "esi_xs_defs.h"
+
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+    This module includes initial and server routines of operating tops
+    in CROSS SECTION; To retrieve the existing Tops in the 
+    PROJECT.LITHOSTRAT_CODES.
+
+Prototype:
+    publicdef INT xsz_rtr_tops(CHAR ***tablePtr);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (M) tableptr    -(CHAR ***) A pointer points to the pointer of table.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    SQL ERROR CODES.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT xsz_rtr_tops (CHAR ***tablePtr)
+#else
+publicdef INT xsz_rtr_tops (tablePtr)
+CHAR ***tablePtr;
+#endif
+    {
+    INT i;
+    INT status = SUCCESS;           /*   the returned flag.                   */
+    CHAR current_project_name[64];
+    CHAR **ptr;
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR select[512];
+    VARCHAR code[32];
+    int total_tops = 0;
+    EXEC SQL END DECLARE SECTION;
+    /*  **********************************************************************  */
+    
+    qs_inq_c (QS_PROJECT_NAME, current_project_name, (INT *)0);
+    
+    EXEC SQL WHENEVER SQLERROR GOTO errrpt;
+    
+    select.len = sprintf ((char *)select.arr, "SELECT COUNT\(*\)  FROM \
+                    %s.LITHOSTRAT_CODES"
+                          , current_project_name);
+    
+    EXEC SQL PREPARE RTR_TOP_S1 FROM : select;
+    EXEC SQL DECLARE RTR_TOP_C1 CURSOR FOR RTR_TOP_S1;
+    EXEC SQL OPEN RTR_TOP_C1;
+    EXEC SQL FETCH RTR_TOP_C1 INTO : total_tops;
+    EXEC SQL CLOSE RTR_TOP_C1;
+    /* If there is no tops, returns.     */
+    
+    if (total_tops EQUALS 0)
+        {
+        *tablePtr = (CHAR **)tc_zalloc (sizeof(CHAR *));
+        return status;
+        }
+    /* create the TCP table.        */
+    
+    select.len = sprintf ((char *)select.arr, "SELECT CODE FROM \
+                  %s.LITHOSTRAT_CODES ORDER BY CODE"
+                          , current_project_name);
+    
+    EXEC SQL PREPARE RTR_TOP_S2 FROM : select;
+    EXEC SQL DECLARE RTR_TOP_C2 CURSOR FOR RTR_TOP_S2;
+    EXEC SQL OPEN RTR_TOP_C2;
+    
+    *tablePtr = ptr = (CHAR **)tc_zalloc (sizeof(CHAR *) * (total_tops + 1));
+    for (i = 0; i < total_tops; i++)
+        {
+        EXEC SQL FETCH RTR_TOP_C2 INTO : code;
+        
+        ptr[i] = (CHAR *)tc_zalloc (sizeof(CHAR) * (code.len + 1));
+        V_FROMV (ptr[i], code);
+        }
+    EXEC SQL CLOSE RTR_TOP_C2;
+    
+errrpt:
+    status = sqlca.sqlcode;
+    return status;
+    
+    }
+/* END:     */

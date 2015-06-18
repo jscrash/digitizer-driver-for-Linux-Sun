@@ -1,0 +1,614 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_GEN_T_LAB.PC */
+/* *14    6-NOV-1990 15:30:32 PURNA "(SPR 6156) township & section labels mods" */
+/* *13   19-JUL-1990 17:25:03 JESSIE "(SPR 5628) Make LYNX functions internally consistant" */
+/* *12   19-JUL-1990 10:18:28 VINCE "(SPR 5628) Make LYNX functions internally consistant" */
+/* *11   26-MAY-1990 15:26:28 VINCE "(SPR 1) moved the duplicate name test to be after the parsing of the name" */
+/* *10   25-MAY-1990 18:39:10 VINCE "(SPR 5512) added logic to display only one label per township or range" */
+/* *9    10-MAY-1990 14:45:46 PURNA "(SPR 0) add text margin for EAST & WEST case" */
+/* *8    10-MAY-1990 11:38:43 PURNA "(SPR 5194) fix incorrent position of township labels" */
+/* *7    19-APR-1990 16:57:27 VINCE "(SPR 1) fix location of township lables on clipped townships" */
+/* *6    17-APR-1990 11:26:52 VINCE "(SPR 1) Fix label offset for clipped townships" */
+/* *5    27-MAR-1990 13:53:41 VINCE "(SPR 1) panic fixes" */
+/* *4    26-MAR-1990 12:07:32 VINCE "(SPR 1) changed margin calculation" */
+/* *3    25-MAR-1990 12:37:11 VINCE "(SPR 1) modified use of margin in gen_label" */
+/* *2    21-MAR-1990 14:57:45 VINCE "(SPR -1) Initial checkin" */
+/* *1    21-MAR-1990 14:30:45 VINCE "generate township labels for labels" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_GEN_T_LAB.PC */
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_GEN_T_LAB.PC*/
+/* *1    13-AUG-1990 16:55:25 SYSTEM "Finder 6.1"*/
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_GEN_T_LAB.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_ly.h"
+
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+
+#ifndef ESI_MP_H
+#include "esi_mp.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+extern INT nlm_null ();
+
+/* on which side of township should label appear */
+#define NORTH 0
+#define SOUTH 1
+#define EAST  2
+#define WEST  3
+#define MAXARRAYFETCH 100
+static INT gen_label ();
+
+static INT old_meridian;
+static CHAR last_name[60];
+
+/* File Description ---------------------------------------------------------
+Overview:
+
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT ly_generate_township_labels (NLIST_HEADER label_nl);
+
+Private_Functions:
+    static INT gen_label (NLIST_HEADER label_nl, CHAR *name, DOUBLE minx, 
+        DOUBLE miny, DOUBLE maxx, DOUBLE maxy, INT  side, DOUBLE margin,
+	BOOL include_meridian);
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT ly_generate_township_labels (NLIST_HEADER label_nl);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    label_nl        -(NLIST_HEADER)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT ly_generate_township_labels (NLIST_HEADER label_nl) 
+#else
+publicdef INT ly_generate_township_labels (label_nl)
+NLIST_HEADER label_nl;
+#endif
+    {
+    INT ii;
+    UINT table_num;
+    DOUBLE margin;
+    PROJECT_NAME project;
+    MAP_STRUCTURE *map;
+    INT bundle_id;
+    DOUBLE dminx, dminy, dmaxx, dmaxy;
+    INT total_count,n_rows,i;
+    BOOL first,last,include_meridian;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[2000];
+    VARCHAR name[100][30];
+    double minx[100], miny[100], maxx[100], maxy[100];
+    double project_minx, project_miny, project_maxx, project_maxy;
+    EXEC SQL END DECLARE SECTION;
+    
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    
+    nl_set_nlist_string (label_nl, NL_NLIST_NAME, "TOWNSHIP_LABELS");
+    nl_set_nlist_method (label_nl, NL_CLIP_METHOD, "No Clipping", nlm_null);
+    
+    mp_get_current_map (&map);
+    if (map == (MAP_STRUCTURE *)0)
+        return FAIL;
+    
+    ct_project_xy (map->lower_left_xy.x, map->lower_left_xy.y, &project_minx,
+                   &project_miny);
+    ct_project_xy (map->upper_right_xy.x, map->upper_right_xy.y, &project_maxx,
+                   &project_maxy);
+    
+    margin = 0.25 / map->wcs_to_inches;
+    /* should really be (2.0 * text_height) / map->wcs_to_inches */
+    
+    /* ********************************************************************* */
+    /* select all townships spanning or sitting on the south map border */
+    stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT DISTINCT NAME, MINX, MINY, MAXX, MAXY \
+     FROM   %s.LYNX_CULTURE \
+     WHERE  DATA_TYPE = 'TOWNSHIP' AND \
+        MINX <  :project_maxx AND \
+        MAXX >  :project_minx AND \
+        MINY <= :project_miny AND \
+        MAXY >  :project_miny \
+     ORDER BY MINX"
+            , project);
+    
+    EXEC SQL PREPARE SOUTH_STMT FROM : stmt;
+    EXEC SQL DECLARE SOUTH_CURSOR CURSOR FOR SOUTH_STMT;
+    EXEC SQL OPEN SOUTH_CURSOR USING : project_maxx,  : project_minx,  
+	: project_miny, :project_miny;
+
+    total_count=0;
+    first=TRUE;
+    last=FALSE;
+
+    FOREVER
+	{
+	EXEC SQL FETCH SOUTH_CURSOR INTO : name,  : minx,  : miny,  
+						  : maxx,  : maxy;
+	n_rows = OR_ROWCOUNT - total_count;
+	if(n_rows <= 0)
+	    break;
+	else if(n_rows < MAXARRAYFETCH)
+	    last = TRUE;
+	    /* initialization for the first cycle in the loop */
+
+	total_count = OR_ROWCOUNT;;
+	if(first)
+	    {
+            old_meridian = -1;
+            last_name[0] = NUL;
+        
+            bundle_id = -1;             /* set GC for south lables   */
+            nl_start_table (label_nl, &table_num);
+            nl_set_table_string (label_nl, 0, NL_TABLE_NAME, "TOWNSHIP");
+            nl_set_table_user_struct (label_nl, 0, &bundle_id, 
+				      sizeof bundle_id);
+	    }
+
+	    /* loop thru each fethed items and calculate its location and
+	       labels */
+	for(i=0;i<n_rows;i++)
+	    {
+            V_SETZERO (name[i]);
+	    ct_map_xy(minx[i],miny[i],&minx[i],&miny[i]);
+	    ct_map_xy(maxx[i],maxy[i],&maxx[i],&maxy[i]);
+            dminx = MAX (minx[i], map->lower_left_xy.x);
+            dmaxx = MIN (maxx[i], map->upper_right_xy.x);
+            dminy = map->lower_left_xy.y;
+            dmaxy = map->lower_left_xy.y;
+            
+	       /* check whether the label is the closest to the window border */
+	    if((first AND i==0) OR (last AND i== (n_rows - 1)))
+		{
+		include_meridian = TRUE;
+		first = FALSE;
+		}
+	    else
+		include_meridian = FALSE;
+
+            gen_label (label_nl, name[i].arr, dminx, dminy, dmaxx, dmaxy, 
+		       SOUTH, margin, include_meridian);
+
+            }
+        if(last) break;
+        }
+    /* ********************************************************************* */
+    /* select all townships spanning or hanging from the north map border */
+    stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT DISTINCT NAME, MINX, MINY, MAXX, MAXY \
+     FROM   %s.LYNX_CULTURE \
+     WHERE  DATA_TYPE = 'TOWNSHIP' AND \
+        MINX <  :project_maxx AND \
+        MAXX >  :project_minx AND \
+        MINY <  :project_maxy AND \
+        MAXY >= :project_maxy \
+     ORDER BY MINX"
+            , project);
+    
+    EXEC SQL PREPARE NORTH_STMT FROM : stmt;
+    EXEC SQL DECLARE NORTH_CURSOR CURSOR FOR NORTH_STMT;
+    EXEC SQL OPEN NORTH_CURSOR USING : project_maxx,  : project_minx,  
+	: project_maxy, :project_maxy;
+
+    total_count=0;
+    first=TRUE;
+    last=FALSE;
+
+    FOREVER
+	{   
+        EXEC SQL FETCH NORTH_CURSOR INTO : name,  : minx,  : miny,  
+						  : maxx,  : maxy;
+	n_rows = OR_ROWCOUNT - total_count;
+	if(n_rows <= 0)
+	    break;
+	else if(n_rows < MAXARRAYFETCH)
+	    last = TRUE;
+	    /* initialization for the first cycle in the loop */
+
+	total_count = OR_ROWCOUNT;;
+	if(first)
+	    {
+            old_meridian = -1;
+            last_name[0] = NUL;
+        
+            bundle_id = -2;             /* set GC for the north labels       */
+            nl_start_table (label_nl, &table_num);
+            nl_set_table_string (label_nl, 0, NL_TABLE_NAME, "TOWNSHIP");
+            nl_set_table_user_struct (label_nl, 0, &bundle_id, sizeof bundle_id);
+            }
+
+	    /* loop thru each fethed items and calculate its location and
+	       labels */
+	for(i=0;i<n_rows;i++)
+	    {
+            V_SETZERO (name[i]);
+	    ct_map_xy(minx[i],miny[i],&minx[i],&miny[i]);
+	    ct_map_xy(maxx[i],maxy[i],&maxx[i],&maxy[i]);
+            dminx = MAX (minx[i], map->lower_left_xy.x);
+            dmaxx = MIN (maxx[i], map->upper_right_xy.x);
+            dminy = map->upper_right_xy.y;
+            dmaxy = map->upper_right_xy.y;
+            
+	       /* check whether the label is the closest to the window border */
+	    if((first AND i==0) OR (last AND i== (n_rows - 1)))
+		{
+		include_meridian = TRUE;
+		first = FALSE;
+		}
+	    else
+		include_meridian = FALSE;
+
+            gen_label (label_nl, name[i].arr, dminx, dminy, dmaxx, dmaxy, 
+		       NORTH, margin, include_meridian);
+            }
+        if(last) break;
+        }
+    /* ********************************************************************* */
+    
+    margin = 0.40 / map->wcs_to_inches;
+    
+    /* select townships spanning or on the east side of the west map border */
+    stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT DISTINCT NAME, MINX, MINY, MAXX, MAXY \
+     FROM   %s.LYNX_CULTURE \
+     WHERE  DATA_TYPE = 'TOWNSHIP' AND \
+        MINX <= :project_minx AND \
+        MAXX >  :project_minx AND \
+        MINY <  :project_maxy AND \
+        MAXY >  :project_miny \
+     ORDER BY MINY"
+            , project);
+    
+    EXEC SQL PREPARE WEST_STMT FROM : stmt;
+    EXEC SQL DECLARE WEST_CURSOR CURSOR FOR WEST_STMT;
+    EXEC SQL OPEN WEST_CURSOR USING : project_minx,  : project_minx,  
+	: project_maxy, :project_miny;
+    
+    total_count=0;
+    first=TRUE;
+    last=FALSE;
+
+    FOREVER
+	{   
+        EXEC SQL FETCH WEST_CURSOR INTO : name,  : minx,  : miny,  
+						 : maxx,  : maxy;
+	n_rows = OR_ROWCOUNT - total_count;
+	if(n_rows <= 0)
+	    break;
+	else if(n_rows < MAXARRAYFETCH)
+	    last = TRUE;
+	    /* initialization for the first cycle in the loop */
+
+	total_count = OR_ROWCOUNT;;
+	if(first)
+	    {
+            old_meridian = -1;
+            last_name[0] = NUL;
+        
+            bundle_id = -3;             /* set GC for the west labels        */
+            nl_start_table (label_nl, &table_num);
+            nl_set_table_string (label_nl, 0, NL_TABLE_NAME, "TOWNSHIP");
+            nl_set_table_user_struct (label_nl, 0, &bundle_id, sizeof bundle_id);
+            }
+
+	    /* loop thru each fethed items and calculate its location and
+	       labels */
+	for(i=0;i<n_rows;i++)
+	    {
+            V_SETZERO (name[i]);
+	    ct_map_xy(minx[i],miny[i],&minx[i],&miny[i]);
+	    ct_map_xy(maxx[i],maxy[i],&maxx[i],&maxy[i]);
+            dminx = map->lower_left_xy.x;
+            dmaxx = map->lower_left_xy.x;
+            dminy = MAX (miny[i], map->lower_left_xy.y);
+            dmaxy = MIN (maxy[i], map->upper_right_xy.y);
+            
+            gen_label (label_nl, name[i].arr, dminx, dminy, dmaxx, dmaxy, 
+			WEST, margin, FALSE);
+            }
+        if(last) break;
+        }
+    /* ********************************************************************* */
+    /* select townships spanning or on the west side of the east map border */
+    stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT DISTINCT NAME, MINX, MINY, MAXX, MAXY \
+     FROM   %s.LYNX_CULTURE \
+     WHERE  DATA_TYPE = 'TOWNSHIP' AND \
+        MINX <  :project_maxx AND \
+        MAXX >= :project_maxx AND \
+        MINY <  :project_maxy AND \
+        MAXY >  :project_miny \
+     ORDER BY MINY"
+            , project);
+    
+    EXEC SQL PREPARE EAST_STMT FROM : stmt;
+    EXEC SQL DECLARE EAST_CURSOR CURSOR FOR EAST_STMT;
+    EXEC SQL OPEN EAST_CURSOR USING : project_maxx,  : project_maxx,  
+	: project_maxy, :project_miny;
+    
+    total_count=0;
+    first=TRUE;
+    last=FALSE;
+
+    FOREVER
+	{   
+        EXEC SQL FETCH EAST_CURSOR INTO : name,  : minx,  : miny,  
+						 : maxx,  : maxy;
+	n_rows = OR_ROWCOUNT - total_count;
+	if(n_rows <= 0)
+	    break;
+	else if(n_rows < MAXARRAYFETCH)
+	    last = TRUE;
+	    /* initialization for the first cycle in the loop */
+
+	total_count = OR_ROWCOUNT;;
+	if(first)
+	    {
+            old_meridian = -1;
+            last_name[0] = NUL;
+        
+            bundle_id = -4;             /* set GC for the east labels        */
+            nl_start_table (label_nl, &table_num);
+            nl_set_table_string (label_nl, 0, NL_TABLE_NAME, "TOWNSHIP");
+            nl_set_table_user_struct (label_nl, 0, &bundle_id, sizeof bundle_id);
+            }
+
+	    /* loop thru each fethed items and calculate its location and
+	       labels */
+	for(i=0;i<n_rows;i++)
+	    {
+            V_SETZERO (name[i]);
+	    ct_map_xy(minx[i],miny[i],&minx[i],&miny[i]);
+	    ct_map_xy(maxx[i],maxy[i],&maxx[i],&maxy[i]);
+            dminx = map->upper_right_xy.x;
+            dmaxx = map->upper_right_xy.x;
+            dminy = MAX (miny[i], map->lower_left_xy.y);
+            dmaxy = MIN (maxy[i], map->upper_right_xy.y);
+            
+            gen_label (label_nl, name[i].arr, dminx, dminy, dmaxx, dmaxy, 
+			EAST, margin, FALSE);
+            }
+        if(last) break;
+        }
+    /* ********************************************************************* */
+    
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT gen_label (NLIST_HEADER label_nl, CHAR *name, DOUBLE minx, 
+    DOUBLE miny, DOUBLE maxx, DOUBLE maxy, INT  side, DOUBLE margin);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    label_nl        -(NLIST_HEADER)
+    name            -(CHAR *)
+    minx            -(DOUBLE)
+    miny            -(DOUBLE)
+    maxx            -(DOUBLE)
+    maxy            -(DOUBLE)
+    side            -(INT)
+    margin          -(DOUBLE)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PRIVATE to <ly_generate_township_labels>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT gen_label (NLIST_HEADER label_nl, CHAR *name, 
+			DOUBLE minx, DOUBLE miny,
+                        DOUBLE maxx, DOUBLE maxy, 
+			INT side, DOUBLE margin,
+			BOOL include_meridian) 
+#else
+static INT gen_label (label_nl, name, minx, miny, maxx, maxy, 
+				side, margin, include_meridian)
+NLIST_HEADER label_nl;
+CHAR *name;
+DOUBLE minx, miny, maxx, maxy;
+INT side;
+DOUBLE margin;
+BOOL include_meridian;
+#endif
+    {
+    INT meridian;
+    CHAR temp[20],temp1[20];
+    CHAR *cp;
+    
+    static DOUBLE label_x, label_y;
+    static CHAR text[20];
+    static INT text_id = 0, units = 0;
+    static DOUBLE xoffset = 0.0, yoffset = 0.0, text_up_x, text_up_y;
+    
+    /* nList info variables */
+    static UINT ncol = 
+        {
+        9
+        };
+    static UINT col_list[9] = 
+        {
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+        };
+    static VOIDPTR value_list[9] = 
+        {
+        (VOIDPTR) & text_id, (VOIDPTR)text, (VOIDPTR) & label_x, (VOIDPTR) & label_y,
+        (VOIDPTR) & xoffset, (VOIDPTR) & yoffset, (VOIDPTR) & units,
+        (VOIDPTR) & text_up_x, (VOIDPTR) & text_up_y
+        };
+    
+    switch (side)
+        {
+    case NORTH:
+        label_y = maxy + margin;
+        break;
+    case SOUTH:
+        label_y = miny - margin;
+        break;
+    case EAST:
+        label_x = maxx + margin;
+        break;
+    case WEST:
+        label_x = minx - margin;
+        break;
+        }
+    strcpy (text, name);
+    if ((side == NORTH) || (side == SOUTH))
+        {
+	if(include_meridian)
+	    {
+	    strcpy(temp,name);
+	    cp = strchr(temp,':');
+	    if(cp != NULL)
+		*cp = NUL;
+	    else
+		include_meridian = FALSE;
+	    }
+        cp = strchr (text, 'W');    /* parse the range from name */
+        if (cp == NULL)
+            cp = strchr (text, 'E');
+        if (cp != NULL)
+            *(cp + 1) = NUL;
+        cp = strchr (text, 'R');
+        if (cp != NULL)
+	    {
+	    if(include_meridian)
+		sprintf(text,"%s%sM",cp,temp);
+	    else
+                strcpy (text, cp);
+	    }
+        
+        label_x = minx + ((maxx - minx) / 2);
+        text_up_x = 0.0;
+        text_up_y = 1.0;
+        }
+    else
+        {                           /* EAST or WEST */
+	cp = strchr(text,'N');
+	if(cp == NULL)
+	   cp = strchr(text,'S');
+	if(cp != NULL)
+	   *(cp + 1) = NUL;
+	strcpy(temp,cp);
+
+	*cp = NUL;
+	cp =  strchr(text,'T');
+	strcpy(temp1,(cp+1));
+	*(cp+1) = NUL;
+
+        sprintf(text,"%s\n%s\n%s\n",cp,temp1,temp);
+        
+        label_y = miny + ((maxy - miny) / 2);
+        text_up_x = 0.0;
+        text_up_y = 1.0;
+        }
+    if (ARE_SAME (last_name, text))
+        return SUCCESS;
+    strcpy (last_name, text);
+    
+    nl_add_rows (label_nl, 1, ncol, col_list, value_list);
+    
+    strcpy (temp, name);            /* see if there is a meridian code */
+    cp = strchr (temp, ':');
+    if (cp != NULL)
+        {                           /* yes, parse it out and compare with last */
+        *cp = NUL;
+        meridian = atoi (temp);
+        if (old_meridian == -1)
+            old_meridian = meridian;
+        if (old_meridian != meridian)
+            {
+            sprintf (text, "<- PM:%3d | PM:%3d ->", old_meridian, meridian);
+            if ((side == NORTH) || (side == SOUTH))
+                {
+                label_x = minx;
+                if (side == NORTH)
+                    label_y += margin;
+                else
+                    label_y -= margin;
+                }
+            else
+                {
+                if (side == EAST)
+                    label_x += margin;
+                else
+                    label_x -= margin;
+                label_y = miny;
+                }
+            nl_add_points (label_nl, 1, ncol, col_list, value_list);
+            old_meridian = meridian;
+            }
+        }
+    return SUCCESS;
+    }
+/* END:     */

@@ -1,0 +1,206 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_DEL_OBJ_ATT.PC */
+/* *4    22-AUG-1991 13:27:33 VINCE "(SPR 1) Added include of esi_ts.h" */
+/* *3     9-AUG-1991 19:27:51 VINCE "(SPR 1) replace stub with actual routine." */
+/* *2    10-JAN-1991 15:33:40 VINCE "(SPR 1) stub only" */
+/* *1    10-JAN-1991 15:32:11 VINCE "delete a graphic object using attribute1/2 as the critiera" */
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_DEL_OBJ_ATT.PC */
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Finder Graphics Systems, Inc.
+			201 Tamal Vista Blvd
+			Corte Madera, CA  USA 94925
+			(415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_gl_defs.h"
+#include "esi_dr.h"
+#include "esi_qs.h"
+#include "esi_ts.h"
+#include "esi_oracle.h"
+
+static int drz_analyse_attribute ();
+
+/* Function Description -----------------------------------------------------
+Description:
+    Delete a set of graphic ojects select by object type and attribute_1
+    and attribute_2.
+
+    Object_type is required.  Attributes 1 & 2 are strings used to match
+    the columns of the same name in the GRAPHIC_OBJECTS table.  If either
+    string is passed in as a NULL character pointer it will not be used
+    in the selection criteria.
+
+    Special cases of attribute 1 & 2 strings will be interpreted as 
+    follows:
+	NULL POINTER		=> ATT_n will not be used in selection
+	"NULL"			=> WHERE ATT_n IS NULL
+	"NOT_NULL"		=> WHERE ATT_n IS NOT NULL
+	containing "%" or "_"	=> WHERE ATT_n LIKE 'string'
+	beggining with "('"	=> WHERE ATT_n IN string
+	none of the above	=> WHERE ATT_n = 'string'
+
+    NOTE: the string will be quoted, except in the IN case, unless the
+	  first character is already a quote.
+
+Prototype:
+    publicdef INT dr_delete_object_by_att (CHAR *object_type,
+                                           CHAR *attribute_1,
+					   CHAR *attribute_2)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) object_type     - (CHAR *) Type of object to be deleted.
+    (I) attribute_1     - (CHAR *)	  Selection string for attribute 1.
+    (I) attribute_2     - (CHAR *)	  Selection string for attribute 2.
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    OR_STATUS   - Any Oracle error.
+
+Scope:
+    PUBLIC
+
+Limitations/Assumptions:
+
+---------------------------------------------------------------------------- */
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT dr_delete_object_by_att (CHAR *object_type,
+				       CHAR *attribute_1,
+				       CHAR *attribute_2)
+#else
+publicdef INT dr_delete_object_by_att (object_type,
+				       attribute_1,
+				       attribute_2)
+     CHAR  *object_type;
+     CHAR  *attribute_1;
+     CHAR  *attribute_2;
+#endif
+{
+  BOOL         use_att_1, use_att_2;
+  CHAR         local_object_type[40];
+  CHAR         crit_1[40], crit_2[40];
+  CHAR         select[200];
+  PROJECT_NAME project;
+
+  EXEC SQL BEGIN DECLARE SECTION;
+      VARCHAR stmt[1024];
+  EXEC SQL END DECLARE SECTION;
+
+  use_att_1 = use_att_2 = FALSE;
+  qs_inq_c (QS_PROJECT_NAME, project, 0);
+
+  /* find out which, if either, of the attributes are to be used. */
+
+  if (attribute_1 != NULL) use_att_1 = TRUE;
+  if (attribute_2 != NULL) use_att_2 = TRUE;
+
+  /* analyze the given attribute strings and create a */
+  /* selection criterion for each attribute column.   */
+
+  if (use_att_1) drz_analyse_attribute (attribute_1, crit_1);
+  if (use_att_2) drz_analyse_attribute (attribute_2, crit_2);
+  
+  /* make a local copy of the object type so that it can be quoted. */
+
+  strcpy (local_object_type, object_type);
+  ts_quote (local_object_type, '\'');
+
+  /* build the selection criteria statment */
+
+  select[0] = NUL;
+  
+  if (use_att_1)
+    {
+      strcat (select, " AND ATTRIBUTE_1 ");
+      strcat (select, crit_1);
+    }
+  
+  if (use_att_2)
+    {
+      strcat (select, " AND ATTRIBUTE_2 ");
+      strcat (select, crit_2);
+    }
+
+#if 0
+  /* this flag could be added to the calling sequence in the future     */
+  /* to limit the operation to only items owned by the current analyst. */
+
+  if (limit_to_user)
+    {
+      strcat (select, " AND SOURCE IN (USER, 'PUBLIC', NULL)");
+    }
+#endif
+
+  stmt.len = sprintf ((char *)stmt.arr,
+    "DELETE \
+     FROM   %s.GRAPHIC_OBJECTS   \
+     WHERE  OBJECT_TYPE = %s %s",
+  project, local_object_type, select);
+  
+  EXEC SQL EXECUTE IMMEDIATE :stmt;
+  
+  return SUCCESS;
+}
+/* END:	    */
+
+/* BEGIN:   */
+static int drz_analyse_attribute (str, comp)
+     CHAR *str;
+     CHAR *comp;
+{
+  BOOL use_quotes = TRUE;
+  BOOL add_string = TRUE;
+  
+  if (ARE_SAME(str,"NULL"))
+    {
+      strcpy (comp, "IS NULL");
+      add_string = FALSE;
+    }
+  else if (ARE_SAME(str,"NOT_NULL"))
+    {
+      strcpy (comp, "IS NOT NULL");
+      add_string = FALSE;
+    }
+  else if ((strchr(str,'%') != NULL) ||
+	   (strchr(str,'_') != NULL)  )
+    {
+      strcpy (comp, "LIKE");
+    }
+  else if (strncmp(str,"('",2) == 0)
+    {
+      strcpy (comp, "IN");
+      use_quotes = FALSE;
+    }
+  else    /* default */
+    {
+      strcpy (comp, "=");
+    }
+  
+  if (add_string)
+    {
+      if (use_quotes && (str[0] == '\'')) use_quotes = FALSE;
+      
+      strcat (comp, " ");
+      if (use_quotes) strcat (comp, "'");
+      
+      strcat (comp, str);
+      
+      if (use_quotes) strcat (comp, "'");
+    }
+  
+  return SUCCESS;
+}
+/* END:	    */

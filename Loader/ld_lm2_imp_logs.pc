@@ -1,0 +1,663 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_LOGS.PC */
+/* *2     1-MAY-1991 21:53:42 KEE "(SPR -1) Landmark Import" */
+/* *1     1-MAY-1991 21:21:12 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_LOGS.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* ************************************************************************
+
+   NAME: LD_LM2_IMP_LOGS.PC
+
+   AUTHOR: Rod Hanks
+   DATE:   May 25th, 1990
+   DESCRIPTION: Load a trace from a file output by Landmark.
+
+   ************************************************************************ */
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+#ifndef ESI_NL_ERR_H
+#include "esi_nl_err.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_LG_LDEFS_H
+#include "esi_lg_ldefs.h"
+#endif
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+#ifndef ESI_CTYPE_H
+#include "esi_ctype.h"
+#endif
+#ifndef ESI_WE_WELLS_H
+#include "esi_we_wells.h"
+#endif
+#ifndef LD_LM2_IMP_WORK_H
+#include "ld_lm2_imp_work.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+static UINT Dim_List[2] = {1,2};
+
+#if USE_PROTOTYPES
+publicdef INT ld_lm2_imp_logs (PROJECT_NAME project, FILENAME fileName, 
+			CHAR *source, INT overwrite)
+#else
+publicdef INT ld_lm2_imp_logs (project, fileName,
+				source, overwrite)
+FILENAME        fileName;
+PROJECT_NAME	project;
+CHAR	       *source;
+INT	        overwrite;
+#endif
+
+    {
+/****************************************************************************
+
+        V a r i a b l e   D e c l a r a t i o n s .
+
+******************************************************************************/
+
+    INT              status;
+    FILE            *spfile;
+    CHAR            *pos;
+    CHAR            *inputWell;
+    CHAR            *inputValue;
+    CHAR            *inputCurve;
+    CHAR             lastWell[80];
+    CHAR             lastCurve[80];
+    INT		     tableNum;
+    BOOL             moreFlag;
+    BOOL	     skipLog;
+    BOOL	     skipWell;
+    INT		     depthStage;
+    FLOAT	     depthIncr = 0.0;
+    FLOAT	     lastDepth;
+    LOG_TRACE_STRUCT traceStruct;
+    UINT             Ndim = 2;
+    INT              Units[2];
+    INT              DType[2];
+    size_t           DSize[2];
+    INT              VInc[2];
+    VOIDPTR	     valueList[2];
+    UINT             Blocksize = 1001;
+    static CHAR *Dim_Names[] = {"DEPTH","VALUE"};
+    UINT             NullDim = 1;
+    UINT             NDList[1];
+    FLOAT            fxnull = 0.0;
+    VOIDPTR          Null_List[1];
+    FLOAT	     thisValue;
+    FLOAT	     thisDepth;
+    DOUBLE           dx;
+    DOUBLE           dy;
+    DOUBLE           md;
+    DOUBLE           tvd;
+    CHAR	     aService[13];
+    CHAR   	     a_trace_name[100]; 
+    CHAR             depth_unit[14];
+    BOOL             md_data;
+    BOOL             depth_equal;
+    INT              depth_equal_count;
+    DOUBLE           diffs;
+
+#ifdef USE_OLDPARSING
+    BOOL             skipOne;
+    CHAR            *inputDepth;
+    CHAR             dummy[255];
+#else
+    LD_SCANNER_STRUCT ld_scan;	
+#endif
+
+/*
+                                General variable declarations.
+*/
+    EXEC SQL BEGIN DECLARE SECTION;
+	VARCHAR select2[200];
+        VARCHAR thisUWI[21];
+        VARCHAR thisSource[13];
+        VARCHAR thisService[13];
+	VARCHAR thisTrace[13];
+	int	thisVersion;
+	int	thisID;
+    EXEC SQL END DECLARE SECTION;
+/****************************************************************************
+
+        I n i t i a l i z a t i o n .
+
+******************************************************************************/
+
+    select2.len = sprintf((char *)select2.arr,
+"SELECT TRACE_ID, SERVICE, VERSION \
+FROM %s.WELL_LOG_CURVE_HDR WHERE UWI = :thisUWI \
+AND SOURCE = :thisSource AND TRACE_TYPE = :thisTrace", project);
+
+    EXEC SQL PREPARE S2 FROM :select2;
+    if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "prepare LOG_CURS");
+    EXEC SQL DECLARE LOG_CURS CURSOR FOR S2;
+
+    spfile = ho_open(fileName, "r", NULL);
+    if (spfile == (FILE *)NULL)
+        {
+        printf("Unable to open log file named %s", fileName);
+        }
+    else
+        {
+        printf("loading logs from %s\n", fileName);
+        lastWell[0] = 0;
+        lastCurve[0] = 0;
+	depth_equal = TRUE;
+	depth_equal_count = 0;
+#ifdef USE_OLDPARSING
+	pos = fgets(dummy, 255, spfile); /* get the first line - header */
+#else
+        tc_zeroes(&ld_scan, sizeof(LD_SCANNER_STRUCT));	
+        ld_scan.in.fix_format = TRUE;
+	ld_scan.in.snowhite = TRUE;
+        ld_scan.in.num_pair = 4;
+        ld_scan.in.start[0] = 1;     ld_scan.in.end[0] = 45;
+        ld_scan.in.start[1] = 47;    ld_scan.in.end[1] = 55;
+        ld_scan.in.start[2] = 57;    ld_scan.in.end[2] = 70;
+        ld_scan.in.start[3] = 72;    ld_scan.in.end[3] = 80;
+	ld_scan_line(spfile, &ld_scan);
+	pos = ld_scan.line;
+#endif
+	ts_sto_upper(pos);
+	if (ts_like(pos,"*C_MD*",'*') == TRUE)
+	  {
+	    md_data = TRUE;
+          }
+	else if (ts_like(pos,"*C_TD*",'*') == TRUE)
+	  {
+	    md_data = FALSE;
+	  }
+	else
+          {
+            if (ts_like(pos,"*C_MS*",'*') == TRUE)
+              {
+                printf("Import abort: Finder does not support Time data\n");
+              }
+	    else
+              {
+                printf("Import abort: Invalid header format of %s\n", fileName);
+              }
+            return;
+          }
+
+	    while (strncmp(pos,"C_MD",4) != 0 && strncmp(pos,"C_TD",4) != 0)
+	      {
+		pos++;
+              }
+	    pos += 4;
+	    while (isalpha(*pos) == FALSE && *pos != 0)
+	      {
+	        pos++;
+              }
+	    if (*pos == 0) 
+	      {
+	        printf("Import abort: Invalid header format of %s\n", fileName);
+	        return;
+	      }
+	    else 
+              {
+            	inputValue = pos;
+	        while (isalpha(*pos) == TRUE && *pos != 0)
+	          {
+                    pos++;
+                  }
+	        *pos = 0;
+		if (strlen(inputValue) > 13)
+	          {
+                    strncpy(depth_unit, ts_sto_upper(inputValue), 13);
+		  }
+		else
+	          {
+                    strcpy(depth_unit, ts_sto_upper(inputValue));
+		  }
+	      }
+/*****************************************************************************
+
+        M a i n   L o g i c .
+
+*****************************************************************************/
+
+#ifdef USE_OLDPARSING
+        moreFlag = TRUE;
+        while (moreFlag)
+            {
+            do
+                {
+                pos = fgets(dummy, 255, spfile);
+                }
+                while (pos != (CHAR *) 0 && strlen(dummy) < 5);
+
+            if (pos == (CHAR *) 0)
+                {
+                moreFlag = FALSE;
+                }
+/*
+                                Get next line from file, if any, and
+                                set a flag when no more.  We want to
+                                fall thru the loop one last time in
+                                this case in order to output the last
+                                line.
+*/
+            if (moreFlag)
+                {
+                while (*pos == ' ')
+                    {
+                    pos++;
+                    }
+                inputWell = pos;
+	        pos += (45-1+1);
+                *pos = 0;
+                inputWell = ts_snowhite(inputWell);
+                pos++;
+                while (*pos == ' ')
+                    {
+                    pos++;
+                    }
+                inputDepth = pos;
+                while (*pos != ' ' && *pos != 0)
+                    {
+                    pos++;
+                    }
+                *pos = 0;
+                pos++;
+                while (*pos == ' ')
+                    {
+                    pos++;
+                    }
+                inputCurve = pos;
+	        ts_sto_upper(inputCurve);
+                while (*pos != ' ' && *pos != 0)
+                    {
+                    pos++;
+                    }
+                *pos = 0;
+                pos++;
+                while (*pos == ' ')
+                    {
+                    pos++;
+                    }
+                inputValue = pos;
+                while (*pos != ' ' && *pos != 0)
+                    {
+                    pos++;
+                    }
+                *pos = 0;
+		if (strlen(inputWell) == 0
+		||  strlen(inputDepth) == 0
+		||  strlen(inputCurve) == 0
+		||  strlen(inputValue) == 0)
+		    {
+		    skipOne = TRUE;
+		    printf("Incorrectly formatted line being skipped...\n\
+%s %s %s %s", inputWell, inputDepth, inputCurve, inputValue);
+		    }
+		else
+		    {
+		    skipOne = FALSE;
+		    }
+                }
+/*
+                                Above, parse out the input line into well,
+                                top, curve, and z-value.
+*/      
+            if (((strcmp(lastWell, inputWell) != 0 
+	    ||  strcmp(lastCurve, inputCurve) != 0)
+	    &&  skipOne == FALSE)
+	    || moreFlag == FALSE)
+#else
+	while (ld_scan.eof == FALSE)
+	  {
+	    ld_scan_line(spfile, &ld_scan);
+	    /* check all items are there or empty line  */
+	    if (ld_scan.eof == TRUE)
+	      {
+	        moreFlag = !ld_scan.eof;
+	        *inputWell = *inputCurve = 0;
+              }
+	    else if (ld_scan.out_nitems == 0)
+	      {
+		continue;
+              }
+	    else if (ld_scan.out_nitems != ld_scan.in.num_pair OR
+		     ld_scan.out[0].parmtype != LD_STRING OR	  
+		     ld_scan.out[1].parmtype != LD_DOUBLE OR
+		     ld_scan.out[2].parmtype != LD_STRING OR
+		     ld_scan.out[3].parmtype != LD_DOUBLE)
+	      {
+		printf("Invalid line format - following line will be skipped\n ");
+		printf("%s",ld_scan.line);
+	        continue;
+              }
+	    else 
+	      {
+		moreFlag = !ld_scan.eof;
+	        inputWell = ld_scan.out[0].parmval.cval;
+	        thisDepth = (FLOAT) ld_scan.out[1].parmval.dbval;
+	        inputCurve = ts_sto_upper(ld_scan.out[2].parmval.cval);
+	        thisValue = (FLOAT) ld_scan.out[3].parmval.dbval;
+              }
+/*
+                                Above, parse out the input line into well,
+                                top, curve, and z-value.
+*/      
+            if ((strcmp(lastWell, inputWell) != 0 
+	    ||  strcmp(lastCurve, inputCurve) != 0)
+	    || moreFlag == FALSE)
+#endif
+                {
+                if (strlen(lastWell) != 0 
+		&& skipWell == FALSE
+		&& skipLog  == FALSE)
+                    {
+                    traceStruct.dinc = depthIncr;
+		    strcpy(traceStruct.depth_uom,depth_unit);
+		    status = lg_ltdm_add_trace(&traceStruct);
+		    if (status != SUCCESS)
+			{
+			printf("Failed to output trace--%s\n", 
+					mg_message(status));
+			}
+                    if (traceStruct.ptrace != (NLIST_HEADER) 0)
+                        {
+                        nl_free_nlist(traceStruct.ptrace);
+                        traceStruct.ptrace = (NLIST_HEADER) 0;
+                        }
+                    }
+/*
+                                free up the memory the nlist used.  If we have
+                                another line, we'll start up another list.
+*/
+		skipWell = FALSE;
+		skipLog  = FALSE;
+                if (moreFlag)
+                    {
+/*
+                                From here down, we are at the beginning of a
+                                new line, so initialize to begin collecting
+                                data from the file for it.
+*/
+                    strcpy(lastWell, inputWell);
+		    strcpy(lastCurve, inputCurve);
+/*
+                                Set control break value for next time.
+*/
+                    printf("Curve %s of line %s\n", lastCurve, lastWell);
+/*
+                                If the fault name is present, collect it for
+                                use when we store the horizon.
+*/
+		    tc_zeroes(&traceStruct, sizeof traceStruct);
+		    status = ld_lm2_get_uwi(project, inputWell, 
+							traceStruct.uwi);
+		    if (status != SUCCESS)
+			{
+			printf("Well %s not in database, log not loaded\n", 
+				inputWell);
+			skipWell = TRUE;
+			}
+		    else
+			{
+		        strcpy(traceStruct.trace_name, source);
+			strcat(traceStruct.trace_name, ":");
+		        strcat(traceStruct.trace_name, inputCurve);
+		        traceStruct.depth_type = DEPTH_IN_DISTANCE;
+		        strcpy(traceStruct.depth_or_time, "D");
+			V_FROMC(thisUWI, traceStruct.uwi);
+			V_FROMC(thisTrace, inputCurve);
+			V_FROMC(thisSource, source);
+			EXEC SQL OPEN LOG_CURS USING :thisUWI, 
+						     :thisSource, :thisTrace;
+			if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, 
+							"OPEN LOG_CURS");
+			thisID = 0;
+			thisVersion = 0;
+			V_CLEAR(thisService);
+			EXEC SQL FETCH LOG_CURS INTO :thisID, :thisService, 
+						     :thisVersion;
+			if (OR_STATUS < SUCCESS)
+			    {
+			    ld_show_error(OR_STATUS, "FETCH LOG_CURS");
+			    }
+			else if (OR_STATUS == SUCCESS)
+			    {
+			    if (overwrite == 0)
+				{
+				printf("Curve already exists, \
+not overwritten.\n");
+				skipLog = TRUE;
+				}
+			    else
+				{
+				V_V_TO_C(aService, thisService);
+				if (strlen(aService) == 0)
+				    {
+				    sprintf(a_trace_name, "%s;%d",
+						traceStruct.trace_name,
+						thisVersion);
+				    }
+				else
+				    {
+				    sprintf(a_trace_name, "%s.%s;%d",
+						traceStruct.trace_name,
+						aService,
+						thisVersion);
+				    }
+				status = ld_lm2_delete_trace(traceStruct.uwi,
+						a_trace_name,
+						thisID);
+				if (status != SUCCESS)
+				    {
+				    printf("Error deleting trace, %s\n",
+						mg_message(status));
+				    return FAIL;
+				    }
+				printf("Curve exists, will be overwritten.\n");
+				}
+			    }
+			EXEC SQL CLOSE LOG_CURS;
+			if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS,
+							"close LOG_curs");
+/*
+					Find out if we already have this
+					trace, if we do, decide what we are
+					going to do about it.
+*/
+			if (skipLog == FALSE)
+   			    {
+                            NDList[0] = 2;
+                            Null_List[0] = (VOIDPTR)&fxnull;
+                            DType[0] = DType[1] = FLOAT_TYPE;
+                            DSize[0] = DSize[1] = sizeof (FLOAT);
+                            VInc[0] = INCREMENT_LIST; VInc[1] = VALUE_LIST;
+		            Units[0] = Units[1] = 0;
+		            status = nl_init_nlist(&traceStruct.ptrace, 
+					   Ndim, Units,
+			                   DSize, DType, VInc, Blocksize);
+	                    status = nl_set_nlist_int(traceStruct.ptrace,
+				              NL_NLIST_DEFERRED_STATS, TRUE);
+	                    status = nl_set_nlist_info(traceStruct.ptrace,
+			                      NL_NLIST_NULL_VALUE, 
+					      NullDim, NDList, Null_List);
+	                    status = nl_set_nlist_info(traceStruct.ptrace,
+			                      NL_NLIST_DIM_NAME, Ndim, 
+					      Dim_List, (VOIDPTR *)Dim_Names);
+		            status = nl_start_table(traceStruct.ptrace, 
+							(UINT *)&tableNum);
+		            if (status != SUCCESS)
+			        {
+			        printf("Unable to start table in nlist, %s\n", 
+					mg_message(status));
+			        return FAIL;
+			        }
+		            status = nl_set_current_row(traceStruct.ptrace, 
+							0, tableNum);
+		            if (status != SUCCESS)
+		                {
+			        printf("Unable to set row in nlist, %s\n", 
+					mg_message(status));
+			        return FAIL;
+		                }
+			    depthStage = 0;
+			    }
+			}
+/*
+				Set up an Nlist to collect the data.
+*/
+		    }
+                }
+#ifdef USE_OLDPARSING
+            if (moreFlag == TRUE 
+	    && skipOne == FALSE 
+	    && skipWell == FALSE
+	    && skipLog == FALSE)
+                {
+                sscanf(inputValue, "%f", &thisValue);
+		sscanf(inputDepth, "%f", &thisDepth);
+#else
+            if (moreFlag == TRUE 
+	    && skipWell == FALSE
+	    && skipLog == FALSE)
+                {
+#endif
+		if (md_data == FALSE)
+		  {
+		    tvd = (DOUBLE) thisDepth;
+  	            status = wes_get_dir_md(traceStruct.uwi, tvd,
+					    &dx, &dy, &md);
+	            diffs = (md - tvd >= 0) ? md - tvd : tvd - md;
+		    if (diffs >= 0.0 AND diffs < 0.1)
+		      {
+			depth_equal_count++;
+			if (depth_equal_count == 100 AND
+			    depth_equal == TRUE)
+			  { /* If more than 100 md = tvd, 
+			       that means we are using tvd as md at
+			       directional survey date import.
+			       In order to speed up logs data loading,
+			       no more wes_get_dir_md calculation will
+			       be performed */
+			    md_data = TRUE;
+                          }	
+                      }
+		    else 
+                      {
+			depth_equal = FALSE;
+                      }
+		    thisDepth = (FLOAT) md;
+                  }
+		switch (depthStage)
+		    {
+		    case 0:
+			valueList[0] = (VOIDPTR) &thisDepth;
+			status = nl_set_table_info(traceStruct.ptrace,
+					tableNum, NL_TABLE_START_VALUE,
+					1, Dim_List, valueList);
+			break;
+		    case 1:
+			depthIncr = thisDepth - lastDepth;
+			valueList[0] = (VOIDPTR) &depthIncr;
+			status = nl_set_table_info(traceStruct.ptrace,
+					tableNum, NL_TABLE_INCREMENT,
+					1, Dim_List, valueList);
+			break;
+		    default:
+			if (thisDepth - lastDepth != depthIncr)
+			    {
+		            status = nl_start_table(traceStruct.ptrace, 
+							(UINT *)&tableNum);
+		            status = nl_set_current_row(traceStruct.ptrace, 
+							0, tableNum);
+			    depthStage = 0;
+			    valueList[0] = (VOIDPTR) &thisDepth;
+			    status = nl_set_table_info(traceStruct.ptrace,
+					tableNum, NL_TABLE_START_VALUE,
+					1, Dim_List, valueList);
+			    break;
+			    }
+		    }
+		lastDepth = thisDepth;
+		depthStage++;
+                valueList[0] = (VOIDPTR)&thisDepth;
+                valueList[1] = (VOIDPTR)&thisValue;
+                status = nl_add_rows(traceStruct.ptrace, 1, 2, Dim_List, 
+				     valueList);
+                if (status != SUCCESS)
+                    {
+                    printf("Unable to add to nlist, %s\n", 
+                                        mg_message(status));
+                    return FAIL;
+                    }
+/*
+                                Put this row into the nlist.
+*/
+		if (thisValue != fxnull && thisValue < traceStruct.min)
+		    {
+		    traceStruct.min = thisValue;
+		    }
+		if (thisValue != fxnull && thisValue > traceStruct.max)
+		    {
+		    traceStruct.max = thisValue;
+		    }
+		if (traceStruct.top == 0)
+		    {
+		    traceStruct.top = thisDepth;
+		    }
+		traceStruct.base = thisDepth;
+		if (thisValue != fxnull && traceStruct.top == 0)
+		    {
+		    traceStruct.non_null_top = thisDepth;
+		    }
+		if (thisValue != fxnull)
+		    {
+		    traceStruct.non_null_base = thisDepth;
+		    }
+		}
+            }
+/*****************************************************************************
+
+        C l e a n   U p   A n d   E x i t .
+
+******************************************************************************/
+        }
+    if (spfile != (FILE *)NULL) fclose(spfile);
+    return;
+    }
+
+
+
+
+
+
+
+
+
+

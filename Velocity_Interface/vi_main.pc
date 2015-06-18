@@ -1,0 +1,362 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element VI_MAIN.PC */
+/* *2    11-JUN-1991 14:37:51 JESSIE "(SPR 0) main entry for VI user interface" */
+/* *1    11-JUN-1991 14:36:56 JESSIE "VI user interface" */
+/* DEC/CMS REPLACEMENT HISTORY, Element VI_MAIN.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Exploration Systems, Inc. 1989                          */
+/*         Unpublished -- All rights reserved                                       */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY   */
+/*CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE      */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*                            Exploration Systems                                   */
+/*                            c/o Finder Graphics Systems                           */
+/*                            201 Tamal Vista Blvd.                                 */
+/*                            Corte Madera, CA  94925                               */
+/*                            (415) 927-0100                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+#include "esi_c_lib.h"
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+
+#ifndef ESI_AS_YESNO_H
+#include "esi_as_yesno.h"
+#endif
+
+#ifndef ESI_WI_H
+#include "esi_wi.h"
+#endif
+
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_WM_H
+#include "esi_wm.h"
+#endif
+
+#ifndef ESI_GKS_H
+#include "esi_gks.h"
+#endif
+
+#ifndef ESI_AS_SAVE_H
+#include "esi_as_save.h"
+#endif
+
+#ifndef ESI_CONF_WS_H
+#include "esi_conf_ws.h"
+#endif
+
+#ifndef ESI_VI_H
+#include "esi_vi.h"
+#endif
+
+#ifndef VI_MENU_RH
+#include "vi_menu.rh"
+#endif
+
+#ifndef ESI_AM_ERR_H
+#include "esi_am_err.h"
+#endif
+static CHAR VI_MENUS_FILE[] = "VI_MENU";
+
+#if USE_PROTOTYPES
+static INT vi_menu_server (INT id, INT item, VI_STRUCT *pvi);
+static INT vi_msg_cdlg_server (INT id, INT item,
+VI_STRUCT *pvi);
+static INT vi_init (VI_STRUCT *pvi);
+#else       /* no prototypes */
+static INT vi_menu_server ();
+static INT vi_msg_cdlg_server ();
+static INT vi_init ();
+
+#endif      /* of #if USE_PROTOTYPES */
+
+/* File Description ---------------------------------------------------------       */
+/*Overview:                                                                         */
+/*    Main entry to the Velocity Interpolation process                              */
+/*                                                                                  */
+/*Prototypes and one line descriptions of each function in the file.                */
+/*Public_Functions:                                                                 */
+/*    extern INT vi_main(VOIDPTR junk);                                             */
+/*                                                                                  */
+/*    publicdef INT xs_term(XS_STRUCT *pxs );                                       */
+/*                                                                                  */
+/*Private_Functions:                                                                */
+/*                                                                                  */
+/*    static INT vi_menu_server (INT id, INT item, VI_STRUCT *pvi);             */
+/*                                                                                  */
+/*-----------------------------------------------------------------------------     */
+
+/* Function Description -----------------------------------------------------       */
+/*Description:                                                                      */
+/*    Calls the system initialization routines & checks for success.                */
+/*                                                                                  */
+/*Prototype:                                                                        */
+/*    extern INT vi_main(VOIDPTR junk);                                             */
+/*                                                                                  */
+/*Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)        */
+/*    junk            -(BYTE *)                                                     */
+/*                                                                                  */
+/*Return Value/Status:                                                              */
+/*    SUCCESS - Successful completion.                                              */
+/*                                                                                  */
+/*Scope:                                                                            */
+/*    PUBLIC                                                                        */
+/*                                                                                  */
+/*Limitations/Assumptions:                                                          */
+/*                                                                                  */
+/*-----------------------------------------------------------------------------     */
+
+/* BEGIN:                                                                           */
+#if USE_PROTOTYPES
+publicdef INT vi_main (VOIDPTR junk)
+#else
+publicdef INT vi_main (junk)
+VOIDPTR junk;
+#endif
+    {
+    INT status;
+    INT tag_status;
+    VI_STRUCT *pvi;
+    
+    tag_status = am_declare ("Vel Interpolation");
+    
+    /*  Try to open the global workspace.                                           */
+    /*  If we are successful, continue.                                             */
+    /*  If not, allocate & initialize it.                                           */
+    
+    status = am_open_workspace (VI_WORKSPACE, AM_GLOBAL, (VOIDPTR *)&pvi);
+    if (status == SUCCESS)
+      {
+	/* if VI is already active front the message dialog */
+	if (tag_status == AM_ERR_DUPLICATE_TAG)
+	  {
+	  wiopcd (pvi->msg_id);
+	  return SUCCESS;
+	  }
+	else
+	  {
+	  status = vi_init (pvi);
+	  }
+      }
+    else
+      {
+      status = am_define_workspace (VI_WORKSPACE, AM_GLOBAL, sizeof(VI_STRUCT),
+                                      (VOIDPTR *)&pvi);
+      if (status == SUCCESS)
+        {
+        status = vi_init(pvi);
+        }
+      else
+        {
+        am_message (AM_STATUS,"VI WORKSPACE NOT INIT");
+        am_quit();
+        }
+
+      }
+    return SUCCESS;
+    }
+/* END:                                                                             */
+
+
+#if USE_PROTOTYPES
+static INT vi_init (VI_STRUCT *pvi)
+#else
+static INT vi_init (pvi)
+VI_STRUCT *pvi;
+#endif
+    {
+    INT status;
+    INT id;
+    ANALYST_NAME username;
+
+      qs_inq_c (QS_FINDER_ACCOUNT, username, (INT *) 0);
+      pvi->hor_tcp = (TCP) 0;
+      strcpy (pvi->vtype, "STK");
+      pvi->smu_type    = 1;
+      pvi->smu_wt      = 0;
+      pvi->num_ref     = 0;
+      pvi->sample      = 1;
+      pvi->source      = (TCP) 0;
+      pvi->hor_source  = (TCP) 0;
+      pvi->grid_source = (TCP) 0;
+      pvi->ref_time    = (TCP) 0;
+      pvi->ref_vel     = (TCP) 0;
+      pvi->residual_mode = FALSE;
+      strcpy (pvi->grid_iname, "");
+      strcpy (pvi->grid_oname, "");
+      ts_tcp_append (&pvi->grid_source, username);
+
+    /* Load Menus & main CDLG                                   */
+      status = am_define_resource (AM_MENU, VI_MENUS_FILE, VI_MENU,
+                                 vi_menu_server, &pvi->id, (VOIDPTR) pvi)
+      OR am_define_resource (AM_DIALOG, VI_MENUS_FILE, VI_MESSAGE,
+				 vi_msg_cdlg_server, &pvi->msg_id, (VOIDPTR)pvi);
+    
+    /* Set menu states. --> only enable data selection and quit   */
+    if (status == SUCCESS)
+        status = wienmni (pvi->id, VI_DATA_SELECTION,ON)
+        OR wienmni (pvi->id, VI_COMP_AVG, OFF)
+        OR wienmni (pvi->id, VI_GRID_LAND, OFF)
+        OR wienmni (pvi->id, VI_SMOOTH_VEL, OFF)
+        OR wienmni (pvi->id, VI_LINE_FROM_GRID, OFF)
+        OR wienmni (pvi->id, VI_TRANS_SURFACE, OFF)
+        OR wienmni (pvi->id, DASH_1_MENU_ITEM, ON)
+        OR wienmni (pvi->id, VI_QUIT, ON);
+    
+    /* Make the menus and msg CDLG visible.                                 */
+    if (status == SUCCESS)
+        status = wivismn (pvi->id, 1)
+	OR wiopcd (pvi->msg_id);
+    
+    return status;
+    }
+
+/* Function Description -----------------------------------------------------       */
+/*Description:                                                                      */
+/*  Receives events from the layout menu (now "Cross Section" menu) and             */
+/*  launches the appropriate process.                                               */
+/*                                                                                  */
+/*Prototype:                                                                        */
+/*    static INT xs_layout_menu_server(INT id,INT item, XS_STRUCT *pxs );       */
+/*                                                                                  */
+/*Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)        */
+/*    id              -(INT)                                                        */
+/*    item            -(INT)                                                        */
+/*    pxs             -(XS_STRUCT *)                                                */
+/*                                                                                  */
+/*Return Value/Status:                                                              */
+/*    SUCCESS - Successful completion.                                              */
+/*    FAIL    - Unsuccessful completion.                                            */
+/*                                                                                  */
+/*Scope:                                                                            */
+/*    PRIVATE to <xs_main.c>                                                        */
+/*                                                                                  */
+/*Limitations/Assumptions:                                                          */
+/*                                                                                  */
+/*-----------------------------------------------------------------------------     */
+
+/* BEGIN:                                                                           */
+#if USE_PROTOTYPES
+static INT vi_menu_server (INT id, INT item, VI_STRUCT *pvi)
+#else
+static INT vi_menu_server (id, item, pvi)
+INT id;
+INT item;
+VI_STRUCT *pvi;
+#endif
+    {
+    INT status;
+    EXEC SQL BEGIN DECLARE SECTION;
+	long proc_id;
+    EXEC SQL END DECLARE SECTION;
+    
+    switch (item)
+        {
+	case VI_DATA_SELECTION:
+		status = vi_get_ds_info(pvi);
+		if (status == SUCCESS)
+		  {
+        	  wienmni (id, VI_COMP_AVG, ON);
+         	  wienmni (id, VI_GRID_LAND, ON);
+         	  wienmni (id, VI_SMOOTH_VEL, ON);
+         	  wienmni (id, VI_LINE_FROM_GRID, ON);
+                  wienmni (id, VI_TRANS_SURFACE, ON);
+		  }
+		else
+		  {
+		  am_message (AM_STATUS, "Data Selection Fail!");
+		  }
+		break;
+	case VI_COMP_AVG:
+		status = vi_get_ca_info(pvi);
+		if (status == SUCCESS)
+		  {
+		  vi_call_batch1(pvi);
+		  strcpy (pvi->vtype, "AVG");
+		  }
+		break;
+	case VI_GRID_LAND:
+		status = vi_get_grid_info(pvi);
+		if (status == SUCCESS)
+		vi_call_batch2(pvi);
+		break;
+	case VI_SMOOTH_VEL:
+		status = vi_get_sm_info(pvi);
+		if (status == SUCCESS)
+		  vi_call_batch3(pvi);
+		break;
+	case VI_LINE_FROM_GRID:
+		status = vi_get_int_info(pvi);
+		if (status == SUCCESS)
+		  vi_call_batch4(pvi);
+		break;
+	case VI_TRANS_SURFACE:
+		status = vi_get_ts_info(pvi);
+		if (status == SUCCESS)
+		  vi_call_batch5(pvi);
+		break;
+	case VI_QUIT:
+		if (pvi->hor_tcp != (TCP) 0)
+		  ts_tcp_free(pvi->hor_tcp);
+		if (pvi->ref_time != (TCP) 0)
+		  ts_tcp_free(pvi->ref_time);
+		if (pvi->ref_vel != (TCP) 0)
+		  ts_tcp_free(pvi->ref_vel);
+		if (pvi->source != (TCP) 0)
+		  ts_tcp_free(pvi->source);
+		if (pvi->hor_source != (TCP) 0)
+		  ts_tcp_free(pvi->hor_source);
+
+		EXEC SQL SELECT USERENV('SESSIONID') INTO :proc_id FROM
+		DUAL;
+		EXEC SQL DELETE TEMP_SEISMIC_LISTS WHERE TEMP_PROCESS_ID =
+		:proc_id;
+		EXEC SQL COMMIT WORK;
+
+		am_quit();
+		break;
+        }
+    return SUCCESS;
+    }
+
+#if USE_PROTOTYPES
+static INT vi_msg_cdlg_server (INT id, INT item, VI_STRUCT *pvi)
+#else
+static INT vi_msg_cdlg_server (id, item, pvi)
+INT id;
+INT item;
+VI_STRUCT *pvi;
+#endif
+    {
+    return SUCCESS; 
+    }
+/* END:                                                                             */
+

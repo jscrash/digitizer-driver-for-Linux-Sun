@@ -1,0 +1,148 @@
+$! DEC/CMS REPLACEMENT HISTORY, Element XS_LAUNCH_PLOTS.COM
+$! *10   20-JUN-1991 10:32:17 MING "(SPR 0) new plot file managment"
+$! *9     4-DEC-1990 12:17:47 MING "(SPR -1) FIX MIGRATE BUG"
+$! *8    23-OCT-1990 10:41:14 GILLESPIE "(SPR 1000) Merge from Ernie"
+$! *7    12-OCT-1990 18:10:37 GILLESPIE "(SPR 100) Merge Ernie Deltas"
+$! *6     9-JUL-1990 09:50:59 MING "(SPR -1) produce CGM "
+$! *5     7-JUN-1990 16:43:05 MING "(SPR 0) put font logical symbol for neutral"
+$! *4     7-JUN-1990 16:36:27 MING "(SPR 0) add parameter file in CGM file"
+$! *3    22-MAY-1990 18:02:05 VINCE "(SPR 1) added mods for metafile plotting"
+$! *2     9-APR-1990 17:46:01 VINCE "(SPR 1) Enron mods for the versatec plotter"
+$! *1    19-JUN-1989 14:58:11 SYSTEM ""
+$! DEC/CMS REPLACEMENT HISTORY, Element XS_LAUNCH_PLOTS.COM
+$!* ------------------------------------------------------------     
+$!* PLOT CROSS SECTION....     
+$!* 
+$!* Julian Carlisle     May 21, 1988     
+$!*
+$!* 10/02/89 G Shannon - Modified to produce neutral file only (for BHP)      
+$!* ------------------------------------------------------------     
+$! SET VERIFY
+$	ON WARNING THEN CONTINUE
+$	ON SEVERE_ERROR THEN GOTO ANY_ERROR
+$!* Get the command line arguments
+$	ORASTRING    = "''P1'"	! ORACLE LOGIN STRING
+$	PROJECT	     = "''P2'"	! FINDER PROJECT NAME
+$	NAME         = "''P3'"	! INFO ABOUT XS NAME, PLOT FILE FORMAT,DATA FILE
+$	MAX_SIZE     = "''P4'"	! SIZE OF THE PLOT FILE FOR NEUTRAL PLOT FILE
+$	LAYOUT       = "''P5'"	! PLOT LAYOUT
+$	DRIVER_QUEUE = "''P6'"	! INFO ABOUT PLOTTER .COM SCRIPT & PLOT QUEUE
+$	MISC         = "''P7'"	! INFO ABOUT # OF COPIES & SAVING FLAG
+$	FM_INFO      = "''P8'"	! FILE MANAGMENT INFOMATION
+$
+$! SET LOGICAL FOR GKS 
+$
+$	ASSIGN ESI$ROOT:[GKS.INCLUDE]   GKSLIB
+$	ASSIGN SYS$SCRATCH:GKWISS.DAT   GKWISS
+$	ASSIGN ESI$ROOT:[BIN]GKERR.TXT  GKERR
+$	ASSIGN ESI$ROOT:[BIN]GKNAME.TXT GKNAME
+$	ASSIGN ESI$ROOT:[BIN]GKFONT.DAT GKFONT
+$
+$ CHKPARM:
+$       XS_NAME = F$ELEMENT (0,"@",NAME)
+$       PLOT_FILE_FORMAT = F$ELEMENT (1,"@",NAME)
+$       DATA_FILE = F$ELEMENT (2,"@",NAME)
+$       DRIVER = F$ELEMENT (0,"@",DRIVER_QUEUE)
+$       QUEUE  = F$ELEMENT (1,"@",DRIVER_QUEUE)
+$       COPIES = F$ELEMENT (0,"@",MISC)
+$       SAVED  = F$ELEMENT (1,"@",MISC)
+$
+$       DUMMY_FILE = F$PARSE("''DATA_FILE'",,,"DEVICE") - 
+                     + F$PARSE("''DATA_FILE'",,,"DIRECTORY") -
+                     + F$PARSE("''DATA_FILE'",,,"NAME") + ".DUMMY"
+$	IF (ORASTRING .EQS. "" ) THEN GOTO PARAM_ERROR
+$	IF (PROJECT   .EQS. "" ) THEN GOTO PARAM_ERROR
+$
+$!* To spot parm problems in the error log printout...
+$	WRITE SYS$OUTPUT "*************  Parameter Display  *************"
+$	WRITE SYS$OUTPUT "ORASTRING        = ''ORASTRING'"
+$	WRITE SYS$OUTPUT "PROJECT          = ''PROJECT'"
+$	WRITE SYS$OUTPUT "XSECT NAME       = ''XS_NAME'"
+$	WRITE SYS$OUTPUT "PLOT FILE FORMAT = ''PLOT_FILE_FORMAT'"
+$	WRITE SYS$OUTPUT "DATA FILE        = ''DATA_FILE'"
+$	WRITE SYS$OUTPUT "PLOT FILE SIZE   = ''MAX_SIZE'"
+$	WRITE SYS$OUTPUT "DRIVER           = ''DRIVER'"
+$	WRITE SYS$OUTPUT "PLOT QUEUE       = ''QUEUE'"
+$	WRITE SYS$OUTPUT "FM_INFO          = ''FM_INFO'"
+$	WRITE SYS$OUTPUT "*************  ********* *******  *************"
+$	WRITE SYS$OUTPUT " "
+$!
+$!
+$	ASSIGN/NOLOG ESI$BIN: PLOT_BIN_DIR:
+$!
+$! check if netural file used
+$   IF "''PLOT_FILE_FORMAT'" .EQS. "NPF"
+$   THEN
+$	IS_NEUTRAL = "1"    
+$   IS_XSECT   = "1"
+$	USER := 'F$EDIT(F$GETJPI("","USERNAME"),"TRIM,COMPRESS")'
+$	TOD = "''F$TIME()'"
+$	TMP_FILE = "''USER'S_XSTMP_''F$EXT(F$LEN(TOD)-2,999,TOD)'.COM"
+$   TMP_NPF_FILE = F$TRNLNM ("SYS$LOGIN")  -
+                   + F$PARSE("''DATA_FILE'",,,"NAME") + ".NPF"
+$!
+$!	Open and Write the Command file
+$!
+$	OPEN/WRITE/ERROR=OPEN_ERROR TMP 'TMP_FILE'
+$	WRITE TMP "$PLOT_MAP := $PLOT_BIN_DIR:PL_BATCH_PLOT.EXE"
+$	WRITE TMP "$PLOT_MAP ''ORASTRING' ''PROJECT' ""''LAYOUT'"" ''IS_XSECT' ""''XS_NAME'"" ''PLOT_FILE_FORMAT' ''DATA_FILE' ""''SAVED@ ''FM_INFO' """
+$       
+$
+$	WRITE TMP "''TMP_NPF_FILE'"
+$	WRITE TMP "''MAX_SIZE'  ''MAX_SIZE'"
+$	CLOSE TMP
+$	@'TMP_FILE'
+$
+$!
+$!      GET PLOT FILE NAME FROM DUMMY FILE CREATED BY IN THE PL_BATCH_PLOT.EXE
+$!
+$   OPEN/READ/ERROR=OPEN_ERROR DUMMY 'DUMMY_FILE'
+$   READ DUMMY PLOTFILE
+$   CLOSE DUMMY
+$!
+$!   COPY "''TMP_NPF_FILE'" "''PLOTFILE'"
+$!   DELETE "''TMP_NPF_FILE"
+$!
+$	PURGE/NOLOG 'TMP_FILE'
+$!
+$
+$   ELSE    ! METAFILE
+$   IS_NEUTRAL = "0"
+$   IS_XSECT   = "1"
+$	PLOT_MAP := $PLOT_BIN_DIR:PL_PLOT_META.EXE
+$	PLOT_MAP 'ORASTRING' 'PROJECT' "''LAYOUT'" 'IS_XSECT' "''XS_NAME'" -
+		 'PLOT_FILE_FORMAT' 'DATA_FILE' "''SAVED@ ''FM_INFO' "
+$
+$!
+$!      GET PLOT FILE NAME FROM DUMMY FILE CREATED BY IN THE PL_BATCH_PLOT.EXE
+$!
+$   OPEN/READ/ERROR=OPEN_ERROR DUMMY 'DUMMY_FILE'
+$   READ DUMMY PLOTFILE
+$   CLOSE DUMMY
+$   ENDIF
+$
+$   IF COPIES .EQ. 0 THEN EXIT
+$
+$   @PLOT_BIN_DIR:PF_LAUNCH_PLOTS 'COPIES' "''PLOTFILE'" "''DRIVER'" "''QUEUE'"
+$
+$   EXIT
+$!
+$!
+$! ERROR CONDITION HANDLERS
+$!
+$ OPEN_ERROR:
+$	WRITE SYS$OUTPUT "CANNOT OPEN INPUT COMMAND FILE"
+$	EXIT
+$!
+$ CLOSE_ERROR:
+$	WRITE SYS$OUTPUT "CANNOT CLOSE INPUT COMMAND FILE"
+$	EXIT
+$!
+$ PARAM_ERROR:
+$	WRITE SYS$OUTPUT "INSUFFICIANT PARAMETER LIST"
+$	EXIT
+$!
+$ ANY_ERROR:
+$	WRITE SYS$OUTPUT "UNRESOLVABLE ERROR, MUST EXIT"
+$	EXIT
+$!

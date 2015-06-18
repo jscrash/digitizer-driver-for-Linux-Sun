@@ -1,0 +1,128 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_DEL_DTYPE.PC */
+/*  3B1   3-OCT-1990 11:41:37 GILLESPIE "Change file type to stream" */
+/* *5    20-AUG-1990 18:06:29 KEE "(SPR -1) fixing compile error at sun" */
+/* *4    20-AUG-1990 17:07:45 KEE "(SPR -1) fixing compile error at sun" */
+/* *3    19-JUL-1990 10:17:53 VINCE "(SPR 5628) Make LYNX functions internally consistant" */
+/* *2    24-APR-1990 14:52:12 VINCE "(SPR 1) Initial Coding" */
+/* *1    23-APR-1990 17:08:52 VINCE "delete all Lynx entries for a given data_type." */
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_DEL_DTYPE.PC */
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_ly.h"
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_LY_ERR
+#include "esi_ly_err.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT ly_delete_data_type (CHAR *data_type);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    data_type       -(CHAR *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT ly_delete_data_type (CHAR *data_type) 
+#else
+publicdef INT ly_delete_data_type (data_type)
+CHAR *data_type;
+#endif
+    {
+    CHAR project[40];
+    INT project_len;
+    CHAR quoted_data_type[100];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[1000];
+    EXEC SQL END DECLARE SECTION;
+    
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    
+    qs_inq_c (QS_PROJECT_NAME, project, &project_len);
+    if (project_len == 0)
+        return LY_NO_CURRENT_PROJECT;
+    if (data_type[0] == NUL)
+        return LY_NO_NAME_GIVEN;
+    
+    strcpy (quoted_data_type, data_type);
+    ts_quote (quoted_data_type, '\'');
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"DELETE FROM  %s.LYNX_OBJECTS \
+        WHERE LYNX_ID IN \
+          (SELECT LYNX_ID \
+           FROM   %s.LYNX_CULTURE \
+           WHERE  DATA_TYPE = %s)"
+            , project, project, quoted_data_type);
+    EXEC SQL EXECUTE IMMEDIATE : stmt;
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"DELETE FROM  %s.LYNX_TEXT \
+        WHERE LYNX_ID IN \
+          (SELECT LYNX_ID \
+           FROM   %s.LYNX_CULTURE \
+           WHERE  DATA_TYPE = %s)"
+            , project, project, quoted_data_type);
+    EXEC SQL EXECUTE IMMEDIATE : stmt;
+    
+    stmt.len = sprintf ((char *)stmt.arr, "DELETE FROM  %s.LYNX_CULTURE \
+        WHERE DATA_TYPE = %s"
+                        , project, quoted_data_type);
+    EXEC SQL EXECUTE IMMEDIATE : stmt;
+    
+    stmt.len = sprintf ((char *)stmt.arr, "DELETE FROM  %s.LYNX_DATA_TYPES \
+        WHERE DATA_TYPE = %s"
+                        , project, quoted_data_type);
+    EXEC SQL EXECUTE IMMEDIATE : stmt;
+    
+    return SUCCESS;
+    }
+/* END:     */

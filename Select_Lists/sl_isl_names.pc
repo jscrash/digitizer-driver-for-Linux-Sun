@@ -1,0 +1,179 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SL_ISL_NAMES.PC*/
+/*  6    20-FEB-1992 16:22:41 LOEBL "(SPR 6138) Change to ZZ_ prefix for temp names."*/
+/*  5    13-FEB-1992 15:45:11 PURNA "(SPR 5101) added data type in the select phrase where clause"*/
+/* *4    25-JUL-1990 20:08:08 VINCE "(SPR 5644) Header Standardization"*/
+/* *3    28-JUN-1990 15:30:50 GILLESPIE "(SPR 1) Add more error checking to handle empty lists of lists"*/
+/* *2    13-AUG-1989 00:20:32 GILLESPIE "(SPR 5) Some minor cleanup"*/
+/* *1    19-JUN-1989 12:36:58 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element SL_ISL_NAMES.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_sl.h"
+#include "esi_oracle.h"
+
+#ifndef ESI_HO_H
+
+#include "esi_ho.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_SL_ERR_H
+
+#include "esi_sl_err.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT sl_inq_slist_names(CHAR *data_type, TCP *ptcp, INT *nitems);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    data_type       -(CHAR *)
+    ptcp            -(TCP *)
+    nitems          -(INT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+    SL_NO_SLISTS_AVAILABLE
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT sl_inq_slist_names (CHAR *data_type, TCP *ptcp, INT *nitems)
+#else
+publicdef INT sl_inq_slist_names (data_type, ptcp, nitems)
+CHAR *data_type;
+TCP *ptcp;
+INT *nitems;
+#endif
+    {
+    FILENAME select_file;
+    INT status = SUCCESS;
+    TCP file_list = (TCP)0;
+    TCP p = (TCP)0;
+    PROJECT_NAME project;
+    UINT count;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR slist_name[256];
+    VARCHAR stmt[511];
+    EXEC SQL END DECLARE SECTION;
+    
+    *ptcp = (TCP)0;
+    *nitems = 0;
+    
+    /* generate the full path to the select list file */
+    
+    sprintf ((char *)select_file, "%s_SELECTS", data_type);
+    ho_add_path ("ESI$SELECTS", select_file, sizeof(FILENAME), select_file);
+    
+    status = nl_inq_nlist_names (select_file, (UINT *)nitems, &file_list);
+    if (status != SUCCESS OR * nitems EQUALS 0)
+        {
+        return SL_NO_SLISTS_AVAILABLE;
+        }
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT NULL FROM %s.SLIST_HDR WHERE NAME = :slist_name \
+AND (EXPIRATION_DATE IS NULL OR TRUNC(EXPIRATION_DATE) >= TRUNC(SYSDATE-1))"
+            , project);
+    
+    EXEC SQL WHENEVER SQLERROR GOTO sqlerr;
+    
+    EXEC SQL PREPARE S1 FROM : stmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    
+    /* look up each entry in the external file in
+       the SLIST_HEADER table.  A temporary list
+       is one that begins with two dollar signs,
+       or whose expiration date has passed     */
+    
+    for (p = file_list, count = 0; *p IS_NOT_EQUAL_TO NULL; p++)
+        {
+        EXEC SQL WHENEVER NOT FOUND GOTO remove_entry;
+/*         EXEC ORACLE OPTION (REBIND = NO); */
+        
+        /* By convention, temporary lists built by
+           Finder begin with two dollar signs.  This
+           function is used to prepare a list of
+           select list names for viewing, and it has
+           been decided that these temporary lists
+           should not be viewed.               */
+        
+        if (**p IS_NOT_EQUAL_TO '$' AND * (*p + 1) IS_NOT_EQUAL_TO '$')
+            {
+            V_FROMC (slist_name, *p);
+            EXEC SQL OPEN C1 USING : slist_name;
+            EXEC SQL FETCH C1 INTO : slist_name;
+            /* On successful fetch, add current list name  */
+            /* to output list                  */
+            ts_tcp_append (ptcp, *p);
+            count++;
+            }
+    remove_entry:
+        /* on failure to perform lookup, do not add to */
+        /* output list                 */
+        continue;
+        }
+    EXEC SQL CLOSE C1;
+    
+    ts_tcp_free (file_list);
+    
+    if (count > 0)
+        {
+        /* sort the output list of select list names   */
+        
+        ts_tcp_sort (*ptcp);
+        *nitems = count;
+        return SUCCESS;
+        }
+    else
+        {
+        return SL_NO_SLISTS_AVAILABLE;
+        }
+sqlerr:
+    return OR_STATUS;
+    }
+/* END:     */

@@ -1,0 +1,325 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_LD_HOR_ORA.PC */
+/* *6    23-AUG-1990 15:38:54 GILLESPIE "(SPR 5872) Enhance seismic horizon access form" */
+/* *5     4-AUG-1990 13:08:08 SCD "(SPR 5747) Fix seismic surfaces form" */
+/* *4    21-MAY-1990 23:43:50 CHARLIE "(SPR 1) Change calling args for se_put" */
+/* *3    20-NOV-1989 16:04:57 GILLESPIE "(SPR 5060) CHANGE NLIST_ID,NLIST_FILE TO DIGITAL_REF,DIGITAL_REF_VOLUME" */
+/* *2     6-NOV-1989 15:09:49 GILLESPIE "(SPR 5056) Premature 'release' of horizon loader" */
+/* *1     6-NOV-1989 15:05:15 GILLESPIE "Seismic horizon editor user exit" */
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_LD_HOR_ORA.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1990                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+#include "esi_se.h"
+
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+
+#include "esi_oracle.h"
+#include "esi_mg.h"
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+/*                                                                                  */
+/*This function reads and loads a horizon into the oracle database table            */
+/*called SEIS_HOR_DATA in the current account.  Tables and sequence are preserved   */
+/*by introducing two columns, TABLE_NUM and ROW_NUM, which correspond to the        */
+/*table and row number within the table.                                            */
+/*                                                                                  */
+/*The internal data storage is comprised of three columns:                          */
+/*                                                                                  */
+/*    Column  Data Type   Data Width                                                */
+/*                                                                                  */
+/*    CDP     INTEGER     4 BYTES                                                   */
+/*    TIME    FLOAT       4 BYTES                                                   */
+/*    FLAG    INTEGER     1 BYTE                                                    */
+/*                                                                                  */
+/*The CDP must be converted to shot point prior to display.                         */
+/*                                                                                  */
+/*The table definition is:                                                          */
+/*                                                                                  */
+/*    Column  Data Type                                                             */
+/*                                                                                  */
+/*    SESSION_ID NUMBER   NOT NULL                                                  */
+/*    TABLE_NUM  NUMBER   NOT NULL                                                  */
+/*    ROW_NUM    NUMBER   NOT NULL                                                  */
+/*    SHOT       NUMBER   NOT NULL                                                  */
+/*    TIME       NUMBER   NOT NULL                                                  */
+/*    FLAG       NUMBER(3)                                                          */
+/*                                                                                  */
+
+/* seismic horizon load from nlist into oracle table                                */
+/*1) Must be logged into Oracle                                                     */
+/*2) Project must be initialized (fi_config_project called previously)              */
+/*3) Directory containing n-List files must be accessible                           */
+/*                                                                                  */
+/*The user exit to run this function takes a single argument:                       */
+/*#SEHORLD LOAD                                                                     */
+/*or                                                                                */
+/*#SEHORLD SAVE                                                                     */
+/*                                                                                  */
+/*LOAD means that the n-List should be uploaded into the Oracle table.              */
+/*SAVE means that the database table should be queried and loaded into an           */
+/*n-List.                                                                           */
+/*                                                                                  */
+
+publicdef INT sehorld (cmd, cmdlen, msg, msglen, query)
+char *cmd;
+int *cmdlen;
+char *msg;
+int *msglen;
+int *query;
+    {
+    INT status;
+    INT i;
+    INT j;
+    UINT tnum;
+    INT last_table;
+    INT last_count;
+    UINT row_offset;
+    UINT table_offset;
+    UINT total;
+    UINT ndim, cnt;
+    UINT nrows = 500;
+    UINT ntables;
+    NLIST_HEADER nlist = (NLIST_HEADER)0;
+    UINT Col_List[3];
+    INT DataType[3];
+    INT len;
+    BOOL done;
+    INT units[3];
+    size_t DataSize[3];
+    VOIDPTR Var_List[3];
+    CDP cdp[500];
+    FULL_LINE_NAME *pLine;
+    FILENAME full_filename;
+    CHAR errmsg[128];
+    CHAR command[128];
+    CHAR *p;
+    SEIS_SURFACE_HDR surface;
+    LINE_HDR *line_hdr = (LINE_HDR *)0;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR surface_code[32];
+    VARCHAR nlist_id[64];
+    VARCHAR nlist_file[84];
+    VARCHAR source[32];
+    int n;
+    int line_id;
+    int table[500];
+    int row[500];
+    double shot[500];
+    int time[500];
+    int flag[500];
+    int version;
+    int surface_type;
+    int data_type;
+    EXEC SQL END DECLARE SECTION;
+    EXEC SQL WHENEVER SQLERROR GOTO report_error;
+    
+    /*  n-List setup                                                                */
+    ndim = 3;
+    Col_List[0] = 1, DataSize[0] = sizeof(CDP), units[0] = 0, DataType[0] = INT_TYPE,
+        Var_List[0] = (VOIDPTR)cdp;
+    Col_List[1] = 2, DataSize[1] = sizeof(int), units[1] = 0, DataType[1] = INT_TYPE,
+        Var_List[1] = (VOIDPTR)time;
+    Col_List[2] = 3, DataSize[2] = sizeof(int), units[2] = 0, DataType[2] = INT_TYPE,
+        Var_List[2] = (VOIDPTR)flag;
+    
+    /*  determine if this is a LOAD operation or a                                  */
+    /*  SAVE operation                                                              */
+    
+    cmd = ts_next_word (cmd, command);
+    ts_next_word (cmd, command);
+    
+    if (ARE_DIFFERENT (command, "PURGE"))
+        {
+        /* retrieve the contents of the fields in the SEIS_SURFACE block of the     */
+        /* oracle form into local program variables    */
+        EXEC IAF GET SEIS_SURFACE.LINE_ID, SEIS_SURFACE.DIGITAL_REF,
+            SEIS_SURFACE.DIGITAL_REF_VOLUME, SEIS_SURFACE.VERSION,
+            SEIS_SURFACE.SURFACE_CODE, SEIS_SURFACE.SURFACE_TYPE,
+            SEIS_SURFACE.DATA_TYPE, SEIS_SURFACE.SOURCE
+            INTO : line_id,  : nlist_id, : nlist_file,  : version,  : surface_code,
+            : surface_type, : data_type, : source;
+        
+        tc_zeroes ((VOIDPTR)&surface, sizeof surface);
+        pLine = &surface.line;
+        pLine->id = line_id;
+        
+        /* Look up the line name and survey for this line_id                        */
+        status = se_retrieve_header (pLine, &line_hdr);
+        if (status IS_NOT_EQUAL_TO SUCCESS)
+            {
+            goto report_error;
+            }
+        V_FROMV (surface.name, surface_code);
+        V_SETZERO (nlist_file);
+        V_SETZERO (nlist_id);
+        V_FROMV (surface.source, source);
+        surface.line = *pLine = line_hdr->line;
+        surface.data_class = (SEIS_SURFACE_DATA_CLASS)surface_type;
+        surface.data_type = (SEIS_SURFACE_DATA_TYPE)data_type;
+        surface.attribute = SE_AT_NM;
+        
+        if ((status = se_bld_nlist_ids (pLine, (VOIDPTR)&surface, SEIS_SURFACE_DATA,
+                                        (CHAR *)nlist_id.arr, (CHAR *)nlist_file.arr,
+                                        full_filename))IS_NOT_EQUAL_TO SUCCESS)
+            {
+            goto report_error;
+            }
+        }
+    if (ARE_SAME (command, "SAVE"))
+        {
+        EXEC SQL DECLARE CONTENTS CURSOR FOR SELECT TABLE_NUM, SHOT, TIME,
+ FLAG FROM SEIS_HOR_DATA WHERE SESSION_ID = USERENV('SESSIONID')
+ ORDER BY TABLE_NUM, ROW_NUM;
+        EXEC SQL OPEN CONTENTS;
+        
+        status = se_init_hor_nlist (&nlist);
+        n = 0;
+        last_table = -999;
+        done = FALSE;
+        last_count = 0;
+        while (NOT done)
+            {
+            EXEC SQL FETCH CONTENTS INTO : table,  : shot,  : time,  : flag;
+            n = OR_ROWCOUNT - last_count;
+            last_count = OR_ROWCOUNT;
+            done = OR_STATUS EQUALS OR_EOF;
+            
+            for (i = 0, cnt = 0, Var_List[0] = (VOIDPTR)cdp, Var_List[1] = (VOIDPTR)time,
+                 Var_List[2] = (VOIDPTR)flag; i < n; i++, cnt++)
+                {
+                status = se_cdp_from_sp (pLine, shot[i], &cdp[i]);
+                if (table[i]IS_NOT_EQUAL_TO last_table)
+                    {
+                    if (i IS_NOT_EQUAL_TO 0)
+                        {
+                        status = nl_add_rows_convert (nlist, cnt, ndim, Col_List,
+                                                      Var_List, units, DataSize,
+                                                      DataType);
+                        Var_List[0] = (VOIDPTR)(cdp + cnt);
+                        Var_List[1] = (VOIDPTR)(time + cnt);
+                        Var_List[2] = (VOIDPTR)(flag + cnt);
+                        
+                        cnt = 0;
+                        }
+                    status = nl_start_table (nlist, &tnum);
+                    last_table = table[i];
+                    }
+                }
+            status = nl_add_rows_convert (nlist, cnt, ndim, Col_List, Var_List, units,
+                                          DataSize, DataType);
+            }
+        status = se_put (nlist, surface.name, surface.data_class, surface.data_type, pLine, NULL, 
+                         surface.attribute, SE_FINDER, 0);
+        
+        if (status IS_NOT_EQUAL_TO SUCCESS)
+            {
+            nl_free_nlist (nlist);
+            goto report_error;
+            }
+        }
+    if (ARE_SAME (command, "DELETE"))
+        {
+        status = nl_delete_nlist (full_filename, (CHAR *)nlist_id.arr);
+        return IAPSUCC;
+        }
+    /* Clean up any existing seismic horizon that may exist under the current session id.   */
+    /* Note that there is no way to guarantee that dangling rows from an older session be deleted   */
+    
+    EXEC SQL DELETE FROM SEIS_HOR_DATA WHERE SESSION_ID = USERENV('SESSIONID');
+    
+    if (ARE_SAME (command, "LOAD"))
+        {
+        if ((status = nl_read_nlist (&nlist, full_filename,
+                                     (CHAR *)nlist_id.arr))IS_NOT_EQUAL_TO SUCCESS)
+            {
+            goto report_error;
+            }
+        nl_inq_nlist_int (nlist, NL_NLIST_NTABLES, (INT *)&ntables);
+        
+        /* loop through each table                                                  */
+        for (tnum = 0; tnum < ntables; tnum++)
+            {
+            table_offset = tnum + 1;
+            /* set the current row to the first row in this table                   */
+            nl_set_current_row (nlist, 1, table_offset);
+            
+            /* Place the table number into the insert array                         */
+            for (j = 0; j < nrows; j++)
+                {
+                table[j] = table_offset;
+                }
+            status = nl_inq_table_int (nlist, table_offset, NL_TABLE_NROWS,
+                                       (INT *)&total);
+            
+            for (i = 0; i < total; i += nrows)
+                {
+                /* Now process nrows rows at a time.  The n-List fetches the rows as arrays, */
+                /* and Oracle inserts them as arrays ...                            */
+                /* NOTE: The n-List system informs you of the number of rows        */
+                /* actually moved in the n parameter.                               */
+                /* This is exactly what we need to pass to oracle...                */
+                
+                row_offset = i + 1;
+                nl_set_current_row (nlist, row_offset, table_offset);
+                
+                status = nl_get_rows_convert (nlist, nrows, ndim, Col_List, Var_List,
+                                              units, DataSize, DataType, (UINT *)&n);
+                
+                for (j = 0; j < n; j++)
+                    {
+                    /* set the row number of the next nrows rows                    */
+                    row[j] = j + row_offset;
+                    /* temporary convert cdp to sp                                  */
+                    status = se_sp_from_cdp (pLine, cdp[j], &(shot[j]));
+                    if (status IS_NOT_EQUAL_TO SUCCESS)
+                        {
+                        shot[j] = -1.0;
+                        }
+                    }
+                EXEC SQL FOR :n INSERT INTO SEIS_HOR_DATA
+ (SESSION_ID, TABLE_NUM, ROW_NUM, SHOT, TIME, FLAG) VALUES
+ (USERENV('SESSIONID'),:table, :row, :shot, :time, :flag);
+                }
+            }
+        }
+    nl_free_nlist (nlist);
+    
+    EXEC SQL COMMIT WORK;
+    return IAPSUCC;
+    
+report_error:
+    status = (status >= 0) ? OR_STATUS : status;
+    EXEC SQL ROLLBACK WORK;
+    strcpy (errmsg, mg_message (status));
+    len = strlen (errmsg);
+    sqliem (errmsg, &len);
+    return IAPFAIL;
+    
+    }

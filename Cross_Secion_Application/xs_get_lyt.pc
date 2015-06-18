@@ -1,0 +1,309 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element XS_GET_LYT.PC*/
+/* *5    27-MAR-1991 13:29:44 KEE "(SPR -1) Cross Section bug fixing and enhancement for Canadian Hunter"*/
+/* *4    17-AUG-1990 22:39:55 VINCE "(SPR 5644) Code Cleanup"*/
+/* *3    18-SEP-1989 12:45:10 PURNA "Gulf mods under SPR 100"*/
+/* *2     3-AUG-1989 18:17:09 VINCE "(SPR -1) made binary layout processing conditional on NOT SUN4"*/
+/* *1    19-JUN-1989 12:42:35 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element XS_GET_LYT.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#ifndef ESI_GL_DEFS_H
+
+#include "esi_gl_defs.h"
+
+#endif
+
+#ifndef ESI_QS__H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_TC_H
+
+#include "esi_tc.h"
+
+#endif
+
+#ifndef ESI_MD_DEFS_H
+
+#include "esi_md_defs.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_XS_DEFS_H
+
+#include "esi_xs_defs.h"
+
+#endif
+BYTE *md_parse_ovrly ();
+XS_STRUCT *xsz_load_bin_lyt ();
+
+/* Function Description -----------------------------------------------------
+Description:
+    To retrieve a layout information structure from an oracle databse
+    and make it to be parser language structure.
+    To get a layout from the <PROJECT>.CROSS_SECTION_LAYOUTS, according 
+    to the specified name of layout.
+
+Prototype:
+    publicdef INT xs_get_layout(XS_STRUCT *pxs, CHAR layout_name[], CHAR project[], 
+        CHAR analyst_name[]);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) pxs             -(XS_STRUCT *) The pointer to the cross section structure.
+    (I) layout_name     -(CHAR *) The specified layout name.
+    (I) project         -(CHAR *) The specified project name.
+    (I) analyst_name    -(CHAR *) The analyst name (now SOURCE column in table.)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    XS_NO_LAYOUTS
+    XS_LAYOUT_NOT_FOUND
+    SQL ERROR CODE
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT xs_get_layout (XS_STRUCT *pxs, CHAR layout_name[], CHAR project[],
+                             CHAR analyst_name[])
+#else
+publicdef INT xs_get_layout (pxs, layout_name, project, analyst_name)
+XS_STRUCT *pxs;
+CHAR layout_name[];
+CHAR project[];
+CHAR analyst_name[];
+#endif
+    {
+    INT status = SUCCESS;           /*   result status.        */
+    INT found = FALSE, i;
+    INT first = TRUE, not_binary = TRUE;
+    CHAR current_project_name[STMAX];
+    CHAR *bigStr;
+    CHAR *c_parms;
+    CHAR *c_verb;
+    CHAR text[STMAX];
+    FILENAME filename;
+    MD_VERB_STRUCT *verbPtr;
+    XS_STRUCT *bin_pxs;
+    BOOL differ_projects;
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR select[1024];
+    char *layoutName;
+    char *analyst;
+    VARCHAR verb[128];
+    VARCHAR key_params[4000];
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ************************************************************************* */
+    /* get the layout name */
+    layoutName = layout_name;
+    analyst = analyst_name;
+    qs_inq_c (QS_PROJECT_NAME, current_project_name, &i);
+    differ_projects = (strcmp (current_project_name, project) != 0) ? TRUE : FALSE;
+    strcpy (current_project_name, project);
+    
+    
+    /* ************************************************************************* */
+    /* try to retrieve the binary layout first. */
+    EXEC SQL WHENEVER SQLERROR GOTO errrpt;
+    EXEC SQL WHENEVER SQLWARNING GOTO erwarn;
+
+#ifndef sun
+    EXEC SQL WHENEVER NOT FOUND GOTO ernobin;
+    
+    select.len = sprintf ((char *)select.arr, 
+"SELECT  KEY_PARM \
+                   FROM %s.CROSS_SECTION_LAYOUTS WHERE \
+        LAYOUT_NAME = :layoutName AND SOURCE = :analyst \
+        AND VERB = 'BINARY LAYOUT FILENAME'"
+            , current_project_name);
+    
+    EXEC SQL PREPARE S_BIN FROM : select;
+    EXEC SQL DECLARE C_BIN CURSOR FOR S_BIN;
+    
+    EXEC SQL OPEN C_BIN USING : layoutName,  : analyst;
+    EXEC SQL FETCH C_BIN INTO : key_params;
+    V_FROMV (filename, key_params);
+    EXEC SQL CLOSE C_BIN;
+    
+    if (!differ_projects)
+        {
+        bin_pxs = xsz_load_bin_lyt (filename);
+        
+        /* To set the values from the binary layout.      */
+        if (bin_pxs IS_NOT_EQUAL_TO (XS_STRUCT *)NULL)
+            {
+	    pxs->xs_suppress_vbar = bin_pxs->xs_suppress_vbar;
+	    pxs->track_width_scale_units = bin_pxs->track_width_scale_units;
+	    pxs->depth_interval_scale_units = bin_pxs->depth_interval_scale_units;
+            pxs->plo = bin_pxs->plo;
+            pxs->drawing.top_table = bin_pxs->drawing.top_table;
+            pxs->xs_type = bin_pxs->xs_type;
+            pxs->xs_spacing = bin_pxs->xs_spacing;
+            pxs->xs_scale = bin_pxs->xs_scale;
+            pxs->xs_scale_type = bin_pxs->xs_scale_type;
+            strcpy (pxs->xs_datum_select, bin_pxs->xs_datum_select);
+            strcpy (pxs->xs_scale_str, bin_pxs->xs_scale_str);
+            pxs->depth_scale = bin_pxs->depth_scale;
+            pxs->depth_scale_user_units = bin_pxs->depth_scale_user_units;
+            pxs->depth_display_as = bin_pxs->depth_display_as;
+            strcpy (pxs->depth_scale_str, bin_pxs->depth_scale_str);
+            strcpy (pxs->depth_scale_map_units, bin_pxs->depth_scale_map_units);
+            
+            /* free the binary layout. */
+            tc_free (bin_pxs);
+            found = TRUE;
+            not_binary = FALSE;
+            goto errnfd;
+            }
+        else
+            {
+            select.len = sprintf ((char *)select.arr, 
+"DELETE FROM %s.CROSS_SECTION_LAYOUTS\
+        WHERE SOURCE = '%s' AND LAYOUT_NAME = '%s' AND \
+        VERB ='BINARY LAYOUT FILENAME'"
+                    , project, analyst_name, layout_name);
+            
+            EXEC SQL PREPARE S_FILE FROM : select;
+            EXEC SQL EXECUTE S_FILE;
+            EXEC SQL COMMIT WORK;
+            
+            ho_delete_file (filename, &status);
+            }
+        }
+#endif
+ernobin:
+    select.len = sprintf ((char *)select.arr, 
+"SELECT  VERB, KEY_PARM \
+                   FROM %s.CROSS_SECTION_LAYOUTS \
+                   WHERE LAYOUT_NAME = :layoutName AND SOURCE = :analyst\
+           AND VERB != 'BINARY LAYOUT FILENAME'"
+            , current_project_name);
+    
+    EXEC SQL PREPARE S1 FROM : select;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    
+    EXEC SQL WHENEVER NOT FOUND GOTO errnfd;
+    EXEC SQL OPEN C1 USING : layoutName,  : analyst;
+    
+    /* main engine to get the whole
+                       layout string */
+    for (i = 0; ; i++)
+        {
+        V_CLEAR (key_params);
+        EXEC SQL FETCH C1 INTO : verb,  : key_params;
+        
+        found = TRUE;               /* at lease there is a row found.  */
+        
+        c_parms = (CHAR *)tc_zalloc (key_params.len + 2);
+        c_verb = (CHAR *)tc_zalloc (verb.len + 2);
+        V_FROMV (c_parms, key_params);
+        V_FROMV (c_verb, verb);
+        bigStr = (CHAR *)tc_zalloc (key_params.len + verb.len + 10);
+        sprintf (bigStr, "%s, %s", c_verb, c_parms);
+        /* pass the returned char. string to */
+        /* MD module to parse the syntax and */
+        /* to retrieve the value from tables.*/
+        
+        verbPtr = (MD_VERB_STRUCT *)md_parse_ovrly (bigStr, &status);
+        if (status)
+            return status;
+        status = xsz_vld_ovrly (verbPtr);
+        if (status)
+            return status;
+        status = xsz_fill_data (c_verb, verbPtr, pxs, first);
+        first = FALSE;
+        if (status < 0)
+            {
+            EXEC SQL CLOSE C1;
+            return status;
+            }
+        tc_free (bigStr);
+        tc_free (c_parms);
+        tc_free (c_verb);
+        md_free_structs (verbPtr);
+        }
+errrpt:
+    status = sqlca.sqlcode;
+    EXEC SQL CLOSE C1;
+    return status;
+    
+erwarn:
+    status = sqlca.sqlcode;
+    EXEC SQL CLOSE C1;
+    return status;
+    
+errnfd:
+    if (found)
+        {
+        strcpy (pxs->layout_name, layout_name);
+        status = xsz_depth_scale_calc (pxs);
+        if (status < SUCCESS)
+            {
+            status = xs_depth_scale_cdlg_init (pxs);
+            }
+        if (pxs->xs_spacing != XS_CONSTANT_SPACED)
+            {
+            status = xsz_horiz_scale_calc (pxs);
+            if (status < SUCCESS)
+                {
+                status = xs_horizontal_cdlg_init (pxs);
+                }
+            }
+        status = SUCCESS;
+        }
+    else
+        status = XS_LAYOUT_NOT_FOUND;
+    
+    if (not_binary AND (status EQUALS SUCCESS))
+        {
+        EXEC SQL CLOSE C1;
+
+#ifndef sun
+        /* write out the binary layout right away*/
+        if (!differ_projects)
+            xsz_dump_to_uniq_file (pxs, layout_name, analyst_name);
+#endif
+        }
+    return status;
+    }
+/* END:     */

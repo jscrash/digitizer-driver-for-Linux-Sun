@@ -1,0 +1,530 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_SET_PRIV.PC*/
+/* *6    14-AUG-1990 13:09:39 VINCE "(SPR 5644) Header Standardization"*/
+/* *5    30-MAR-1990 09:48:00 GILLESPIE "(SPR 1) Use Version 6 USER_CATALOG instead of version 5 TAB"*/
+/* *4    26-FEB-1990 18:57:22 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+/* *3    24-OCT-1989 14:07:31 PURNA "(SPR 0) sl_free_tcp to ts_tcp_free"*/
+/* *2    12-AUG-1989 17:29:17 GILLESPIE "(SPR 5) Add REFERENCES support for Oracle V6"*/
+/* *1    19-JUN-1989 12:30:21 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_SET_PRIV.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_db.h"
+
+#ifndef ESI_NL_H
+
+#include "esi_c_lib.h"
+
+#endif
+
+#ifndef ESI_AM_H
+
+#include "esi_am.h"
+
+#endif
+
+#ifndef ESI_NL_H
+
+#include "esi_nl.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_SL_H
+
+#include "esi_sl.h"
+
+#endif
+
+#ifndef ESI_TC_H
+
+#include "esi_tc.h"
+
+#endif
+
+#ifndef ESI_WI_H
+
+#include "esi_wi.h"
+
+#endif
+
+#ifndef ESI_MG_H
+
+#include "esi_mg.h"
+
+#endif
+
+#include "esi_db_msg.h"
+#include "db_set_priv.rh"
+static char CDLG_FILE[] = 
+    {
+    "DB_SET_PRIV"
+    };
+
+
+
+struct priv_struct
+    {
+    NLIST_HEADER tables;
+    NLIST_HEADER analysts;
+    BOOL select;
+    BOOL update;
+    BOOL insert;
+    BOOL delete;
+    BOOL references;
+    DB_ACCOUNT_STRUCT *db_account;
+    };
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+/* File Description ---------------------------------------------------------
+Overview:
+    These functions set account priveleges.
+    
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT dba_grant_privileges(DB_ACCOUNT_STRUCT *db_account);
+    
+Private_Functions:
+    static INT db_set_privileges(INT id, struct priv_struct *p,  CHAR *verb);
+    
+    static INT db_set_priv_cdlg_srvr(INT id, INT item, struct priv_struct *p);
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+    See above.
+    
+Prototype:
+    static INT db_set_privileges(INT id, struct priv_struct *p,  CHAR *verb);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) id          -(INT) Account id.
+    (I) p           -(struct priv_struct *) Privilege structure.
+    (I) verb        -(CHAR *) Account verb (grant/revoke).
+    
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PRIVATE to <dba_grant_privileges>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT db_set_privileges (INT id, struct priv_struct *p, CHAR *verb) 
+#else
+static INT db_set_privileges (id, p, verb)
+INT id;
+struct priv_struct *p;
+CHAR *verb;
+#endif
+    {
+    INT i, j;
+    INT nitems;
+    INT status;
+    UINT npoints;
+    UINT ntables;
+    UINT nanalysts;
+    INT *analyst_indexes;
+    INT *table_indexes;
+    CHAR *ps;
+    BOOL first = TRUE;
+    INT ndim;
+    UINT Dim_List[1];
+    VOIDPTR Table_List[1];
+    TABLE_NAME table;
+    VOIDPTR Analyst_List[1];
+    ANALYST_NAME analyst;
+    CHAR stmtfmt[255];
+    CHAR prompt_string[71];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[255];
+    EXEC SQL END DECLARE SECTION;
+    
+    /* build up list of privileges */
+    ps = stmtfmt;
+    ps += sprintf (ps, "%s ", verb);
+    
+    if (p->select EQUALS ON)
+        {
+        ps += sprintf (ps, "SELECT");
+        first = FALSE;
+        }
+    if (p->insert EQUALS ON)
+        {
+        ps += sprintf (ps, "%s%s", first ? "" : ",", "INSERT");
+        first = FALSE;
+        }
+    if (p->update EQUALS ON)
+        {
+        ps += sprintf (ps, "%s%s", first ? "" : ",", "UPDATE");
+        first = FALSE;
+        }
+    if (p->delete EQUALS ON)
+        {
+        ps += sprintf (ps, "%s%s", first ? "" : ",", "DELETE");
+        first = FALSE;
+        }
+    if (p->references EQUALS ON)
+        {
+        ps += sprintf (ps, "%s%s", first ? "" : ",", "REFERENCES");
+        first = FALSE;
+        }
+    if (first EQUALS TRUE)
+        {
+        status = DB_NO_PRIVILEGE_SELECTED;
+        wiscdt (id, PROMPT3, mg_message (DB_NO_PRIVILEGE_SELECTED));
+        return status;
+        }
+    ps += sprintf (ps, " ON %%s %s %%s", strcmp (verb, "GRANT") ? "FROM" : "TO");
+    
+    ndim = 1;
+    Dim_List[0] = 1;
+    Analyst_List[0] = (VOIDPTR)analyst;
+    Table_List[0] = (VOIDPTR)table;
+    
+    /* get list of analysts */
+    status = nl_inq_nlist_int (p->analysts, NL_NLIST_NPOINTS, &nitems);
+    analyst_indexes = (INT *)tc_alloc (nitems * sizeof(INT));
+    status = wiqsel (id, ANALYST_SELECTOR, (INT *) & nanalysts, analyst_indexes);
+    if (nanalysts EQUALS 0)
+        {
+        status = wiscdt (id, PROMPT3, mg_message (DB_NO_ANALYST_SELECTED));
+        status = DB_NO_ANALYST_SELECTED;
+        }
+    else
+        {
+        /* get list of tables */
+        status = nl_inq_nlist_int (p->tables, NL_NLIST_NPOINTS, &nitems);
+        table_indexes = (INT *)tc_alloc (nitems * sizeof(INT));
+        status = wiqsel (id, TABLES_SELECTOR, (INT *) & ntables, table_indexes);
+        if (ntables EQUALS 0)
+            {
+            status = DB_NO_TABLES_SELECTED;
+            wiscdt (id, PROMPT3, mg_message (DB_NO_TABLES_SELECTED));
+            }
+        else
+            {
+            /* check for ALL TABLES (1st entry) */
+            for (j = 0; j < ntables; j++)
+                {
+                /* if it is, create an array of indexes from
+                                   2 to n, where n is the number of tables
+                                   in the n-List.  This excludes the first
+                                   dummy entry, and over-rides any selections
+                                   manually entered */
+                if (table_indexes[j] EQUALS 1)
+                    {
+                    ntables = nitems - 1;
+                    for (i = 0; i < ntables; i++)
+                        {
+                        table_indexes[i] = i + 2;
+                        }
+                    }
+                }
+            for (i = 0; (i < nanalysts) AND (OR_STATUS IS_NOT_EQUAL_TO OR_ABORT); i++)
+                {
+                status = nl_set_current_point (p->analysts, analyst_indexes[i], 1);
+                status = nl_get_points (p->analysts, 1, ndim, Dim_List, Analyst_List,
+                                        &npoints);
+                
+                /* fetch each table listed in the table
+                    selector.  Construct the grant/revoke
+                    SQL statement and execute it */
+                for (j = 0; j < ntables; j++)
+                    {
+                    status = nl_set_current_point (p->tables, table_indexes[j], 1);
+                    status = nl_get_points (p->tables, 1, ndim, Dim_List, Table_List,
+                                            &npoints);
+                    
+                    /* construct the SQL statement */
+                    stmt.len = sprintf ((char *)stmt.arr, stmtfmt, table, analyst);
+                    
+                    /* show users what's happening */
+                    /* print out 1st 70 characters */
+                    strncpy (prompt_string, (char *)stmt.arr, 70);
+                    prompt_string[70] = 0;
+                    wiscdt (id, PROMPT3, prompt_string);
+                    
+                    /* execute the grant/revoke request */
+                    EXEC SQL EXECUTE IMMEDIATE : stmt;
+                    if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+                        {
+                        if (OR_STATUS EQUALS OR_ABORT)
+                            {
+                            break;
+                            }
+                        strncpy (prompt_string, OR_MESSAGE, 70);
+                        prompt_string[70] = 0;
+                        wiscdt (id, PROMPT3, prompt_string);
+                        }
+                    }
+                }
+            }
+        }
+    tc_free ((VOIDPTR)analyst_indexes);
+    tc_free ((VOIDPTR)table_indexes);
+    
+    return OR_STATUS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    See above.
+    
+Prototype:
+    static INT db_set_priv_cdlg_srvr(INT id, INT item, struct priv_struct *p);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) id          -(INT) Account id.
+    (I) item        -(INT) Item number.
+    (I) p           -(struct priv_struct *) Privilege structure.
+    
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PRIVATE to <dba_grant_privileges>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT db_set_priv_cdlg_srvr (INT id, INT item, struct priv_struct *p) 
+#else
+static INT db_set_priv_cdlg_srvr (id, item, p)
+INT id;
+INT item;
+struct priv_struct *p;
+#endif
+    {
+    INT status = SUCCESS;
+    
+    switch (item)
+        {
+    case SELECT_BOX:
+        p->select = NOT p->select;
+        break;
+    case INSERT_BOX:
+        p->insert = NOT p->insert;
+        break;
+    case DELETE_BOX:
+        p->delete = NOT p->delete;
+        break;
+    case UPDATE_BOX:
+        p->update = NOT p->update;
+        break;
+    case REFERENCES_BOX:
+        p->references = NOT p->references;
+        break;
+    case GRANT_BUTTON:
+        status = db_set_privileges (id, p, "GRANT");
+        break;
+    case REVOKE_BUTTON:
+        status = db_set_privileges (id, p, "REVOKE");
+        break;
+    case DONE_BUTTON:
+        nl_free_nlist (p->tables);
+        nl_free_nlist (p->analysts);
+        tc_free ((VOIDPTR)p);
+        am_release_resource (id);
+        id = 0;
+        break;
+    default:
+        break;
+        }
+    if (status EQUALS SUCCESS AND id > 0)
+        {
+        wiscdt (id, PROMPT3, mg_message (DB_SET_PRIV_DEFAULT_MESSAGE));
+        }
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Allows user to grant or revoke SQL privileges on all tables in the
+    current account.
+
+Prototype:
+    publicdef INT dba_grant_privileges(DB_ACCOUNT_STRUCT *db_account);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) db_account  -(DB_ACCOUNT_STRUCT *) Account structure.
+    
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT dba_grant_privileges (DB_ACCOUNT_STRUCT *db_account) 
+#else
+publicdef INT dba_grant_privileges (db_account)
+DB_ACCOUNT_STRUCT *db_account;
+#endif
+    {
+    struct priv_struct *p;
+    INT status;
+    INT id;
+    CHAR **list;
+    INT nrows;
+    NLIST_HEADER nlist;
+    CHAR cdlg_title[84];
+    UINT Dim_List[1];
+    VOIDPTR Value_List[1];
+    INT Data_Types[1];
+    size_t Data_Widths[1];
+    INT Value_Inc[1];
+    INT Units[1];
+    UINT stroke_id;
+    UINT ndim;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR object[32];
+    VARCHAR account[32];
+    EXEC SQL END DECLARE SECTION;
+    
+    p = ALLOCATE (struct priv_struct);
+    
+    status = am_define_resource (AM_DIALOG, CDLG_FILE, DB_SET_PRIV_CDLG,
+                                 db_set_priv_cdlg_srvr, &id, (VOIDPTR)p);
+    
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+        return status;
+        }
+    sprintf (cdlg_title, mg_message (DB_DISP_INFO), db_account->name);
+    wiscdttl (id, cdlg_title);
+    p->db_account = db_account;
+    
+    /* initialize the n-Lists */
+    ndim = 1;
+    Dim_List[0] = 1;
+    Value_List[0] = (VOIDPTR)object.arr;
+    Units[0] = 0;
+    Data_Types[0] = CHAR_TYPE;
+    Data_Widths[0] = (INT)sizeof object.arr;
+    Value_Inc[0] = VALUE_LIST;
+    
+    status = nl_init_nlist (&p->tables, ndim, Units, Data_Widths, Data_Types,
+                            Value_Inc, 0);
+    status = nl_init_nlist (&p->analysts, ndim, Units, Data_Widths, Data_Types,
+                            Value_Inc, 0);
+    
+    status = nl_start_stroke (p->tables, &stroke_id);
+    status = nl_start_stroke (p->analysts, &stroke_id);
+    
+    /* Load All Tables as special case */
+    V_FROMC (object, "-- ALL TABLES --");
+    status = nl_add_points (p->tables, 1, ndim, Dim_List, Value_List);
+    
+    V_FROMC (account, db_account->name);
+    
+    EXEC SQL DECLARE TABLE_CURS CURSOR FOR SELECT TABLE_NAME FROM USER_CATALOG ORDER BY 
+        TABLE_NAME;
+    
+    EXEC SQL OPEN TABLE_CURS;
+    
+    EXEC SQL FETCH TABLE_CURS INTO : object;
+    while (OR_STATUS EQUALS SUCCESS)
+        {
+        V_SETZERO (object);
+        status = nl_add_points (p->tables, 1, ndim, Dim_List, Value_List);
+        EXEC SQL FETCH TABLE_CURS INTO : object;
+        }
+    EXEC SQL CLOSE TABLE_CURS;
+    
+    /* retrieve list of analysts */
+    
+    V_FROMC (object, "PUBLIC");     /* make PUBLIC a special case */
+    status = nl_add_points (p->analysts, 1, ndim, Dim_List, Value_List);
+    
+    EXEC SQL DECLARE ANALYST_CURS CURSOR FOR SELECT ACCOUNT_NAME FROM ESI.
+        ANALYST_CONFIGURATION ORDER BY ACCOUNT_NAME;
+    
+    EXEC SQL OPEN ANALYST_CURS;
+    EXEC SQL FETCH ANALYST_CURS INTO : object;
+    
+    while (OR_STATUS EQUALS SUCCESS)
+        {
+        V_SETZERO (object);
+        status = nl_add_points (p->analysts, 1, ndim, Dim_List, Value_List);
+        EXEC SQL FETCH ANALYST_CURS INTO : object;
+        }
+    EXEC SQL CLOSE ANALYST_CURS;
+    /* Load Table List Selector
+       Allow up to nrows selected at once
+     */
+    if (sl_make_tcp (&list, p->tables, 1) OR nl_inq_nlist_int (p->tables,
+                                                              NL_NLIST_NPOINTS,
+                                                              &nrows) OR 
+        wisselt (id, TABLES_SELECTOR, TABLES_VSCROLL, nrows, nrows,
+                 list) OR ts_tcp_free (list))
+        {
+        wiscdt (id, PROMPT3, mg_message (DB_EMPTY_ACCOUNT));
+        }
+    /* Load Analyst List Selector
+       Allow up to nrows selected at once
+     */
+    if (sl_make_tcp (&list, p->analysts, 1) OR nl_inq_nlist_int (p->analysts,
+                                                                NL_NLIST_NPOINTS,
+                                                                &nrows) OR 
+        wisselt (id, ANALYST_SELECTOR, ANALYST_VSCROLL, nrows, nrows,
+                 list) OR ts_tcp_free (list))
+        {
+        wiscdt (id, PROMPT3, mg_message (DB_EMPTY_ACCOUNT));
+        }
+    /* Set checkboxes to initial state */
+    
+    status = wiscdv (id, SELECT_BOX, (INT)(p->select = (BOOL)ON));
+    status = wiscdv (id, UPDATE_BOX, (INT)(p->update = (BOOL)OFF));
+    status = wiscdv (id, INSERT_BOX, (INT)(p->insert = (BOOL)OFF));
+    status = wiscdv (id, DELETE_BOX, (INT)(p->delete = (BOOL)OFF));
+    status = wiscdv (id, REFERENCES_BOX, (INT)(p->references = (BOOL)OFF));
+    
+    status = wiopcd (id);
+    wi_set_default_sel (id, ANALYST_SELECTOR, 1);   /* default to PUBLIC */
+    wi_set_default_sel (id, TABLES_SELECTOR, 1);    /* default to ALL TABLES */
+    
+    return status;
+    }
+/* END:     */

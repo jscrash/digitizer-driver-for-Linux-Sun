@@ -1,0 +1,368 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_WELL_HDR_DATES.PC */
+/* *3    20-SEP-1991 11:24:04 LOEBL "(SPR 0) Fix compiler warning" */
+/* *2    13-MAY-1991 11:51:18 LOEBL "(SPR 0) Initial version of program" */
+/* *1    13-MAY-1991 11:49:45 LOEBL "PC program to verify dates in LOADER_WELL_HDR" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_WELL_HDR_DATES.PC */
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_OR_H
+#include "esi_or.h"
+#endif
+
+#ifndef ESI_GL_VCHAR_H
+#include "esi_gl_vchar.h"
+#endif
+
+#ifndef ESI_GL_TOP_H
+#include "esi_gl_top.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#define VERSION "Version 1.1"
+#define FETCHCOUNT 100
+EXEC SQL BEGIN DECLARE SECTION;
+
+    VARCHAR uwi             [100][21];
+    VARCHAR spud_date_desc  [100][13];
+    VARCHAR comp_date_desc  [100][13];
+    VARCHAR onprod_desc     [100][13];
+    VARCHAR rigrel_desc     [100][13];
+    VARCHAR calc_onprod_desc[100][13];
+    VARCHAR oninject_desc   [100][13];
+    VARCHAR status_date_desc[100][13];
+    VARCHAR conf_rel_dt_desc[100][13];
+    VARCHAR fin_drill_desc  [100][13];
+
+    VARCHAR uwi_1         [21];
+    VARCHAR spud_date_1   [13];
+    VARCHAR comp_date_1   [13];
+    VARCHAR onprod_1      [13];
+    VARCHAR rigrel_1      [13];
+    VARCHAR calc_onprod_1 [13];
+    VARCHAR oninject_1    [13];
+    VARCHAR status_date_1 [13];
+    VARCHAR conf_rel_dt_1 [13];
+    VARCHAR fin_drill_1   [13];
+
+    short i_spud_date_desc  [100];
+    short i_comp_date_desc  [100];
+    short i_onprod_desc     [100];
+    short i_rigrel_desc     [100];
+    short i_calc_onprod_desc[100];
+    short i_oninject_desc   [100];
+    short i_status_date_desc[100];
+    short i_conf_rel_dt_desc[100];
+    short i_fin_drill_desc  [100];
+
+    short i_spud_date_1;
+    short i_comp_date_1;
+    short i_onprod_1;
+    short i_rigrel_1;
+    short i_calc_onprod_1;
+    short i_oninject_1;
+    short i_status_date_1;
+    short i_conf_rel_dt_1;
+    short i_fin_drill_1;
+
+    VARCHAR sqlstmt[1000];
+EXEC SQL END DECLARE SECTION;
+
+EXEC ORACLE OPTION (REBIND = NO);
+
+main (argc, argv)
+int argc;
+char **argv;
+{
+    int status;
+
+    /* Check for the correct number of incoming arguments */
+
+    if (argc != 3) {
+	printf ("Usage: %s <oracle_login> <project>\n", argv[0]);
+	exit (FAIL);
+    }
+
+    /* Log onto ORACLE */
+
+    if (or_login (argc, argv) != SUCCESS) {	/* Log into Oracle */
+	exit (FAIL);
+    }
+
+/*    EXEC SQL ALTER SESSION SET SQL_TRACE TRUE;
+*/
+    /* Configure finder project */
+
+    qs_set_c (QS_PROJECT_NAME, ts_sto_upper (argv[2]), 0);
+    if ((status = finder_config_project (TRUE)) IS_NOT_EQUAL_TO SUCCESS) {
+        printf ("Can't connect to project %s: \n", argv[2]);
+        or_logout (FALSE);
+        exit (FAIL);
+    }
+
+    printf ("\n\nFinder Graphics Systems, Inc. LD_WELL_HDR_DATES %s\n", 
+                 VERSION);
+    fetch_data ();
+    exit (SUCCESS);
+}
+
+
+privatedef int fetch_data ()
+{
+    long num_returned = 0;
+    long num_processed = 0;
+    PROJECT_NAME project;
+    int irec;
+    int status;
+
+    qs_inq_c (QS_PROJECT_NAME, project, 0);
+
+/*
+ TRY TO CREATE A UNIQUE INDEX ON LOADER_WELL_HDR TABLE
+*/
+
+    sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr,
+    "CREATE UNIQUE INDEX LOADER_WELL_HDR_UNIQUE ON \
+       %s.LOADER_WELL_HDR  (UWI) ", project);
+
+    EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+
+/* 
+ PREPARE THE PRIMARY SELECT STATEMENT
+*/
+ 
+
+    sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr,
+    "SELECT \
+       UWI, \
+       SPUD_DATE_DESC , \
+       COMP_DATE_DESC , \
+       ONPROD_DESC    , \
+       RIGREL_DESC     , \
+       CALC_ONPROD_DESC, \
+       ONINJECT_DESC   , \
+       STATUS_DATE_DESC, \
+       CONF_REL_DT_DESC, \
+       FIN_DRILL_DESC  \
+       FROM %s.LOADER_WELL_HDR ", project);
+    EXEC SQL PREPARE STMT1 FROM :sqlstmt;
+    EXEC SQL DECLARE SEL_CURSOR CURSOR FOR STMT1;
+    EXEC SQL OPEN SEL_CURSOR;
+
+
+    for (;;)
+    {
+        
+        EXEC SQL FETCH SEL_CURSOR INTO 
+               :uwi,
+               :spud_date_desc   :i_spud_date_desc ,
+               :comp_date_desc   :i_comp_date_desc ,
+               :onprod_desc      :i_onprod_desc    ,
+               :rigrel_desc      :i_rigrel_desc     ,
+               :calc_onprod_desc :i_calc_onprod_desc ,
+               :oninject_desc    :i_oninject_desc    ,
+               :status_date_desc :i_status_date_desc ,
+               :conf_rel_dt_desc :i_conf_rel_dt_desc ,
+               :fin_drill_desc   :i_fin_drill_desc ;
+
+        if ( OR_STATUS  /* i.e. sqlca.sqlcode */ ) 
+        {
+           if (OR_STATUS == OR_EOF) 
+           {
+               status = OR_EOF; 
+           }
+           else
+           {
+               printf ("Unable to fetch SEL_CURSOR: %s", 
+                            sqlca.sqlerrm.sqlerrmc);
+               exit (FAIL);
+           }
+        }
+
+        num_returned = sqlca.sqlerrd[2] - num_processed ;
+        for ( irec=0; irec < num_returned; irec++ )
+        {
+            verify_date(irec);
+        }
+        EXEC SQL COMMIT WORK;
+
+        num_processed += num_returned;
+
+        printf("Commit - records processed: %d\n",num_processed);
+        if ( status == OR_EOF)
+        {
+            break;
+        }
+    }
+    EXEC SQL CLOSE SEL_CURSOR;
+    EXEC SQL COMMIT WORK RELEASE;
+
+    exit ( SUCCESS );
+}
+
+
+privatedef int verify_date(i)
+int i;
+{
+    privatedef BOOL first = TRUE;
+    int bad_spud_date_desc ;
+    int bad_comp_date_desc ;
+    int bad_onprod_desc    ;
+    int bad_rigrel_desc     ;
+    int bad_calc_onprod_desc ;
+    int bad_oninject_desc   ;
+    int bad_status_date_desc ;
+    int bad_conf_rel_dt_desc ;
+    int bad_fin_drill_desc  ;
+    PROJECT_NAME project;
+
+    /* If this is the first time through this routine then setup and 
+       parse the needed SQL statements now.  This is done only once */
+
+    if (first) {
+	qs_inq_c (QS_PROJECT_NAME, project, 0);
+
+	/* Update record in loader_well_hdr table */
+
+        EXEC SQL PREPARE UPD_STMT FROM 
+           UPDATE LOADER_WELL_HDR SET 
+             SPUD_DATE_DESC   = :spud_date_1   :i_spud_date_1, 
+             COMP_DATE_DESC   = :comp_date_1   :i_comp_date_1, 
+             ONPROD_DESC      = :onprod_1      :i_onprod_1, 
+             RIGREL_DESC      = :rigrel_1      :i_rigrel_1, 
+             CALC_ONPROD_DESC = :calc_onprod_1 :i_calc_onprod_1, 
+             ONINJECT_DESC    = :oninject_1    :i_oninject_1, 
+             STATUS_DATE_DESC = :status_date_1 :i_status_date_1, 
+             CONF_REL_DT_DESC = :conf_rel_dt_1 :i_conf_rel_dt_1, 
+             FIN_DRILL_DESC   = :fin_drill_1   :i_fin_drill_1 
+           WHERE UWI = :uwi_1;
+
+        if (OR_STATUS != 0) 
+        {
+	    printf ("Unable to prepare UPD_STMT: %s", 
+                            sqlca.sqlerrm.sqlerrmc);
+            exit (FAIL);
+	}
+	first = FALSE;
+    }
+
+    bad_spud_date_desc   = 0;      /* set to false */
+    bad_comp_date_desc   = 0;
+    bad_onprod_desc      = 0;
+    bad_rigrel_desc      = 0;
+    bad_calc_onprod_desc = 0;
+    bad_oninject_desc    = 0;
+    bad_status_date_desc = 0;
+    bad_conf_rel_dt_desc = 0;
+    bad_fin_drill_desc   = 0;
+
+    if ( i_spud_date_desc[i] != -1 ) bad_spud_date_desc   = 
+                         ts_valid_date(spud_date_desc[i].arr   ,"MM/DD/YYYY");
+    if ( i_comp_date_desc[i] != -1 ) bad_comp_date_desc   = 
+                         ts_valid_date(comp_date_desc[i].arr   ,"MM/DD/YYYY");
+    if ( i_onprod_desc[i] != -1 ) bad_onprod_desc      = 
+                         ts_valid_date(onprod_desc[i].arr      ,"MM/DD/YYYY");
+    if ( i_rigrel_desc[i] != -1 ) bad_rigrel_desc      = 
+                         ts_valid_date(rigrel_desc[i].arr      ,"MM/DD/YYYY");
+    if ( i_calc_onprod_desc[i] != -1 ) bad_calc_onprod_desc = 
+                         ts_valid_date(calc_onprod_desc[i].arr ,"MM/DD/YYYY");
+    if ( i_oninject_desc[i] != -1 ) bad_oninject_desc    = 
+                         ts_valid_date(oninject_desc[i].arr    ,"MM/DD/YYYY");
+    if ( i_status_date_desc[i] != -1 ) bad_status_date_desc = 
+                         ts_valid_date(status_date_desc[i].arr ,"MM/DD/YYYY");
+    if ( i_conf_rel_dt_desc[i] != -1 ) bad_conf_rel_dt_desc = 
+                         ts_valid_date(conf_rel_dt_desc[i].arr ,"MM/DD/YYYY");
+    if ( i_fin_drill_desc[i] != -1 ) bad_fin_drill_desc   = 
+                         ts_valid_date(fin_drill_desc[i].arr   ,"MM/DD/YYYY");
+
+    if (bad_spud_date_desc  ) V_FROMC( spud_date_desc[i],   "01/01/1900");
+    if (bad_comp_date_desc  ) V_FROMC( comp_date_desc[i],   "01/01/1900");
+    if (bad_onprod_desc     ) V_FROMC( onprod_desc[i],      "01/01/1900");
+    if (bad_rigrel_desc     ) V_FROMC( rigrel_desc[i],      "01/01/1900");
+    if (bad_calc_onprod_desc) V_FROMC( calc_onprod_desc[i], "01/01/1900");
+    if (bad_oninject_desc   ) V_FROMC( oninject_desc[i],    "01/01/1900");
+    if (bad_status_date_desc) V_FROMC( status_date_desc[i], "01/01/1900");
+    if (bad_conf_rel_dt_desc) V_FROMC( conf_rel_dt_desc[i], "01/01/1900");
+    if (bad_fin_drill_desc  ) V_FROMC( fin_drill_desc[i],   "01/01/1900");
+
+
+
+    if( bad_spud_date_desc   ||
+        bad_comp_date_desc   ||
+        bad_onprod_desc      ||
+        bad_rigrel_desc      ||
+        bad_calc_onprod_desc ||
+        bad_oninject_desc    ||
+        bad_status_date_desc ||
+        bad_conf_rel_dt_desc ||
+        bad_fin_drill_desc     )
+    {
+       V_VC_TO_VC( uwi_1,         uwi [i]);
+       V_VC_TO_VC( spud_date_1,   spud_date_desc  [i]);
+       V_VC_TO_VC( comp_date_1,   comp_date_desc  [i]);
+       V_VC_TO_VC( onprod_1,      onprod_desc     [i]);
+       V_VC_TO_VC( rigrel_1,      rigrel_desc     [i]);
+       V_VC_TO_VC( calc_onprod_1, calc_onprod_desc[i]);
+       V_VC_TO_VC( oninject_1,    oninject_desc   [i]);
+       V_VC_TO_VC( status_date_1, status_date_desc[i]);
+       V_VC_TO_VC( conf_rel_dt_1, conf_rel_dt_desc[i]);
+       V_VC_TO_VC( fin_drill_1,   fin_drill_desc  [i]);
+
+       i_spud_date_1   = i_spud_date_desc  [i];
+       i_comp_date_1   = i_comp_date_desc  [i];
+       i_onprod_1      = i_onprod_desc     [i];
+       i_rigrel_1      = i_rigrel_desc     [i];
+       i_calc_onprod_1 = i_calc_onprod_desc[i];
+       i_oninject_1    = i_oninject_desc   [i];
+       i_status_date_1 = i_status_date_desc[i];
+       i_conf_rel_dt_1 = i_conf_rel_dt_desc[i];
+       i_fin_drill_1   = i_fin_drill_desc  [i];
+
+        EXEC SQL EXECUTE UPD_STMT USING 
+                  :spud_date_1   :i_spud_date_1 ,
+                  :comp_date_1   :i_comp_date_1 ,
+                  :onprod_1      :i_onprod_1    ,
+                  :rigrel_1      :i_rigrel_1     ,
+                  :calc_onprod_1 :i_calc_onprod_1,
+                  :oninject_1    :i_oninject_1   ,
+                  :status_date_1 :i_status_date_1,
+                  :conf_rel_dt_1 :i_conf_rel_dt_1,
+                  :fin_drill_1   :i_fin_drill_1,
+                  :uwi_1;
+        if (OR_STATUS != 0) 
+        {
+	    printf ("LOADER_WELL_HDR UPDATE: %s\n", 
+                            sqlca.sqlerrm.sqlerrmc);
+	}
+    }
+}

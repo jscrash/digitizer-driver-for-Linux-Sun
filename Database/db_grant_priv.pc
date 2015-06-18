@@ -1,0 +1,213 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_GRANT_PRIV.PC*/
+/* *8    27-AUG-1990 07:52:35 VINCE "(SPR 1) Fixed WHENEVER SQLERROR problem caused by CPRINT"*/
+/* *7    14-AUG-1990 13:09:15 VINCE "(SPR 5644) Header Standardization"*/
+/* *6    11-APR-1990 11:59:25 GILLESPIE "(SPR 1) Intersect list with user_objects"*/
+/* *5     2-FEB-1990 15:22:08 GILLESPIE "(SPR 1) Commit after every grant (yeah, i know, you shouldn't have to)"*/
+/* *4    13-NOV-1989 12:20:46 GILLESPIE "(SPR 1) An error on fetch now blows out of the loop"*/
+/* *3    14-OCT-1989 15:56:35 VINCE "(SPR -1) mods for new update schem"*/
+/* *2    13-AUG-1989 00:00:29 GILLESPIE "(SPR 5) Add handling for RESOURCES privilege"*/
+/* *1    19-JUN-1989 12:30:13 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_GRANT_PRIV.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_db.h"
+
+#ifndef ESI_AM_H
+
+#include "esi_am.h"
+
+#endif
+
+#ifndef ESI_DB_MSG_H
+
+#include "esi_db_msg.h"
+
+#endif
+
+#ifndef ESI_MG_H
+
+#include "esi_mg.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+/* EXEC ORACLE OPTION (REBIND = NO); */
+EXEC ORACLE OPTION (RELEASE_CURSOR = YES);
+
+/* Function Description -----------------------------------------------------
+Description:
+    Routine to grant the specified privileges to the PUBLIC.
+
+Prototype:
+    publicdef INT dba_grant_public_privileges(DB_ACCOUNT_STRUCT *db_account);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) db_account  -(DB_ACCOUNT_STRUCT *) Account structure to be modified.
+    
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT dba_grant_public_privileges (DB_ACCOUNT_STRUCT *db_account) 
+#else
+publicdef INT dba_grant_public_privileges (db_account)
+DB_ACCOUNT_STRUCT *db_account;
+#endif
+    {
+    INT status;
+    BOOL first;
+    INT i = 0;
+    INT *id = (INT *)0;
+    CHAR string[255];
+    CHAR grant_privs_format[128];
+    CHAR grant_failed[128];
+    CHAR fetch_failed[128];
+    CHAR *ps;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR tname[31];
+    VARCHAR scope[11];
+    VARCHAR stmt[255];
+    char select;
+    char insert;
+    char update;
+    char delete;
+    char references;
+    int count;
+    EXEC SQL END DECLARE SECTION;
+    
+    /* retrieve string formats */
+    sprintf (grant_privs_format, "%s\n", mg_message (DB_GRANTING_PRIVILEGES));
+    sprintf (grant_failed, "%s\n", mg_message (DB_PRIVILEGE_GRANT_FAILED));
+    sprintf (fetch_failed, "%s\n", mg_message (DB_PRIVILEGE_FETCH_FAILED));
+    
+    EXEC SQL WHENEVER SQLERROR goto wayout;
+    
+    V_FROMC (scope, db_account->scope);
+    count = 0;
+    EXEC SQL SELECT COUNT (*)INTO : count FROM ESI.FINDER_TABLE_PRIVILEGES,
+        USER_OBJECTS WHERE SCOPE =  : scope AND OBJECT_NAME = TNAME;
+    
+    if (count > 0)
+        {
+        EXEC SQL DECLARE GRANT_CURSOR CURSOR FOR SELECT TNAME, NVL (PUBLIC_SELECT,
+                                                                    'N'),
+            NVL (PUBLIC_INSERT, 'N'), NVL (PUBLIC_UPDATE, 'N'), NVL (PUBLIC_DELETE,
+                                                                     'N'),
+            NVL (PUBLIC_REFERENCES, 'N')
+        FROM ESI.FINDER_TABLE_PRIVILEGES,
+                                                                     USER_OBJECTS 
+                                                                     WHERE SCOPE =  :
+                                                                     scope AND 
+                                                                     OBJECT_NAME =
+                                                                     TNAME ORDER BY 
+                                                                     TNAME;
+        
+        EXEC SQL OPEN GRANT_CURSOR;
+        
+        EXEC SQL FETCH GRANT_CURSOR INTO : tname,  : select,  : insert,  : update,
+            : delete,  : references;
+        i = 0;
+        while (OR_STATUS EQUALS SUCCESS)
+            {
+            V_SETZERO (tname);
+            /* CONSTRUCT THE SQL STATEMENT */
+            first = TRUE;
+            strcpy ((char *)stmt.arr, "GRANT ");
+            ps = (CHAR *)((char *)stmt.arr + strlen ((char *)stmt.arr));
+            if (select EQUALS 'Y')
+                {
+                ps += sprintf (ps, "SELECT");
+                first = FALSE;
+                }
+            if (insert EQUALS 'Y')
+                {
+                ps += sprintf (ps, "%s%s", first ? "" : ",", "INSERT");
+                first = FALSE;
+                }
+            if (update EQUALS 'Y')
+                {
+                ps += sprintf (ps, "%s%s", first ? "" : ",", "UPDATE");
+                first = FALSE;
+                }
+            if (delete EQUALS 'Y')
+                {
+                ps += sprintf (ps, "%s%s", first ? "" : ",", "DELETE");
+                first = FALSE;
+                }
+            if (references EQUALS 'Y')
+                {
+                ps += sprintf (ps, "%s%s", first ? "" : ",", "REFERENCES");
+                first = FALSE;
+                }
+            sprintf (ps, " ON %s TO PUBLIC", tname.arr);
+            V_SETLEN (stmt);
+            printf (grant_privs_format, tname.arr, ++i, count);
+            
+            EXEC SQL WHENEVER SQLERROR CONTINUE;
+            
+            EXEC SQL EXECUTE IMMEDIATE : stmt;
+            
+            if (OR_STATUS != SUCCESS)
+                {
+                printf (grant_failed, OR_MESSAGE);
+                }
+            EXEC SQL COMMIT WORK;
+            EXEC SQL WHENEVER SQLERROR goto wayout;
+            EXEC SQL FETCH GRANT_CURSOR INTO : tname,  : select,  : insert,  : update,
+                : delete,  : references;
+            }
+        EXEC SQL CLOSE GRANT_CURSOR;
+        }
+    printf ("\n");
+    return SUCCESS;
+    
+wayout:
+    printf ("%s:\n", (char *)stmt.arr);
+    printf (mg_message (OR_STATUS));
+    status = OR_STATUS;
+    
+    EXEC SQL CLOSE GRANT_CURSOR;
+    
+    return status;
+    }
+/* END:     */

@@ -1,0 +1,89 @@
+ag_ "Analytic Geometry
+am_ "Application Manager
+as_ "Application Server
+bt_ "BTree Functions
+ci_ "Command Interpreter
+co_ "Contour Overlay
+cp_ "Data Mover
+cs_ "Centered Symbols
+ct_ "Cartographic Transformations
+db_ "Database
+dd_ "Data Digitizing
+dg_ "Dynamic Graphics
+dr_ "Data Rendering
+ee_ "Expression Evaluation
+er_ "Error Reporting
+fi_ "Finder Core
+fm_ "File Manager
+gb_ "Global Select Lists
+gd_ "Grid Display
+ge_ "Grid Display
+gf_ "Glue Functions
+go_ "Graphic Object
+gq_ "Geoquest Interface
+gr_ "Graticule
+hf_ "Help Functions
+hl_ "Highlighting
+ho_ "Host Dependent
+ht_ "Hash Table Functions
+jg_ "Jeffersonian Land Grid
+ld_ "Loader
+le_ "Line Editor
+lg_ "Log Trace
+lh_ "List Head Functions
+ll_ "Linked Lists
+lm_ "Lease Management
+ls_ "Leases
+lu_ "Lookup Functions
+ly_ "Lynx Functions
+md_ "Map Definition
+mg_ "Message Strings
+mk_ "Map Section Labels
+mm_ "Mapping Functions
+mo_ "Mapping Overlay
+mp_ "Map Plotting
+mr_ "Map Registration
+nf_ "Plotting
+ni_ "Neutral Interface Plotting
+nl_ "NLIST Functions
+np_ "Neutral Device Plotting
+or_ "Oracle Tools
+ov_ "Overlay Functions
+pd_ "Plotting Interface
+pf_ "Plotting Tools
+pl_ "Plotting Library
+pr_ "Projections
+ps_ "Pointer Stack
+qs_ "Query / Set Functions
+rs_ "Resource Compiler
+rt_ "Raster Tech Functions
+s3_ "3D Seismic Functions
+sd_ "Seismic Display
+se_ "Seismic Lines
+sf_ "Seismic Filter Functions
+sl_ "Select Lists
+so_ "Seismic Overlay
+ss_ "Seismic Survey
+sx_ "Shot Labels
+sy_ "Synthetic Waveforms
+tc_ "Tools
+tf_ "Fortran Tools 
+tg_ "Tablet Graphic Transforms
+tm_ "Test tools 
+to_ "Tools for Overlays
+ts_ "String Tools
+tu_ "Tools for Unit of Measures
+ug_ "GKS tools
+ui_ "User Interface Toolkit
+uk_ "Ukooa Loader Functions
+ut_ "Utility Toolbox
+v3_
+v4_
+vi_ Velocity Interface
+we_ Wells
+wi_ Workstation Interface
+wl_ Well Functions
+wm_ Window Manager
+xd_ Cross Section Display
+xf_ XWindow Finder Library
+xs_ Cross Secion Application

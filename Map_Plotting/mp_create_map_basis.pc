@@ -1,0 +1,420 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element MP_CREATE_MAP_BASIS.PC */
+/* *1    13-NOV-1990 11:27:48 VINCE "initial release" */
+/* DEC/CMS REPLACEMENT HISTORY, Element MP_CREATE_MAP_BASIS.PC */
+/*  DEC/CMS REPLACEMENT HISTORY, Element MP_CREATE_MAP_BASIS.PC*/
+/*  *2     6-NOV-1990 11:34:38 PURNA "(SPR 0) add extra line on EOF to fix bug on SUN"*/
+/*  *1     6-MAR-1990 08:37:47 GILLESPIE "initial release"*/
+/*  DEC/CMS REPLACEMENT HISTORY, Element MP_CREATE_MAP_BASIS.PC*/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+
+/* * FILE DESCRIPTION * */
+/* -------------------- */
+/* ************************************************************************
+
+   NAME: MP_CREATE_MAP_BASIS.PC
+
+   AUTHOR: JOHN CONROY
+
+   DESCRIPTION: Program to create the include files:	esi_md_dbdefs.h
+							esi_md_basis.a
+
+		which are needed for the mapping system.  The data used
+		to create these include files is stored in tables named
+		MAPPING_% in the CODES account in ORACLE, and 
+		may be accessed and modified by using the MAPPING_BASIS
+		form.  This program, the data base tables, and the form
+		are necessary for, and only for, FINDER development sites.
+
+   ************************************************************************ */
+
+/* * INCLUDE FILES * */
+/* ----------------- */
+
+#include "esi_c_lib.h"
+
+#ifndef ESI_GL_DEFS_H
+#include "esi_gl_defs.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+
+/* * MAIN ENTRY POINT * */
+/* -------------------- */
+
+main(argc,argv)
+
+INT argc;
+CHAR *argv[];
+{
+
+
+/* * VARIABLE LIST * */
+/* ----------------- */
+
+FILE *file_ptr;
+INT nfetched;
+INT crnt_fetch;
+INT i;
+INT status;
+INT ncounted;
+CHAR dummy[2];
+
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[100];
+    VARCHAR lines[20][81];
+    long counter[20];
+    long md_max_overlay_types;
+    long md_max_keywords;
+    long ov_code[50];
+    long option_code[50];
+    VARCHAR option_name[50][27];
+    VARCHAR key_req[50][6];
+    VARCHAR parm_req[50][6];
+    VARCHAR val_code[50][11];
+    VARCHAR val_arg[50][62];
+    VARCHAR translate[50][6];
+    VARCHAR def_val[50][41];
+    VARCHAR overlay_name[26];
+    VARCHAR overlay_code[12];
+    long ov_counter;
+EXEC SQL END DECLARE SECTION;
+
+
+/* ********************************************************************** */
+
+
+/* * LOGON TO ORACLE * */
+/* ------------------- */
+
+if (or_login(argc,argv) != SUCCESS)
+    {
+    exit (EXIT_SUCCESS);
+    }
+
+
+
+
+/* ----------------------------  ESI_MD_DBDEFS.H ------------------------- */
+
+/* * OPEN FILE  * */
+/* -------------- */
+
+if ( (file_ptr = fopen("esi_md_dbdefs.h","w")) EQUALS (FILE *)0)
+    {
+    exit (EXIT_SUCCESS);
+    }
+
+
+/* * WRITE HEADER TO FILE * */
+/* ------------------------ */
+
+fprintf(file_ptr,
+"/*  FILE_NAME: ESI_MD_DBDEFS.H                                            */\n\
+/*  DESCRIPTION:  File containing #define variables for the mapping basis */\n\
+/*                derived from ORACLE data base tables.                   */\n\
+\n\n\n#ifndef ESI_MD_DBDEFS_H\n#define ESI_MD_DBDEFS_H 1\n\n\n\n\
+/* * INCLUDE FILES * */\n/* ----------------- */\n\n\
+#ifndef ESI_GL_DEFS_H\n#include \"esi_gl_defs.h\"\n#endif\n\n\n");
+
+
+/* * GET SIZE CONSTANTS * */
+/* ---------------------- */
+
+EXEC SQL
+    SELECT  COUNT(*)
+    INTO    :md_max_overlay_types
+    FROM    CODES.MAPPING_OVERLAYS;
+
+
+EXEC SQL
+    SELECT  COUNT(*)
+    INTO    :md_max_keywords
+    FROM    CODES.MAPPING_OPTIONS;
+
+
+/* * WRITE OUT SIZE CONSTANTS * */
+/* ---------------------------- */
+
+fprintf(file_ptr,
+"/* * DEFINE SIZE CONSTANTS * */\n/* ------------------------- */\n\n\
+#define MD_MAX_OVERLAY_TYPES %d\n#define MD_MAX_KEYWORDS %d\n\n\n",
+md_max_overlay_types,md_max_keywords);
+
+
+/* * GET VERB CODE CONSTANTS * */
+/* --------------------------- */
+
+fprintf(file_ptr,"/* * DEFINE VERB CODE CONSTANTS * */\n\
+/* ------------------------------ */\n\n");
+
+
+EXEC SQL DECLARE C1 CURSOR FOR
+    SELECT  '#define '||CODE_NAME||' '||CODE 
+    FROM    CODES.MAPPING_OVERLAYS
+    ORDER   BY CODE;
+
+EXEC SQL OPEN C1;
+
+nfetched = 0;
+FOREVER
+    {
+    EXEC SQL FETCH C1 INTO :lines;
+
+    for (i=0; i<OR_ROWCOUNT-nfetched; i++)
+	{
+	V_SETZERO(lines[i]);
+	fprintf(file_ptr,"%s\n",lines[i].arr);
+	}
+
+    if (OR_STATUS EQUALS OR_EOF)
+	{
+	break;
+	}
+
+    nfetched = OR_ROWCOUNT;
+    }
+EXEC SQL CLOSE C1;
+
+
+/* * GET VALIDATION CODE CONSTANTS * */
+/* --------------------------------- */
+
+fprintf(file_ptr,"\n\n\n/* * DEFINE VALIDATION CODE CONSTANTS * */\n\
+/* ------------------------------------ */\n\n");
+
+
+EXEC SQL DECLARE C2 CURSOR FOR
+    SELECT  '#define '||CODE_NAME||' '||CODE_VALUE 
+    FROM    CODES.MAPPING_VAL_CODES
+    ORDER   BY CODE_VALUE;
+
+EXEC SQL OPEN C2;
+
+nfetched = 0;
+FOREVER
+    {
+    EXEC SQL FETCH C2 INTO :lines;
+
+    for (i=0; i<OR_ROWCOUNT-nfetched; i++)
+	{
+	V_SETZERO(lines[i]);
+	fprintf(file_ptr,"%s\n",lines[i].arr);
+	}
+
+    if (OR_STATUS EQUALS OR_EOF)
+	{
+	break;
+	}
+
+    nfetched = OR_ROWCOUNT;
+    }
+EXEC SQL CLOSE C2;
+
+fprintf(file_ptr,"\n\n\n#endif\n\
+/***************************************************************************/\n");
+fclose(file_ptr);
+
+
+
+
+
+
+
+
+
+/* ----------------------------  ESI_MD_BASIS.A ------------------------- */
+
+/* * OPEN FILE  * */
+/* -------------- */
+
+if ( (file_ptr = fopen("esi_md_basis.ah","w")) EQUALS (FILE *)0)
+    {
+    exit (EXIT_SUCCESS);
+    }
+
+
+/* * WRITE HEADER TO FILE * */
+/* ------------------------ */
+
+fprintf(file_ptr,
+"/*  FILE_NAME: ESI_MD_BASIS.A                                             */\n\
+/*  DESCRIPTION:  File containing initializations for the mapping         */\n\
+/*                keyword and overlay structure arrays                    */\n\
+\n\n\n#ifndef ESI_MD_BASIS_A\n#define ESI_MD_BASIS_A 1\n\n\n\n\
+/* * INCLUDE FILES * */\n/* ----------------- */\n\n\
+#ifndef ESI_GL_DEFS_H\n#include \"esi_gl_defs.h\"\n#endif\n\n\
+#ifndef ESI_MD_DEFS_H\n#include \"esi_md_defs.h\"\n#endif\n\n\
+#ifndef ESI_MD_DBDEFS_H\n#include \"esi_md_dbdefs.h\"\n#endif\n\n\n");
+
+
+/* * DO THE KEYWORD STRUCTURE ARRAY * */
+/* ---------------------------------- */
+
+fprintf(file_ptr,"/* * KEY_INFO ARRAY * */\n/* ------------------ */\n\n\
+MD_KEY_INFO keyinfo[MD_MAX_KEYWORDS+1]\n#ifdef MD_BASIS_INIT\n={\n");
+
+EXEC SQL DECLARE C7 CURSOR FOR
+    SELECT
+	    OVERLAY_CODE,
+	    OPTION_CODE,
+	    DECODE(KEYWORD_REQUIRED,'Y','*','')||OPTION_NAME,
+	    DECODE(KEYWORD_REQUIRED,'Y','TRUE','FALSE'),
+	    DECODE(PARAMETER_REQUIRED,'Y','TRUE','FALSE'),
+	    NVL(VALIDATION_CODE,'0'),
+	    VALIDATION_ARGUMENT,
+	    DECODE(DO_TRANSLATION,'Y','TRUE','FALSE'),
+	    DEFAULT_VALUE
+    FROM 
+	    CODES.MAPPING_OVERLAYS,
+	    CODES.MAPPING_OPTIONS
+    WHERE
+	    CODE = OVERLAY_CODE
+    ORDER BY 
+	    OVERLAY_NAME,
+	    DECODE(KEYWORD_REQUIRED,'Y','*','')||OPTION_NAME;
+
+EXEC SQL OPEN C7;
+
+nfetched = 0;
+FOREVER
+    {
+    EXEC SQL FETCH C7 INTO :ov_code, :option_code, :option_name, :key_req,
+			:parm_req, :val_code, :val_arg, :translate, :def_val;
+
+    status = OR_STATUS;
+    crnt_fetch = OR_ROWCOUNT;
+    for (i=0; i<crnt_fetch-nfetched; i++)
+	{
+	V_SETZERO(option_name[i]);
+	V_SETZERO(key_req[i]);
+	V_SETZERO(parm_req[i]);
+	V_SETZERO(val_code[i]);
+	V_SETZERO(val_arg[i]);
+	V_SETZERO(translate[i]);
+	V_SETZERO(def_val[i]);
+	fprintf(file_ptr,
+	    "{%d,\"%s\",%s,%s,NO_EXCL,\n    %s,\"%s\",\n        %s,\"%s\"},\n",
+	    option_code[i],option_name[i].arr,key_req[i].arr,parm_req[i].arr,
+	    val_code[i].arr,val_arg[i].arr,translate[i].arr,def_val[i].arr);
+	}
+
+    if (status EQUALS OR_EOF)
+	{
+	break;
+	}
+
+    nfetched = crnt_fetch;
+    }
+EXEC SQL CLOSE C7;
+fprintf(file_ptr,"{0,\"\",0,0,NO_EXCL,0,\"\",0,\"\"}\n}\n#endif\n       ;");
+
+
+/* * DO THE KEYWORD TCP * */
+/* ---------------------- */
+
+fprintf(file_ptr,"\n\n\n/* * KEYWORD TCP * */\n/* --------------- */\n\n\
+CHAR *md_key_tcp[MD_MAX_KEYWORDS+1]\n#ifdef MD_BASIS_INIT\n={\n");
+
+for (i=0; i<md_max_keywords; i++)
+    {
+    fprintf(file_ptr,"    keyinfo[%d].keyword,\n",i);
+    }
+fprintf(file_ptr,"NULL}\n#endif\n	    ;\n\n\n");
+
+
+/* * DO OVERLAY INFORMATION STRUCTURE * */
+/* ------------------------------------ */
+
+fprintf(file_ptr,"\n\n\n/* * OVERLAY INFO * */\n/* ---------------- */\n\n\
+MD_VERB_INFO overlay_verbs[MD_MAX_OVERLAY_TYPES+1]\n#ifdef MD_BASIS_INIT\n={\n");
+
+EXEC SQL DECLARE C8 CURSOR FOR
+    SELECT 
+	    COUNT(*),
+	    OVERLAY_NAME
+    FROM 
+	    CODES.MAPPING_OVERLAYS,
+	    CODES.MAPPING_OPTIONS
+    WHERE
+	    CODE = OVERLAY_CODE
+    GROUP BY
+	    OVERLAY_NAME 
+    ORDER BY 
+	    OVERLAY_NAME;
+EXEC SQL OPEN C8;
+
+sqlstmt.len = sprintf( (char *)sqlstmt.arr,
+    "SELECT CODE_NAME FROM CODES.MAPPING_OVERLAYS WHERE OVERLAY_NAME = :v1");
+EXEC SQL PREPARE S9 FROM :sqlstmt;
+EXEC SQL DECLARE C9 CURSOR FOR S9;
+
+ncounted = 0;
+FOREVER
+    {
+    EXEC SQL FETCH C8 INTO :ov_counter, :overlay_name;
+    if (OR_STATUS EQUALS OR_EOF)
+	{
+	break;
+	}
+    V_SETZERO(overlay_name);
+    EXEC SQL OPEN C9 USING :overlay_name;
+    EXEC SQL FETCH C9 INTO :overlay_code;
+    V_SETZERO(overlay_code);
+
+    fprintf(file_ptr,"{%s,\"%s\",%d,&(md_key_tcp[%d]),0,&(keyinfo[%d])},\n",
+			overlay_code.arr,overlay_name.arr,
+				ov_counter,ncounted,ncounted);
+    ncounted += ov_counter;
+    }
+EXEC SQL CLOSE C8;
+EXEC SQL CLOSE C9;
+fprintf(file_ptr,"{0,\"\",0,(CHAR **)0,0,(MD_KEY_INFO *)0}\n}\n#endif\n       ;\n\n\n");
+
+
+/* * DO OVERLAY TCP * */
+/* ------------------ */
+
+fprintf(file_ptr,"\n\n\n/* * OVERLAY TCP * */\n/* --------------- */\n\n\
+CHAR *overlay_tcp[MD_MAX_OVERLAY_TYPES+1]\n#ifdef MD_BASIS_INIT\n={\n");
+
+for (i=0; i<md_max_overlay_types; i++)
+    {
+    fprintf(file_ptr,"    overlay_verbs[%d].verb,\n",i);
+    }
+fprintf(file_ptr,"NULL}\n#endif\n	    ;\n\n\n");
+
+
+/* * CLOSE UP FILE * */
+/* ----------------- */
+
+fprintf(file_ptr,"#endif\n\
+/**************************************************************************/\n");
+fclose(file_ptr);
+
+
+
+
+}
+

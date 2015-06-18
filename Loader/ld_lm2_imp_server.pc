@@ -1,0 +1,707 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_SERVER.PC */
+/* *3    14-AUG-1991 11:59:19 KEE "(SPR -1) Put in File Lock/Unlock logic" */
+/* *2     1-MAY-1991 21:53:54 KEE "(SPR -1) Landmark Import" */
+/* *1     1-MAY-1991 21:23:02 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_SERVER.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* TITLE : LD_LM2_IMP_SERVER - main server for import from landmark*/
+
+/* START-HISTORY :
+   05/07/90	Rod Hanks	Original Development.
+   06/01/90	Rod Hanks	Dialog changes.
+   END-HISTORY */
+
+/* START-CODE : */
+/*
+   **                                 INCLUDE FILES
+*/
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+#ifndef ESI_HO_H
+#include "esi_ho.h"
+#endif
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_WI_H
+#include "esi_wi.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef LD_LM2_IMP_WORK_H
+#include "ld_lm2_imp_work.h"
+#endif
+
+#include "ld_lm2_imp_main.rh"
+#include "ld_lm2_imp_mapsize.rh"
+
+/*
+   **                            FUNCTION DECLARATIONS
+*/
+#if USE_PROTOTYPES
+static INT  ld_lm2_imp_batch_job(LANDMARK_IMPSPACE *workspace);
+#else
+static INT  ld_lm2_imp_batch_job();
+#endif
+
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+   **
+   **   ROUTINE:  ld_lm2_imp_server (id, item, pointer)
+   **
+   **   DESCRIPTION:
+   **
+   **        Main custom dialog server.
+   **
+   **   PARAMETERS:
+   **
+   **        id        (INT) Dialog id for the landmark application driver's
+   **                  custom dialog, assigned by the am_define_resource service.
+   **
+   **        item      (INT) Resource item to process.
+   **
+   **        pointer   (WORKSPACE *) Pointer to the application workspace,
+   **                  which was defined in the calling routine.
+   **
+*/
+#if USE_PROTOTYPES
+publicdef INT ld_lm2_imp_server(INT id, INT item, LANDMARK_IMPSPACE *workspace)
+#else
+publicdef INT ld_lm2_imp_server(id, item, workspace)
+INT                 id;
+INT                 item;
+LANDMARK_IMPSPACE *workspace;
+#endif
+{
+    BOOL goFlag;
+    INT  value;
+    CHAR text[255];
+    CHAR horiz_file[255];
+    CHAR horiz_name[255];
+    CHAR filename[255];
+    TCP  fileList = (TCP) 0;
+    INT  loop;
+    INT  status;
+    CHAR *pos;
+    INT item_count;
+    INT items[32];
+
+    PROGNAME ("ld_lm2_imp_server") ;
+
+    switch (item)
+    {
+	 case LMP_APPLY:
+	     status = wi_query_dialog_item(workspace->dialogID, LMP_BASE_FILE,
+					&value, text);
+	     if (strlen(text) > 0)
+		{
+		wi_set_dialog_text(workspace->dialogID,
+					LMP_SHOT_XY, "");
+		wi_set_dialog_text(workspace->dialogID,
+					LMP_SHOT_TRACE, "");
+		wi_set_dialog_text(workspace->dialogID,
+					LMP_HORIZONS, "");
+		wi_set_dialog_text(workspace->dialogID,
+					LMP_FAULT_PLANES, "");
+		wi_set_dialog_text(workspace->dialogID,
+					LMP_FAULT_POLYGONS, "");
+		wi_set_dialog_text(workspace->dialogID,
+					LMP_WELL_INFO, "");
+		wi_set_dialog_text(workspace->dialogID,
+					LMP_WELL_CHKSHOTS, "");
+		wi_set_dialog_text(workspace->dialogID,
+					LMP_WELL_DIRSRVYS, "");
+		wi_set_dialog_text(workspace->dialogID,
+					LMP_WELL_LOG, "");
+		wi_set_dialog_text(workspace->dialogID,
+					LMP_WELL_TOPS, "");
+		wi_set_dialog_text(workspace->dialogID,
+					LMP_CULTURE, "");
+		status = ho_find_filenames(text, &fileList);
+		if (status != SUCCESS)
+		    {
+		    wi_beep(1);
+		    wi_alert(0, "", "",
+		"No files are available with this wildcard specification");
+		    }
+		else
+		    {
+		    loop = 0;
+		    workspace->horizonCount = 0;
+		    status = wi_enable_dialog_item(workspace->dialogID,
+						   LMP_EDITHRZ, FALSE);
+		    status = wi_enable_dialog_item(workspace->dialogID,
+						   LMP_HORIZONS, TRUE);
+		    status = wi_enable_dialog_item(workspace->dialogID,
+						   LMP_HORNAME, TRUE);
+		    while (fileList != (TCP)0 && 
+			   fileList[loop] IS_NOT_EQUAL_TO (CHAR *)NULL )
+		        {
+	                strcpy(filename,fileList[loop]);
+	                ts_sto_upper(filename);
+	                pos = &filename[strlen(filename)];
+		        while (*pos != '.' && *pos != ']' && *pos != ':')
+			    {
+			    if (*pos == ';')
+			        {
+			        *pos = 0;
+			        }
+			    pos--;
+			    }
+		        if (*pos == '.')
+			    {
+			    pos++;
+			    if (strcmp(pos, "XY") == 0)
+			        {
+			        wi_set_dialog_text(workspace->dialogID,
+						LMP_SHOT_XY, fileList[loop]);
+			        }
+			    else if (strcmp(pos, "SP") == 0)
+			        {
+			        wi_set_dialog_text(workspace->dialogID,
+						LMP_SHOT_TRACE, fileList[loop]);
+			        }
+			    else if (strcmp(pos, "FP") == 0)
+			        {
+			        wi_set_dialog_text(workspace->dialogID,
+			    			LMP_FAULT_PLANES, fileList[loop]);
+			        }
+			    else if (strcmp(pos, "FLT") == 0)
+			        {
+			        wi_set_dialog_text(workspace->dialogID,
+						LMP_FAULT_POLYGONS, fileList[loop]);
+			        }
+			    else if (strcmp(pos, "WELL") == 0)
+			        {
+			        wi_set_dialog_text(workspace->dialogID,
+						LMP_WELL_INFO, fileList[loop]);
+			        }
+			    else if (strcmp(pos, "WCS") == 0)
+			        {
+			        wi_set_dialog_text(workspace->dialogID,
+						LMP_WELL_CHKSHOTS, fileList[loop]);
+			        }
+			    else if (strcmp(pos, "WDS") == 0)
+			        {
+			        wi_set_dialog_text(workspace->dialogID,
+						LMP_WELL_DIRSRVYS, fileList[loop]);
+			        }
+			    else if (strcmp(pos, "LOG") == 0)
+			        {
+			        wi_set_dialog_text(workspace->dialogID,
+						LMP_WELL_LOG, fileList[loop]);
+			        }
+			    else if (strcmp(pos, "TOP") == 0)
+			        {
+			        wi_set_dialog_text(workspace->dialogID,
+						LMP_WELL_TOPS, fileList[loop]);
+			        }
+			    else if (strcmp(pos, "CULT") == 0)
+			        {
+			        wi_set_dialog_text(workspace->dialogID,
+						LMP_CULTURE, fileList[loop]);
+			        }
+			    else
+				{
+				if (workspace->horizonCount < maxHorizons)
+				    {
+				    if (strlen(pos) > 0)
+					{
+				        strcpy(workspace->horizonNames
+						[workspace->horizonCount], pos);
+					}
+				    else
+					{
+					sprintf(workspace->horizonNames
+						[workspace->horizonCount],
+							"HRZ%d", 
+						workspace->horizonCount);
+					}
+				    strcpy(workspace->horizonFiles
+						[workspace->horizonCount], 
+							fileList[loop]);
+				    workspace->horizonCount++;
+				    }
+				}
+			    }
+		        loop++;
+		        }
+		    ts_tcp_free(fileList);
+		    if (workspace->horizonCount == 1)
+			{
+			wi_set_dialog_text(workspace->dialogID, LMP_HORIZONS,
+						workspace->horizonFiles[0]);
+			wi_set_dialog_text(workspace->dialogID, LMP_HORNAME,
+						workspace->horizonNames[0]);
+			}
+		    else if (workspace->horizonCount > 1)
+			{
+			ld_lm2_hrz_pipe(workspace);
+		        if (workspace->horizonCount == 1)
+			    {
+			    wi_set_dialog_text(workspace->dialogID, 
+						LMP_HORIZONS,
+						workspace->horizonFiles[0]);
+			    wi_set_dialog_text(workspace->dialogID, 
+						LMP_HORNAME,
+						workspace->horizonNames[0]);
+			    }
+			else if (workspace->horizonCount > 1)
+			    {
+		            status = wi_enable_dialog_item(workspace->dialogID,
+						   LMP_EDITHRZ, TRUE);
+		            status = wi_enable_dialog_item(workspace->dialogID,
+						   LMP_HORIZONS, FALSE);
+		    	    status = wi_enable_dialog_item(workspace->dialogID,
+						   LMP_HORNAME, FALSE);
+			    }
+			}
+		    }
+		}
+	    break;
+	 case LMP_OKAY:
+             status = wi_query_dialog_item(workspace->dialogID, LMP_HORIZONS,
+					&value, horiz_file);
+	     if (strlen(horiz_file) != 0)
+		{
+	        status = wi_query_dialog_item(workspace->dialogID, 
+					LMP_HORNAME, 
+					&value, horiz_name);
+		if (strlen(horiz_file) != 0 && strlen(horiz_name) == 0)
+		    {
+		    wi_beep(1);
+		    wi_alert(0, "", "",
+			"A horizon name is required with a horizon file");
+		    goFlag = FALSE;
+		    }
+		else
+		    {
+		    goFlag = TRUE;
+		    }
+		}
+/*
+	Make sure they give us everything we need.
+*/
+	     else
+		{
+		goFlag = TRUE;
+		}
+	     if (goFlag)
+		{
+		status = wi_query_selections(workspace->dialogID, 
+					LMP_PROJECTION,
+					&item_count, items);
+		if (item_count == 0)
+		    {
+		    wi_beep(1);
+		    wi_alert(0, "", "",
+			"You must choose the projection of the input data.");
+		    goFlag = FALSE;
+		    }		
+		}
+	     if (goFlag)
+		{
+                status = wi_query_dialog_item(workspace->dialogID, LMP_SOURCE,
+					&value, text);
+	        if (strlen(text) == 0)
+		    {
+		    wi_beep(1);
+		    wi_alert(0, "", "",
+			"You must choose the source of the input data.");
+		    goFlag = FALSE;
+		    }
+		}
+	     if (goFlag)
+		{
+	        ld_lm2_imp_batch_job(workspace);
+	        am_quit();
+		}
+	     break;
+
+	 case LMP_CANCEL:
+	     am_quit();
+	     break;
+
+	 case LMP_EDITHRZ:
+	     ld_lm2_edit_hrz(workspace);
+	     break;
+     }
+
+     return SUCCESS;
+}
+
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+   **
+   **   ROUTINE:  ld_lm2_imp_batch_job(workspace)
+   **
+   **   DESCRIPTION:
+   **
+   **        Batch job generator. The command file necessary for the 
+   **	     batch processing of the map data is created. 
+   **
+   **   PARAMETERS:
+   **
+   **        workspace (WORKSPACE *) Pointer to the application workspace.
+   **
+*/
+
+static INT ld_lm2_imp_batch_job (workspace)
+LANDMARK_IMPSPACE     *workspace;
+{
+     INT       code, job_user_no;
+     CHAR      message[STMAX];
+     CHAR      date_tag[15];
+     FILENAME  batch_loader;
+     FILE      *comi_fp;
+     FILENAME  comi_file;
+     CHAR   directory [200] ;
+     PROJECT_NAME project;
+     PROJECT_NAME database;
+     ANALYST_NAME account;
+     ORACLE_NAME password;
+     INT value;
+     CHAR text[255];
+     INT item_count;
+     INT items[32];
+     INT len;
+     INT status;
+     INT loop;
+     FILENAME baseFilename;
+
+    INT         cdlgid;
+    INT	        theID;
+    INT	        theItem;
+    INT	        theValue;
+    CHAR        theText[255];
+    DOUBLE	lower_left_x;
+    DOUBLE	lower_left_y;
+    DOUBLE	upper_right_x;
+    DOUBLE	upper_right_y;
+    CHAR	tempString[31];
+    CHAR	tempValue[241];
+
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[200];
+	VARCHAR defaultName[31];
+	VARCHAR defaultValue[241];
+    EXEC SQL END DECLARE SECTION;
+/*
+				Oracle variable declarations.
+*/
+
+
+     PROGNAME ("ld_lm2_imp_batch_job") ;
+
+/*   allocate memory for protocol structure for the server YESNO   */
+
+     qs_inq_c ( QS_FINDER_ACCOUNT , account , &len) ;
+     qs_inq_c ( QS_FINDER_PASSWORD , password , &len) ;
+     qs_inq_c ( QS_DATABASE , database , &len ) ;
+     qs_inq_c ( QS_PROJECT_NAME, project, (INT *)0);
+
+     ho_date_tag (date_tag);
+
+/*   name of the batch loader   */
+
+     ho_add_path("ESI$BIN", "ld_lm2_imp_batch", 
+				sizeof batch_loader, batch_loader);
+
+#ifdef vms
+
+/*  name of the DCL file which is submitted to run the loader  */
+
+     ho_get_unique_filename(baseFilename);
+     sprintf(comi_file, "LMI_%s.COM", baseFilename);
+
+#endif
+#if UNIX
+/*    name of the script file which is submitted to run the loader  */
+
+     sprintf(comi_file, "lm2imp%s", date_tag);
+
+#endif
+
+
+#ifdef primos
+
+/*  name of the CPL file which is submitted to run the loader  */
+
+     sprintf(comi_file, "LM2_%s.CPL", date_tag);
+
+#endif
+
+     /* Create command file */
+
+     comi_fp = ho_open( comi_file, "w", NULL );
+     status = ho_lock( comi_fp, ON);
+
+     if (comi_fp EQUALS NULL_FILE_PTR || status != SUCCESS)
+     {
+	  sprintf(message, "Unable to open batch command file to run loader");
+	  am_message(AM_ALERT, message);
+
+	  return FAIL;
+     }
+
+     /* Write commands to cominput file */
+
+     /*   inquire for the default directory where we are running */
+
+      ho_get_current_path (directory ) ;
+
+#ifdef vms
+     fprintf(comi_fp, "$SET DEFAULT %s\n", directory );
+     fprintf(comi_fp, "$RUN/NODEBUG %s\n", batch_loader);
+#endif
+
+#if UNIX
+     fprintf(comi_fp, "cd %s\n", directory );
+     fprintf(comi_fp, "%s << ENDOFDATA\n", batch_loader);
+#endif
+
+#ifdef primos
+#endif
+
+     fprintf(comi_fp, "ACCOUNT:%s\n", account);
+     fprintf(comi_fp, "PASSWORD:%s\n", password);
+     fprintf(comi_fp, "DATABASE:%s\n", database);
+     fprintf(comi_fp, "PROJECT:%s\n", project);
+
+    	    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT DEFAULT_NAME, DEFAULT_VALUE \
+FROM %s.PROJECT_DEFAULTS \
+WHERE DEFAULT_NAME IN ('LOWER_LEFT_X','LOWER_LEFT_Y',\
+'UPPER_RIGHT_X','UPPER_RIGHT_Y')", project);
+
+	    EXEC SQL PREPARE S1 FROM :sqlstmt;
+	    if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "PREPARE S1");
+	    EXEC SQL DECLARE OBJ_CUR CURSOR FOR S1;
+            EXEC SQL OPEN OBJ_CUR;
+	    if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "OPEN OBJ");
+	    EXEC SQL FETCH OBJ_CUR INTO :defaultName,
+					:defaultValue;
+	    while (OR_STATUS EQUALS SUCCESS)
+		{
+		V_V_TO_C(tempString, defaultName);
+		V_V_TO_C(tempValue, defaultValue);
+		if (strcmp(tempString, "LOWER_LEFT_X") == 0)
+		    {
+		    sscanf(tempValue, "%lf", &lower_left_x);
+		    }
+		else if (strcmp(tempString, "LOWER_LEFT_Y") == 0)
+		    {
+		    sscanf(tempValue, "%lf", &lower_left_y);
+		    }
+		else if (strcmp(tempString, "UPPER_RIGHT_X") == 0)
+		    {
+		    sscanf(tempValue, "%lf", &upper_right_x);
+		    }
+		else if (strcmp(tempString, "UPPER_RIGHT_Y") == 0)
+		    {
+		    sscanf(tempValue, "%lf", &upper_right_y);
+		    }
+		EXEC SQL FETCH OBJ_CUR INTO :defaultName,
+					    :defaultValue;
+		    }
+		if (OR_STATUS < SUCCESS) ld_show_error(OR_STATUS, "FETCH OBJ");
+		EXEC SQL CLOSE OBJ_CUR;
+		if (OR_STATUS < SUCCESS) ld_show_error(OR_STATUS, "CLOSE OBJ");
+
+	wi_query_dialog_item(workspace->dialogID, LMP_CLIPPING, &theValue, tempValue);
+	if (theValue == TRUE)
+           {
+            if (status = am_define_resource(AM_DIALOG, "LD_LM2_IMP_MAPSIZE", 
+    					    LANDMARK_IMPMAPSIZE, NULL_FUNCTION_PTR,
+					    &cdlgid, (VOIDPTR) 0))
+       	      wi_alert(0, "", "am_define_resource", mg_message(status));
+	
+            sprintf(tempString,"%lf",lower_left_x);
+            if (status = wi_set_dialog_text(cdlgid, IMP_MAPSIZE_LLX, tempString))
+  	      wi_alert(0, "", "wi_set_dialog_text", mg_message(status));
+
+            sprintf(tempString,"%lf",lower_left_y);
+            if (status = wi_set_dialog_text(cdlgid, IMP_MAPSIZE_LLY, tempString))
+  	      wi_alert(0, "", "wi_set_dialog_text", mg_message(status));
+
+            sprintf(tempString,"%lf",upper_right_x);
+            if (status = wi_set_dialog_text(cdlgid, IMP_MAPSIZE_URX, tempString))
+  	      wi_alert(0, "", "wi_set_dialog_text", mg_message(status));
+
+            sprintf(tempString,"%lf",upper_right_y);
+            if (status = wi_set_dialog_text(cdlgid, IMP_MAPSIZE_URY, tempString))
+  	      wi_alert(0, "", "wi_set_dialog_text", mg_message(status));
+
+         fi_push();
+         wi_open_dialog(cdlgid);
+         FOREVER
+           {
+             wi_request_dialog_item(&theID, &theItem, &theValue, theText);
+	     if (theItem == IMP_MAPSIZE_DONE || theItem == IMP_MAPSIZE_CANCEL)
+	       break;
+           }
+         if (theItem == IMP_MAPSIZE_DONE)
+         {
+         wi_query_dialog_item(cdlgid, IMP_MAPSIZE_LLX, &theValue, theText);
+         if (theText != (CHAR *) 0)
+           {
+             sscanf(theText, "%lf", &lower_left_x);
+           }
+         wi_query_dialog_item(cdlgid, IMP_MAPSIZE_LLY, &theValue, theText);
+         if (theText != (CHAR *) 0)
+           {
+             sscanf(theText, "%lf", &lower_left_y);
+           }
+         wi_query_dialog_item(cdlgid, IMP_MAPSIZE_URX, &theValue, theText);
+         if (theText != (CHAR *) 0)
+           {
+             sscanf(theText, "%lf", &upper_right_x);
+           }
+         wi_query_dialog_item(cdlgid, IMP_MAPSIZE_URY, &theValue, theText);
+         if (theText != (CHAR *) 0)
+           {
+             sscanf(theText, "%lf", &upper_right_y);
+           }
+         }
+         am_release_resource(cdlgid);
+         fi_pop();
+        }
+
+     fprintf(comi_fp, "LOWER_LEFT_X:%13.2lf\n", lower_left_x);
+     fprintf(comi_fp, "LOWER_LEFT_Y:%13.2lf\n", lower_left_y);
+     fprintf(comi_fp, "UPPER_RIGHT_X:%13.2lf\n", upper_right_x);
+     fprintf(comi_fp, "UPPER_RIGHT_Y:%13.2lf\n", upper_right_y);
+     
+     status = wi_query_selections(workspace->dialogID, LMP_PROJECTION,
+					&item_count, items);
+     fprintf(comi_fp, "PROJECTION:%s\n", 
+			workspace->projectionList[items[0]-1]);
+
+     status = wi_query_dialog_item(workspace->dialogID, LMP_SHOT_XY, 
+					&value, text);
+     fprintf(comi_fp, "SHOT_XY:%s\n", text);
+     status = wi_query_dialog_item(workspace->dialogID, LMP_SHOT_TRACE, 
+					&value, text);
+     fprintf(comi_fp, "SHOT_TRACE:%s\n", text);
+     if (workspace->horizonCount < 2)
+	{
+        status = wi_query_dialog_item(workspace->dialogID, LMP_HORIZONS, 
+					&value, text);
+        fprintf(comi_fp, "HORIZONS:%s\n", text);
+        status = wi_query_dialog_item(workspace->dialogID, LMP_HORNAME, 
+					&value, text);
+        fprintf(comi_fp, "HORIZON_NAME:%s\n", text);
+	}
+     else
+	{
+	for (loop = 0; loop < workspace->horizonCount; loop++)
+	    {
+	    fprintf(comi_fp, "HORIZONS:%s\n", workspace->horizonFiles[loop]);
+	    fprintf(comi_fp, "HORIZON_NAME:%s\n", 
+					workspace->horizonNames[loop]);
+	    }
+	}
+     status = wi_query_dialog_item(workspace->dialogID, LMP_FAULT_PLANES, 
+					&value, text);
+     fprintf(comi_fp, "FAULT_PLANES:%s\n", text);
+     status = wi_query_dialog_item(workspace->dialogID, LMP_FAULT_POLYGONS, 
+					&value, text);
+     fprintf(comi_fp, "FAULT_POLYGONS:%s\n", text);
+     status = wi_query_dialog_item(workspace->dialogID, LMP_WELL_INFO, 
+					&value, text);
+     fprintf(comi_fp, "WELL_INFO:%s\n", text);
+     status = wi_query_dialog_item(workspace->dialogID, LMP_WELL_CHKSHOTS, 
+					&value, text);
+     fprintf(comi_fp, "WELL_CHKSHOTS:%s\n", text);
+     status = wi_query_dialog_item(workspace->dialogID, LMP_WELL_DIRSRVYS, 
+					&value, text);
+     fprintf(comi_fp, "WELL_DIRSRVYS:%s\n", text);
+     status = wi_query_dialog_item(workspace->dialogID, LMP_WELL_LOG, 
+					&value, text);
+     fprintf(comi_fp, "WELL_LOG:%s\n", text);
+     status = wi_query_dialog_item(workspace->dialogID, LMP_WELL_TOPS, 
+					&value, text);
+     fprintf(comi_fp, "WELL_TOPS:%s\n", text);
+     status = wi_query_dialog_item(workspace->dialogID, LMP_CULTURE, 
+					&value, text);
+     fprintf(comi_fp, "CULTURE:%s\n", text);
+
+     status = wi_query_dialog_item(workspace->dialogID, LMP_SOURCE, 
+					&value, text);
+     fprintf(comi_fp, "SOURCE:%s\n", text);
+
+     status = wi_query_dialog_item(workspace->dialogID, LMP_OVERWRITE, 
+					&value, text);
+     fprintf(comi_fp, "OVERWRITE:%1d\n", value);
+
+#ifdef vms
+     fprintf(comi_fp, "$EXIT \n");
+#endif
+
+#if UNIX
+     fprintf(comi_fp, "ENDOFDATA\n", batch_loader);
+#endif
+
+#ifdef primos
+#endif
+
+     status = ho_lock(comi_fp, OFF);
+     fclose(comi_fp);
+
+     code = ho_spawn(SPAWN_BATCH, comi_file, "DELETE", &job_user_no);
+
+     if (code)
+	{
+	sprintf(message, "Import to Landmark 2d, can't spawn %s, code %d",
+			comi_file, code);
+	}
+     else
+	{
+	sprintf(message, "Import to Landmark 2d being started as job #%d", 
+				job_user_no);
+	}
+     am_message(AM_STATUS, message);
+
+     return SUCCESS;
+}
+                                                                                                          
+
+
+
+
+
+

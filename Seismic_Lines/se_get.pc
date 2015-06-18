@@ -1,0 +1,379 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_GET.PC */
+/* *7    15-OCT-1990 16:14:39 GILLESPIE "(SPR 1000) Merge Ernie deltas" */
+/*  3B1  12-OCT-1990 17:53:22 GILLESPIE "Merge Ernie Deltas" */
+/* *6     4-SEP-1990 16:36:47 PURNA "(SPR 0) resolve compiling error" */
+/* *5    31-AUG-1990 10:23:17 PURNA "(SPR 0) add return version number if version=0" */
+/* *4    17-AUG-1990 22:16:29 VINCE "(SPR 5644) Code Cleanup" */
+/* *3    11-JUL-1990 12:10:38 GILLESPIE "(SPR 1) Allow version 0 to request the LATEST version" */
+/* *2    30-MAY-1990 15:04:49 PURNA "(SPR 0) add gulf change" */
+/* *1    30-MAY-1990 15:04:04 PURNA "se files" */
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_GET.PC */
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_GET.PC                                   */
+/* *2    11-OCT-1990 14:08:54 EXTERMINATOR "(SPR 0) bug fixes in seismic mistie"    */
+/* *1    13-AUG-1990 17:09:33 SYSTEM "Finder 6.1"                                   */
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_GET.PC                                   */
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_GET.C                                    */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Exploration Systems, Inc. 1989                          */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY   */
+/*CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE      */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*                            Exploration Systems                                   */
+/*                            c/o Finder Graphics Systems                           */
+/*                            201 Tamal Vista Blvd.                                 */
+/*                            Corte Madera, CA  94925                               */
+/*                            (415) 927-0100                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/*******************************************************************                */
+/*                                                                                  */
+/*    MODULE  :  se_get                                                             */
+/*                                                                                  */
+/*    AUTHOR :  REMI DORET         JULY 1988                                        */
+/*                                                                                  */
+/*                                                                                  */
+/*************************************************************************          */
+
+#include "esi_se_int.h"
+
+#ifndef ESI_C_LIB_H
+
+#include "esi_c_lib.h"
+
+#endif
+
+#ifndef ESI_NL_H
+
+#include "esi_nl.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifdef GULF
+
+#define NDIM 2
+
+#if USE_PROTOTYPES
+static INT sez_get_nlist (CHAR *surf_code, FULL_LINE_NAME *line, FLOAT *upper_time,
+                              FLOAT *lower_time, CDP_FLOAT *first_cdp,
+                              CDP_FLOAT *last_cdp, NLIST_HEADER *surface_nlist);
+#else
+static INT sez_get_nlist ();
+#endif
+#endif
+
+/* File Description ---------------------------------------------------------       */
+/*Overview:                                                                         */
+/*                                                                                  */
+/*Prototypes and one line descriptions of each function in the file.                */
+/*Public_Functions:                                                                 */
+/*    publicdef INT se_get(NLIST_HEADER *surface_nlist, CHAR *surf_code,            */
+/*                     SEIS_SURFACE_DATA_CLASS surf_type,                           */
+/*                     SEIS_SURFACE_DATA_TYPE data_type, FULL_LINE_NAME *line,      */
+/*                     ANALYST_NAME source, SEIS_ATTRIBUTE_DATA_TYPE attribute,     */
+/*                     SEIS_SURFACE_NLIST_TYPE format, INT *version, FLOAT *upper_time, */
+/*                     FLOAT *lower_time, CDP_FLOAT *first_cdp, CDP_FLOAT *last_cdp);   */
+/*                                                                                  */
+/*Private_Functions:                                                                */
+/*    static INT sez_get_nlist(CHAR *surf_code, FULL_LINE_NAME *line, FLOAT *upper_time,    */
+/*                             FLOAT *lower_time, CDP_FLOAT *first_cdp,             */
+/*                             CDP_FLOAT *last_cdp, NLIST_HEADER *surface_nlist);   */
+/*                                                                                  */
+/*-----------------------------------------------------------------------------     */
+
+/* Function Description -----------------------------------------------------       */
+/*Description:                                                                      */
+/*    Used to get  seismic surface data from SEIS_SURFACE.                          */
+/*                                                                                  */
+/*Prototype:                                                                        */
+/*    publicdef INT se_get(NLIST_HEADER *surface_nlist, CHAR *surf_code,            */
+/*                     SEIS_SURFACE_DATA_CLASS surf_type,                           */
+/*                     SEIS_SURFACE_DATA_TYPE data_type, FULL_LINE_NAME *line,      */
+/*                     ANALYST_NAME source, SEIS_ATTRIBUTE_DATA_TYPE attribute,     */
+/*                     SEIS_SURFACE_NLIST_TYPE format, INT *version, FLOAT *upper_time, */
+/*                     FLOAT *lower_time, CDP_FLOAT *first_cdp, CDP_FLOAT *last_cdp);   */
+/*                                                                                  */
+/*Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)        */
+/*    (I) surf_code       -(CHAR *) Name of the surface to be stored.               */
+/*    (I) surf_type       -(SEIS_SURFACE_DATA_CLASS) Type of the surface to be stored.  */
+/*    (I) data_type       -(SEIS_SURFACE_DATA_TYPE) Type of the data  stored for the surface.       */
+/*    (I) line            -(FULL_LINE_NAME *) Line ane survey name structure.       */
+/*    (I) source          -(ANALYST_NAME) Source to which pertains the data.        */
+/*    (I) attribute       -(SEIS_ATTRIBUTE_DATA_TYPE) Gives the attribute of the seismic    */
+/*                            traces where data was picked.                         */
+/*    (I) format          -(SEIS_SURFACE_NLIST_TYPE) Format in which the data is stored     */
+/*                            in the nlist.                                         */
+/*    (I/O) version         -(INT *) Version number for the pick (retrieve highest if zero).    */
+/*    (O) surface_nlist   -(NLIST_HEDAER *) Pointer to nlist containing the seismic data    */
+/*                            surface to be stored                                  */
+/*                            (THE FORMAT OF THE NLIST IS NOT MODIFIED BY THIS FUNCTION).   */
+/*    (O) upper_time      -(FLOAT *) Upper time in the nlist.                       */
+/*    (O) lower_time      -(FLOAT *) Lower time in the nlist.                       */
+/*    (O) first_cdp       -(CDP_FLOAT *) First cdp in the section with a value.     */
+/*    (O) last_cdp        -(CDP_FLOAT *) Last cdp in the section with a value.      */
+/*                                                                                  */
+/*Return Value/Status:                                                              */
+/*    SUCCESS - Successful completion.                                              */
+/*    SE_NO_DATA - No data found in the database.                                   */
+/*    Function returns nlist error code if pb in write nlist or                     */
+/*    oracle error code if pb in oracle.                                            */
+/*                                                                                  */
+/*Scope:                                                                            */
+/*    PUBLIC                                                                        */
+/*                                                                                  */
+/*Limitations/Assumptions:                                                          */
+/*                                                                                  */
+/*-----------------------------------------------------------------------------     */
+
+/* BEGIN:                                                                           */
+#if USE_PROTOTYPES
+publicdef INT se_get (NLIST_HEADER *surface_nlist, CHAR *surf_code,
+                      SEIS_SURFACE_DATA_CLASS surf_type,
+                      SEIS_SURFACE_DATA_TYPE data_type, FULL_LINE_NAME *line,
+                      ANALYST_NAME source, SEIS_ATTRIBUTE_DATA_TYPE attribute,
+                      SEIS_SURFACE_NLIST_TYPE format, INT *version, FLOAT *upper_time,
+                      FLOAT *lower_time, CDP_FLOAT *first_cdp, CDP_FLOAT *last_cdp)
+#else
+publicdef INT se_get (surface_nlist, surf_code, surf_type, data_type, line, source,
+                      attribute, format, version, upper_time, lower_time, first_cdp,
+                      last_cdp)
+NLIST_HEADER *surface_nlist;
+CHAR *surf_code;
+SEIS_SURFACE_DATA_CLASS surf_type;
+SEIS_SURFACE_DATA_TYPE data_type;
+FULL_LINE_NAME *line;
+ANALYST_NAME source;
+SEIS_ATTRIBUTE_DATA_TYPE attribute;
+SEIS_SURFACE_NLIST_TYPE format;
+INT *version;
+FLOAT *upper_time;
+FLOAT *lower_time;
+CDP_FLOAT *first_cdp;
+CDP_FLOAT *last_cdp;
+#endif
+    {
+    
+    /*    declare  local variables                                                  */
+    
+    INT istatus;
+    FLOAT upper_time_spe;
+    FLOAT lower_time_spe;
+    CDP_FLOAT first_cdp_spe;
+    CDP_FLOAT last_cdp_spe;
+    NLIST_ID nlist_id;
+    FILENAME nlist_file;
+    FILENAME full_nlist_file;
+    SEIS_SURFACE_HDR surface;
+
+#ifdef GULF
+    /*  if gulf case build nlist from                                               */
+    /*  P.SEISMIC_MARKSTN table                                                     */
+    if (format == SE_GULF && surf_type == SE_HORIZ)
+        {
+        istatus = sez_get_nlist (surf_code, line, upper_time, lower_time, first_cdp,
+                                 last_cdp, surface_nlist);
+        return istatus;
+        }
+#endif
+    
+    /*    try to retrieve data from the                                             */
+    /*    SEIS_SURFACE table                                                        */
+    istatus = sez_get (surf_code, surf_type, data_type, line, source, attribute,
+                       format, version, upper_time, lower_time, first_cdp, last_cdp,
+                       &upper_time_spe, &lower_time_spe, &first_cdp_spe, &last_cdp_spe,
+                       nlist_id, nlist_file);
+    
+    if (istatus EQUALS SUCCESS)
+        {
+        
+        /*  ---------------------------------------------------------               */
+        /*     now try to read  the nlist  containing the seismic data              */
+        /*    ---------------------------------------------------------             */
+        /* first build the full name of the nlist file                              */
+        
+        strcpy (surface.source, source);
+        surface.version = *version;
+        istatus = se_bld_nlist_ids (line, &surface, SEIS_SURFACE_DATA, nlist_id,
+                                    nlist_file, full_nlist_file);
+        
+        if (!istatus)
+            {
+            
+            istatus = nl_read_nlist (surface_nlist, full_nlist_file, nlist_id);
+            
+            }
+        else
+            {
+            /*** return  ERROR  **                                                  */
+            return istatus;
+            /************************************************************************/
+            }
+        }
+    return istatus;
+    }
+/* END:                                                                             */
+
+#ifdef GULF
+
+/* Function Description -----------------------------------------------------       */
+/*Description:                                                                      */
+/*                                                                                  */
+/*Prototype:                                                                        */
+/*    static INT sez_get_nlist(CHAR *surf_code, FULL_LINE_NAME *line, FLOAT *upper_time,    */
+/*    FLOAT *lower_time, CDP_FLOAT *first_cdp,CDP_FLOAT *last_cdp, NLIST_HEADER *surface_nlist);    */
+/*                                                                                  */
+/*Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)        */
+/*    surf_code       -(CHAR *)                                                     */
+/*    line            -(FULL_LINE_NAME *)                                           */
+/*    upper_time      -(FLOAT *)                                                    */
+/*    lower_time      -(FLOAT *)                                                    */
+/*    first_cdp       -(CDP_FLOAT *)                                                */
+/*    last_cdp        -(CDP_FLOAT *)                                                */
+/*    surface_nlist   -(NLIST_HEADER *)                                             */
+/*                                                                                  */
+/*Return Value/Status:                                                              */
+/*    SUCCESS - Successful completion.                                              */
+/*    FAIL    - Unsuccessful completion.                                            */
+/*    OR_STATUS                                                                     */
+/*                                                                                  */
+/*Scope:                                                                            */
+/*    PRIVATE to <se_get.pc>                                                        */
+/*                                                                                  */
+/*Limitations/Assumptions:                                                          */
+/*                                                                                  */
+/*-----------------------------------------------------------------------------     */
+
+/* BEGIN:                                                                           */
+#if USE_PROTOTYPES
+static INT sez_get_nlist (CHAR *surf_code, FULL_LINE_NAME *line, FLOAT *upper_time,
+                              FLOAT *lower_time, CDP_FLOAT *first_cdp,
+                              CDP_FLOAT *last_cdp, NLIST_HEADER *surface_nlist)
+#else
+static INT sez_get_nlist (surf_code, line, upper_time, lower_time, first_cdp,
+                              last_cdp, surface_nlist)
+CHAR *surf_code;
+FULL_LINE_NAME *line;
+FLOAT *upper_time;
+FLOAT *lower_time;
+CDP_FLOAT *first_cdp;
+CDP_FLOAT *last_cdp;
+NLIST_HEADER *surface_nlist;
+#endif
+    {
+    INT status;
+    UINT table_num;
+    FLOAT temp_1, temp_2;
+    FLOAT temp_3, temp_4;
+    PROJECT_NAME project;
+    static INT datatype[NDIM] = 
+        {
+        FLOAT_TYPE, FLOAT_TYPE
+        };
+    static size_t width[NDIM] = 
+        {
+        sizeof(FLOAT), sizeof(FLOAT)
+        };
+    static INT units[NDIM] = 
+        {
+        0, 0
+        };
+    static INT valueinc[NDIM] = 
+        {
+        VALUE_LIST, VALUE_LIST
+        };
+    static VOIDPTR Var_List[NDIM];
+    static UINT Col_List[NDIM];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[256];
+    double cdp, time;
+    EXEC SQL END DECLARE SECTION;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO :sqlerr;
+    
+    *surface_nlist = (NLIST_HEADER)0;
+    qs_inq_c (QS_PROJECT_NAME project, (INT *)0);
+    
+    sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+"SELECT DISTINCT STN_NO,VRTCL_TME \
+FROM %s.SEISMIC_MARKSTN \
+WHERE SMIC_LINE_IDNTR=%d AND MKR_NM='%s'"
+            , project, line->id, surf_code);
+    EXEC SQL PREPARE S1 FROM :sqlstmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1;
+    
+    EXEC SQL FETCH C1 INTO :cdp,  :time;
+    /* no nlist with coordinates x y                                                */
+    if (OR_STATUS EQUALS OR_EOF)
+        {
+        status = FAIL;
+        goto finished;
+        }
+    Var_List[0] = (VOIDPTR)&cdp;
+    Var_List[1] = (VOIDPTR)&time;
+    Col_List[0] = 1;
+    Col_List[1] = 2;
+    
+    status = nl_init_nlist (surface_nlist, NDIM, units, width, datatype, valueinc, 500)
+    OR nl_start_table (*surface_nlist, &table_num);
+    
+    /* no nlist with coordinates x y                                                */
+    if (OR_STATUS EQUALS OR_EOF)
+        goto finished;
+    
+    FOREVER
+        {
+        status = nl_add_rows (*surface_nlist, 1, NDIM, Col_List, Var_List);
+        if (OR_STATUS EQUALS OR_EOF)
+            goto finished;
+        
+        EXEC SQL FETCH C1 INTO :cdp, :time;
+        if (OR_STATUS EQUALS OR_EOF)
+            break;
+        }
+    Col_List[0] = 1;
+    Var_List[0] = (VOIDPTR)first_cdp;
+    status = nl_inq_nlist_info (*surface_nlist, NL_NLIST_MIN, 1, Col_List, Var_List);
+    
+    Var_List[0] = (VOIDPTR)last_cdp;
+    status = nl_inq_nlist_info (*surface_nlist, NL_NLIST_MAX, 1, Col_List, Var_List);
+    
+    Col_List[0] = 2;
+    Var_List[0] = (VOIDPTR)lower_time;
+    status = nl_inq_nlist_info (*surface_nlist, NL_NLIST_MIN, 1, Col_List, Var_List);
+    
+    Var_List[0] = (VOIDPTR)upper_time;
+    status = nl_inq_nlist_info (*surface_nlist, NL_NLIST_MAX, 1, Col_List, Var_List);
+    
+    return SUCCESS;
+    
+sqlerr:
+    status = OR_STATUS;
+    finished : if (*surface_nlist != (NLIST_HEADER)0)
+        nl_free_nlist (*surface_nlist);
+    return status;
+    }
+/* END:                                                                             */
+
+#endif

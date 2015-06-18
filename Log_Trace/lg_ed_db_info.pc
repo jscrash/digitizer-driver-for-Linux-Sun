@@ -1,0 +1,412 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LG_ED_DB_INFO.PC*/
+/* *4    17-JUL-1991 16:23:02 JANTINA "(SPR 0) Display 4 decimal places for top,base and increment"*/
+/* *3    14-SEP-1989 16:17:04 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *2    13-AUG-1989 01:47:26 GILLESPIE "(SPR 5) Change WLL_LOG_TRACE_HDR to WELL_LOG_CURVE; always release cursor"*/
+/* *1    19-JUN-1989 12:33:37 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element LG_ED_DB_INFO.PC*/
+
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+#include "esi_gl_defs.h"
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+#ifndef ESI_ER_H
+#include "esi_er.h"
+#endif
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_WI_H
+#include "esi_wi.h"
+#endif
+#ifndef ESI_LG_LDEFS_H
+#include "esi_lg_ldefs.h"
+#endif
+#ifndef ESI_LG_MSG_H
+#include "esi_lg_msg.h"
+#endif
+#ifndef ESI_LG_EDIT_H
+#include "esi_lg_edit.h"
+#endif
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+#include "lg_ed_main_menus.rh"
+#include "lg_ed_db_cdlgs.rh"
+
+#if USE_PROTOTYPES
+
+static INT lg_db_info_cdlg_server(INT id,INT item, LOG_EDIT_STRUCT *plg);
+static INT lg_db_info_get_last_update(LOG_EDIT_STRUCT *plg,
+    LOG_TRACE_STRUCT *ptrace, CHAR *upd_date, CHAR *upd_by);
+static INT lg_db_info_hdr_cdlg_init(LOG_EDIT_STRUCT *plg);
+static INT lg_db_info_hdr_cdlg_server(INT id, INT item, LOG_EDIT_STRUCT *plg);
+
+#else
+
+static INT lg_db_info_cdlg_server();
+static INT lg_db_info_get_last_update();
+static INT lg_db_info_hdr_cdlg_init();
+static INT lg_db_info_hdr_cdlg_server();
+
+#endif
+
+#define Resource_File  "LG_ED_DB_CDLGS"
+
+/******************************************************************************/
+/*                                                                            */
+/*    Routine:        LG_DB_INFO_CDLG_INIT                                    */
+/*                                                                            */
+/*    Function:       This routine brings up a select list of log traces for  */
+/*                    the current UWI. The user may select a log from the     */
+/*                    trace to show header information.                       */
+/*                                                                            */
+/*    Author:         D. Mcleod                                               */
+/*                                                                            */
+/******************************************************************************/
+
+
+publicdef INT lg_db_info_cdlg_init( plg)
+
+  LOG_EDIT_STRUCT  *plg;
+
+{
+    INT                status;
+
+/******************************************************************************/
+
+
+
+                                           /* set up trace selector dialog res*/
+
+    status = am_define_resource(AM_DIALOG, Resource_File,
+                                LG_ED_AVAIL_TRACES, 
+                                lg_db_info_cdlg_server, 
+                                &plg->db_info_cdlg_id,               
+                                plg);
+
+
+                                           /* set up selector control         */
+    wisselt(plg->db_info_cdlg_id, LG_ED_AT_SELECTOR,
+            LG_ED_AT_VSCROLL, plg->num_traces, 1, plg->trace_tcp);
+
+                                           /* set default selec. to 1st item  */
+    wi_set_default_sel( plg->db_info_cdlg_id,
+                        LG_ED_AT_SELECTOR, 1);
+
+                                           /* bring up dialog box             */
+    status = wi_open_dialog(plg->db_info_cdlg_id); 
+
+
+    return status;
+
+}
+
+
+/******************************************************************************/
+/*                                                                            */
+/*    Routine:        LG_DB_INFO_CDLG_SERVER                                  */
+/*                                                                            */
+/*    Function:       Server for the select trace routine.                    */
+/*                                                                            */
+/*    Author:         D. Mcleod                                               */
+/*                                                                            */
+/******************************************************************************/
+
+static INT lg_db_info_cdlg_server( id, item, plg)
+
+  INT               id, item;
+  LOG_EDIT_STRUCT   *plg;
+
+{
+    INT                status;
+    INT                num_items_ret;
+    static INT         items_selected[1];  /* array for return item           */
+
+/******************************************************************************/
+
+
+
+
+    switch (item)
+     {
+                                       /* Cancel button pressed, exit     */
+      case LG_ED_AT_DONE:                 
+
+           status = am_release_resource( plg->db_info_cdlg_id);
+     
+                                       /* Renable menu items              */
+
+           status = lg_ed_well_menu_vis_on_off( plg, ON);
+           status = lg_ed_db_menu_vis_on_off( plg, ON);
+           status = lg_ed_edit_menu_vis_on_off( plg, ON);
+
+           break;
+
+      case LG_ED_AT_INFO:                  /* Retrieve button pressed         */
+                                           /* query dialog for 1 selection    */
+
+           wiqsel( plg->db_info_cdlg_id, LG_ED_AT_SELECTOR,
+                   &num_items_ret, items_selected);
+           if (num_items_ret == 0)
+            {
+             am_message (AM_ALERT, mg_message(LG_ED_NO_TRACE_SELECTED) );
+             break;
+            }
+           else                        /* A trace has been picked, store in
+                                         structure and call routine to set up
+                                         header info dialog .         */
+            {
+             strcpy( plg->edit_trace,
+                     plg->trace_tcp[items_selected[0] -1 ]);
+
+             status = lg_db_info_hdr_cdlg_init( plg);
+            } 
+
+           break;
+     }                                     /* end of switch construct         */
+    
+
+    return SUCCESS;
+
+}
+
+/******************************************************************************/
+/*                                                                            */
+/*    Routine:        LG_DB_INFO_HDR_CDLG_INIT                                */
+/*                                                                            */
+/*    Function:       This routine brings up the log header information       */
+/*                    dialog, with the Log Trace name, Top, Base, Min, Max    */
+/*                    etc.                                                    */
+/*                                                                            */
+/*    Author:         D. Mcleod                                               */
+/*                                                                            */
+/******************************************************************************/
+
+static INT lg_db_info_hdr_cdlg_init( plg)
+LOG_EDIT_STRUCT  *plg;
+
+{
+    INT                status;
+    LOG_TRACE_STRUCT   *ptrace;
+    CHAR               text[128];          /* dummy array for wirqst          */
+    CHAR               update_date[12];    /* Update info (not in log trace   */
+    CHAR               updated_by[30];     /* structure )                     */
+
+/******************************************************************************/
+
+
+
+                                       /* set up info dialog                  */
+
+    status = am_define_resource(AM_DIALOG, Resource_File,
+                                LG_ED_LOG_HDR_CDLG, 
+                                lg_db_info_hdr_cdlg_server, 
+                                &plg->db_info_hdr_cdlg_id,           
+                                plg);
+
+
+/* Allocate for,get trace structure and copy data into dialog text fields     */
+
+    ptrace = (LOG_TRACE_STRUCT *) tc_zalloc( sizeof( LOG_TRACE_STRUCT));
+
+    status = lg_ltdm_inq_trace_struct( plg->edit_uwi, plg->edit_trace,
+                                       "", ptrace);         
+
+    if ( status != SUCCESS)
+      {
+       am_message( AM_ALERT, mg_message(LG_ED_TRACE_NOT_READ) );
+       er_log("LG_LTDM_INQ_TRACE_STRUCT failed in LG_DB_INFO_HDR_CDLG_INIT.");
+       return status;
+      }
+    
+    status = wi_set_dialog_text( plg->db_info_hdr_cdlg_id,
+                                 LG_ED_LOG_HDR_TRACE_NAME,
+                                 ptrace->trace_name);
+
+    sprintf( text, "%.4f", ptrace->top);
+    status = wi_set_dialog_text( plg->db_info_hdr_cdlg_id,
+                                 LG_ED_LOG_HDR_TOP, text);
+
+    sprintf( text, "%.4f", ptrace->base);
+    status = wi_set_dialog_text( plg->db_info_hdr_cdlg_id,
+                                 LG_ED_LOG_HDR_BASE, text);
+
+    status = wi_set_dialog_text( plg->db_info_hdr_cdlg_id,
+                                 LG_ED_LOG_HDR_DEPTH_UOM,
+                                 ptrace->depth_uom);
+
+    sprintf( text, "%.4f", ptrace->dinc);
+    status = wi_set_dialog_text( plg->db_info_hdr_cdlg_id,
+                                 LG_ED_LOG_HDR_DINC, text);
+
+    sprintf( text, "%.4f", ptrace->min);
+    status = wi_set_dialog_text( plg->db_info_hdr_cdlg_id,
+                                 LG_ED_LOG_HDR_MIN, text);
+
+    sprintf( text, "%.4f", ptrace->max);
+    status = wi_set_dialog_text( plg->db_info_hdr_cdlg_id,
+                                 LG_ED_LOG_HDR_MAX, text);
+
+    status = wi_set_dialog_text( plg->db_info_hdr_cdlg_id,
+                                 LG_ED_LOG_HDR_TRACE_UOM,
+                                 ptrace->trace_uom);
+
+
+/* Must do SQL retrieval for LAST UPDATE, UPDATE BY since not in structure
+     retrieved with the LTDM call above (what a major pisser, dude)       */
+
+
+    status = lg_db_info_get_last_update( plg, ptrace, update_date,
+                                         updated_by);                     
+                                    
+    if (status != SUCCESS)
+      {
+       am_message( AM_STATUS, "Could not retrieve update info. from Database");
+       er_log( "Log Trace update information could not be retrieved.");
+      }
+
+    status = wi_set_dialog_text( plg->db_info_hdr_cdlg_id,
+                                 LG_ED_LOG_HDR_LAST_UPDATE,
+                                 update_date);
+
+    status = wi_set_dialog_text( plg->db_info_hdr_cdlg_id,
+                                 LG_ED_LOG_HDR_UPDATED_BY,
+                                 updated_by);           
+
+
+                                           /* bring up dialog box             */
+
+    status = wi_open_dialog(plg->db_info_hdr_cdlg_id); 
+    status = lg_ltdm_free_trace( ptrace); 
+
+    return status;
+}
+
+/******************************************************************************/
+/*                                                                            */
+/*    Routine:        LG_DB_INFO_HDR_CDLG_SERVER                              */
+/*                                                                            */
+/*    Function:       This is the server for the hdr information dialog,      */
+/*                    which has only a DONE button (pretty piss-ant).         */
+/*                                                                            */
+/*    Author:         D. Mcleod                                               */
+/*                                                                            */
+/******************************************************************************/
+
+
+static INT lg_db_info_hdr_cdlg_server( id, item, plg)
+
+  INT               id, item;
+  LOG_EDIT_STRUCT   *plg;
+
+{
+    INT                status = SUCCESS;
+
+/******************************************************************************/
+
+
+    if (item ==  LG_ED_LOG_HDR_DONE)  
+       {
+        status = am_release_resource(id); 
+       }
+
+    return status;
+
+}
+
+/* *********************************************************************** */
+/*	             					     	                               */
+/*   Routine:      lg_db_info_get_last_update                              */
+/*                                                                         */
+/*   Purpose:      Get the LAST_UPDATE, SOURCE fields from the         */
+/*                 WELL_LOG_CURVE_HDR table.                                   */
+/*                                                                         */
+/*   Author:       D Mcleod                                                */
+/*                                                                         */
+/* *********************************************************************** */
+
+static INT lg_db_info_get_last_update( plg, ptrace, upd_date, upd_by)
+
+  LOG_EDIT_STRUCT  *plg;
+  LOG_TRACE_STRUCT *ptrace;
+  CHAR             *upd_date, *upd_by;
+
+ {
+  INT    i;
+  INT    len;
+  PROJECT_NAME project;
+/* *********************************************************************** */
+
+  EXEC SQL BEGIN DECLARE SECTION;
+
+  VARCHAR sqlphrase[220];
+  VARCHAR update_date[12];
+  VARCHAR update_culprit[30];
+
+  EXEC SQL END DECLARE SECTION;
+
+/* ****************************************************************** */
+
+  EXEC SQL WHENEVER SQLERROR GOTO errrept;
+
+                                       /* Get the project name                */
+
+  qs_inq_c( QS_PROJECT_NAME, project, &len);
+
+                                       /* Set up SQL retrieval phrase         */
+
+
+     sqlphrase.len = sprintf((char *)sqlphrase.arr, 
+"SELECT LAST_UPDATE,SOURCE \
+FROM %s.WELL_LOG_CURVE_HDR WHERE UWI= '%s'  AND TRACE_TYPE = \
+'%s' AND VERSION='%-d'", project, plg->edit_uwi,
+         ptrace->trace, ptrace->version);
+
+
+  EXEC SQL PREPARE S1 FROM :sqlphrase;
+  EXEC SQL DECLARE C1 CURSOR FOR S1;
+  EXEC SQL OPEN C1;
+  EXEC SQL FETCH C1 INTO :update_date, :update_culprit;
+
+  EXEC SQL CLOSE C1;
+
+  V_V_TO_C( upd_date, update_date);
+  V_V_TO_C( upd_by, update_culprit); 
+
+
+  return SUCCESS;
+
+  errrept:
+	printf("SQL error %d occurred", OR_STATUS);
+	return OR_STATUS;
+}

@@ -1,0 +1,303 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element TO_DRAW_AREA_NL.PC */
+/*  13   13-FEB-1992 17:09:02 PURNA "(SPR 1347) added ho_parse_pathname" */
+/* *12   25-NOV-1991 13:17:49 LOEBL "(SPR 0) Cleanup error processing" */
+/* *11   13-SEP-1991 12:30:02 LOEBL "(SPR 3951) Eliminate Core Dump and Performance Enhancements" */
+/* *10   19-JUL-1991 10:36:57 PURNA "(SPR 0) fixed unmatched data type" */
+/* *9    11-JUN-1991 13:39:41 PURNA "(SPR 8192) rename finder_filename in FM_HDR for easy removal" */
+/* *8     6-MAY-1991 16:48:37 PURNA "(SPR 0) add select list in culture overlay for data mover" */
+/* *7     1-JUN-1990 15:43:35 PURNA "(SPR 0) remove session_id from to_draw_text parameter" */
+/* *6    19-APR-1990 16:09:52 PURNA "(SPR 0) add qs_set map_projection, fix map def for stand alone" */
+/* *5    27-MAR-1990 14:02:42 VINCE "(SPR 1) panic fixes" */
+/* *4    25-MAR-1990 19:50:12 VINCE "(SPR 1) more fixes" */
+/* *3    25-MAR-1990 11:21:30 VINCE "(SPR -1) force a compile" */
+/* *2    24-MAR-1990 18:04:52 VINCE "(SPR 1) initial checkin" */
+/* *1    24-MAR-1990 18:03:20 VINCE "build nlist from temp table of lynx ids" */
+/* DEC/CMS REPLACEMENT HISTORY, Element TO_DRAW_AREA_NL.PC */
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Finder Graphics Systems, Inc.
+			201 Tamal Vista Blvd
+			Corte Madera, CA  USA 94925
+			(415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#ifndef ESI_GL_DEFS_H
+#include "esi_gl_defs.h"
+#endif
+
+#ifndef ESI_NL_INT_H
+#include "esi_nl_int.h"
+#endif
+
+#ifndef ESI_NL_METH_HDR_H
+#include "esi_nl_meth_hdr.h"
+#endif
+
+#ifndef ESI_NL_METHODS_H
+#include "esi_nl_methods.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_STDIO_H
+#include "esi_stdio.h"
+#endif
+
+#ifndef ESI_TIME_H
+#include "esi_time.h"
+#endif
+
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_HT_H
+#include "esi_ht.h"
+#endif
+
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_TO_H
+#include "esi_to.h"
+#endif
+
+#ifndef ESI_FM_H
+#include "esi_fm.h"
+#endif
+
+/* EXEC ORACLE OPTION (REBIND=YES); */
+EXEC ORACLE OPTION (HOLD_CURSOR=YES);
+
+/**************************************************************** 
+
+    FUNCTION : TO_DRAW_AREA_NL
+    DESCRIPTION : for specified culture(s) stored in temp tables,
+	build an nlist of nodes by traversing its arcs efficiently.
+    
+    AUTHOR : Purna Tjahjana (Feb 8,1990)
+
+*****************************************************************/
+
+publicdef INT to_draw_area_nl (d_type, add_d_type, project_name)
+CHAR *d_type;
+CHAR *add_d_type;
+CHAR *project_name;
+{
+    INT		 i, status=SUCCESS;
+    FM_DESCRIB	 desc;
+    FILENAME	 nlist_file;
+    NLIST_ID	 nlist_id;
+    BOOL	 draw;
+    NLIST_HEADER nlist, t_nlist;
+    CHAR	 line_d_type[32];
+    CHAR	 text_d_type[32];
+    CHAR	 m_proj[17];
+    CHAR	 c_dtype[32];
+
+    static BOOL first_time = TRUE;
+ 
+    EXEC SQL BEGIN DECLARE SECTION;
+        static  double  maxx, maxy, minx, miny;
+	static  int	    lynx_id;
+	static  VARCHAR map_projection[241];
+        VARCHAR     sqlstmt[500];
+        VARCHAR     nlist_file_V[81];      /*used for table_column DIGITAL_REF_VOLUME */
+        VARCHAR     nlist_id_V[62];        /*used for table_column DIGITAL_REF */
+        VARCHAR     name_V[41];
+        VARCHAR     data_type[31];
+    EXEC SQL END DECLARE SECTION;
+
+    /* nlist info variables */
+    static UINT	ndim		 = 2;
+    static UINT	line_dim_list[2] = { 1, 2 };
+    static UINT	text_dim_list[2] = { 3, 4 };
+    static VOIDPTR	min_values[2]	 = { (VOIDPTR)&minx, (VOIDPTR)&miny };
+    static VOIDPTR	max_values[2]	 = { (VOIDPTR)&maxx, (VOIDPTR)&maxy };
+
+    EXEC SQL WHENEVER SQLERROR GOTO :sqlerr;
+
+/*     EXEC ORACLE OPTION (REBIND = YES); */
+    EXEC ORACLE OPTION (HOLD_CURSOR = YES);
+
+    if (first_time)
+         {
+
+    /* this part of stand alone, QS_MAP_PROJECTION is 
+                            not set in initialization */
+
+         sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+         "SELECT DEFAULT_VALUE FROM %s.PROJECT_DEFAULTS \
+WHERE DEFAULT_NAME='MAP_PROJECTION'",project_name);
+
+         EXEC SQL PREPARE S_MAP FROM :sqlstmt;
+         EXEC SQL DECLARE C_MAP CURSOR FOR S_MAP;
+         EXEC SQL OPEN C_MAP;
+         EXEC SQL FETCH C_MAP INTO :map_projection;
+         EXEC SQL CLOSE C_MAP;
+
+         V_FROMV(m_proj,map_projection);
+         qs_set_c(QS_MAP_PROJECTION,m_proj,strlen(m_proj));
+
+/* create the sql statment for inserting into LYNX Objects */
+
+	sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+	"INSERT INTO %s.LYNX_OBJECTS \
+	    (LYNX_ID, DIGITAL_REF_VOLUME, DIGITAL_REF, LAST_UPDATE) \
+	VALUES \
+	    (:lynx_id,  :nlist_file_V, :nlist_id_V, SYSDATE)",
+	project_name);
+
+        EXEC SQL PREPARE INSERT_LYNX_OBJECTS FROM :sqlstmt;
+
+
+/* create the sql statment for inserting into LYNX Culture */
+
+	sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+	"INSERT INTO %s.LYNX_CULTURE \
+	  (LYNX_ID, DATA_TYPE, NAME, LAST_UPDATE, MINX, MAXX, MINY, MAXY) \
+	VALUES \
+	  (:lynx_id, :data_type, :name_V, SYSDATE, :minx, :maxx, :miny, :maxy)",
+	project_name );
+
+        EXEC SQL PREPARE INSERT_LYNX_CULTURE FROM :sqlstmt;
+
+        first_time = FALSE;
+        }
+
+    sprintf((CHAR *)line_d_type, "%s%s", add_d_type, d_type);
+    sprintf((CHAR *)text_d_type, "%s%s:LABELS", add_d_type, d_type);
+
+    /* concat C_ dtype  for Compiled dtype */
+    sprintf(c_dtype,"C_%s",d_type);
+
+    if (ARE_SAME(d_type,"SECTION")) 
+        {
+	status = ly_init_text_nlist (&t_nlist);
+	if (status != SUCCESS) goto skip_text;
+
+	status = to_draw_text (d_type, &t_nlist);
+	if (status != SUCCESS) goto skip_text;
+
+	EXEC SQL SELECT ESI.LYNX_ID_SEQ.NEXTVAL
+		 INTO :lynx_id
+		 FROM DUAL;
+
+	desc[0] = NUL;
+	status = fm_init_file("ESI$CULTURE", text_d_type, "CULTURE", "w", TRUE,
+				desc, NULL_FUNCTION_PTR, nlist_file,
+				"MAPPING");
+	if (status < 0) return status;
+
+	sprintf((CHAR *)nlist_id, "%d", lynx_id);
+	status = nl_write_nlist(t_nlist, nlist_file, nlist_id);
+	if (status != SUCCESS) goto skip_text;
+
+	status = fm_release_file ("ESI$CULTURE", text_d_type, "CULTURE");
+/*	if (status < 0) goto skip_text; */ /* don't care if this fails */
+
+/* now insert into LYNX Objects TABLE */
+
+        V_FROMC( nlist_id_V, nlist_id );
+        V_FROMC( nlist_file_V, nlist_file );
+
+	EXEC SQL EXECUTE INSERT_LYNX_OBJECTS
+        USING :lynx_id,  :nlist_file_V, :nlist_id_V;
+
+	nl_inq_nlist_info (t_nlist, NL_NLIST_MAX, ndim,
+			    text_dim_list, max_values);
+	nl_inq_nlist_info (t_nlist, NL_NLIST_MIN, ndim,
+			    text_dim_list, min_values);
+
+/* now insert into LYNX CULTURE TABLE */
+
+        data_type.len = sprintf( (char *)data_type.arr, "%s_LABEL", c_dtype);
+        V_FROMC (name_V, text_d_type);
+
+	EXEC SQL EXECUTE INSERT_LYNX_CULTURE USING
+        :lynx_id, :data_type, :name_V, :minx, :maxx, :miny, :maxy;
+
+	nl_free_nlist(t_nlist);
+        }
+skip_text:
+
+    /* attempt to initialize an n-list for data type d-type */
+
+    (char *)nlist = (char *)0;
+    status = to_draw_line(d_type, &nlist);
+
+    /* do not continue if not success or nlist not initialized */
+
+    if (status != SUCCESS || (char *)nlist EQUALS NULL ) return status;
+
+    EXEC SQL SELECT ESI.LYNX_ID_SEQ.NEXTVAL
+	     INTO :lynx_id
+	     FROM DUAL;
+
+    desc[0] = NUL;
+    status = fm_init_file("ESI$CULTURE", c_dtype, "CULTURE", "w", TRUE, desc,
+			    NULL_FUNCTION_PTR, nlist_file, "MAPPING");
+    if (status < 0) return status;
+
+    sprintf((CHAR *)nlist_id, "%d", lynx_id);
+    status = nl_write_nlist(nlist, nlist_file, nlist_id);
+    if (status != SUCCESS) return status;
+
+    status = fm_release_file ("ESI$CULTURE", c_dtype, "CULTURE");
+/*  if (status < 0) return status; */ /* don't care if this fails */
+    status=0;
+
+/* now insert into LYNX OBJECTS TABLE */
+
+        V_FROMC( nlist_id_V, nlist_id );
+        V_FROMC( nlist_file_V, nlist_file );
+
+	EXEC SQL EXECUTE INSERT_LYNX_OBJECTS
+        USING :lynx_id,  :nlist_file_V, :nlist_id_V;
+
+
+    nl_inq_nlist_info (nlist, NL_NLIST_MAX, ndim,
+			line_dim_list, max_values);
+    nl_inq_nlist_info (nlist, NL_NLIST_MIN, ndim,
+			line_dim_list, min_values);
+
+/* now insert into LYNX CULTURE TABLE */
+    
+        V_FROMC (name_V, line_d_type);
+        V_FROMC (data_type, c_dtype);
+
+	EXEC SQL EXECUTE INSERT_LYNX_CULTURE USING
+        :lynx_id, :data_type, :name_V, :minx, :maxx, :miny, :maxy;
+
+    nl_free_nlist(nlist);
+
+    return status;
+
+sqlerr:
+    or_errmsg(&sqlca,"Error in to_draw_area_n.pc");
+    return OR_STATUS;
+
+}   

@@ -1,0 +1,755 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SS_SURV.PC*/
+/*  4B1   3-OCT-1990 11:54:31 GILLESPIE "Change file type to stream"*/
+/* *6    20-AUG-1990 17:11:46 KEE "(SPR -1) fixing compile error at sun"*/
+/* *5    17-AUG-1990 22:19:20 VINCE "(SPR 5644) Code Cleanup"*/
+/* *4    21-JUN-1990 13:24:32 GILLESPIE "(SPR 1) change name of database table from INFO_GRID_3D to SEIS_GRID_3D"*/
+/* *3    18-JUN-1990 12:11:14 GILLESPIE "(SPR 1) Changes to allow 3-D lines to be handles as select list entryes (IES deltas)"*/
+/* *2    25-JUL-1989 20:08:53 GILLESPIE "(SPR 50) Seismic system revamp"*/
+/* *1    19-JUN-1989 12:41:36 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element SS_SURV.PC*/
+
+/******************************************************************************
+
+        Copyright Exploration Systems, Inc. 1989
+           Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+            Exploration Systems, Inc.
+            579 Market Street
+            San Francisco, CA  USA 94105
+            (415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/*
+*********************************************************** 
+*                                                         * 
+*     -   I N T E R B A S E   II   -  M A S S Y  -        * 
+*                    ----------------                     * 
+*                                                         * 
+*                                                         * 
+*           COMPAGNIE GENERALE DE GEOPHYSIQUE             * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*********************************************************** 
+* 
+* 
+* 
+* AUTHOR: Remi DORET       -    INFI   -
+* 
+* DATE:  6-SEP-88
+* 
+* FUNCTION:  set the current 3d survey 
+*           read back the corresponding 3d grid  parameters from the data
+*           base
+*   
+* LANGUAGE: C
+* 
+* CALLING SEQUENCE: ss_set_cur_3d (  survey ) 
+* 
+* INPUT PARAMETERS:   
+*              survey :  survey to be the current
+*
+* OUTPUT PARAMETERS: 
+* 
+*              istat    :  return status  = 0    success
+*                         # 0    fail
+*
+* REMARKS: 
+* 
+* EXTERNALS: 
+*
+*/
+#include "esi_c_lib.h"
+#include "esi_se.h"
+#include "esi_oracle.h"
+#include "esi_qs.h"
+#include "esi_ts.h"
+#include "esi_math.h"
+
+static SEIS_SURV CURRENT_SURVEY_2D;
+static BOOL first_time_2d = TRUE;
+
+static GRID_3D current_3d;
+static BOOL first_time_3d = TRUE;
+
+static BOOL first_pass = TRUE;
+
+EXEC SQL BEGIN DECLARE SECTION;
+static VARCHAR select[300];
+static VARCHAR c_surv[32];
+static VARCHAR c_unit[24];
+static int c_cdp_min;
+static int c_cdp_max;
+static int c_line_min;
+static int c_line_max;
+static double c_orgx;
+static double c_orgy;
+static double c_azx;
+static double c_azy;
+static double c_dx;
+static double c_dy;
+static int c_inc_cdp;
+static int c_inc_line;
+
+EXEC SQL END DECLARE SECTION;
+
+/************************************************************************************/
+
+
+#if USE_PROTOTYPES
+publicdef INT ss_set_cur_3d(SEIS_SURV survey)
+#else
+publicdef INT ss_set_cur_3d(survey)
+SEIS_SURV survey;
+#endif
+    {
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    EXEC SQL END DECLARE SECTION;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO errsql;
+    
+    if (first_pass)
+        {
+        PROJECT_NAME project;
+    
+        qs_inq_c(QS_PROJECT_NAME, project, (INT *)0);
+        
+        select.len = sprintf((char *)select.arr, 
+" SELECT X_ORIGIN , Y_ORIGIN, \
+X_AZIMUT,Y_AZIMUT,CDP_INTERVAL,LINE_INTERVAL,LOWER_CDP,UPPER_CDP,\
+LOWER_LINE,UPPER_LINE,XY_UNIT,LINE_INC,CDP_INC FROM  \
+%s.SEIS_GRID_3D WHERE SURVEY =:surv "
+                , project);
+        
+        EXEC SQL PREPARE S1 FROM :select;
+        
+        EXEC SQL DECLARE SURVEY CURSOR FOR S1;
+        first_pass = FALSE;
+        }
+    /*   test if the current 3d survey has changed 
+         if not we don't need to update the structure current_3d
+         if it is different we update the structure 
+    */
+    
+    if (ARE_DIFFERENT(survey, current_3d.survey_name) OR first_time_3d)
+        {
+        
+        V_FROMC(c_surv, survey);
+        
+        EXEC SQL OPEN SURVEY USING :c_surv;
+        
+ /*        EXEC SQL WHENEVER NOT FOUND GOTO endfetch; */
+        
+        EXEC SQL FETCH SURVEY INTO :c_orgx,  :c_orgy,  :c_azx,  :c_azy,  :c_dx,
+            :c_dy,  :c_cdp_min,  :c_cdp_max,  :c_line_min,  :c_line_max,
+            :c_unit,  :c_inc_line,  :c_inc_cdp;
+        
+        V_FROMV(current_3d.xy_unit, c_unit);
+        current_3d.x_origin = c_orgx;
+        current_3d.y_origin = c_orgy;
+        current_3d.x_azimuth = c_azx;
+        current_3d.y_azimuth = c_azy;
+        current_3d.lower_cdp = c_cdp_min;
+        current_3d.upper_cdp = c_cdp_max;
+        current_3d.lower_line = c_line_min;
+        current_3d.upper_line = c_line_max;
+        current_3d.cdp_interval = c_dx;
+        current_3d.line_interval = c_dy;
+        current_3d.cdp_inc = c_inc_cdp;
+        current_3d.line_inc = c_inc_line;
+        current_3d.cdp_min_fl = c_cdp_min;
+        current_3d.line_min_fl = c_line_min;
+        current_3d.cos_azx = cos(c_azx);
+        current_3d.cos_azy = cos(c_azy);
+        current_3d.sin_azx = sin(c_azx);
+        current_3d.sin_azy = sin(c_azy);
+        
+        first_time_3d = FALSE;
+        
+        /*   set current_3d.survey_name to survey                                   */
+        
+        strcpy(current_3d.survey_name, survey);
+        
+        return SUCCESS;
+        
+endfetch:
+errsql:
+ return FAIL;
+        
+        }
+    return SUCCESS;
+    }
+
+/*
+*********************************************************** 
+*                                                         * 
+*     -   I N T E R B A S E   II   -  M A S S Y  -        * 
+*                    ----------------                     * 
+*                                                         * 
+*                                                         * 
+*           COMPAGNIE GENERALE DE GEOPHYSIQUE             * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*********************************************************** 
+* 
+* 
+* 
+* AUTHOR: Remi DORET       -    INFI   -
+* 
+* DATE:  6-SEP-88
+* 
+* FUNCTION: get  the parameters of a 3d survey grid 
+*   
+* LANGUAGE: C
+* 
+* CALLING SEQUENCE SS_GET_SURV_3D (cdp_min , cdp_max , line_min , line_max ,
+                    azx , azy , dx , dy , orgx , orgy , unit,cdp_inc, line_inc )
+* 
+* OUTPUT PARAMETERS:   
+*    
+        COORD   orgx          :  x coord origin for the grid 
+        COORD   orgy      :  y coord origin for the grid 
+        COORD   azx       :  x azimuth for the grid 
+        COORD   azy       :  y azimuth for the grid 
+        INT     line_min      :  lower line number      
+        INT     line_max      :  upper line number      
+        INT     cdp_min   :  lower cdp number      
+        INT     cdp_max       :  upper cdp number      
+        COORD   dx        : distance between cdps 
+        COORD   dy        : distance between lines 
+        INT     cdp_inc       :  increment between cdps 
+        INT     line_inc      :  increment between lines 
+        CHAR    unit [20]     :  xy units   
+
+* REMARKS: 
+* 
+* EXTERNALS: 
+*
+*
+*
+ */
+
+/************************************************************************************/
+
+
+#if USE_PROTOTYPES
+publicdef INT ss_get_surv_3d(CDP *cdp_min, CDP *cdp_max, INT *line_min, INT *line_max,
+                             COORD *azx, COORD *azy, DOUBLE *dx, DOUBLE *dy,
+                             COORD *orgx, COORD *orgy, CHAR *unit, INT *cdp_inc,
+                             INT *line_inc)
+#else
+publicdef INT ss_get_surv_3d(cdp_min, cdp_max, line_min, line_max, azx, azy, dx, dy,
+                             orgx, orgy, unit, cdp_inc, line_inc)
+CDP *cdp_min, *cdp_max;
+INT *line_min, *line_max;
+COORD *azx, *azy, *orgx, *orgy;
+DOUBLE *dx, *dy;
+CHAR *unit;
+INT *cdp_inc, *line_inc;
+#endif
+    {
+    
+    strcpy(unit, current_3d.xy_unit);
+    *orgx = current_3d.x_origin;
+    *orgy = current_3d.y_origin;
+    *azx = current_3d.x_azimuth;
+    *azy = current_3d.y_azimuth;
+    *cdp_min = current_3d.lower_cdp;
+    *cdp_max = current_3d.upper_cdp;
+    *line_min = current_3d.lower_line;
+    *line_max = current_3d.upper_line;
+    *dx = current_3d.cdp_interval;
+    *dy = current_3d.line_interval;
+    *cdp_inc = current_3d.cdp_inc;
+    *line_inc = current_3d.line_inc;
+    
+    return SUCCESS;
+    
+    }
+
+/*
+*********************************************************** 
+*                                                         * 
+*     -   I N T E R B A S E   II   -  M A S S Y  -        * 
+*                    ----------------                     * 
+*                                                         * 
+*                                                         * 
+*           COMPAGNIE GENERALE DE GEOPHYSIQUE             * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*********************************************************** 
+* 
+* 
+* 
+* AUTHOR: Remi DORET       -    INFI   -
+* 
+* DATE:  6-SEP-88
+* 
+* FUNCTION:       function  used 
+*                 compute coodinates of a given CDP,LINE for the
+*                 current 3D survey
+*   
+* LANGUAGE: C
+* 
+* CALLING SEQUENCE: SSG_XY_CDPLI ( cdp , li, x, y )
+* 
+* INPUT PARAMETERS:   
+*                   cdp  :   float value of the cdp coordinate
+*                   li   :   float value of the line coordinate
+*               
+*    
+* OUTPUT PARAMETERS: 
+*                   x     :   x coordinate corresponding to the (cdp,line)
+*                   y     :   y coordinate corresponding to the (cdp,line)
+*
+* REMARKS: 
+* 
+* EXTERNALS: 
+*
+*
+*
+ */
+
+/************************************************************************************/
+
+#if USE_PROTOTYPES
+publicdef INT ss_xy_cdpli(CDP_FLOAT cdp, DOUBLE li, COORD *x, COORD *y)
+#else
+publicdef INT ss_xy_cdpli(cdp, li, x, y)
+CDP_FLOAT cdp;
+DOUBLE li;
+COORD *x, *y;
+#endif
+    {
+    DOUBLE diff_cdp, diff_line;
+    DOUBLE prod1, prod2;
+    
+    diff_cdp = cdp - current_3d.cdp_min_fl;
+    diff_line = li - current_3d.line_min_fl;
+    
+    prod1 = diff_cdp * current_3d.cdp_interval;
+    prod2 = diff_line * current_3d.line_interval;
+    
+    *x = (prod1 * current_3d.cos_azx) + (prod2 * current_3d.cos_azy) +
+         current_3d.x_origin;
+    
+    *y = (prod1 * current_3d.sin_azx) + (prod2 * current_3d.sin_azy) +
+         current_3d.y_origin;
+    
+    return SUCCESS;
+    }
+
+/*
+*********************************************************** 
+*                                                         * 
+*     -   I N T E R B A S E   II   -  M A S S Y  -        * 
+*                    ----------------                     * 
+*                                                         * 
+*                                                         * 
+*           COMPAGNIE GENERALE DE GEOPHYSIQUE             * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*********************************************************** 
+* 
+* 
+* 
+* AUTHOR: Remi DORET       -    INFI   -
+* 
+* DATE:  6-SEP-88
+* 
+* FUNCTION:         get the coordinates  
+*                   CDP,LINE for the point ( x,y ) in  the
+*                 current 3D survey
+*   
+* LANGUAGE: C
+* 
+* CALLING SEQUENCE: SS_CDPLI_XY (  x, y , cdp .li )
+* 
+* INPUT PARAMETERS:   
+*               
+*                   x     :   x coordinate 
+*                   y     :   y coordinate 
+*    
+* OUTPUT PARAMETERS: 
+*                   cdp  :   float value of the cdp coordinate corresp to (x,y)
+*                   li   :   float value of the line coordinate  corresp to (x,y)
+*
+* REMARKS: 
+* 
+* EXTERNALS: 
+*
+*
+*
+ */
+
+/************************************************************************************/
+
+#if USE_PROTOTYPES
+publicdef INT ss_cdpli_xy(COORD x, COORD y, CDP_FLOAT *cdp, DOUBLE *li)
+#else
+publicdef INT ss_cdpli_xy(x, y, cdp, li)
+COORD x, y;
+CDP_FLOAT *cdp;
+DOUBLE *li;
+#endif
+    {
+    DOUBLE diff_x, diff_y;
+    DOUBLE prod1, prod2;
+    
+    diff_x = x - current_3d.x_origin;
+    diff_y = y - current_3d.y_origin;
+    
+    prod1 = x * current_3d.cos_azx + y * current_3d.sin_azx;
+    prod2 = x * current_3d.cos_azy + y * current_3d.sin_azy;
+    
+    *cdp = (prod1 / current_3d.cdp_interval) + current_3d.cdp_min_fl;
+    *li = (prod2 / current_3d.line_interval) + current_3d.line_min_fl;
+    
+    return SUCCESS;
+    
+    }
+
+/************************************************************************************/
+
+/*
+*********************************************************** 
+*                                                         * 
+*     -   I N T E R B A S E   II   -  M A S S Y  -        * 
+*                    ----------------                     * 
+*                                                         * 
+*                                                         * 
+*           COMPAGNIE GENERALE DE GEOPHYSIQUE             * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*********************************************************** 
+* 
+* 
+* 
+* AUTHOR: Remi DORET       -    INFI   -
+* 
+* DATE:  6-SEP-88
+* 
+* FUNCTION:   set the current 2d survey  
+*   
+* LANGUAGE: C
+* 
+* CALLING SEQUENCE: ss_set_cur_2d (  survey ) 
+* 
+* INPUT PARAMETERS:   
+*              survey :  survey to be the current
+*
+* OUTPUT PARAMETERS: 
+* 
+*              istat    :  return status  = 0    success
+*                         # 0    fail
+*
+* REMARKS: 
+* 
+* EXTERNALS: 
+*
+*/
+
+
+#if USE_PROTOTYPES
+publicdef INT ss_set_cur_2d(SEIS_SURV survey)
+#else
+publicdef INT ss_set_cur_2d(survey)
+SEIS_SURV survey;
+#endif
+    {
+    
+    strcpy(CURRENT_SURVEY_2D, survey);
+    first_time_2d = FALSE;
+    
+    return SUCCESS;
+    }
+
+/************************************************************************************/
+
+/*
+*********************************************************** 
+*                                                         * 
+*     -   I N T E R B A S E   II   -  M A S S Y  -        * 
+*                    ----------------                     * 
+*                                                         * 
+*                                                         * 
+*           COMPAGNIE GENERALE DE GEOPHYSIQUE             * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*********************************************************** 
+* 
+* 
+* 
+* AUTHOR: Remi DORET       -    INFI   -
+* 
+* DATE:  6-SEP-88
+* 
+* FUNCTION:   get the current 2d survey  
+*   
+* LANGUAGE: C
+* 
+* CALLING SEQUENCE: ss_get_cur_2d (  survey ) 
+* 
+* INPUT PARAMETERS:   
+*
+* OUTPUT PARAMETERS: 
+*              survey :  current 2d survey 
+* 
+*              istat    :  return status  = 0    success
+*                         # 0    fail
+*
+* REMARKS: 
+* 
+* EXTERNALS: 
+*
+*/
+
+
+#if USE_PROTOTYPES
+publicdef INT ss_get_cur_2d(SEIS_SURV survey)
+#else
+publicdef INT ss_get_cur_2d(survey)
+SEIS_SURV survey;
+#endif
+    {
+    
+    if (!first_time_2d)
+        {
+        strcpy(survey, CURRENT_SURVEY_2D);
+        return SUCCESS;
+        }
+    return FAIL;
+    }
+
+/************************************************************************************/
+
+/*
+*********************************************************** 
+*                                                         * 
+*     -   I N T E R B A S E   II   -  M A S S Y  -        * 
+*                    ----------------                     * 
+*                                                         * 
+*                                                         * 
+*           COMPAGNIE GENERALE DE GEOPHYSIQUE             * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*********************************************************** 
+* 
+* 
+* 
+* AUTHOR: Remi DORET       -    INFI   -
+* 
+* DATE:  6-SEP-88
+* 
+* FUNCTION:   get the current 3d survey  
+*   
+* LANGUAGE: C
+* 
+* CALLING SEQUENCE: ss_get_cur_3d (  survey ) 
+* 
+* INPUT PARAMETERS:   
+*
+* OUTPUT PARAMETERS: 
+*              survey :  current 3d survey 
+* 
+*              istat    :  return status  = 0    success
+*                         # 0    fail
+*
+* REMARKS: 
+* 
+* EXTERNALS: 
+*
+*/
+
+publicdef INT ss_get_cur_3d(survey)
+CHAR *survey;
+    {
+    
+    if (!first_time_3d)
+        {
+        strcpy(survey, current_3d.survey_name);
+        return SUCCESS;
+        }
+    return FAIL;
+    
+    }
+
+/*
+*********************************************************** 
+*                                                         * 
+*     -   I N T E R B A S E   II   -  M A S S Y  -        * 
+*                    ----------------                     * 
+*                                                         * 
+*                                                         * 
+*           COMPAGNIE GENERALE DE GEOPHYSIQUE             * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*                                                         * 
+*********************************************************** 
+* 
+* 
+* 
+* AUTHOR: Remi DORET       -    INFI   -
+* 
+* DATE:  6-SEP-88
+* 
+* FUNCTION:            function used to   
+*                 put the parameters of a 3d survey grid  in the  table
+*                 SEIS_GRID_3D
+* LANGUAGE: C
+* 
+* CALLING SEQUENCE SS_PUT_SURV_3D (survey,cdp_min , cdp_max , line_min , line_max ,
+                    azx , azy , dx , dy , orgx , orgy , unit,cdp_inc, line_inc )
+* 
+* INPUT PARAMETERS:   
+*    
+            CHAR    survey        :  survey name 
+            DOUBLE  orgx          :  x coord origin for the grid 
+            DOUBLE  orgy          :  y coord origin for the grid 
+            DOUBLE  azx           :  x azimuth for the grid 
+            DOUBLE  azy           :  y azimuth for the grid 
+            INT     line_min      :  lower line number      
+            INT     line_max      :  upper line number      
+            INT     cdp_min       :  lower cdp number      
+            INT     cdp_max       :  upper cdp number      
+            FLOAT   dx            :  distance between cdps 
+            FLOAT   dy            :  distance between lines 
+            INT     cdp_inc       :  increment between cdps 
+            INT     line_inc      :  increment between lines 
+            CHAR    unit [20]     :  xy units   
+
+* REMARKS: 
+* 
+* EXTERNALS: 
+*
+*
+*
+ */
+
+
+#if USE_PROTOTYPES
+publicdef INT ss_put_surv_3d(SEIS_SURV survey, CDP cdp_min, CDP cdp_max, INT line_min,
+                             INT line_max, COORD azx, COORD azy, DOUBLE dx, DOUBLE dy,
+                             COORD orgx, COORD orgy, CHAR *unit, CDP cdp_inc,
+                             INT line_inc)
+#else
+publicdef INT ss_put_surv_3d(survey, cdp_min, cdp_max, line_min, line_max, azx, azy,
+                             dx, dy, orgx, orgy, unit, cdp_inc, line_inc)
+SEIS_SURV survey;
+CDP cdp_min, cdp_max;
+INT line_min, line_max;
+COORD azx, azy, orgx, orgy;
+DOUBLE dx, dy;
+CHAR *unit;
+CDP cdp_inc;
+INT line_inc;
+#endif
+    {
+    
+    PROJECT_NAME project;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    
+    EXEC SQL END DECLARE SECTION;
+    
+    qs_inq_c(QS_PROJECT_NAME, project, (INT *)0);
+    
+    select.len = sprintf((char *)select.arr, 
+"UPDATE  %s.SEIS_GRID_3D SET \
+X_ORIGIN = :c_orgx , Y_ORIGIN =:c_orgy ,X_AZIMUT =:c_azx ,\
+Y_AZIMUT = :c_azy ,CDP_INTERVAL =:c_dx ,LINE_INTERVAL =:c_dy ,\
+LOWER_CDP = :c_cdp_min ,UPPER_CDP = :c_cdp_max , \
+LOWER_LINE =:c_line_min, UPPER_LINE =:c_line_max , \
+XY_UNIT =:c_unit ,LINE_INC =:c_inc_line ,CDP_INC =:c_inc_cdp\
+WHERE SURVEY =:surv "
+            , project);
+    
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    
+    EXEC SQL PREPARE S1 FROM :select;
+    
+    V_FROMC(c_unit, unit);
+    V_FROMC(c_surv, survey);
+    c_orgx = orgx;
+    c_orgy = orgy;
+    c_azx = azx;
+    c_azy = azy;
+    c_cdp_min = cdp_min;
+    c_cdp_max = cdp_max;
+    c_line_min = line_min;
+    c_line_max = line_max;
+    c_dx = dx;
+    c_dy = dy;
+    c_inc_cdp = cdp_inc;
+    c_inc_line = line_inc;
+    
+    
+    
+    EXEC SQL EXECUTE S1 USING :c_orgx,  :c_orgy,  :c_azx,  :c_azy,  :c_dx,
+        :c_dy,  :c_cdp_min,  :c_cdp_max,  :c_line_min,  :c_line_max,  :c_unit,
+        :c_inc_line,  :c_inc_cdp,  :c_surv;
+    
+    /*   if no row were updated  we try an insert                                   */
+    
+    if (OR_ROWCOUNT == 0)
+        {
+        
+        EXEC SQL WHENEVER SQLERROR GOTO errsql;
+        
+        select.len = sprintf((char *)select.arr, 
+"INSERT INTO  %s.SEIS_GRID_3D SET(\
+X_ORIGIN , Y_ORIGIN, X_AZIMUT,Y_AZIMUT,CDP_INTERVAL,LINE_INTERVAL\
+,LOWER_CDP,UPPER_CDP,LOWER_LINE,UPPER_LINE,XY_UNIT,LINE_INC,CDP_INC \
+SURVEY) VALUES (  :c_orgx,:c_orgy,:c_azx,:c_azy,:c_dx ,:c_dy, \
+:c_inc_line  , :c_inc_cdp , :c_surv) "
+                , project);
+        
+        EXEC SQL PREPARE S2 FROM :select;
+        
+        EXEC SQL EXECUTE S2 USING :c_orgx,  :c_orgy,  :c_azx,  :c_azy,  :c_dx,
+            :c_dy,  :c_cdp_min,  :c_cdp_max,  :c_line_min,  :c_line_max,
+            :c_unit,  :c_inc_line,  :c_inc_cdp,  :c_surv;
+        
+        EXEC SQL COMMIT WORK;
+        return SUCCESS;
+        
+        errsql: EXEC SQL WHENEVER SQLERROR CONTINUE;
+        EXEC SQL ROLLBACK WORK;
+        return FAIL;
+        
+        }
+    return SUCCESS;
+    }

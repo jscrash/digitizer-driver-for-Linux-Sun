@@ -1,0 +1,326 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_PUT.PC */
+/* *9     6-JAN-1992 15:32:20 CHEW "(SPR 0) Temporary un-fix upper, lower time values." */
+/* *8    20-DEC-1991 15:30:54 CHEW "(SPR 1) Pass in data_class to se_bld_nlids to build the nlist id." */
+/* *7     1-OCT-1991 11:35:39 CHEW "(SPR 8158) Fixed upper and lower time values." */
+/* *6    16-APR-1991 10:46:47 GILLESPIE "(SPR 1) Change version number generation strategy" */
+/* *5    17-AUG-1990 22:17:30 VINCE "(SPR 5644) Code Cleanup" */
+/* *4    29-JUN-1990 19:03:41 GILLESPIE "(SPR 1) Changes for fault posting; removal of underbrush" */
+/* *3    18-JUN-1990 12:08:44 GILLESPIE "(SPR 1) Changes to allow 3-D lines to be handles as select list entryes (IES deltas)" */
+/* *2    21-MAY-1990 17:54:46 GILLESPIE "(SPR 1) Replacement for se_put,sez_put combo - fewer arguments" */
+/* *1    21-MAY-1990 17:34:56 GILLESPIE "Replacement for old se_put,sez_put pair" */
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_PUT.PC */
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_se_int.h"
+
+#ifndef ESI_NL_H
+
+#include "esi_nl.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_SE_ERR_H
+
+#include "esi_se_err.h"
+
+#endif
+static BOOL first = TRUE;
+
+/* Function Description -----------------------------------------------------
+Description:
+    Used to store  seismic surface data in SEIS_SURFACE. 
+    If there is already the same data an error code is returned.   
+
+Prototype:
+    publicdef INT se_put(NLIST_HEADER surface_nlist, CHAR *surf_code,
+                     SEIS_SURFACE_DATA_CLASS surf_type, SEIS_SURFACE_DATA_TYPE data_type,
+                     FULL_LINE_NAME *line, CHAR *source,
+                     SEIS_ATTRIBUTE_DATA_TYPE attribute, SEIS_SURFACE_NLIST_TYPE format,
+                     INT version);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    surface_nlist   -(NLIST_HEADER) Pointer to nlist containing the seismic data surface
+                        to be stored.  
+                        (THE FORMAT OF THE NLIST IS NOT MODIFIED BY THIS FUNCTION)
+    surf_code       -(CHAR *) Name of the surface to be stored.     
+    surf_type       -(SEIS_SURFACE_DATA_CLASS) Type of the surface to be stored.
+    data_type       -(SEIS_SURFACE_DATA_TYPE) Type of the data  stored for the surface.     
+    line            -FULL_LINE_NAME *) Line name and survey structure pointer.
+    source          -(CHAR *) Source to which pertains the data. 
+    attribute       -(SEIS_ATTRIBUTE_DATA_TYPE) Gives the attribute of the seismic 
+                        traces where data was picked.
+    format          -(SEIS_SURFACE_NLIST_TYPE) Format in which the data is stored in 
+                        the nlist.
+    version         -(INT) Version number for the pick.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    Status returned by the function is nlist error code if pb in write nlist or
+    oracle error code if pb in oracle.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT se_put (NLIST_HEADER surface_nlist, CHAR *surf_code,
+                      SEIS_SURFACE_DATA_CLASS surf_type,
+                      SEIS_SURFACE_DATA_TYPE data_type, FULL_LINE_NAME *line,
+                      CHAR *source, SEIS_ATTRIBUTE_DATA_TYPE attribute,
+                      SEIS_SURFACE_NLIST_TYPE format, INT version)
+#else
+publicdef INT se_put (surface_nlist, surf_code, surf_type, data_type, line, source,
+                      attribute, format, version)
+NLIST_HEADER surface_nlist;
+CHAR *surf_code;
+SEIS_SURFACE_DATA_CLASS surf_type;
+SEIS_SURFACE_DATA_TYPE data_type;
+FULL_LINE_NAME *line;
+CHAR *source;
+SEIS_ATTRIBUTE_DATA_TYPE attribute;
+SEIS_SURFACE_NLIST_TYPE format;
+INT version;
+#endif
+    {
+    
+    /*    declare  local variables                                                  */
+    
+    NLIST_ID nlist_id;
+    FILENAME nlist_file;
+    FILENAME full_nlist_file;
+    INT istatus;
+    BOOL nl_error = FALSE;
+    SEIS_SURFACE_HDR surface;
+    
+    UINT nCol;
+    UINT Col_List[2];
+    VOIDPTR Var_List[2];
+    INT Units[2];
+    size_t Data_Widths[2];
+    INT Data_Types[2];
+    
+    /*   declare variables used in PRO*C   statements                               */
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    
+    double s_first_cdp;
+    double s_last_cdp;
+    double s_lower_time;
+    double s_upper_time;
+    int s_surf_type;
+    int s_data_type;
+    int s_line_id;
+    int s_attribute;
+    int s_format;
+    int s_version;
+    VARCHAR select[1024];
+    VARCHAR s_surf_code[32];
+    VARCHAR s_source[32];
+    VARCHAR s_nlist_id[64];
+    VARCHAR s_nlist_file[240];
+    
+    EXEC SQL END DECLARE SECTION;
+    
+    /* -----------------------------------   
+        set returned status to SUCCESS
+       -----------------------------------   */
+    
+    istatus = SUCCESS;
+    
+    /* ---------------------------------------------            
+        fill source for the surface to store
+        if the source is null we take the current oracle account 
+       ---------------------------------------------  */
+    
+    sez_fillsource (source, surface.source);
+    
+    EXEC SQL WHENEVER SQLERROR GOTO errsql;
+    
+    /*     ------------------------------------------------------
+           prepare the SQL statement only the first time we enter
+           this routine
+          -------------------------------------------------------  */
+    
+    if (first)
+        {
+        PROJECT_NAME project_name;
+        TABLE_NAME table_hor;
+        
+        /*    inquire project name to build the table name                          */
+        
+        qs_inq_c (QS_PROJECT_NAME, project_name, (INT *)0);
+        sez_table_name (SEIS_SURFACE_TABLE, table_hor);
+        
+        select.len = sprintf ((char *)select.arr, 
+"INSERT INTO %s.%s  \
+(SURFACE_CODE,SURFACE_TYPE,DATA_TYPE,LINE_ID,\
+SOURCE ,ATTRIBUTE ,FORMAT,DIGITAL_REF,DIGITAL_REF_VOLUME,\
+VERSION , LAST_UPDATE, LOWER_TIME , UPPER_TIME ,FIRST_CDP,\
+LAST_CDP ) VALUES \
+(:surf_code , :surf_type,:data_type,  :line_id,\
+:source ,:attribute , :format,:nlist_id,:nlist_file,\
+:version , sysdate ,: lower_time ,:upper_time , :first_cdp_pick,\
+:last_cdp_pick)"
+                , project_name, table_hor);
+        
+        EXEC SQL PREPARE S1 FROM : select;
+        
+        select.len = sprintf ((char *)select.arr, 
+"SELECT NVL(MAX(VERSION),0)+1 FROM %s.%s \
+WHERE LINE_ID = :LINE_ID \
+AND SURFACE_CODE = :CODE \
+AND SURFACE_TYPE = :TYPE \
+AND DATA_TYPE = :DATA_TYPE \
+AND SOURCE = :SOURCE"
+                , project_name, table_hor);
+        EXEC SQL PREPARE S2 FROM : select;
+        EXEC SQL DECLARE C2 CURSOR FOR S2;
+        first = FALSE;
+        }
+    /*  ------------------------------------------------
+         build the nlist name   +  the nlist file name 
+        ------------------------------------------------   */
+    
+    nlist_file[0] = 0;              /* set to null string                       */
+    nlist_id[0] = 0;                /* set to null string                       */
+    strcpy (surface.name, surf_code);
+    
+    /*  ---------------------------------------------
+        fill all variables used in the SQL statement   
+        ---------------------------------------------    */
+    
+    s_line_id = (int)line->id;
+    s_surf_type = (int)surf_type;
+    s_data_type = (int)data_type;
+    s_attribute = (int)attribute;
+    s_format = (int)format;
+    
+    /* Special handling for version number 0:
+    If the caller passes version 0, then look up the next highest version number */
+    
+    V_FROMC (s_source, surface.source);
+    V_FROMC (s_surf_code, surf_code);
+    if (version EQUALS 0)
+        {
+        s_version = 1;
+        EXEC SQL OPEN C2 USING : s_line_id,  : s_surf_code,  : s_surf_type,
+            : s_data_type,  : s_source;
+        EXEC SQL FETCH C2 INTO : s_version;
+        }
+    else
+        {
+        s_version = version;
+        }
+    surface.version = s_version;
+    surface.data_type = data_type;
+    surface.data_class = surf_type;
+    se_bld_nlist_ids (line, (VOIDPTR) & surface, SEIS_SURFACE_DATA, nlist_id,
+                      nlist_file, full_nlist_file);
+    V_FROMC (s_nlist_id, nlist_id);
+    V_FROMC (s_nlist_file, nlist_file);
+    nCol = 2;
+    Col_List[0] = 1, Col_List[1] = 2;
+    Units[0] = Units[1] = 0;
+    Data_Types[0] = FLOAT_TYPE, Data_Widths[0] = sizeof(DOUBLE);
+    Data_Types[1] = FLOAT_TYPE, Data_Widths[1] = sizeof(DOUBLE);
+    
+    Var_List[0] = (VOIDPTR) & s_first_cdp;
+    Var_List[1] = (VOIDPTR) & s_lower_time;
+    nl_inq_nlist_info_convert (surface_nlist, NL_NLIST_MIN, nCol, Col_List, Var_List,
+                               Units, Data_Widths, Data_Types);
+    
+    Var_List[0] = (VOIDPTR) & s_last_cdp;
+    Var_List[1] = (VOIDPTR) & s_upper_time;
+    nl_inq_nlist_info_convert (surface_nlist, NL_NLIST_MAX, nCol, Col_List, Var_List,
+                               Units, Data_Widths, Data_Types);
+    /*   -------------------------------- 
+        execute the sql INSERT statement    
+         --------------------------------- */
+    
+    EXEC SQL EXECUTE S1 USING : s_surf_code,  : s_surf_type,  : s_data_type,
+        : s_line_id,  : s_source,  : s_attribute,  : s_format,  : s_nlist_id,
+        : s_nlist_file,  : s_version,  : s_lower_time,  : s_upper_time,  : s_first_cdp,
+        : s_last_cdp;
+    
+    /*  ---------------------------------------------------------
+         now try to write  the nlist  containing the seismic data
+        ---------------------------------------------------------         */
+    
+    istatus = nl_write_nlist (surface_nlist, full_nlist_file, nlist_id);
+    
+    /*    -----------------------------------------------------------
+          if we could write the nlist we commit the oracle changes
+          -----------------------------------------------------------   */
+    
+    if (istatus EQUALS SUCCESS)
+        {
+        /*  no errors were encountered so we can commit the insert                  */
+        
+        EXEC SQL COMMIT WORK;
+        
+        /*** return  SUCCESS  ****                                                  */
+        return SUCCESS;
+        /****************************************************************************/
+        }
+    else
+        {
+        nl_error = TRUE;
+        }
+    /*    ---------------------------------------------
+          we come here in case of SQL error or nlist write error
+          ---------------------------------------------             */
+    
+    errsql : 
+    
+    /* NOTE: The check for -1 status below is the specific oracle return
+    for 'duplicate row in index'.  This is valid for V5 and V6: who knows
+    about the future...
+    */
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    
+    if (NOT nl_error)
+        {
+        istatus = OR_STATUS EQUALS - 1 ? SE_DUPLI : OR_STATUS;
+        }
+    EXEC SQL ROLLBACK WORK;
+    
+    /*** return  ERROR  **                                                          */
+    return istatus;
+    }
+/* END:     */

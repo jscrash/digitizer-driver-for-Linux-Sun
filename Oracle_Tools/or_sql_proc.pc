@@ -1,0 +1,1054 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_SQL_PROC.PC*/
+/* *3    26-JUL-1990 12:04:54 VINCE "(SPR 5644) Fixed compile errors introduced with the header changes."*/
+/* *2    25-JUL-1990 19:58:10 VINCE "(SPR 5644) Header Standardization"*/
+/* *1    19-JUN-1989 12:35:43 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_SQL_PROC.PC*/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_am.h"
+#include "esi_asp_yesno.h"
+#include "esi_oracle.h"
+#include "esi_mg.h"
+#include "esi_or_msg.h"
+#include "esi_or_err.h"
+#include "esi_tc.h"
+#include "esi_ts.h"
+#include "esi_wi.h"
+#include "or_sql_processor.rh"
+EXEC SQL INCLUDE SQLDA.H;
+
+EXEC SQL BEGIN DECLARE SECTION;
+static VARCHAR stmt[512];
+static VARCHAR current_user[31];
+EXEC SQL END DECLARE SECTION;
+
+EXEC SQL DECLARE S STATEMENT;
+EXEC SQL DECLARE C CURSOR FOR S;
+
+/******************************************************************************/
+
+static INT cleanup ();
+static INT commitwork ();
+static INT print ();
+static INT descbind ();
+static INT getbvvals ();
+static INT descsel ();
+static INT dofetches ();
+static INT repterror ();
+static INT rollbkwk ();
+static INT fillseldesc ();
+static INT freeselvars ();
+static INT or_sql_dialog_server ();
+static INT parse_sql ();
+static INT execute_sql ();
+
+static CHAR last_stmt[512];
+
+/*---------------------------------------------*/
+/* name of account the last time the statement */
+/* was executed.  It is possible to have       */
+/* had accounts switch under you (using the    */
+/* DBA utility...                              */
+/*---------------------------------------------*/
+static ORACLE_NAME last_user;
+
+static SQLDA *bdp;              /* Descriptor used for BIND variables */
+static SQLDA *sdp;              /* Descriptor used for SELECT variables */
+static CHAR *vars = NULL;       /* Pointer to area used to hold BIND variables */
+static INT bdsize;              /* initial size of BIND variable descriptor */
+static INT bvsize;              /* maximum # of characters in BIND variable names */
+static INT sdsize;              /* initial size of SELECT variable descriptor */
+static INT svsize;              /* maximum # of characters in SELECT variable names */
+static BOOL autocommit;         /* autocommit flag */
+static BOOL firsttime;          /* controls reparsing/rebinding */
+static BOOL cursor_open;        /* database cursor is open */
+static CHAR RESOURCE_FILE[] = "OR_SQL_PROCESSOR";
+#define MAX_VALUE_SIZE 241
+extern SQLDA *sqlald ();
+
+/* File Description ---------------------------------------------------------
+Overview:
+    Ad-hoc SQL processor using ESI's workstation interface.
+    The user is presented with a dialog box which takes a SQL statement.
+    The statement is executed when the EXECUTE button is pressed.  The results
+    are written to the message window and optionally journalled using the
+    standard ESI journalling system.
+
+    Buttons are provided for committing and rollback operations.
+    They are only enabled following a DML operation, and become disabled
+    following the commit/rollback.  Note that ALL pending changes are committed,
+    not just the ones initiated within this application.
+
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT or_sql_processor(CHAR *not_used);
+
+Private_Functions:
+    static INT or_sql_dialog_server(INT id, INT item, BYTE *ptr);
+    
+    static INT cleanup();
+    
+    static INT commitwork();
+    
+    static INT descbind();
+    
+    static INT descsel();
+    
+    static INT dofetches(INT id);
+    
+    static INT execute_sql(INT id);
+    
+    static INT fillseldesc();
+    
+    static INT freeselvars();
+    
+    static INT getbvvals(INT id, CHAR **vars);
+    
+    static INT parse_sql(INT id);
+    
+    static INT print(CHAR *string);
+    
+    static INT repterror(INT id);
+    
+    static INT rollbkwk();
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT or_sql_processor(CHAR *not_used);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    not_used        -(CHAR *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+    OR_SQL_BAD_SEL_DESCRIPTOR
+    OR_SQL_BAD_BIND_DESCRIPTOR
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT or_sql_processor (CHAR *not_used)
+#else
+publicdef INT or_sql_processor (not_used)
+CHAR *not_used;
+#endif
+    {
+    INT id;                         /* dialog box ID */
+    INT status = SUCCESS;
+    
+    am_declare ("SQL");
+    
+    cursor_open = FALSE;
+    bdsize = 10;
+    bvsize = 30;
+    sdsize = 10;
+    svsize = 80;
+    
+    if ((bdp = (SQLDA *)sqlald (bdsize, bvsize, 10)) EQUALS (SQLDA *)0)
+        {
+        status = OR_SQL_BAD_BIND_DESCRIPTOR;
+        }
+    if ((status EQUALS SUCCESS) AND (sdp = (SQLDA *)sqlald (sdsize, svsize,
+                                                           0)) EQUALS (SQLDA *)0)
+        {
+        status = OR_SQL_BAD_SEL_DESCRIPTOR;
+        }
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+        am_message (AM_STATUS, mg_message (status));
+        am_quit ();
+        return status;
+        }
+    sdp->N = 0;                     /* init in case EXIT defore DESCRIBE */
+    
+    /* define the dialog box */
+    am_define_resource (AM_DIALOG, RESOURCE_FILE, SQL_PROCESSOR_CONTROL,
+                        or_sql_dialog_server, &id, NULL);
+    
+    /* initialize dialog state */
+    wiscdv (id, SQL_PROCESSOR_AUTOCOMMIT, autocommit);
+    wiencdi (id, SQL_PROCESSOR_COMMIT, OFF);
+    wiencdi (id, SQL_PROCESSOR_ROLLBACK, OFF);
+    wiscdt (id, SQL_PROCESSOR_TEXT, last_stmt);
+    strcpy (last_stmt, "");         /* force a new parse */
+    
+    EXEC SQL SELECT USER INTO : current_user FROM DUAL;
+    V_FROMV (last_user, current_user);
+    
+    wi_open_dialog (id);
+    wi_activate (id, SQL_PROCESSOR_TEXT, ON);   /* hilight the text */
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT or_sql_dialog_server(INT id, INT item, BYTE *ptr);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    id              -(INT)
+    item            -(INT)
+    ptr             -(BYTE *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT or_sql_dialog_server (INT id, INT item, BYTE *ptr)
+#else
+static INT or_sql_dialog_server (id, item, ptr)
+INT id;
+INT item;
+BYTE *ptr;
+#endif
+    {
+    INT status;
+    /* service dialog events */
+    
+    switch (item)
+        {
+    case SQL_PROCESSOR_DONE:
+        cleanup ();
+        commitwork ();
+        am_quit ();
+        return SUCCESS;
+        
+    case SQL_PROCESSOR_AUTOCOMMIT:
+        autocommit = NOT autocommit;
+        break;
+        
+    case SQL_PROCESSOR_COMMIT:
+        commitwork ();
+        wiscdt (id, SQL_PROCESSOR_MESSAGE, mg_message (OR_SQL_COMMIT));
+        wiencdi (id, SQL_PROCESSOR_COMMIT, OFF);
+        wiencdi (id, SQL_PROCESSOR_ROLLBACK, OFF);
+        break;
+        
+    case SQL_PROCESSOR_ROLLBACK:
+        rollbkwk ();
+        wiscdt (id, SQL_PROCESSOR_MESSAGE, mg_message (OR_SQL_ROLLBACK));
+        wiencdi (id, SQL_PROCESSOR_COMMIT, OFF);
+        wiencdi (id, SQL_PROCESSOR_ROLLBACK, OFF);
+        break;
+        
+    case SQL_PROCESSOR_EXECUTE:
+        wiscdt (id, SQL_PROCESSOR_MESSAGE, mg_message (OR_EXECUTING));
+        if ((status = parse_sql (id)) EQUALS SUCCESS)
+            {
+            execute_sql (id);
+            }
+        else
+            {
+            wiscdt (id, SQL_PROCESSOR_MESSAGE, mg_message (status));
+            }
+        wi_open_dialog (id);        /* pop control box back to front */
+        wi_activate (id, SQL_PROCESSOR_TEXT, ON);   /* hilight the text */
+        break;
+        }
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT cleanup();
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+    
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT cleanup ()
+#else
+static INT cleanup ()
+#endif
+    {
+    /* free up memory resources */
+    if (sdp->N IS_NOT_EQUAL_TO 0)
+        {
+        freeselvars ();
+        }
+    sqlclu (sdp);                   /* free the SELECT variable descriptor */
+    
+    if (vars IS_NOT_EQUAL_TO NULL)
+        {
+        tc_free (vars);
+        vars = NULL;
+        }
+    sqlclu (bdp);                   /* free the BIND   variable descriptor */
+    
+    if (cursor_open)
+        {
+        EXEC SQL CLOSE C;
+        }
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT commitwork();
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+    
+Return Value/Status:
+    OR_STATUS
+    
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT commitwork ()
+#else
+static INT commitwork ()
+#endif
+    {
+    EXEC SQL COMMIT WORK;
+    
+    return OR_STATUS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT descbind();
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+    
+Return Value/Status:
+    OR_STATUS
+    
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT descbind ()
+#else
+static INT descbind ()
+#endif
+    {
+    /* describe the BIND variables */
+    
+    EXEC SQL DESCRIBE BIND VARIABLES FOR S INTO bdp;
+    
+    if (OR_STATUS EQUALS SUCCESS)
+        {
+        if (bdp->F < 0)
+            {
+            bdsize = -(bdp->F);
+            sqlclu (bdp);
+            bdp = (SQLDA *)sqlald (bdsize, bvsize, 0);
+            EXEC SQL DESCRIBE BIND VARIABLES FOR S INTO bdp;
+            }
+        bdp->N = bdp->F;
+        }
+    return OR_STATUS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT descsel();
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+    
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT descsel ()
+#else
+static INT descsel ()
+#endif
+    {
+    /* describe the SELECT variables */
+    
+    EXEC SQL DESCRIBE SELECT LIST FOR S INTO sdp;
+    
+    if (sdp->F < 0)
+        {
+        sdsize = -(sdp->F);
+        sqlclu (sdp);
+        sdp = (SQLDA *)sqlald (sdsize, svsize, 0);
+        EXEC SQL DESCRIBE SELECT LIST FOR S INTO sdp;
+        }
+    sdp->N = sdp->F;
+    
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT dofetches(INT id);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    id              -(INT)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT dofetches (INT id)
+#else
+static INT dofetches (id)
+INT id;
+#endif
+    {
+    INT count;
+    CHAR *string;
+    CHAR buffer[100];
+    INT colname1;
+    INT nbytes;
+    CHAR *ps;
+    
+    /* perform the SELECT operation.  Print out the column headers, then retrieve
+       all rows.  Report the number of rows to both the message window and the
+       dialog box
+     */
+    
+    am_message (AM_STATUS, (char *)stmt.arr);
+    am_message (AM_REPORT, " ");
+    
+    /* get the total max size that a row could be (+ 1 per col for trailing null
+       + 1 for safety */
+    for (count = 0, nbytes = 0; count < sdp->N; count++)
+        {
+        nbytes += MAX (sdp->L[count], sdp->C[count]) + 2;
+        }
+    /* allocate enough room for this maximum size */
+    
+    string = (CHAR *)tc_alloc (nbytes);
+    
+    /* print out column headings */
+    
+    for (count = 0, ps = string; count < sdp->N; count++, ps += strlen (ps))
+        {
+        colname1 = MIN (sdp->L[count], sdp->C[count]);
+        colname1 = MIN (colname1, sizeof buffer - 1);
+        hoblockmove (sdp->S[count], buffer, colname1);
+        buffer[colname1] = 0;
+        
+        switch (sdp->T[count])
+            {
+        case CHAR_TYPE:             /* character string: left justify */
+            sprintf (ps, "%-*s ", sdp->L[count], buffer);
+            break;
+        case INT_TYPE:
+            sprintf (ps, "%*s ", sdp->L[count], buffer);
+            break;
+            }
+        }
+    am_message (AM_REPORT, string);
+    
+    /* underline the column headings */
+    
+    for (count = 0, ps = string; count < sdp->N; count++)
+        {
+        INT i;
+        
+        for (i = 0; i < sdp->L[count]; i++)
+            {
+            *ps++ = '-';
+            }
+        *ps++ = ' ';
+        }
+    am_message (AM_REPORT, string);
+    am_message (AM_REPORT, " ");
+    
+    /* here is where the fetches are actually performed */
+    
+    EXEC SQL WHENEVER NOT FOUND GOTO NOT_FOUND;
+    EXEC SQL WHENEVER SQLERROR GOTO NOT_FOUND;
+    
+    for (count = 0; ; count++)
+        {
+        EXEC SQL FETCH C USING DESCRIPTOR sdp;
+        print (string);
+        }
+NOT_FOUND:
+    sprintf (buffer, "%u row%sselected.", count, count EQUALS 1 ? " " : "s ");
+    wiscdt (id, SQL_PROCESSOR_MESSAGE, buffer);
+    am_message (AM_STATUS, buffer);
+    tc_free (string);
+    EXEC SQL WHENEVER NOT FOUND CONTINUE;
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT execute_sql(INT id);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    id              -(INT)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT execute_sql (INT id)
+#else
+static INT execute_sql (id)
+INT id;
+#endif
+    {
+    CHAR string[133];
+    INT status;
+    
+    /* Describe the bind variables into the descriptor bdp */
+    
+    bdp->N = bdsize;
+    status = descbind ();
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+        repterror (id);
+        return FAIL;
+        }
+    /* get any values required for the bind */
+    if (bdp->F IS_NOT_EQUAL_TO 0 AND getbvvals (id, &vars) IS_NOT_EQUAL_TO SUCCESS)
+        {
+        return FAIL;
+        }
+    /* open the cursor */
+    EXEC SQL OPEN C USING DESCRIPTOR bdp;
+    if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+        {
+        repterror (id);
+        return FAIL;
+        }
+    cursor_open = TRUE;
+    
+    if (firsttime)
+        {
+        firsttime = FALSE;
+        sdp->N = sdsize;
+        status = descsel ();        /* describe the SELECT variables */
+        if (status IS_NOT_EQUAL_TO SUCCESS)
+            {
+            repterror (id);
+            return FAIL;
+            }
+        if (sdp->F IS_NOT_EQUAL_TO 0)
+            {
+            fillseldesc ();
+            }
+        }
+    if (sdp->N IS_NOT_EQUAL_TO 0)
+        {
+        /* perform fetches for SELECT */
+        dofetches (id);
+        }
+    else
+        {
+        /* or report the number of rows afftected */
+        sprintf (string, mg_message (OR_SQL_ROWS_PROCESSED), sqlca.sqlerrd[2]);
+        wiscdt (id, SQL_PROCESSOR_MESSAGE, string);
+        if (autocommit)
+            {
+            commitwork ();
+            }
+        else
+            {
+            wiencdi (id, SQL_PROCESSOR_COMMIT, ON);
+            wiencdi (id, SQL_PROCESSOR_ROLLBACK, ON);
+            }
+        }
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT fillseldesc();
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+    
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT fillseldesc ()
+#else
+static INT fillseldesc ()
+#endif
+    {
+    /* set up destination variables - set ORACLE datatypes */
+    INT i;
+    SHORT precision;
+    SHORT scale;
+    INT length;
+    
+    for (i = 0; i < sdp->N; i++)
+        {
+        sdp->T[i] &= ~0x8000;
+        switch (sdp->T[i])
+            {
+        case 1:                     /* ORACLE Character type */
+            length = sdp->L[i];
+            break;
+        case 2:                     /* ORACLE Numeric data type */
+            precision = (unsigned char)(sdp->L[i] >> 8);
+            scale = (char)sdp->L[i];
+            /*--------------------------------------------*/
+            /* coerce to CHAR data type                   */
+            /* calculate length based on precision, scale */
+            /*--------------------------------------------*/
+            sdp->T[i] = 1;
+            
+            length = precision;
+            if (precision EQUALS 0)
+                {
+                length = 10;        /* max size allotted */
+                }
+            if (scale < 0)
+                {
+                length += (-scale);
+                }
+            sdp->L[i] = length + 2;
+            break;
+        case 12:                    /* DATE data type */
+        case 13:                    /* DATE data type */
+            sdp->T[i] = 1;          /* coerce to CHAR data type */
+            sdp->L[i] = 10;
+            }
+        sdp->V[i] = (CHAR *)tc_alloc (sdp->L[i] + 1);
+        sdp->I[i] = (SHORT *)tc_alloc (sizeof(SHORT));
+        }
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT freeselvars();
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+    
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT freeselvars ()
+#else
+static INT freeselvars ()
+#endif
+    {
+    INT i;
+    /* free the SELECT variables */
+    
+    for (i = 0; i < sdp->N; i++)
+        {
+        tc_free (sdp->V[i]);
+        tc_free (sdp->I[i]);
+        }
+    sdp->N = 0;
+    
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT getbvvals(INT id, CHAR **vars);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    id              -(INT)
+    vars            -(CHAR **)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT getbvvals (INT id, CHAR **vars)
+#else
+static INT getbvvals (id, vars)
+INT id;
+CHAR **vars;
+#endif
+    {
+    INT i;
+    INT status;
+    CHAR prompt_string[133];
+    CHAR variable[31];
+    
+    /* retrieve the BIND values */
+    if (*vars EQUALS NULL)
+        {
+        *vars = (CHAR *)tc_zalloc ((bdp->F) * MAX_VALUE_SIZE);
+        }
+    /* prompt for and receive each bind variable */
+    for (i = 0; i < bdp->F; i++)
+        {
+        bdp->V[i] = &((*vars)[i * MAX_VALUE_SIZE]);
+        strcpy (variable, ts_sto_upper (ts_snowhite (bdp->S[i])));
+        sprintf (prompt_string, mg_message (OR_SQL_BIND_PROMPT), variable);
+        wirqst (prompt_string, bdp->V[i], " ", MAX_VALUE_SIZE - 1, bdp->V[i], &status);
+        
+        if (status IS_NOT_EQUAL_TO SUCCESS)
+            {
+            wiscdt (id, SQL_PROCESSOR_MESSAGE, mg_message (OR_SQL_DML_ABORT));
+            return FAIL;
+            }
+        bdp->T[i] = 1;
+        bdp->L[i] = strlen (bdp->V[i]);
+        bdp->I[i] = 0;
+        }
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT parse_sql(INT id);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    id              -(INT)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+    OR_EMPTY_SQL_STATEMENT
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT parse_sql (INT id)
+#else
+static INT parse_sql (id)
+INT id;
+#endif
+    {
+    INT value;
+    
+    /* retrieve the current SQL statement */
+    wiqccdi (id, SQL_PROCESSOR_TEXT, &value, (char *)stmt.arr);
+    
+    /* remove trailing ;s */
+    value = stmt.len = strlen (ts_snowhite ((char *)stmt.arr));
+    if (value EQUALS 0)              /* check for the null string */
+        {
+        return OR_EMPTY_SQL_STATEMENT;
+        }
+    /* strip any/all trailing ';' */
+    while (stmt.arr[stmt.len - 1] EQUALS ';')
+        {
+        stmt.len--;
+        stmt.arr[stmt.len] = 0;
+        }
+    if (value IS_NOT_EQUAL_TO stmt.len) /* if modified, put modified string back */
+        {
+        wiscdt (id, SQL_PROCESSOR_TEXT, (char *)stmt.arr);
+        }
+    EXEC SQL SELECT USER INTO : current_user FROM DUAL;
+    V_SETZERO (current_user);
+    
+    /* compare it to the last statement */
+    /* or last user account */
+    if (strcmp (last_stmt, (char *)stmt.arr) OR strcmp ((char *)current_user.arr,
+                                                       last_user))
+        {
+        /* free up select variables */
+        if (sdp->N IS_NOT_EQUAL_TO 0)
+            {
+            freeselvars ();
+            }
+        /* free up bind variables */
+        if (vars IS_NOT_EQUAL_TO NULL)
+            {
+            tc_free (vars);
+            vars = NULL;
+            }
+        /* parse the entered statement */
+        
+        EXEC SQL PREPARE S FROM : stmt;
+        if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+            {
+            repterror (id);
+            return FAIL;
+            }
+        /* check for warnings */
+        if (sqlca.sqlwarn[0] EQUALS 'W')
+            {
+            if (sqlca.sqlwarn[4] EQUALS 'W')
+                {
+                ASP_YESNO_WORKSPACE yesno;
+                
+                yesno.cancel = TRUE;
+                strcpy (yesno.question, mg_message (OR_SQL_FULL_SCAN_CHECK));
+                asp_yesno (&yesno);
+                if ((yesno.status IS_NOT_EQUAL_TO SUCCESS) OR (yesno.
+                                                              answer EQUALS FALSE))
+                    {
+                    wiscdt (id, SQL_PROCESSOR_MESSAGE, mg_message (OR_SQL_DML_ABORT));
+                    return FAIL;
+                    }
+                }
+            else
+                {
+                repterror (id);
+                return FAIL;
+                }
+            }
+        strcpy (last_stmt, (char *)stmt.arr);
+        firsttime = TRUE;           /* set first-time flag */
+        }
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT print(CHAR *string);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    string          -(CHAR *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT print (CHAR *string)
+#else
+static INT print (string)
+CHAR *string;
+#endif
+    {
+    INT i;
+    CHAR *ps;
+    
+    for (i = 0, ps = string; i < sdp->N; i++, ps += strlen (ps))
+        {
+        if (*(sdp->I[i]) < 0)       /* returned value is null */
+            {
+            sprintf (ps, "%-*s ", sdp->L[i], " ");
+            }
+        else
+            {
+            sprintf (ps, "%-.*s ", sdp->L[i], sdp->V[i]);
+            }
+        }
+    am_message (AM_REPORT, string);
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT repterror(INT id);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    id              -(INT)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT repterror (INT id)
+#else
+static INT repterror (id)
+INT id;
+#endif
+    {
+    CHAR string[71];
+    
+    strncpy (string, OR_MESSAGE, 70);
+    string[70] = 0;
+    wiscdt (id, SQL_PROCESSOR_MESSAGE, ts_snowhite (string));
+    
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT rollbkwk();
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+    
+Return Value/Status:
+    OR_STATUS
+    
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT rollbkwk ()
+#else
+static INT rollbkwk ()
+#endif
+    {
+    EXEC SQL ROLLBACK WORK;
+    
+    return OR_STATUS;
+    }
+/* END:     */

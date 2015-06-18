@@ -1,0 +1,164 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_PUT_TOP.PC */
+/* *2     1-MAY-1991 21:53:50 KEE "(SPR -1) Landmark Import" */
+/* *1     1-MAY-1991 21:22:28 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_PUT_TOP.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_WE_WELLS_H
+#include "esi_we_wells.h"
+#endif
+
+/* EXEC ORACLE OPTION (REBIND = YES); */
+EXEC ORACLE OPTION (HOLD_CURSOR = YES);
+
+/*  *************************************************************************
+
+    ROUTINE:  MY_PUT_TOP
+
+    DESCRIPTION
+	This is the method of putting a top to the tops database tables
+     	according to pre-defined search rules.  Modified by Rod Hanks,
+	from LS_PUT_TOP to include the time, and to actually use the source
+	that is in the TOP_STRUCT passed to it.
+        
+    STATUS CODES
+        LS_PRIMARY_SOURCE_FOUND.
+	LS_ALTERNATE_SOURCE_FOUND.
+	LS_SOURCES_NOT_FOUND.
+	LS_TOP_NOT_FOUND.
+        SQL ERROR CODES.
+	
+    INPUT
+	UWI   =(UWI ) Unique Well Identifier.
+	TOP   =(CHAR *)The name of Top.
+
+    OUTPUT
+	PTOP  =(TOP_STRUCT *)A pointer points to TOP_STRUCT.
+	STATUS CODES.
+
+    Author: James Chang
+    ********************************************************************** */
+#if USE_PROTOTYPES
+publicdef INT ld_lm2_imp_put_top(UWI uwi, CHAR top[], TOP_STRUCT *ptop)
+#else
+publicdef INT ld_lm2_imp_put_top(uwi, top, ptop)
+UWI uwi;
+CHAR top[];
+TOP_STRUCT *ptop;
+#endif
+    /************************************************************************/
+{
+    INT status = SUCCESS;         /*   result status.                      */
+    PROJECT_NAME current_project;
+    static BOOL first_time = TRUE;
+  
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[512];
+   				  /*   WELL_TOPS table.                    */
+    static char *uwi_column;
+    static char *formcode_column;
+    static double md_column;
+    static double tvd_column;
+    static VARCHAR best_pick_column[3];
+    static VARCHAR theSource[31];
+ EXEC SQL END DECLARE SECTION;
+
+/* ************************************************************************* */
+
+	EXEC SQL WHENEVER SQLERROR GOTO errrpt;
+
+	V_FROMC(theSource, ptop -> Source);
+	if (first_time)
+	    {
+					/* inquire the current project.	     */
+	    qs_inq_c(QS_PROJECT_NAME, current_project, (INT *) 0);
+
+	    sqlstmt.len = sprintf((char *)sqlstmt.arr, 
+"INSERT INTO %s.WELL_TOPS \
+(UWI, FORM_CODE, SOURCE, MD, PICK_REF, LAST_UPDATE, TVD) \
+VALUES (:uwi_column, :formcode_column, :theSource, :md_column, \
+:best_pick_column, SYSDATE, :tvd_column)", current_project);
+	    EXEC SQL PREPARE S1 FROM :sqlstmt;
+
+	    sqlstmt.len = sprintf((char *)sqlstmt.arr, "UPDATE %s.WELL_TOPS \
+SET SOURCE=:theSource, MD=:md_column, PICK_REF=:best_pick_column, \
+LAST_UPDATE = SYSDATE, TVD=:tvd_column WHERE UWI = :uwi_column AND \
+FORM_CODE = :formcode_column AND SOURCE = :theSource", current_project);
+	    EXEC SQL PREPARE S2 FROM :sqlstmt;
+
+	    sqlstmt.len = sprintf((char *)sqlstmt.arr, 
+"INSERT INTO %s.LITHOSTRAT_CODES \
+(CODE, DISPLAY) VALUES (:formcode_column, :formcode_column)", current_project);
+	    EXEC SQL PREPARE S3 FROM :sqlstmt;
+
+	    first_time = FALSE;
+	    }
+					/* construct the select phrase.	     */
+	uwi_column = uwi;
+        formcode_column = top;
+	md_column = ptop -> Depth.md; 
+	tvd_column = ptop -> Depth.tvd;
+	best_pick_column.len = sprintf((CHAR *)best_pick_column.arr, "%c", 
+					ptop -> Best_Pick);
+
+					/* try updating.  the db will kick
+                                           back if the row does not exist... */
+
+        EXEC SQL WHENEVER SQLERROR GOTO insert;
+
+	EXEC SQL EXECUTE S2 USING :theSource, :md_column, :best_pick_column, :tvd_column,
+					 :uwi_column, :formcode_column,
+					 :theSource;
+        if( OR_ROWCOUNT <= 0 ) goto insert;
+	EXEC SQL WHENEVER SQLERROR continue;
+	EXEC SQL COMMIT WORK;
+	return status;
+
+insert:
+	EXEC SQL WHENEVER SQLERROR GOTO errrpt;
+	EXEC SQL EXECUTE S1 USING :uwi_column, :formcode_column, 
+					 :theSource, :md_column, 
+					 :best_pick_column, :tvd_column;
+	EXEC SQL WHENEVER SQLERROR continue;
+	EXEC SQL COMMIT WORK;
+
+	EXEC SQL EXECUTE S3 USING :formcode_column, :formcode_column;
+	EXEC SQL WHENEVER SQLERROR continue;
+	EXEC SQL COMMIT WORK;
+	return status;
+
+errrpt:
+	status = OR_STATUS;
+	EXEC SQL ROLLBACK WORK;
+	return status;
+}
+
+
+

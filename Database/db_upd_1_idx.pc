@@ -1,0 +1,262 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_UPD_1_IDX.PC */
+/* *3     1-FEB-1991 16:15:06 VINCE "(SPR 6543) use an index tablespace when defined" */
+/* *2    31-DEC-1990 11:36:35 VINCE "(SPR 6205) initial coding; code removed from db_update_indexes.pc" */
+/* *1    10-DEC-1990 16:14:54 VINCE "update a single index for a Finder table." */
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_UPD_1_IDX.PC */
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON 
+THE DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Finder Graphics Systems, Inc.
+			201 Tamal Vista Blvd
+			Corte Madera, CA  USA 94925
+			(415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_gl_defs.h"
+#include "esi_db.h"
+#include "esi_qs.h"
+#include "esi_oracle.h"
+
+#include "esi_db_err.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+    This routine will create an index for a Finder project.
+
+Prototype:
+    publicdef INT dba_update_1_index (DB_ACCOUNT_STRUCT *db_account,
+				      CHAR *input_index_name);
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) db_account	 - (DB_ACCOUNT_STRUCT *) Account structure.
+    (I) input_index_name - (CHAR *) name of the index to be created.
+
+Return Value/Status:
+    SUCCESS			- Successfull completion.
+    DB_INDEX_TABLE_NOT_FOUND	- ESI.FINDER_COLUMN_INDEXES not found.
+    DB_NO_INDEX_INFO		- Index definition not found.
+    DB_INVALID_INDEX_INFO	- Index definition is invalid.
+    Oracle Status Code		- Error when executing create index statment.
+
+Scope:
+    PUBLIC
+
+Limitations/Assumptions:
+    The index must be defined in the Finder schema tables.
+
+    This routine does not check that the requested index is defined in
+    ACCOUNT_TB_DEFS.  It is assumed that the caller has made this check
+    if it is neccessary.
+
+    This allows this routine to generate indexes even on the bootstrap
+    tables during account creation before there are entries in
+    ACCOUNT_TB_DEFS.
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT dba_update_1_index (DB_ACCOUNT_STRUCT *db_account,
+				  CHAR *input_index_name)
+#else
+publicdef INT dba_update_1_index (db_account, input_index_name)
+DB_ACCOUNT_STRUCT *db_account;
+CHAR *input_index_name;
+#endif
+{
+    INT  status, oracle_version;
+    CHAR storage[511];
+    CHAR column_def[50];
+
+    EXEC SQL BEGIN DECLARE SECTION;
+	VARCHAR sqlstmt[2048];
+
+	VARCHAR index_type[33];
+	VARCHAR index_name[33];
+	VARCHAR table_name[33];
+	VARCHAR index_options[33];
+
+	VARCHAR column_name[33];
+	VARCHAR column_options[33];
+    EXEC SQL END DECLARE SECTION;
+
+    /* -------------------------- */
+    /* check the input parameters */
+    /* -------------------------- */
+
+    if (input_index_name  == NULL) return DB_NO_INDEX_NAME;
+    if (*input_index_name == NUL ) return DB_NO_INDEX_NAME;
+
+    /* --------------------------------------------------------- */
+    /* get the oracle version number, this will be used later to */
+    /* determine if a storage definition is required.		 */
+    /* --------------------------------------------------------- */
+
+    qs_inq_i (QS_ORACLE_VERSION, &oracle_version);
+
+    /* --------------------------------------------- */
+    /* initialize the oracle communication variables */
+    /* --------------------------------------------- */
+
+    V_FROMC (index_name, input_index_name);
+
+    V_CLEAR (index_type);
+    V_CLEAR (table_name);
+    V_CLEAR (index_options);
+
+    /* ----------------------------------------------------- */
+    /* get the header info for the index, abort on any error */
+    /* ----------------------------------------------------- */
+
+    /* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
+    /* !!!!!!!!!!!!!!!!!!!!!!!!!!!!! NOTE: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
+    /* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
+    /*									    */
+    /* Currently the FINDER_COLUMN_INDEXES table contains one row for each  */
+    /* column used in an index.  Each of these rows must also contain the   */
+    /* complete index information as is selected in the following select    */
+    /* statement.  If any of the rows defining the index contain different  */
+    /* or incomplete information about the index the index definition is    */
+    /* concidered to be invalid.  In that case the select will return more  */
+    /* than one row and we are depending on PRO*C to trigger the SQLERROR   */
+    /* GOTO.								    */
+    /*									    */
+    /* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
+
+    EXEC SQL WHENEVER NOT FOUND GOTO missing_index_info;
+    EXEC SQL WHENEVER SQLERROR  GOTO invalid_index_info;
+    EXEC SQL
+	SELECT	DISTINCT
+		DECODE (INDEX_TYPE,
+			'UNIQUE', 'UNIQUE',
+			NULL),
+		TNAME,
+		INDEX_OPTIONS
+	INTO	:index_type, :table_name, :index_options
+	FROM	ESI.FINDER_COLUMN_INDEXES
+	WHERE	INAME = :index_name;
+
+    /* ----------------------- */
+    /* another validity check! */
+    /* ----------------------- */
+    if (table_name.len == 0) goto invalid_index_info;
+
+    /* -------------------------------- */
+    /* begin the create index statement */
+    /* -------------------------------- */
+
+    V_SETZERO (index_type);
+    V_SETZERO (table_name);
+    V_SETZERO (index_options);
+
+    sprintf ((char *)sqlstmt.arr,
+    "CREATE %s INDEX %s ON %s (",
+    (char *)index_type.arr, (char *)index_name.arr, (char *)table_name.arr);
+
+    /* ---------------------------------------- */
+    /* get the column information for the index */
+    /* ---------------------------------------- */
+
+    EXEC SQL WHENEVER NOT FOUND CONTINUE;
+
+    EXEC SQL DECLARE COLUMN_INFO CURSOR FOR
+	SELECT	CNAME,
+		DECODE (COLUMN_OPTIONS,
+			'DESC', 'DESC',
+			'D',    'DESC',
+			NULL)
+	FROM	ESI.FINDER_COLUMN_INDEXES
+	WHERE	INAME = :index_name
+	ORDER BY    SEQ;
+
+    EXEC SQL OPEN COLUMN_INFO;
+
+    V_CLEAR (column_name);
+    V_CLEAR (column_options);
+    EXEC SQL FETCH COLUMN_INFO INTO :column_name, :column_options;
+
+    while (OR_STATUS == SUCCESS)
+	{
+	V_SETZERO (column_name);
+	V_SETZERO (column_options);
+	
+	sprintf (column_def, "%s %s,",
+		 (char *)column_name.arr,
+		 (char *)column_options.arr);
+
+	strcat ((char *)sqlstmt.arr, column_def);
+
+	V_CLEAR (column_name);
+	V_CLEAR (column_options);
+	EXEC SQL FETCH COLUMN_INFO INTO :column_name, :column_options;
+	}
+
+    EXEC SQL CLOSE COLUMN_INFO;
+
+    /* -------------------------------------------------------------- */
+    /* The resultant statement from above will have a trailing comma. */
+    /* Change the trailing comma to a close parantheis.		      */
+    /* -------------------------------------------------------------- */
+
+    sqlstmt.len = strlen((char *)sqlstmt.arr);
+    sqlstmt.arr[sqlstmt.len-1] = ')';
+
+    /* ----------------------------------------------- */
+    /* add the storage definition string, if oracle V6 */
+    /* ----------------------------------------------- */
+
+    if (oracle_version >= 6.0)
+	{
+	status = db_get_storage_string (input_index_name, "INDEX", storage);
+	if (status == SUCCESS)
+	    {
+	    strcat ((char *)sqlstmt.arr, " ");
+	    strcat ((char *)sqlstmt.arr, storage);
+	    }
+	}
+
+    /* ----------------------------- */
+    /* add the index options, if any */
+    /* ----------------------------- */
+
+    if (index_options.len > 0)
+	{
+	strcat ((char *)sqlstmt.arr, " ");
+	strcat ((char *)sqlstmt.arr, (char *)index_options.arr);
+	}
+
+    /* -------------------------------------------- */
+    /* execute the create index statement (at last) */
+    /* -------------------------------------------- */
+
+    V_SETLEN (sqlstmt);
+
+    EXEC SQL WHENEVER SQLERROR GOTO index_not_created;
+    EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+
+    return SUCCESS;
+
+invalid_index_info:
+    if (OR_STATUS == -942)
+	return DB_INDEX_TABLE_NOT_FOUND;
+
+    return DB_INVALID_INDEX_INFO;
+
+missing_index_info:
+    return DB_NO_INDEX_INFO;
+
+index_not_created:
+    return OR_STATUS;
+}
+/* END:	    */ 

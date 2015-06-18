@@ -1,0 +1,278 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_PUT_TEXT.PC*/
+/* *5    14-AUG-1990 21:56:01 GILLESPIE "(SPR 2001) Use LINE_ATTRIBUTEs"*/
+/* *4    10-FEB-1990 09:55:23 MING "(SPR 6007) Change NODE_ID to INTEGER"*/
+/* *3    10-OCT-1989 09:49:08 PURNA "(SPR 5020) Mods for CT parameter change"*/
+/* *2    26-JUN-1989 10:41:53 GILLESPIE "(SPR 20) Fix castings"*/
+/* *1    19-JUN-1989 12:31:18 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_PUT_TEXT.PC*/
+
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/*****************************************************************************
+
+NAME:           dr_put_text
+
+DESCRIPTION:    This routine Puts a text structure into the TEXT table
+		of the current project.
+
+     Input:     Text - a pointer to a text structure.
+		dr_data - a pointer to a DR_DATA;
+
+     Output:    none
+
+     Status:    SUCCESS
+		<oracle error number>
+
+******************************************************************************/
+
+
+#include "esi_c_lib.h"
+
+#ifndef ESI_GL_TOP_H
+#include "esi_gl_top.h"
+#endif
+
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_DR_H
+#include "esi_dr.h"
+#endif
+
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+
+#ifndef ESI_CT_ERR_H
+#include "esi_ct_err.h"
+#endif
+
+#ifndef ESI_MP_H
+#include "esi_mp.h"		/* mapping structures */
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+/************************************************************/
+publicdef INT dr_put_text( text, dr_data )
+
+TEXT *text;
+DR_DATA *dr_data;
+{
+   INT        status, mapdef_status;
+   DOUBLE     x_location,y_location;
+   PROJECT_NAME project;
+   NODE_ID    node_id ;
+   CHAR       arrow_flag[ 4 ], text_temp[1024];
+   DOUBLE p1_in[2], p1_out[2],p2_in[2], p2_out[2], project_position[2];
+   DOUBLE uom_factor, x_extent, y_extent, seg;
+   DOUBLE map_llx, map_lly, map_urx, map_ury;
+   MAP_STRUCTURE *mapdef;
+   EXEC SQL BEGIN DECLARE SECTION;
+      VARCHAR sqlstmt[2048];
+      VARCHAR horizontal_alignment[ 14 ];
+	 int     horizontal_alignment_code;
+      VARCHAR vertical_alignment[ 14 ];
+	 int     vertical_alignment_code;
+      VARCHAR box_flag[4];
+      VARCHAR box_hatch_code[14];
+	 int     box_hatch_code_code;
+      VARCHAR box_fill_color[14];
+	 int     box_fill_color_code;
+      VARCHAR box_line_style[15];
+	 int     box_line_style_code;
+      VARCHAR box_line_width[14];
+	 int     box_line_width_code;
+      VARCHAR text_path[ 14 ];
+	 int     text_path_code;
+      VARCHAR text_font[21];
+	 int     text_font_code;
+      VARCHAR text_color[16];
+	 int     text_color_code;
+      VARCHAR text_precision[14];
+	 int     text_precision_code;
+   EXEC SQL END DECLARE SECTION;
+
+   status = SUCCESS;
+
+/* get project name */
+   qs_inq_c( QS_PROJECT_NAME, project, (INT *)0 );
+
+/*
+ * Set up local variables for SQL's use.
+ */
+   vertical_alignment_code = text->text_alignment[1];
+   horizontal_alignment_code = text->text_alignment[0];
+
+/* Box variables */
+   if ( text->box_flag )
+   {
+      box_flag.len = sprintf( (char *)box_flag.arr, "%s", "YES" );
+      box_hatch_code_code     = text->box_fill_code;
+      box_fill_color_code     = text->box.color;
+      box_line_style_code     = text->box.style;
+      box_line_width_code = text->box.width;
+   }
+   else
+   {
+      box_flag.len = sprintf( (char *)box_flag.arr, "%s", "NO" );
+			      /* set length to zero */
+      box_hatch_code.arr[0] = '\0';
+      box_fill_color.arr[0] = '\0';
+      box_line_style.arr[0] = '\0';
+      box_line_width.arr[0] = '\0';
+   }
+
+   text_path_code        = text->text_path;
+   text_font_code        = text->text_font;
+   text_color_code       = text->text_color;
+   text_precision_code   = text->text_precision;
+   
+   strcpy (text_temp, text->text_string);
+
+   if (text->arrow_flag)
+      strcpy( arrow_flag, "YES" );
+   else
+      strcpy( arrow_flag, "NO" );
+
+/*
+ * STORE THE NODE IN THE NODES TABLE.
+ */
+   status = ct_put_node( text->text_position.x,text->text_position.y, &node_id);
+   if ( status != SUCCESS )
+   {
+      return( status );
+   }
+
+/* mod BY jjc, 10/06/88 CALCULATE THE uom FACTOR BETWEEN PROJECTS.     */
+/* MOD by VSC, 03/10/89 use project defaults when there is no mapdef.  */
+	mapdef_status = am_open_workspace("MAPDEF",AM_APPLICATION,
+		(VOIDPTR)&mapdef);
+	if (mapdef_status == SUCCESS) {
+	   map_llx = mapdef->lower_left_xy.x;
+	   map_lly = mapdef->lower_left_xy.y;
+	   map_urx = mapdef->upper_right_xy.x;
+	   map_ury = mapdef->upper_right_xy.y;
+	}
+	else {  /* no mapdef; get project defaults instead.  */
+	   status = lu_project_default(
+		  "LOWER_LEFT_X", &map_llx, FLOAT_TYPE, sizeof(map_llx));
+	   if (status == SUCCESS) status = lu_project_default(
+		  "LOWER_LEFT_Y", &map_lly, FLOAT_TYPE, sizeof(map_lly));
+	   if (status == SUCCESS) status = lu_project_default(
+		  "UPPER_RIGHT_X", &map_urx, FLOAT_TYPE, sizeof(map_urx));
+	   if (status == SUCCESS) status = lu_project_default(
+		  "UPPER_RIGHT_Y", &map_ury, FLOAT_TYPE, sizeof(map_ury));
+	   if (status != SUCCESS)
+		  return status;
+	}
+	p1_in[0] = text-> text_position.x;
+	p1_in[1] = text-> text_position.y;
+	ct_project_xy(p1_in[0],p1_in[1],&project_position[0],
+			&project_position[1]);
+	p1_in[0] = map_llx;
+	p1_in[1] = map_lly;
+	ct_project_xy(p1_in[0],p1_in[1],&p1_out[0],&p1_out[1]);
+	seg = (map_ury - map_lly ) / 2.0;
+	seg = (seg == 0.0 ) ? 1.0 : seg;
+	p2_in[0] = p1_in[0];
+	p2_in[1] = p1_in[1] + seg;
+	ct_project_xy(p2_in[0],p2_in[1],&p2_out[0],&p2_out[1]);
+	uom_factor = (p2_out[1]-p1_out[1]) / seg;
+
+/* update the extents of object. */
+
+    x_extent = project_position[0];
+    y_extent = project_position[1];
+    if(dr_data->lower_left_extent.x > x_extent)
+	    dr_data->lower_left_extent.x = x_extent;
+    if(dr_data->lower_left_extent.y > y_extent)
+	    dr_data->lower_left_extent.y = y_extent;
+
+    if(dr_data->upper_right_extent.x < x_extent)
+	    dr_data->upper_right_extent.x = x_extent;
+    if(dr_data->upper_right_extent.y < y_extent)
+	    dr_data->upper_right_extent.y = y_extent;
+
+    x_extent = project_position[0] + text -> text_offset.x * uom_factor;
+    y_extent = project_position[1] + text -> text_offset.y * uom_factor;
+
+    if(dr_data->lower_left_extent.x > x_extent)
+	    dr_data->lower_left_extent.x = x_extent;
+    if(dr_data->lower_left_extent.y > y_extent)
+	    dr_data->lower_left_extent.y = y_extent;
+
+    if(dr_data->upper_right_extent.x < x_extent)
+	    dr_data->upper_right_extent.x = x_extent;
+    if(dr_data->upper_right_extent.y < y_extent)
+	    dr_data->upper_right_extent.y = y_extent;
+/*
+ * Build the statement for the TEXT table
+ */
+   sqlstmt.len = sprintf((char *)sqlstmt.arr,"INSERT INTO %s.TEXT  \
+	   ( TEXT_ID, POSITION, X_OFFSET, Y_OFFSET, \
+ANNOTATION_CLASS, ANNOTATION_SUPERCLASS, \
+HORIZONTAL_ALIGNMENT, VERTICAL_ALIGNMENT, TEXT_PATH, \
+BOX_FLAG, BOX_HATCH_CODE, BOX_FILL_COLOR, BOX_LINE_STYLE, \
+BOX_LINE_THICKNESS, ARROW_FLAG, UP_VECTOR_X, UP_VECTOR_Y, \
+TEXT_FONT, TEXT_COLOR, TEXT_PRECISION,\
+TEXT_SIZE, TEXT_EXPANSION_FACTOR, LINE_SPACING, TEXT_STRING ) \
+VALUES ( %d, %d, %f, %f, \
+	 '%s','%s', \
+	 %d, %d, %d, \
+	 '%s', %d, %d, %d, \
+	 %f, '%s', %f, %f, \
+	 %d, %d, %d, \
+	 %f, %f, %f, %s )",
+	 project, text->text_id, node_id, text->text_offset.x*uom_factor,
+	    text->text_offset.y * uom_factor,
+	 text->text_class, text->text_super_class,
+	 text->text_alignment[0], text->text_alignment[1], text->text_path,
+	 box_flag.arr, text->box_fill_code, text->box.color,text->box.style,
+	 text->box.width, arrow_flag, text->text_up_x, text->text_up_y,
+	 text->text_font, text->text_color, text->text_precision,
+	 text->text_size * uom_factor, text->text_expansion_factor,
+	 text->text_line_spacing * uom_factor, ts_quote(text_temp, '\'') );
+
+
+   EXEC SQL WHENEVER SQLERROR GOTO sqlerrorpt;
+
+   EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+
+/* return appropriate status */
+   return( status );
+
+sqlerrorpt:
+   status = OR_STATUS;
+   return( status );
+}

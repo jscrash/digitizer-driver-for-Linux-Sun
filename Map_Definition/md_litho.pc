@@ -1,0 +1,148 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element MD_LITHO.PC*/
+/* *2    17-AUG-1990 21:57:27 VINCE "(SPR 5644) Code Cleanup"*/
+/* *1    19-JUN-1989 12:34:14 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element MD_LITHO.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_am.h"
+#include "esi_qs.h"
+#include "esi_md_defs.h"
+#include "esi_oracle.h"
+
+#ifndef ESI_MD_ERR_H
+
+#include "esi_md_err.h"
+
+#endif
+
+#ifndef ESI_MD_MSG_H
+
+#include "esi_md_msg.h"
+
+#endif
+
+#ifndef ESI_MG_H
+
+#include "esi_mg.h"
+
+#endif
+
+/* Function Description -----------------------------------------------------
+    Function to do table lookup validation for lithostrat.
+
+Prototype:
+    publicdef INT md_litho(MD_PARM_STRUCT *parmstruc);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    parmstruc       -(MD_PARM_STRUCT *) Map def parameter structure.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    MD_ORACLE_ERROR
+    MD_CODE_NOT_FOUND
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT md_litho (MD_PARM_STRUCT *parmstruc)
+#else
+publicdef INT md_litho (parmstruc)
+MD_PARM_STRUCT *parmstruc;
+#endif
+    {
+    
+    static BOOL first = TRUE;
+    PROJECT_NAME project;
+    INT status;                     /* RETURN STATUS */
+    CHAR text[STMAX];
+    
+/*     EXEC ORACLE OPTION (REBIND = NO); */
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[100];
+    static VARCHAR name[16];    /* NAME TO RETURN */
+    static VARCHAR code[9];     /* CODE TO QUERY */
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ********************************************************************** */
+    
+    status = SUCCESS;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO orcerr;
+    EXEC SQL WHENEVER NOT FOUND GOTO not_found;
+    
+    if (first)
+        {
+        qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+        
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr,
+                               "SELECT CODE FROM %s.LITHOSTRAT_CODES WHERE CODE = :v",
+                               project);
+        
+        EXEC SQL PREPARE S1 FROM : sqlstmt;
+        EXEC SQL DECLARE C1 CURSOR FOR S1;
+        
+        first = FALSE;
+        }
+    if (strlen (parmstruc->parmval.cval) > 15)
+        {
+        goto not_found;
+        }
+    V_FROMC (code, parmstruc->parmval.cval);
+    
+    EXEC SQL OPEN C1 using : code;
+    EXEC SQL FETCH C1 INTO : name;
+    
+    parmstruc->parmtype = 1;
+    
+    goto finished;
+    
+    /* * NO CODED VALUE FOUND * */
+    /* ------------------------ */
+    
+not_found:
+    status = MD_CODE_NOT_FOUND;
+    sprintf (text, mg_message (MD_NOT_FOUND), parmstruc->parmval.cval, project);
+    am_message (AM_ALERT, text);
+    goto finished;
+    
+    /* * ORACLE ERROR * */
+    /* ---------------- */
+    
+orcerr:
+    status = MD_ORACLE_ERROR;
+    
+    /* * RETURN * */
+    /* ---------- */
+    
+finished:
+    return status;
+    }
+/* END:     */

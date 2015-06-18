@@ -1,0 +1,147 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_GET_FLNAME.PC */
+/* *2    26-JUN-1991 15:44:59 DOUG "(SPR 1513) New code chechin for Don Vossler." */
+/* *1    26-JUN-1991 15:43:49 DOUG "Given a project name and seismic select list, return an array (TCP) of full line names." */
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_GET_FLNAME.PC */
+/* Function Description -------------------------------------------------------
+Description:
+    Function to the 'FULL_LINE_NAME's associated with a specified seismic
+    select list.
+
+Prototype:
+    publicdef INT se_get_fullnames(PROJECT_NAME project,  NLIST_ID line_list,
+                                   FULL_LINE_NAME **fname, INT *num_names)
+    
+Parameters:
+    (I) project     -(PROJECT_NAME) Name of project containing data.
+    (I) line_list   -(NLIST_ID)     Seismic select list name.
+    (O) fname       _(FULL_LINE_NAME **) Array of full line names.  Space
+                                    will be allocated here and should
+                                    be released in the calling program
+                                    by a call to 'tc_free'.
+    (O) num_names   -(INT *)        Number of names returned.
+
+Return Value/Status:
+    SUCCESS.
+    FAIL.
+
+Scope:
+    PUBLIC
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+#ifndef ESI_OR_H
+#include "esi_or.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_SE_H
+#include "esi_se.h"
+#endif
+
+#ifdef PROTOTYPES
+publicdef INT se_get_fullnames(PROJECT_NAME project,  NLIST_ID line_list,
+                                FULL_LINE_NAME **fname, INT *num_names)
+#else
+publicdef INT se_get_fullnames(project, line_list, fname, num_names)
+PROJECT_NAME     project;
+NLIST_ID         line_list;
+FULL_LINE_NAME **fname;
+INT             *num_names;
+#endif
+    {
+    INT j;                /* loop counter                             */
+    INT numlines;         /* no. lines to actually process            */
+    INT *lines;           /* internal line_id's                       */
+    INT status;           /* status flag for function calls           */
+    INT stat_save;        /* error status save                        */
+    INT stat_flag = 0;    /* error occurrance flag                    */
+    INT cur_line;         /* current line instance                    */
+    FULL_LINE_NAME *LN;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+        long lineid;
+        VARCHAR linename[25];
+        VARCHAR surv[25];  
+        VARCHAR lnstmt[400];
+    EXEC SQL END DECLARE SECTION;
+    
+    /* Set error handling */
+    /* ------------------ */
+    EXEC SQL WHENEVER SQLERROR GOTO :serr;
+
+    /* Get line ids specified by select list now */
+    /* ----------------------------------------- */
+    status = vi_lines(project, line_list, &lines, &numlines);
+    if(status < SUCCESS)
+        {
+        fprintf(stderr, "Could not get lineids.\n");
+        return status;
+        }
+
+    /* Allocate line name space */
+    /* ------------------------ */
+    *fname = (FULL_LINE_NAME *)tc_alloc(numlines * sizeof(FULL_LINE_NAME));
+    LN = *fname;
+
+    /* Loop over lines */
+    /* --------------- */
+    cur_line = 0;
+    for (j = 0; j < numlines; j++)
+        {
+        cur_line = lines[j];
+
+        /* Get line name, survey */
+        /* --------------------- */
+        lnstmt.len = sprintf ((char *)lnstmt.arr, 
+        "SELECT LINE_NAME, SURVEY \
+        FROM %s.SEIS_LINE_HDR \
+        WHERE LINE_ID = %ld", project, cur_line);
+        
+        EXEC SQL PREPARE S15 FROM  :lnstmt;
+        EXEC SQL DECLARE C15 CURSOR FOR S15;
+        EXEC SQL OPEN C15;
+        EXEC SQL FETCH C15 INTO :linename, :surv;
+        EXEC SQL CLOSE C15;
+        
+        V_FROMV (LN[j].survey, surv);
+        V_FROMV (LN[j].line_name, linename);
+        LN[j].id = cur_line;
+        } /* end of line loop */
+    *num_names = numlines;
+
+    EXEC SQL WHENEVER NOT FOUND CONTINUE;
+    
+    /* All ok - clear status flag */
+    /* -------------------------- */
+    stat_flag = 0;
+    
+    /* Deallocate work space */
+    /* --------------------- */
+CLEANUP:
+    status = tc_free (lines);
+    
+    /* Clear out old pointer values */
+    /* ---------------------------- */
+    lines = (INT *)0;
+    
+    if (stat_flag)
+        {
+        status = stat_save;
+        }
+    else
+        {
+        status = SUCCESS;
+        }
+    return status;
+    
+serr:
+    stat_save = OR_STATUS;
+    stat_flag = 1;
+    fprintf (stderr, "SQL error: %d occurred.\n%-70.70s\n",
+             OR_STATUS, OR_MESSAGE);
+    goto CLEANUP;
+}

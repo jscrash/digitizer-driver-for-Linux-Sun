@@ -1,0 +1,1091 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_TOBIN_TOPO.PC */
+/* *15   13-SEP-1991 12:26:59 LOEBL "(SPR 3951) Eliminate Core Dump and Performance Enhancements" */
+/* *14    2-APR-1991 12:34:46 VINCE "(SPR 1) added handeling of a missing meridian code" */
+/* *13    4-DEC-1990 15:09:49 PURNA "(SPR 6278) add data type to lynx_data_types table" */
+/* *12    7-NOV-1990 15:04:52 PURNA "(SPR 6086) fix section labels location, extends value, column_name change" */
+/* *11   29-OCT-1990 17:36:40 PURNA "(SPR 0) change arc_id_seq to lynx_id_seq" */
+/* *10   23-AUG-1990 17:48:57 PURNA "(SPR 0) compiling error fix" */
+/* *9    23-JUL-1990 09:27:15 GILLESPIE "(SPR 1) Change to use lu_text_to_index for default colors" */
+/* *8    12-JUL-1990 17:31:28 GILLESPIE "(SPR 3) Changed esi_ly*.h to esi_ly.h; change colors to use text instead of -1" */
+/* *7    22-JUN-1990 16:25:09 MING "(SPR 0) fix str_to_ll function entry for SUN" */
+/* *6    15-JUN-1990 15:16:30 KEE "(SPR -1) remove valid_header flag " */
+/* *5    12-APR-1990 18:28:28 VINCE "(SPR 1) changed delete to ho_delete_file since Ultrix is not ANSI compatible in this area." */
+/* *4    20-MAR-1990 17:21:09 VINCE "(SPR -1) fixed extraction of range box from data record" */
+/* *3    19-MAR-1990 17:59:37 VINCE "(SPR -1) added error checking for point transforms" */
+/* *2    16-MAR-1990 17:51:44 VINCE "(SPR -1) standardized storage of NAME in lynx_culture table" */
+/* *1    15-MAR-1990 13:22:55 VINCE "Initial Checkin" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_TOBIN_TOPO.PC */
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Finder Graphics Systems, Inc.
+			201 Tamal Vista Blvd
+			Corte Madera, CA  USA 94925
+			(415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_ct.h"
+#ifndef ESI_GL_TOP_H
+#include "esi_gl_top.h"
+#endif
+#ifndef ESI_FI_H
+#include "esi_fi.h"
+#endif
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_LU_H
+#include "esi_lu.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+#ifndef ESI_GL_PROJECT_H
+#include "esi_gl_project.h"
+#endif
+#ifndef ESI_LY_H
+#include "esi_ly.h"
+#endif
+#ifndef ESI_CTYPE_H
+#include "esi_ctype.h"
+#endif
+#ifndef ESI_LL_H
+#include "esi_ll.h"
+#endif
+
+#define LARGE_NUMBER 100000000.0
+#define SMALL_NUMBER -100000000.0
+/* Program loads LYNX db with tobin info
+
+J Gillespie
+December 1989
+
+V Cardinale : added text processing and discard processing.
+March 1990
+
+*/
+
+EXEC ORACLE OPTION (REBIND = NO);
+
+EXEC SQL BEGIN DECLARE SECTION;
+    privatedef varchar stmt[1024];
+    privatedef varchar data_type[16];
+    privatedef varchar name[32];
+    privatedef long int arc_id;
+    privatedef long int side;
+    privatedef long int lynx_id;    /* Current area or line id */
+    privatedef long int last_node;
+    privatedef long int this_node;
+    privatedef long int twp;
+    privatedef char twp_dir;
+    privatedef long int rng;
+    privatedef char rng_dir;
+    privatedef long int section;
+    privatedef char meridian;
+    privatedef double label_x, x, x1, x2;
+    privatedef double label_y, y, y1, y2;
+    privatedef double minx,maxx,miny,maxy;
+EXEC SQL END DECLARE SECTION;
+
+/* Important Note: The following templates used to
+crack a card format.  There is NO PROVISION FOR THE NULL CHARACTER
+in the format! the fields cannot be used in standard C library
+string functions without first moving the strings to other buffers */
+
+typedef enum 
+    {
+	SECTION		=  2,
+	TOWNSHIP	=  3,
+	COUNTY		=  4,
+	STATE		=  5,
+	PROCESS_OUTLINE	=  6,
+	MUNICIPALITY	=  7,
+	RIVER		=  8,
+	STREAM		=  9,
+	ISLAND		= 10,
+	LAKE		= 11,
+	OLD_RIVERBED	= 12,
+	OCEAN_AREA	= 13,
+	FEDERAL_HIGHWAY	= 14,
+	STATE_HIGHWAY	= 15,
+	OTHER_TRAVELWAYS= 16,
+	PIPELINE	= 17,
+	RAILROAD	= 18,
+	MONUMENTED_SECTION_CORNER = 19,
+	BENCHMARK	= 20,
+	MONUMENT	= 21,
+	FEDERAL_RESERVATION = 22,
+	STATE_RESERVATION   = 23,
+	TRANSMISSION_LINE   = 24,
+	UNSURVEYED_AREA	    = 26
+    } TOBIN_LOGICAL_LEVEL;
+
+typedef struct 
+    {
+	char lat_deg[2];
+	char lat_min[5];
+	char long_deg[3];
+	char long_min[5];
+    } LOCAL_LATLONG;
+
+typedef struct 
+    {
+	char x[10];
+	char y[10];
+    } XY;
+
+typedef struct 
+    {
+	char record_type;
+	char logical_level[2];
+	char header_type;
+	union 
+	    {
+	    struct 
+		{               /* header type = 0 */
+		char state[2];
+		char county[3];
+		char meridian;
+		char township[3];
+		char twpns;
+		char range[3];
+		char rngew;
+		char section[3];
+		char subsection[2];
+		char padding[9];
+		} fmt0;
+	    struct 
+		{               /* header type = 1 */
+		char state[2];
+		char county[3];
+		char prefix;
+		char ats_no[6];
+		char survey_no[5];
+		char padding[11];
+		} fmt1;
+	    struct 
+		{               /* header type = 2 */
+		char state[2];
+		char county[3];
+		char meridian;
+		char township[3];
+		char twpns;
+		char range[3];
+		char rngew;
+		char alpha_name_abbrev[5];
+		char padding[9];
+		} fmt2;
+	    struct 
+		{               /* header type = 3 */
+		char state[2];
+		char county[3];
+		char prefix;
+		char alpha_name_abbrev[13];
+		char padding[9];
+		} fmt3;
+	    struct 
+		{               /* header type = 4 */
+		char state[2];
+		char county[3];
+		char alpha_name_abbrev[14];
+		char padding[9];
+		} fmt4;
+	    struct 
+		{               /* header type = 5 */
+		char alpha_name_abbrev[19];
+		char padding[9];
+		} fmt5;
+	    struct 
+		{               /* header type = 6 */
+		char state[2];
+		char county[3];
+		char survey_code[3];
+		char block_league_twp;
+		char block_no[4];
+		char twp[2];
+		char sect_labor_tract;
+		char slt_no[5];
+		char survey_abstract;
+		char survey_no[5];
+		} fmt6;
+	    } hdr;
+	struct 
+	    {
+	    char year[2];
+	    char month[2];
+	    char day[2];
+	    } revision_date;
+	char source;
+	struct 
+	    {
+	    LOCAL_LATLONG southwest;
+	    LOCAL_LATLONG northeast;
+	    } extent;
+	char state[2];
+	char zone[2];
+	char no_parts[2];
+	char reserved[5];
+    } TOBIN_HEADER;
+
+privatedef PROJECT_NAME project;
+privatedef double tolerance = .00002;
+privatedef PROJECTION_STRUCTURE *external_projection, *project_projection;
+privatedef BOOL convert,first;
+
+#if USE_PROTOTYPES
+privatedef INT to_integer (CHAR *ptr, INT len);
+privatedef INT str_to_ll (char *ps, double *latitude, double *longitude);
+#else
+privatedef INT to_integer ();
+privatedef INT str_to_ll ();
+#endif
+
+/*********************************************************************/
+
+publicdef int main (argc, argv)
+int argc;
+char **argv;
+    {
+    INT status;
+    char buff[512];
+    char inline[133];
+    char wherefrom[32];
+    FILENAME disname;
+    TOBIN_LOGICAL_LEVEL logical_level;
+    FILE *tobin_file;
+    FILE *discard;
+    TOBIN_HEADER *pHead;
+    char *ps;
+    INT ii;
+    int narcs = 0;
+    int nrecords = 0;
+    int restart_point = 0;
+    int nskip = 0;
+    int current_file_pos, last_header_pos;
+    int total_discards=0;
+    BOOL valid_type;
+    DOUBLE temp;
+    LY_TEXT_OBJECT text_obj;
+    TEXT_GC	text_gc;
+    LINE_GC	line_gc;
+    LISTHEAD 	dtype_list;
+    INT	nlinks;
+
+
+    /* The 'native' coordinate system of the Tobin file is GEODETIC */
+    privatedef PROJECTION_ID external_projection_id = "GEODETIC";
+    PROJECT_DEFAULT *project_default;   /* project default workspace pointer */
+
+    tc_zeroes (&text_obj, sizeof text_obj);
+    tc_zeroes (&text_gc,  sizeof text_gc);
+    tc_zeroes (&line_gc,  sizeof line_gc);
+
+    lu_text_to_index("COLOR", &text_gc.text_color, "NORMAL");
+    line_gc.line.color = text_gc.text_color;
+
+    if (argc < 4)
+        {
+        printf ("usage: %s <name/password> <project> <infile> \
+[-skip n] [-discard disfile]\n", argv[0]);
+        exit (EXIT_FAILURE);
+        }
+
+    EXEC SQL WHENEVER SQLERROR GOTO oops;
+
+    status = or_login (argc, argv);
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+        return EXIT_FAILURE;
+        }
+
+    am_initialize();
+
+    strcpy (project, ts_sto_upper(argv[2]));
+    qs_set_c (QS_PROJECT_NAME, project, 0);
+    qs_set_c (QS_SOURCE_NAME,  "TOBIN", 0);
+
+    finder_config_project (TRUE);
+
+    tobin_file = ho_open (argv[3], "r", NULL);
+    if (tobin_file == (FILE *)0)
+        {
+        printf ("Bogus file name [%s]\n", argv[3]);
+        goto normal_exit;
+        }
+
+    disname[0] = NUL;
+    for (ii=4; ii<argc; ii++) {
+	ts_sto_lower (argv[ii]);
+	if ( ARE_SAME(argv[ii],"-skip") &&
+	    (ii+1 < argc)		 ) nskip = atoi(argv[++ii]);
+	if ( ARE_SAME(argv[ii],"-discard") &&
+	    (ii+1 < argc)		    ) strcpy (disname, argv[++ii]);
+    }
+
+    if (disname[0] == NUL) {
+	strcpy (disname, argv[3]);
+	ps = strrchr (disname, ']');
+	if (ps == NULL) ps = strrchr (disname, ':');
+	if (ps == NULL) ps = disname;
+	ps = strrchr (ps, '.');
+	if (ps != NULL) *ps = NUL;
+	strcat (disname, ".DIS");
+    }
+    printf ("Discarded records will be written to :\n%s\n\n", disname);
+
+    discard = ho_open (disname, "w", NULL);
+    if (discard == (FILE *)0) {
+	printf ("Unable to open discard file: %s\n", disname);
+	printf ("Loading will continue with no discard processing.\n");
+    }
+
+	/* initialize link list of data type and add to
+	data base at the end (purna - 12/04/90) */
+	
+    llinit(&dtype_list,0,20*sizeof(CHAR),0);
+	
+
+    /* Determine whether coordinate transformations are required */
+    /* If they are different, then query for the projection parameters */
+
+    status = am_open_workspace ("PROJECT_DEFAULTS", AM_GLOBAL,
+                                (VOIDPTR) & project_default);
+    convert = ARE_DIFFERENT(external_projection_id, project_default->projection);
+    if (convert)
+        {
+        status = ct_get_projection (external_projection_id,
+                                    &external_projection);
+        status = ct_get_projection (project_default->projection,
+                                    &project_projection);
+        }
+
+    stmt.len = sprintf ((char *)stmt.arr, 
+    "INSERT INTO %s.LYNX_CULTURE \
+	(LYNX_ID, DATA_TYPE, NAME, MINX, MAXX, MINY, MAXY, LAST_UPDATE) \
+    VALUES \
+	(:lynx_id, :data_type, :name, :x1, :x2, :y1, :y2, SYSDATE)"
+    , project);
+    strcpy ( wherefrom, "PREPARE S1");
+    EXEC SQL PREPARE S1 FROM :stmt;
+
+    stmt.len = sprintf ((char *)stmt.arr, 
+    "INSERT INTO %s.SECTIONS \
+	(LYNX_ID, SECTION, TOWNSHIP, TOWNSHIP_DIR, RANGE, RANGE_DIR, MERIDIAN, \
+	SURVEY_SYSTEM, SOURCE) \
+    VALUES \
+	(:lynx_id, :section, :twp, :twp_dir, :rng, :rng_dir,\
+	:meridian, 'J', 'TOBIN')",
+    project);
+    strcpy ( wherefrom, "PREPARE S2");
+    EXEC SQL PREPARE S2 FROM :stmt;
+
+    stmt.len = sprintf ((char *)stmt.arr, 
+    "INSERT INTO %s.SECTIONS \
+	(LYNX_ID, SECTION, TOWNSHIP, TOWNSHIP_DIR, RANGE, RANGE_DIR, MERIDIAN, \
+	SURVEY_SYSTEM, SOURCE) \
+    VALUES \
+	(:lynx_id, :section, :twp, :twp_dir, :rng, :rng_dir,\
+	-1, 'J', 'TOBIN')",
+    project);
+    strcpy ( wherefrom, "PREPARE S2NM");
+    EXEC SQL PREPARE S2NM FROM :stmt;
+
+    stmt.len = sprintf ((char *)stmt.arr,
+    "UPDATE %s.LYNX_TEXT SET NODE_ID = :node_id \
+     WHERE LYNX_ID = :lynx_id",
+    	project);
+    strcpy ( wherefrom, "PREPARE S3");
+    EXEC SQL PREPARE S3 FROM :stmt;
+
+    stmt.len = sprintf ((char *)stmt.arr, 
+    "UPDATE %s.LYNX_CULTURE SET MINX = :minx, MAXX = :maxx, \
+    MINY = :miny, MAXY = :maxy \
+    WHERE LYNX_ID = :lynx_id", project);
+    strcpy ( wherefrom, "PREPARE S4");
+    EXEC SQL PREPARE S4 FROM :stmt;
+
+    pHead = (TOBIN_HEADER *)inline;
+
+    if (nskip > 0)
+        {
+        for (ii = 0; ii < nskip; ii++)
+            {
+            if (fgets (inline, sizeof inline, tobin_file) == 0)
+                {
+                printf("End of file detected after reading %d records - aborting\n",
+                    ii+1);
+                goto normal_exit;
+                }
+            }
+        }
+
+    current_file_pos = ftell(tobin_file);
+    for (nrecords = 0; fgets (inline, sizeof inline, tobin_file) != 0; nrecords++)
+        {
+        switch (inline[0])
+            {
+        case '0':           /* header record, one per polygon */
+            /* Print out the count from the last entity */
+            if (narcs != 0)
+		{
+                if (OR_STATUS == SUCCESS)
+                    {
+			/* update extends value, transformation make the value
+			    a little bit off (purna) */
+		    strcpy ( wherefrom, "EXECUTE S4");
+		    EXEC SQL EXECUTE S4 USING :minx, :maxx, :miny, :maxy, :lynx_id;
+			
+			/* update location of section labels because of
+			   transformation to different project cause some
+			   shifting error (purna) */
+		    if(ARE_SAME((CHAR *)data_type.arr,"SECTION"))
+			{
+			label_x = minx + ((maxx-minx)/2);
+			label_y = miny + ((maxy-miny)/2);
+			strcpy ( wherefrom, "ly_process_node");
+			status = ly_process_node (label_x, label_y, tolerance, 
+			     (NODE_ID *)&this_node);
+			if (status != SUCCESS) goto oops;
+		        strcpy ( wherefrom, "EXECUTE S3");
+			EXEC SQL EXECUTE S3 USING :this_node, :lynx_id;
+			if (OR_STATUS == OR_ABORT) goto oops;
+			}
+		    EXEC SQL COMMIT WORK;
+                    printf ("%3d arcs.\n", narcs);
+                    }
+                else
+		    {
+                    EXEC SQL ROLLBACK WORK;
+		    if (discard == (FILE *)0)
+			{
+			printf ("%3d arcs unloadable.\n", narcs);
+			}
+		    else
+			{
+			printf ("%3d arcs written to discard file.\n", narcs);
+			write_to_discard (discard, tobin_file, last_header_pos);
+			total_discards += narcs;
+			/*  we need to read this header again */
+			current_file_pos = ftell(tobin_file);
+			if (fgets(inline, sizeof inline, tobin_file) == 0) continue;
+			}
+		    }
+                }
+
+	    minx = miny = LARGE_NUMBER;
+	    maxx = maxy = SMALL_NUMBER;
+	    last_header_pos = current_file_pos;	/* remember this header pos */
+            restart_point = nrecords;
+            valid_type = 1;
+
+            switch (pHead->header_type)
+                {
+            case ' ': 
+            case '0':
+                twp = to_integer(pHead->hdr.fmt0.township, 3);
+                rng = to_integer(pHead->hdr.fmt0.range, 3);
+                section = to_integer(pHead->hdr.fmt0.section, 3);
+                meridian = pHead->hdr.fmt0.meridian;
+                twp_dir = pHead->hdr.fmt0.twpns;
+                rng_dir = pHead->hdr.fmt0.rngew;
+                name.len = sprintf((char *)name.arr,"%c:T%d%cR%d%c %d",
+                meridian,twp,twp_dir,rng,rng_dir,section);
+                break;
+            case '1':
+                break;
+            case '2':
+                twp = to_integer(pHead->hdr.fmt2.township, 3);
+                rng = to_integer(pHead->hdr.fmt2.range, 3);
+                section = 0;
+		if (is_section_num(pHead->hdr.fmt2.alpha_name_abbrev, 2)) {
+		    section = to_integer (pHead->hdr.fmt2.alpha_name_abbrev, 2);
+		}
+                meridian = pHead->hdr.fmt2.meridian;
+                twp_dir = pHead->hdr.fmt2.twpns;
+                rng_dir = pHead->hdr.fmt2.rngew;
+		if (section == 0) {
+		    name.len = sprintf((char *)name.arr,"%c:T%d%cR%d%c",
+				meridian, twp,twp_dir,rng,rng_dir);
+		}
+		else {
+		    name.len = sprintf((char *)name.arr,"%c:T%d%cR%d%c %d",
+				meridian, twp, twp_dir, rng, rng_dir, section);
+		}
+                break;
+            case '3':
+                name.arr[0] = pHead->hdr.fmt3.prefix;
+                strncpy ((char *)name.arr + 1,
+                         pHead->hdr.fmt3.alpha_name_abbrev,
+                         sizeof pHead->hdr.fmt3.alpha_name_abbrev);
+                ps = (char *)name.arr +
+                    sizeof pHead->hdr.fmt3.alpha_name_abbrev + 1;
+                *ps-- = 0;
+                ts_trim ((char *)name.arr);
+                V_SETLEN (name);
+                break;
+            case '4':
+                strncpy ((char *)name.arr, pHead->hdr.fmt4.alpha_name_abbrev,
+                         sizeof pHead->hdr.fmt3.alpha_name_abbrev);
+                ps = (char *)name.arr +
+                    sizeof pHead->hdr.fmt4.alpha_name_abbrev;
+                *ps-- = 0;
+                ts_trim ((char *)name.arr);
+                V_SETLEN (name);
+                break;
+            case '5':
+                strncpy ((char *)name.arr, pHead->hdr.fmt5.alpha_name_abbrev,
+                         sizeof pHead->hdr.fmt3.alpha_name_abbrev);
+                ps = (char *)name.arr +
+                    sizeof pHead->hdr.fmt5.alpha_name_abbrev;
+                *ps-- = 0;
+                ts_trim ((char *)name.arr);
+                V_SETLEN (name);
+                break;
+            case '6':
+                break;
+                }
+
+            /* Begin special handling for each tobin header logical record type */
+            logical_level = (TOBIN_LOGICAL_LEVEL)
+                    to_integer(pHead->logical_level,2);
+            switch (logical_level)
+                {
+            case SECTION:
+                if (pHead->hdr.fmt3.prefix == 'A')
+                    {
+                    V_FROMC (data_type, "ABSTRACT");
+                    }
+                else
+                    {
+                    V_FROMC (data_type, "SECTION");
+                    }
+                break;
+            case TOWNSHIP:
+                V_FROMC (data_type, "TOWNSHIP");
+                break;
+            case COUNTY:
+                V_FROMC (data_type, "COUNTY");
+                break;
+            case STATE:
+                V_FROMC (data_type, "STATE");
+                break;
+            case PROCESS_OUTLINE:
+                V_FROMC (data_type, "PROCESS OUTLINE");
+                break;
+            case MUNICIPALITY:
+                V_FROMC (data_type, "MUNICIPALITY");
+                break;
+            case RIVER:
+                V_FROMC (data_type, "RIVER");
+                break;
+            case STREAM:
+                V_FROMC (data_type, "STREAM");
+                break;
+            case ISLAND:
+                V_FROMC (data_type, "ISLAND");
+                break;
+            case LAKE:
+                V_FROMC (data_type, "LAKE");
+                break;
+            case OLD_RIVERBED:
+                V_FROMC (data_type, "OLD RIVERBED");
+                break;
+            case OCEAN_AREA:
+                V_FROMC (data_type, "OCEAN AREA");
+                break;
+            case FEDERAL_HIGHWAY:
+                V_FROMC (data_type, "FEDERAL HIGHWAY");
+                break;
+            case STATE_HIGHWAY:
+                V_FROMC (data_type, "STATE HIGHWAY");
+                break;
+            case OTHER_TRAVELWAYS:
+                V_FROMC (data_type, "OTHER TRAVELWAYS");
+                break;
+            case PIPELINE:
+                V_FROMC (data_type, "PIPELINE");
+                break;
+            case RAILROAD:
+                V_FROMC (data_type, "RAILROAD");
+                break;
+            case MONUMENTED_SECTION_CORNER:
+                V_FROMC (data_type, "MONUMENTED SECTION CORNER");
+                break;
+            case BENCHMARK:
+                V_FROMC (data_type, "BENCHMARK");
+                break;
+            case MONUMENT:
+                V_FROMC (data_type, "MONUMENT");
+                break;
+            case FEDERAL_RESERVATION:
+                V_FROMC (data_type, "FEDERAL RESERVATION");
+                break;
+            case STATE_RESERVATION:
+                V_FROMC (data_type, "STATE RESERVATION");
+                break;
+            case TRANSMISSION_LINE:
+                V_FROMC (data_type, "TRANSMISSION LINE");
+                break;
+            case UNSURVEYED_AREA:
+                V_FROMC (data_type, "UNSURVEYED AREA");
+                break;
+            default:
+                valid_type = 0;
+                break;
+                };
+
+            if (valid_type)
+                {
+		llappnd(&dtype_list,(VOIDPTR)data_type.arr);
+                narcs = 0;
+                strcpy ( wherefrom, "str_to_ll");
+                status = str_to_ll (inline + 39, &y1, &x1);
+		if (status != SUCCESS) goto oops;
+		status = str_to_ll (inline + 54, &y2, &x2);
+		if (status != SUCCESS) goto oops;
+
+                                /* Make sure x1 < x2 and y1 < y2 */ 
+                if (x1 > x2)
+                    {
+                    temp = x1;
+                    x1 = x2;
+                    x2 = temp;
+                    }
+                if (y1 > y2)
+                    {
+                    temp = y1;
+                    y1 = y2;
+                    y2 = temp;
+                    }
+
+	        strcpy ( wherefrom, "SELECT LYNX_ID_SEQ");
+                EXEC SQL SELECT ESI.LYNX_ID_SEQ.NEXTVAL INTO :lynx_id FROM DUAL;
+
+		EXEC SQL WHENEVER SQLERROR CONTINUE;
+	        strcpy ( wherefrom, "EXECUTE S1");
+                EXEC SQL EXECUTE S1 USING :lynx_id, :data_type,:name,:x1,:x2,:y1,:y2;
+		if (OR_STATUS == OR_ABORT) goto oops;
+
+		EXEC SQL WHENEVER SQLERROR GOTO :oops;
+                    
+		/* give this datatype a default GC for text and lines */
+/*		ly_put_text_bundle ((char *)data_type.arr, 0, 0, &text_gc); */
+/*		ly_put_arc_bundle  ((char *)data_type.arr, 0, 0, &line_gc); */
+
+                printf ("Loading %s %s: ", data_type.arr, name.arr);
+                switch (logical_level)
+                    {
+                case SECTION:
+                case TOWNSHIP:
+                    EXEC SQL WHENEVER SQLERROR GOTO oops;
+		    if (meridian == ' ')
+			{
+			printf (" (NO MERIDIAN ID FOUND!) ");
+	                strcpy ( wherefrom, "EXECUTE S2NM");
+			EXEC SQL EXECUTE S2NM USING
+				:lynx_id, :section,
+				:twp,     :twp_dir,
+				:rng,     :rng_dir;
+			}
+		    else
+			{
+	                strcpy ( wherefrom, "EXECUTE S2");
+			EXEC SQL EXECUTE S2 USING
+				:lynx_id, :section,
+				:twp,     :twp_dir,
+				:rng,     :rng_dir,
+				:meridian;
+			}
+                    break;
+                default:
+                    break;
+                    }
+                }
+            break;
+        case '2':           /* Label text, zero or more per polygon */
+	    strcpy ( wherefrom, "str_to_ll");
+	    status = str_to_ll (inline + 1, &y, &x);
+	    if (status != SUCCESS) goto oops;
+
+ /* Inserting to nodes table is removed since 
+    the section label location is not centered.
+    we will load the location right after we load section extents info
+    in lynx_culture table.
+    purna (10/19/90) */
+#if 0
+	    strcpy ( wherefrom, "ly_process_node");
+	    status = ly_process_node (x, y, tolerance, (NODE_ID *)&this_node);
+	    if (status != SUCCESS) goto oops;
+#endif
+	    this_node = -1; /* assign any number to node_id, since we
+				are going to update them later */
+
+	    ii = to_integer (inline+45, 2); /* convert string length    */
+	    ps = inline + 80 - ii;		/* point to start of string */
+	    strncpy (text_obj.text_string, ps, ii);
+	    text_obj.text_string[ii] = NUL;
+
+	    text_obj.lynx_id = lynx_id;
+	    text_obj.node_id = this_node;
+
+	    strcpy ( wherefrom, "ly_put_text");
+	    status = ly_put_text (&text_obj);
+	    if (status != SUCCESS) goto oops;
+            break;
+
+        case '3':           /* Data record, one arc per record */
+	    strcpy ( wherefrom, "str_to_ll");
+	    status = str_to_ll (inline + 1, &y, &x);
+	    if (status != SUCCESS) goto oops;
+
+	    strcpy ( wherefrom, "ly_process_node");
+	    status = ly_process_node (x, y, tolerance, (NODE_ID *)&last_node);
+	    if (status != SUCCESS) goto oops;
+
+	    minx = MIN(minx,x);
+	    maxx = MAX(maxx,x);
+	    miny = MIN(miny,y);
+	    maxy = MAX(maxy,y);
+
+	    strcpy ( wherefrom, "str_to_ll");
+	    status = str_to_ll (inline + 36, &y, &x);
+	    if (status != SUCCESS) goto oops;
+
+	    strcpy ( wherefrom, "ly_process_node");
+	    status = ly_process_node (x, y, tolerance, (NODE_ID *)&this_node);
+	    if (status != SUCCESS) goto oops;
+
+	    minx = MIN(minx,x);
+	    maxx = MAX(maxx,x);
+	    miny = MIN(miny,y);
+	    maxy = MAX(maxy,y);
+
+	    strcpy ( wherefrom, "process_arc");
+	    status = process_arc();
+	    if (status != SUCCESS) goto oops;
+	    
+	    narcs++;
+            break;
+        default:
+            break;
+            }
+
+	current_file_pos = ftell (tobin_file);
+        }
+
+    /* Print out the count from the last entity */
+    if (narcs != 0)
+	{
+	if (OR_STATUS == SUCCESS)
+	    {
+	    EXEC SQL COMMIT WORK;
+	    printf ("%3d arcs.\n", narcs);
+	    }
+	else
+	    {
+	    EXEC SQL ROLLBACK WORK;
+	    if (discard == (FILE *)0)
+		{
+		printf ("%3d arcs unloadable.\n", narcs);
+		}
+	    else
+		{
+		printf ("%3d arcs written to discard file.\n", narcs);
+		write_to_discard (discard, tobin_file, last_header_pos);
+		total_discards += narcs;
+		}
+	    }
+	}
+
+    goto normal_exit;
+
+oops:
+    restart_point += nskip;
+
+    if (OR_STATUS == OR_ABORT) printf ("\n\nUser requested CANCEL.\n");
+    else if (OR_STATUS != SUCCESS) {
+	printf ("\n\nOracle error %d encountered:\n", OR_STATUS);
+	printf ("%-70.70s\n", OR_MESSAGE);
+    }
+    else if (status != SUCCESS) {
+	printf ("\n\n%s\n", mg_message (status));
+    }
+
+    printf ("\nProgram error during processing of %s\n",wherefrom);
+    printf ("\nLast commit point at record # %d.\n", restart_point);
+    printf("Use this number to restart the run");
+
+    if ((OR_STATUS != OR_ABORT) || (status != SUCCESS))
+	printf (" after correcting any errors.\n\n");
+    else printf (".\n\n");
+
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL ROLLBACK WORK;
+
+    goto normal_exit;
+
+    
+normal_exit:
+
+	/* add data type to data base (purna - 12/04/90) */
+    if((nlinks = llcount(&dtype_list)) > 0)
+	{
+	for(ii=1; ii <= nlinks; ii++)
+	   {
+	   llgetn(&dtype_list,ps,ii);
+	   ly_create_data_type(ps,"Tobin topo object");
+	   }
+	}
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL COMMIT WORK;
+    llfree(&dtype_list);
+
+    or_logout(TRUE);
+    fclose (tobin_file);
+    fclose (discard);
+
+    printf ("Total data records processed: %d\n", nrecords);
+    if (total_discards == 0) {
+	printf ("No records discarded; No discard file created.\n");
+	ho_delete_file (disname, &status);
+    }
+    else {
+	printf ("Total data records written to discard file: %d\n",
+		total_discards);
+    }
+
+    exit (EXIT_SUCCESS);
+    }
+
+/******************************************************************/
+
+privatedef INT write_to_discard (discard, tobin_file, last_header_pos)
+    FILE *discard, *tobin_file;
+    INT	 last_header_pos;
+{
+    /*	backup to the last header position and write to the discard file
+	until the next header is found.  Backup over the last header found
+	so that the next read will get the new header.			    */
+
+    int	 header_count, new_header_pos;
+    char line[133];
+
+    fseek (tobin_file, last_header_pos, 0);
+
+    header_count = 0;
+    new_header_pos = ftell(tobin_file);
+    while ( (fgets(line, sizeof line, tobin_file) != 0) && (header_count < 2)) {
+	if (line[0] == '0') {
+	    header_count++;
+	    if (header_count < 2) {
+		fprintf (discard, "%s", line);
+		new_header_pos = ftell(tobin_file);
+	    }
+	}
+	else {
+	    fprintf (discard, "%s", line);
+	    new_header_pos = ftell(tobin_file);
+	}
+    }
+
+    fseek (tobin_file, new_header_pos, 0);
+    return;
+}
+
+/******************************************************************/
+
+privatedef INT is_section_num (cp,nchar)
+char *cp;
+int  nchar;
+{
+    int ii;
+
+    if (! isdigit(cp[0]) ) return FALSE;
+    if (nchar > 1 && 
+        (! (isdigit(cp[1]) || isspace(cp[1])))) return FALSE;
+    for (ii=2; ii < nchar; ii++) if (! isspace(cp[ii]) ) 
+				     return FALSE;
+    return TRUE;
+}
+
+/******************************************************************/
+
+privatedef INT process_arc ()
+    {
+    privatedef BOOL first = TRUE;
+    side = -1;
+
+    EXEC SQL WHENEVER SQLERROR goto wayout;
+
+    if (first)
+        {
+        stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT ARC_ID FROM %s.LYNX_IFV \
+WHERE FINAL_NODE = :last_node AND INIT_NODE = :this_node"
+                , project);
+
+        EXEC SQL PREPARE S5 FROM : stmt;
+        EXEC SQL DECLARE C5 CURSOR FOR S5;
+
+        stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT ARC_ID FROM %s.LYNX_IFV \
+WHERE INIT_NODE = :last_node AND FINAL_NODE = :this_node"
+                , project);
+
+        EXEC SQL PREPARE S6 FROM : stmt;
+        EXEC SQL DECLARE C6 CURSOR FOR S6;
+
+        stmt.len = sprintf ((char *)stmt.arr, 
+"INSERT INTO %s.LYNX_IFV (ARC_ID, INIT_NODE, FINAL_NODE) \
+VALUES (:arc_id, :last_node, :this_node)"
+                , project);
+
+        EXEC SQL PREPARE S7 FROM : stmt;
+
+
+/* code s8 to prevent duplicates due to retrace  */
+
+        stmt.len = sprintf ((char *)stmt.arr, 
+"INSERT INTO %s.LYNX_LRFR \
+	     (LYNX_PART, LYNX_ID, SIDE_DIREC) \
+      select   :arc_id, :lynx_id, :side from dual \
+minus select lynx_part, lynx_id,  :side from %s.LYNX_LRFR \
+      where lynx_part = :arc_id  \
+        and lynx_id   = :lynx_id"
+                , project, project);
+
+        EXEC SQL PREPARE S8 FROM : stmt;
+
+        first = FALSE;
+        }
+
+    /* See if this arc has been entered */
+    EXEC SQL OPEN C5 USING : last_node,  : this_node;
+    EXEC SQL FETCH C5 INTO : arc_id;
+
+    if (OR_STATUS == 0)
+        {
+        side = 0;
+        }
+    else
+        {
+        EXEC SQL OPEN C6 USING : last_node,  : this_node;
+        EXEC SQL FETCH C6 INTO : arc_id;
+        if (OR_STATUS == 0)
+            {
+            side = 1;
+            }
+        }
+
+    if (side == -1)
+        {
+        /* Insert this new arc into database - 
+        convention is that the direction is 1 if
+        the arc is traversed from INIT_NODE to FINAL_NODE */
+
+	EXEC SQL SELECT ESI.LYNX_ID_SEQ.NEXTVAL INTO :arc_id FROM DUAL;
+        EXEC SQL EXECUTE S7 USING :arc_id, : last_node,  : this_node;
+
+        side = 1;
+        }
+
+    EXEC SQL EXECUTE S8 USING : arc_id, : lynx_id, : side;
+
+    return SUCCESS;
+
+wayout:
+    return OR_STATUS;
+    }
+
+/****************************************************************/
+
+privatedef INT str_to_ll (ps, latitude, longitude)
+CHAR *ps;
+DOUBLE *latitude;
+DOUBLE *longitude;
+    {
+    /* convert a string of the form DDMMMMMDDDMMMMM  into
+    latitude and longitude, where DDD is the degree and MMM is the
+    decimal minutes */
+
+    char buff[10];
+    register int ii;
+    INT status;
+
+    status = SUCCESS;
+
+    buff[0] = *ps++;
+    buff[1] = *ps++;
+    buff[2] = '.';
+
+    for (ii = 3; ii < 8; ii++)
+        {
+        buff[ii] = *ps++;
+        }
+    buff[8] = 0;
+
+    *latitude = atof (buff);
+
+    buff[0] = *ps++;
+    buff[1] = *ps++;
+    buff[2] = *ps++;
+    buff[3] = '.';
+
+    for (ii = 4; ii < 9; ii++)
+        {
+        buff[ii] = *ps++;
+        }
+    buff[9] = 0;
+
+    *longitude = -atof (buff);
+    if (convert)
+        {
+        status = ct_transform_point (*longitude, *latitude, external_projection,
+                                    longitude, latitude, project_projection);
+        if (status != SUCCESS)
+            {
+            fprintf (stderr,
+		    "Error %d encountered while transforming coordinate!\n",
+		    status);
+            }
+        }
+
+    return status;
+    }
+
+/******************************************************************************/
+/* turn len contiguous non-null terminated characters into an integer         */
+/******************************************************************************/
+privatedef INT to_integer(ptr, len)
+CHAR *ptr;
+INT len;
+{
+    CHAR buff[80];
+    strncpy(buff,ptr,len);
+    buff[len] = 0;
+    return atoi(buff);
+}

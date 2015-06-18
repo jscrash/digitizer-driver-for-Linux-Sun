@@ -1,0 +1,352 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_CR_TBSPCS.PC */
+/*  8     9-MAR-1992 09:43:04 LOEBL "(SPR 6701) Eliminate usage of tablespace_view view" */
+/*  7    19-NOV-1991 15:46:54 LOEBL "(SPR 0) Convert to sqlforms30" */
+/* *6    20-DEC-1990 16:54:24 MING "(SPR 6424) change FINDER_DB logical symbol to ESI$FINDER_DB" */
+/* *5    10-OCT-1989 10:10:08 CONROY "(SPR 5023) Add Alert message if creation failed" */
+/* *4    25-SEP-1989 11:12:14 GORDON "(SPR 201) Add castings" */
+/* *3    19-SEP-1989 13:35:46 GILLESPIE "(SPR 100) GULF MODS" */
+/* *2    11-AUG-1989 13:49:59 CONROY "(SPR 9999) Initial checkin" */
+/* *1    11-AUG-1989 13:20:51 CONROY "Creates needed tablespaces for account" */
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_CR_TBSPCS.PC */
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                        Exploration Systems, Inc.
+                        579 Market Street
+                        San Francisco, CA  USA 94105
+                        (415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+
+
+
+/* * FILE DESCRIPTION * */
+/* -------------------- */
+/* ************************************************************************
+
+   NAME: DB_CREATE_TABLESPACES.PC
+
+   AUTHOR: JOHN CONROY
+
+   DESCRIPTION: Routine to get the tablespace storage parameters from
+                the user for tablespaces which do not yet exist, then
+                attempt to create them. If fails to create a tablespace
+                routine returns error.
+
+   ************************************************************************ */
+
+
+/* * INCLUDE FILES * */
+/* ----------------- */
+
+#include "esi_c_lib.h"
+#include "esi_gl_defs.h"
+#include "esi_db.h"
+#include "esi_db_err.h"
+#include "esi_ho.h"
+#include "esi_ho_files.h"
+#include "esi_oracle.h"
+#include "esi_am.h"
+#include "esi_mg.h"
+
+#if USE_PROTOTYPES
+static INT dbz_check_filename(FILENAME file_name);
+#else
+static INT dbz_check_filename();
+#endif
+
+/* * FUNCTION TITLE * */
+/* ------------------ */
+
+publicdef INT db_create_tablespaces(db_account)
+
+/* * ARGUMENT LIST * */
+/* ----------------- */
+
+DB_ACCOUNT_STRUCT *db_account;
+
+
+/* * VARIABLE LIST * */
+/* ----------------- */
+
+{
+INT status;
+CHAR default_data_directory[65];
+INT n_tbspcs;
+INT i;
+INT path_status;
+FILENAME file_name;
+CHAR err_msg[200];
+
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[1000];
+    VARCHAR account_name[62];
+    VARCHAR account_password[31];
+    VARCHAR tablespace[10][31];
+    VARCHAR datafile[10][100];
+    VARCHAR dbfile[100];
+    VARCHAR second_part[500];
+    VARCHAR default_tablespaces[2][31];
+    VARCHAR new_tablespace[31];
+    long nrecs;
+EXEC SQL END DECLARE SECTION;
+
+/* ********************************************************************** */
+
+/* * CLEAR TEMP_TBSPACE_DEFS * */
+/* --------------------------- */
+
+EXEC SQL DELETE FROM TEMP_TBSPACE_DEFS;
+
+
+/* * GET DEFAULT AND TEMPORARY TABLESPACES * */
+/* ----------------------------------------- */
+
+EXEC SQL DECLARE DFLT_CUR CURSOR FOR
+    SELECT TABLESPACE_NAME
+    FROM ACCOUNT_TB_DEFS
+    WHERE TABLE_NAME IN
+	('XXX_DEFAULT_TABLESPACE',
+	 'XXX_TEMPORARY_TABLESPACE')
+    ORDER BY TABLE_NAME;
+
+EXEC SQL OPEN DFLT_CUR;
+EXEC SQL FETCH DFLT_CUR INTO :default_tablespaces;
+V_SETZERO(default_tablespaces[0]);
+V_SETZERO(default_tablespaces[1]);
+EXEC SQL CLOSE DFLT_CUR;
+
+
+/* * SET UP FETCH TO GET NEW TABLESPACES * */
+/* --------------------------------------- */
+
+EXEC SQL DECLARE GET_CUR CURSOR FOR
+    SELECT DISTINCT TABLESPACE_NAME 
+    FROM ACCOUNT_TB_DEFS X 
+    WHERE TABLESPACE_NAME IS NOT NULL
+    AND NOT EXISTS
+	(SELECT *
+	 FROM ESI.TABLESPACE_VIEW Y
+	 WHERE X.TABLESPACE_NAME = Y.TABLESPACE_NAME);
+
+EXEC SQL OPEN GET_CUR;
+
+/* * SET UP DEFAULT DIRECTORY FOR DATA FILES * */
+/* ------------------------------------------- */
+
+if (strcmp(db_account->scope,"PROJECT") EQUALS 0)
+    {
+    strcpy(default_data_directory,"ESI$PROJECT_DB");
+    }
+else
+    {
+    strcpy(default_data_directory,"ESI$FINDER_DB");
+    }
+
+
+/* * GET NEW TABLESPACES AND FILL TEMP_TBSPACE_DEFS * */
+/* * ------------------------------------------------ */
+
+status = 0;
+n_tbspcs = 0;
+while (status != OR_EOF) {
+    EXEC SQL FETCH GET_CUR INTO :tablespace;
+    status = OR_EOF;
+
+    nrecs = OR_ROWCOUNT - n_tbspcs;
+    n_tbspcs = OR_ROWCOUNT;
+
+                                /* CREATE DEFAULT DATAFILE NAMES */
+    if (nrecs > 0) {
+        for (i=0; i<nrecs; i++) {
+            V_SETZERO(tablespace[i]);
+	    path_status = ho_add_path (default_data_directory, 
+		(CHAR*)tablespace[i].arr, sizeof datafile[i].arr, 
+		(CHAR*)datafile[i].arr);
+	    if (path_status != SUCCESS) {
+		strcpy ((CHAR*)datafile[i].arr, (CHAR*)tablespace[i].arr);
+	    }
+	    V_SETLEN(datafile[i]);
+	}
+
+        EXEC SQL FOR :nrecs INSERT INTO TEMP_TBSPACE_DEFS
+            (TABLESPACE_NAME,TBSPACE_DATAFILE,TBSPACE_FILE_SIZE,
+            TBSPACE_REUSE_FILE,INITIAL_EXTENT,NEXT_EXTENT,MIN_EXTENTS,
+            MAX_EXTENTS,PCT_INCREASE,CREATE_ONLINE)
+        VALUES (:tablespace,:datafile,'10M','Y','10K','10K',1,999,50,'Y');
+    }
+}
+
+EXEC SQL CLOSE GET_CUR;
+EXEC SQL COMMIT WORK;
+
+/* * IF THERE ARE ANY NEW TABLESPACES, THEN RUN FORM * */
+/* -------------------------------------------------- */
+
+if (n_tbspcs > 0)
+    {
+    or_run_oracle_form("TEMP_TBSPACE_DEFS");
+    }
+
+
+
+/* * NOW RECONNECT TO DBA ACCOUNT TO CREATE TABLESPACES (AND ALTER USER) * */
+/* ----------------------------------------------------------------------- */
+
+
+if (strlen(db_account->dba.database) != 0)
+    {
+    account_name.len = sprintf((char *)account_name.arr,"%s@%s",
+                        db_account->dba.name,db_account->dba.database);
+    }
+else
+    {
+    account_name.len = sprintf((char *)account_name.arr,"%s",
+                                                db_account->dba.name);
+    }
+
+strcpy((char *)account_password.arr,(char *)db_account->dba.password);
+V_SETLEN(account_password);
+
+EXEC SQL COMMIT WORK RELEASE;
+EXEC SQL CONNECT :account_name IDENTIFIED BY :account_password;
+
+
+/* * NOW QUERY <ACCOUNT>.TEMP_TBSPACE_DEFS FOR TABLESPACES TO MAKE * */
+/* ------------------------------------------------------------ */
+
+if (n_tbspcs > 0)
+    {
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,"SELECT \
+'create tablespace '||TABLESPACE_NAME||' datafile ''',TBSPACE_DATAFILE,\
+''' size '||TBSPACE_FILE_SIZE||DECODE(TBSPACE_REUSE_FILE,'N',' ',' REUSE')||\
+' default storage(initial '||INITIAL_EXTENT||' next '||NEXT_EXTENT||\
+' minextents '||MIN_EXTENTS||' maxextents '||MAX_EXTENTS||\
+' pctincrease '||PCT_INCREASE||') '||\
+DECODE(CREATE_ONLINE,'N','OFFLINE','ONLINE'),TABLESPACE_NAME \
+FROM %s.TEMP_TBSPACE_DEFS",db_account->name);
+
+    EXEC SQL PREPARE S4 FROM :sqlstmt;
+    EXEC SQL DECLARE CREATE_CUR CURSOR FOR S4;
+    EXEC SQL OPEN CREATE_CUR;
+
+    FOREVER
+        {
+        EXEC SQL FETCH CREATE_CUR INTO :sqlstmt, :dbfile, :second_part,
+							:new_tablespace;
+        if (OR_STATUS EQUALS OR_EOF)
+            {
+            break;
+            }
+
+        V_SETZERO(sqlstmt);
+        V_SETZERO(dbfile);
+        V_SETZERO(second_part);
+
+        ho_translate_filename((CHAR*)dbfile.arr,(CHAR*)file_name);
+        dbz_check_filename(file_name);
+
+        strcat((char *)sqlstmt.arr,(char *)file_name);
+        strcat((char *)sqlstmt.arr,(char *)second_part.arr);
+        V_SETLEN(sqlstmt);
+
+        EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+        if (OR_STATUS != SUCCESS)
+            {
+	    V_SETZERO(new_tablespace);
+	    sprintf(err_msg,mg_message(DB_CREATE_TBSPC_FAIL),
+					new_tablespace.arr,OR_MESSAGE);
+	    am_message(AM_ALERT,err_msg);
+            status = FAIL;
+            goto finished;
+            }
+        }
+
+    EXEC SQL CLOSE CREATE_CUR;
+    }
+
+
+/* * GRANT RESOURCE ON ALL NEEDED TABLESPACES TO USER * */
+/* ---------------------------------------------------- */
+
+status = SUCCESS;
+sqlstmt.len = sprintf((char *)sqlstmt.arr,"SELECT DISTINCT \
+'grant resource on '||TABLESPACE_NAME||' to %s' FROM %s.ACCOUNT_TB_DEFS\
+ WHERE TABLESPACE_NAME IS NOT NULL",db_account->name,db_account->name);
+EXEC SQL PREPARE S5 FROM :sqlstmt;
+EXEC SQL DECLARE GRANT_CUR CURSOR FOR S5;
+EXEC SQL OPEN GRANT_CUR;
+
+FOREVER
+    {
+    EXEC SQL FETCH GRANT_CUR INTO :sqlstmt;
+    if (OR_STATUS EQUALS OR_EOF)
+        {
+        break;
+        }
+
+    EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+    }
+EXEC SQL CLOSE GRANT_CUR;
+
+/* * ALTER USER TO SET DEFAULT AND TEMPORARY TABLESPACES * */
+/* ------------------------------------------------------- */
+
+sqlstmt.len = sprintf((char *)sqlstmt.arr,
+    "ALTER USER %s DEFAULT TABLESPACE %s TEMPORARY TABLESPACE %s",
+        db_account->name,default_tablespaces[0].arr,default_tablespaces[1].arr);
+EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+
+
+/* * RECONNECT ONCE MORE TO ACCOUNT * */
+/* ---------------------------------- */
+
+finished:
+EXEC SQL COMMIT WORK RELEASE;
+
+if (strlen(db_account->database) != 0)
+    {
+    account_name.len = sprintf((char *)account_name.arr,"%s@%s",
+                                db_account->name,db_account->database);
+    }
+else
+    {
+    account_name.len = sprintf((char *)account_name.arr,"%s",db_account->name);
+    }
+
+strcpy((char *)account_password.arr,(char *)db_account->password);
+V_SETLEN(account_password);
+
+EXEC SQL CONNECT :account_name IDENTIFIED BY :account_password;
+
+return status;
+}
+
+static INT dbz_check_filename(file_name)
+FILENAME file_name;
+{
+CHAR *cptr1;
+CHAR *cptr2;
+
+if ( (cptr1 = strchr((char *)file_name,']')) != NULL)
+    {
+    if ( *(cptr1-1) EQUALS '.')
+        {
+        cptr2 = cptr1 + 2;
+        *cptr1 = '\0';
+        strcat((char *)file_name,cptr2);
+        }
+    }
+return SUCCESS;
+}

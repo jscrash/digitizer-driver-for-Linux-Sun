@@ -1,0 +1,122 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_GET_SURVEY.PC */
+/* *3    17-AUG-1990 22:16:49 VINCE "(SPR 5644) Code Cleanup" */
+/* *2    31-OCT-1989 11:12:12 PURNA "(SPR 5039) seismic select list mods" */
+/* *1    31-OCT-1989 10:45:41 PURNA "get survey name from seis_line_hdr table, given line_id" */
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_GET_SURVEY.PC */
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#ifndef ESI_C_LIB_H
+
+#include "esi_c_lib.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_SE_ERR_H
+
+#include "esi_se_err.h"
+
+#endif
+
+#ifndef ESI_SE_H
+
+#include "esi_se.h"
+
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+    Given line id, get survey name from seis_line_hdr table.
+
+Prototype:
+    publicdef INT se_get_survey(SEIS_LINE_ID line_id,SEIS_SURV survey_name);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) line_id     -(SEIS_LINE_ID) The given line id.
+    (O) survey_name -(SEIS_SURV)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    SE_NO_DATA
+    OR_STATUS
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT se_get_survey (SEIS_LINE_ID line_id, SEIS_SURV survey_name)
+#else
+publicdef INT se_get_survey (line_id, survey_name)
+SEIS_LINE_ID line_id;
+SEIS_SURV survey_name;
+#endif
+    {
+    PROJECT_NAME project_name;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR surveyname[32];
+    VARCHAR select[1024];
+    EXEC SQL END DECLARE SECTION;
+    
+    EXEC SQL WHENEVER NOT FOUND GOTO not_yet_loaded;
+    EXEC SQL WHENEVER SQLERROR GOTO sql_err;
+    
+    qs_inq_c (QS_PROJECT_NAME, project_name, (INT *)0);
+    
+    select.len = sprintf ((char *)select.arr, "SELECT SURVEY FROM %s.SEIS_LINE_HDR \
+        WHERE LINE_ID = %d"
+                          , project_name, line_id);
+    EXEC SQL PREPARE S1 FROM : select;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1;
+    EXEC SQL FETCH C1 INTO : surveyname;
+    EXEC SQL CLOSE C1;
+    V_FROMV (survey_name, surveyname);
+    EXEC SQL COMMIT WORK;
+    
+    return SUCCESS;
+    
+not_yet_loaded:
+    EXEC SQL ROLLBACK WORK;
+    return SE_NO_DATA;
+    
+sql_err:
+    EXEC SQL ROLLBACK WORK;
+    return OR_STATUS;
+    }
+/* END:     */

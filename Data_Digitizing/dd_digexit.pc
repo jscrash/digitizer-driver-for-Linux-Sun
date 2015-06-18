@@ -1,0 +1,191 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DD_DIGEXIT.PC*/
+/* *1    19-JUN-1989 12:30:41 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DD_DIGEXIT.PC*/
+
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/*
+ * DD_DIGEXIT.PC
+ * 
+ * A USER EXIT FROM AN ORACLE FORM 
+ * TO GET AN X AND Y POINT FOR A WELL.
+ *
+ * The command format is DD_DIGEXIT XFIELD YFIELD NAMEFIELD SYMBOL COLOR
+ * where XFIELD is the name of the field which contains X
+ *       YFIELD is the name of the field which contains Y
+ *       NAMEFIELD is the name of the field containing a string which will
+ *                 be used to name the new graphic object
+ *       SYMBOL is name of the field containing the plot symbol code
+ *       COLOR  is name of the field containing the color (as text)
+ *
+ */
+                           
+#include "esi_c_lib.h"
+#include "esi_dd_err.h"       /* data digitizing errors */
+#include "esi_oracle.h"
+#include "esi_ts.h"
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+
+/*************************************************************/
+INT dd_digexit( cmd, cmdlen, msg, msglen, query )
+char *cmd;
+int  *cmdlen;
+char *msg;
+int  *msglen;
+int  *query;
+{
+   INT  status = SUCCESS;
+   CHAR errmsg[81];
+   INT  len;                         /* length of error message */
+   DOUBLE xpos,ypos;                 /* actual type of x, y fields */
+   CHAR command_line[255];
+   CHAR *pnext;
+   CHAR command[31];
+   extern INT dd_get_well_xy();      /* routine to get the actual position */
+
+/*
+ * SQL definitions for program variables 
+ */
+EXEC SQL BEGIN DECLARE SECTION; 
+   VARCHAR  char_xpos[ 21 ];
+   VARCHAR  char_ypos[ 21 ];
+   VARCHAR  object_name[ 31 ];
+   int      plot_symbol;
+   VARCHAR  color[31];
+
+   VARCHAR  xfield[ 31 ];
+   VARCHAR  yfield[ 31 ];
+   VARCHAR  object_name_field[ 31 ];
+   VARCHAR symbol_field[31];
+   VARCHAR color_field[31];
+EXEC SQL END DECLARE SECTION;
+
+/* parse the command line */
+
+   strncpy(command_line, cmd, *cmdlen);
+   command_line[*cmdlen] = 0;
+
+/* fill in defaults */
+   plot_symbol = 3;
+   strcpy((char *)object_name.arr, "New Well");
+   strcpy((char *)color.arr,"GREEN");
+   
+   pnext = ts_next_word(command_line, command);    /* get command = DD_DIGEXIT */
+   if (pnext IS_NOT_EQUAL_TO NULL)
+      {
+      pnext = ts_next_word(pnext, (char *)xfield.arr);        /* get name of X field */
+      V_SETLEN(xfield);
+      }
+   if (pnext IS_NOT_EQUAL_TO NULL)
+      {
+      pnext = ts_next_word(pnext, (char *)yfield.arr);        /* get name of Y field */
+      V_SETLEN(yfield);
+      }
+
+   if (pnext IS_NOT_EQUAL_TO NULL)
+      {
+      pnext = ts_next_word(pnext, (char *)object_name_field.arr);    /* get name of object  name field*/
+      V_SETLEN(object_name_field);
+      EXEC IAF GET :object_name_field INTO :object_name;
+      if (OR_STATUS EQUALS SUCCESS)
+	 {
+	 V_SETZERO(object_name);
+	 }
+      if (pnext IS_NOT_EQUAL_TO NULL)
+	 {
+	 pnext = ts_next_word(pnext, (char *)symbol_field.arr);
+         V_SETLEN(symbol_field);
+	 EXEC IAF GET :symbol_field INTO :plot_symbol;
+	 }
+      if (pnext IS_NOT_EQUAL_TO NULL)
+	 {
+	   pnext = ts_next_word(pnext, (char *)color_field.arr);    /* get color field*/
+	   V_SETLEN(color_field);
+	   EXEC IAF GET :color_field INTO :color;
+	   if (OR_STATUS EQUALS SUCCESS)
+	      {
+	      V_SETZERO(color);
+	      }
+         }
+      }
+
+
+/*
+ * Get x,y position from form
+ */ 
+   EXEC IAF GET :xfield, :yfield
+      INTO :char_xpos, :char_ypos;
+   if ( OR_STATUS IS_NOT_EQUAL_TO SUCCESS )
+   {
+      status = DD_ERR_SQL_GET ;
+      strcpy(errmsg, mg_message( status ) );
+      len = strlen(errmsg);
+      sqliem(errmsg, &len);
+      return( IAPFAIL );
+   }
+
+/* 
+ * append string with null
+ */
+   V_SETZERO(char_xpos);
+   V_SETZERO(char_ypos);
+
+/* 
+ * convert from character strings into doubles. 
+ */
+   xpos = atof((char *)char_xpos.arr);
+   ypos = atof((char *)char_ypos.arr);
+
+/* 
+ * call function that actually digitizes the x and y 
+ */
+   status = dd_get_well_xy( (char *)object_name.arr, plot_symbol, (char *)color.arr,
+                      &xpos, &ypos );
+   if ( status IS_NOT_EQUAL_TO SUCCESS )
+   {
+       strcpy(errmsg, mg_message( status ) );
+       len = strlen(errmsg);
+       sqliem(errmsg, &len);
+       return( IAPFAIL );
+   }
+
+/* 
+ * reformat back to character strings 
+ */
+   char_xpos.len = sprintf((char *)char_xpos.arr,"%10.1f", xpos);
+   char_ypos.len = sprintf((char *)char_ypos.arr,"%10.1f", ypos);
+
+    EXEC IAF PUT :xfield, :yfield VALUES( :char_xpos, :char_ypos);
+
+   if ( OR_STATUS IS_NOT_EQUAL_TO SUCCESS )
+   {
+      status = DD_ERR_SQL_PUT ;
+      strcpy(errmsg, mg_message( status ) );
+      len = strlen(errmsg);
+      sqliem(errmsg, &len);
+      return( IAPFAIL );
+   }
+
+   return( IAPSUCC );
+}

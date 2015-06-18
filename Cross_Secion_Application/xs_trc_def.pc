@@ -1,0 +1,165 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element XS_TRC_DEF.PC*/
+/* *2    17-AUG-1990 22:45:46 VINCE "(SPR 5644) Code Cleanup"*/
+/* *1    19-JUN-1989 12:42:49 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element XS_TRC_DEF.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#ifndef ESI_GL_DEFS_H
+
+#include "esi_gl_defs.h" 
+
+#endif
+
+#ifndef ESI_C_LIB_H
+
+#include "esi_c_lib.h"   
+
+#endif
+
+#ifndef ESI_AM_H
+
+#include "esi_am.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+
+#ifndef ESI_XS_DEFS_H
+
+#include "esi_xs_defs.h"
+
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+    Retrieve a trace's default display values.
+
+Prototype:
+    publicdef INT xs_gen_trc_defs(XS_STRUCT *pxs);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    pxs             -(XS_STRUCT *) Pointer to XS_STRUCT.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT xs_gen_trc_defs (XS_STRUCT *pxs)
+#else
+publicdef INT xs_gen_trc_defs (pxs)
+XS_STRUCT *pxs;
+#endif
+    {
+    PROGNAME ("xs_gen_trc_defs");
+    CHAR project[41];
+    INT unused;
+    INT status;
+    CHAR buffer[81];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    
+    VARCHAR trace_name[11];
+    VARCHAR line_color[11];
+    VARCHAR line_thickness[7];
+    VARCHAR line_style[11];
+    VARCHAR xplot_reverse_scale_flag[9];
+    VARCHAR lin_log_flag[4];
+    double left;
+    double right;
+    double track_number;
+    
+    VARCHAR select[255];
+    
+    EXEC SQL END DECLARE SECTION;
+    
+    strcpy ((char *)trace_name.arr, pxs->lg_trace_defs.trace_name);
+    V_SETLEN (trace_name);
+    qs_inq_c (QS_PROJECT_NAME, project, &unused);
+    
+    EXEC SQL WHENEVER SQLERROR GOTO errrpt;
+    
+    sprintf ((char *)select.arr, 
+"SELECT TRACK_NUMBER, LEFT, RIGHT, LIN_LOG_FLAG, \
+PLOT_REVERSE_SCALE_FLAG, LINE_COLOR, LINE_STYLE, LINE_THICKNESS \
+FROM %s.LOG_TRACE_DISPLAY_DEFAULTS WHERE TRACE_NAME = :trace_name"
+            , project);
+    
+    V_SETLEN (select);
+    
+    EXEC SQL PREPARE S1 FROM : select;
+    
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    
+    EXEC SQL OPEN C1 USING : trace_name;
+    
+    EXEC SQL FETCH C1 INTO : track_number,  : left,  : right,  : lin_log_flag,
+        : xplot_reverse_scale_flag,  : line_color,  : line_style,  : line_thickness;
+    
+    if (sqlca.sqlcode == OR_EOF)
+        {
+        return FAIL;
+        }
+    pxs->lg_trace_defs.track_number = track_number;
+    pxs->lg_trace_defs.left = left;
+    pxs->lg_trace_defs.right = right;
+    
+    V_FROMV (pxs->lg_trace_defs.lin_log_flag, lin_log_flag);
+    V_FROMV (pxs->lg_trace_defs.xplot_reverse_scale_flag, xplot_reverse_scale_flag);
+    V_FROMV (pxs->lg_trace_defs.line_color, line_color);
+    V_FROMV (pxs->lg_trace_defs.line_thickness, line_thickness);
+    V_FROMV (pxs->lg_trace_defs.line_style, line_style);
+    
+    return(SUCCESS);
+    
+errrpt:
+    sprintf (buffer, "SQL error %d occurred in retrieve trace defaults", OR_STATUS);
+    status = am_message (AM_REPORT, buffer);
+    return FAIL;
+    
+    }
+/* END:     */

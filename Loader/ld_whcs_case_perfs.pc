@@ -1,0 +1,689 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_WHCS_CASE_PERFS.PC */
+/* *3     4-OCT-1991 15:47:24 CHEW "(SPR 8701) Fixed oracle insert and file not found errors." */
+/* *2    13-MAY-1991 11:51:54 LOEBL "(SPR 0) Initial version of the program" */
+/* *1    13-MAY-1991 11:50:40 LOEBL "PC version of ld_whcs_case_perfs.ctl, converted for speed." */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_WHCS_CASE_PERFS.PC */
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+
+#ifndef ESI_DTYPES_H
+#include "esi_dtypes.h"
+#endif
+
+#ifndef ESI_GL_VCHAR_H
+#include "esi_gl_vchar.h"
+#endif
+
+#ifndef ESI_HO_H
+#include "esi_ho.h"
+#endif
+
+#ifndef ESI_OR_H
+#include "esi_or.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#define VERSION "Version 1.1"
+#define FETCHCOUNT 100
+
+/* the following is used to move from whcs buffers to a VARCHAR */
+
+#define V_FROMBUF(d, b, e)  V_STRNCPY(d, buffer+(b-1), (e-b+1) );
+
+/* the following definitions are specific to WHCS records */
+
+#define UWI_START 6
+#define UWI_END   19
+#define UWI_LEN   UWI_END - UWI_START + 1 
+
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR  uwi[15];
+    VARCHAR  base[6];
+
+/*  for WELL_TUBULARS */
+    VARCHAR  tubing_size_desc[13];
+
+/*  for WELL_CEMENT   */
+    VARCHAR  cement_amount[6];
+
+/*  for WELL_COMPLETIONS */
+
+    VARCHAR     test_no[3];
+    VARCHAR     test_type[13];
+    VARCHAR     top_age[7];
+    VARCHAR     top_form[12];
+    VARCHAR     top[8];
+    VARCHAR     producing_thru[13];
+    VARCHAR     perf_status[2];
+    VARCHAR     perf_type[13];
+    VARCHAR     perf_shots[5];
+    VARCHAR     perfs_per[13];
+    VARCHAR     comp_type[13];
+
+/*  for well_misc_data */
+
+    VARCHAR  stringdata[80];
+    VARCHAR  constantdata[20];
+
+    int uwi_seq;
+    VARCHAR sqlstmt[1000];
+EXEC SQL END DECLARE SECTION;
+
+privatedef BOOL write_to_bad = FALSE;
+privatedef BOOL matched = FALSE;
+privatedef int recnum = 0;
+privatedef int inserts = 0;
+privatedef PROJECT_NAME project;
+privatedef char buffer[85];
+
+EXEC ORACLE OPTION (REBIND = NO);
+
+
+/* the following function is simply used to determine whether 
+   a field in the input buffer is all blank */
+
+privatedef BOOL field_has_data(buf, begin, end)
+char *buf;
+int begin,end;
+{
+  int i;
+  if ( (i=strlen(buf)) > begin && i > end)
+  {
+      /* translate from field to "C" array offset */
+      for (i = begin-1; i <= end-1 ; i++)
+      {
+          if ( *(buf+i) != ' ') return(TRUE);
+      }
+  }
+  return(FALSE);
+}
+
+main (argc, argv)
+int argc;
+char **argv;
+{
+    int status;
+    int lastinserts = 0;
+    BOOL first = 1;
+
+    FILENAME file_name;
+    UWI last_uwi; 
+    FILE *datafile;
+    FILE *discfile;
+    FILE *badfile;
+    char *discname = "ld_whcs_case_perfs.dis";
+    char *badname  = "ld_whcs_case_perfs.bad";
+
+    /* Check for the correct number of incoming arguments */
+
+    if (argc != 4) 
+        {
+	printf ("Usage: %s <oracle_login> <project> <data file>\n", 
+                 argv[0]);
+	exit (FAIL);
+        }
+
+    /* Log onto ORACLE */
+
+    
+    if ( or_login (argc, argv) != SUCCESS) 
+       { 
+       printf("Unable to login to ORACLE \n");
+       exit (FAIL);
+       }
+
+    /* get the project name from command line */
+
+    strcpy ( project, argv[2]);
+
+    /* get the datafile name from the command line */
+
+    strcpy (file_name, argv[3]);
+    datafile = (FILE *)ho_open (file_name, "r", NULL);
+    if (datafile == NULL_FILE_PTR)
+       {
+       printf ("Can't open file: %s\n", file_name);
+       exit (FAIL);
+       }
+
+    badfile = (FILE *)ho_open (badname, "w", NULL);
+    if (badfile == NULL_FILE_PTR)
+       {
+       printf ("Can't open file: %s\n", badfile);
+       exit (FAIL);
+       }
+
+    discfile = (FILE *)ho_open (discname, "w", NULL);
+    if (discfile == NULL_FILE_PTR)
+       {
+       printf ("Can't open file: %s\n", discname);
+       exit (FAIL);
+       }
+
+    while (fgets (buffer, sizeof buffer, datafile) != NULL AND buffer[0] != 0)
+       {
+       matched = FALSE;
+       write_to_bad = FALSE;
+       recnum++;
+       V_FROMBUF(uwi, UWI_START, UWI_END );
+  
+/* determine if we are at a "UWI switch". If so, restart the sequence */
+
+       if ( strncmp( uwi.arr , last_uwi, uwi.len ) )
+          {
+          strncpy( last_uwi, uwi.arr, uwi.len );
+          uwi_seq = 0;
+          }
+
+      if (strncmp(buffer, "110  ", 5) == 0  ||
+          strncmp(buffer, "111  ", 5) == 0  ||
+          strncmp(buffer, "112  ", 5) == 0  ||
+          strncmp(buffer, "113  ", 5) == 0  ||
+          strncmp(buffer, "114  ", 5) == 0  ||
+          strncmp(buffer, "115  ", 5) == 0  ||
+          strncmp(buffer, "116  ", 5) == 0  ||
+          strncmp(buffer, "117  ", 5) == 0  ||
+          strncmp(buffer, "118  ", 5) == 0   ) 
+             {
+             insert_well_tubular_casing();
+             insert_well_cement_all();
+             }
+
+      if (strncmp(buffer, "119", 3) == 0   )   
+             {
+             insert_well_misc_data();
+             }
+
+      if (strncmp(buffer, "120  ", 5) == 0  ||
+          strncmp(buffer, "121  ", 5) == 0  ||
+          strncmp(buffer, "122  ", 5) == 0  ||
+          strncmp(buffer, "123  ", 5) == 0  ||
+          strncmp(buffer, "124  ", 5) == 0  ||
+          strncmp(buffer, "125  ", 5) == 0  ||
+          strncmp(buffer, "126  ", 5) == 0  ||
+          strncmp(buffer, "127  ", 5) == 0  ||
+          strncmp(buffer, "128  ", 5) == 0  ||
+          strncmp(buffer, "129  ", 5) == 0   ) 
+             {
+             insert_well_tubular_liner();
+             insert_well_cement_all();
+             }
+
+      if (strncmp(buffer, "130  ", 5) == 0  ||
+          strncmp(buffer, "131  ", 5) == 0  ||
+          strncmp(buffer, "132  ", 5) == 0  ||
+          strncmp(buffer, "133  ", 5) == 0  ||
+          strncmp(buffer, "134  ", 5) == 0  ||
+          strncmp(buffer, "135  ", 5) == 0  ||
+          strncmp(buffer, "136  ", 5) == 0  ||
+          strncmp(buffer, "137  ", 5) == 0  ||
+          strncmp(buffer, "138  ", 5) == 0  ||
+          strncmp(buffer, "139  ", 5) == 0   ) 
+             {
+             insert_well_tubular_tubing();
+             }
+
+      if ( (strncmp(buffer, "200", 3) >= 0) && 
+           (strncmp(buffer, "249", 3) <= 0) &&
+           (strncmp(buffer+3, "02", 2) >=0) &&
+           (strncmp(buffer+3, "09", 2) <=0)  ) 
+             {
+             insert_well_completions_all();
+             }
+
+      if ( (strncmp(buffer, "5", 1)    == 0) && 
+           (strncmp(buffer+3, "02", 2) >= 0) &&
+           (strncmp(buffer+3, "09", 2) <= 0) ) 
+             {
+             insert_well_completions_all();
+             }
+
+
+      if ( (strncmp(buffer, "200", 3) >= 0) && 
+           (strncmp(buffer, "249", 3) <= 0) &&
+           (strncmp(buffer+3, "10", 2) >=0) &&
+           (strncmp(buffer+3, "29", 2) <=0)  ) 
+             {
+             insert_well_completions_dtl();
+             }
+
+      if ( (strncmp(buffer, "5", 1)   == 0) && 
+           (strncmp(buffer+3, "10", 2) >=0) &&
+           (strncmp(buffer+3, "29", 2) <=0)  ) 
+             {
+             insert_well_completions_dtl();
+             }
+
+      if ( !matched )
+         {
+         fprintf(discfile, "%80.80s\n", buffer);
+         } 
+
+      if ( write_to_bad )
+         {
+         fprintf(badfile, "%80.80s\n", buffer);
+         } 
+
+      if ( inserts - lastinserts  && ( inserts % 100 == 0) )
+         {
+         lastinserts = inserts;
+
+         EXEC SQL COMMIT WORK;
+         if (OR_STATUS)
+            { 
+            printf("Unable to prepare commit work %s\n", 
+                      sqlca.sqlerrm.sqlerrmc);
+            exit (FAIL);
+            }
+         else
+            {   
+            printf("Commit complete %d records, %d inserts.\n",
+                       recnum,inserts);
+            }
+         }
+
+      } /* end of while */
+
+   EXEC SQL COMMIT WORK RELEASE;
+   printf("Commit complete %d records, %d inserts.\n", recnum,inserts);
+   fclose (datafile);
+   fclose (discfile);
+   fclose (badfile);
+   exit(SUCCESS);
+}
+
+privatedef int insert_well_tubular_casing()
+{
+    V_FROMC(constantdata, "CASING");
+    if (field_has_data( buffer, 38, 42 ) )       /* check base */
+    {
+       V_FROMBUF( base, 38, 42 );             /* base */
+       V_FROMBUF( tubing_size_desc, 30, 35);  /* description */
+       insert_well_tubulars();
+    }
+    if (field_has_data( buffer, 60, 64) )      /* check base */
+    {
+       V_FROMBUF( base, 60, 64 );              /* base */
+       V_FROMBUF( tubing_size_desc, 52, 57 );  /* description */
+       insert_well_tubulars();
+    }
+}
+
+privatedef int insert_well_tubular_liner()
+{
+    V_FROMC(constantdata, "LINER" );
+    if (field_has_data(buffer, 49, 53) )       /* check base */
+    {
+       V_FROMBUF( base, 49, 53 );              /* base */
+       V_FROMBUF( tubing_size_desc, 30, 35);   /* description */
+       insert_well_tubulars();
+    }
+}
+
+privatedef int insert_well_tubular_tubing()
+{
+    V_FROMC(constantdata, "TUBING" );
+    if (field_has_data(buffer, 39, 43) )       /* check base */
+    {
+       V_FROMBUF( base, 39, 43 );              /* base */
+       V_FROMBUF( tubing_size_desc, 30, 35);   /* description */
+       insert_well_tubulars();
+    }
+
+    if (field_has_data(buffer, 54, 58) )       /* check base */
+    {
+       V_FROMBUF( base, 54, 58 );              /* base */
+       V_FROMBUF( tubing_size_desc, 45, 50);   /* description */
+       insert_well_tubulars();
+    }
+
+    if (field_has_data(buffer, 69, 73) )       /* check base */
+    {
+       V_FROMBUF( base, 69, 73 );              /* base */
+       V_FROMBUF( tubing_size_desc, 60, 65);   /* description */
+       insert_well_tubulars();
+    }
+}
+
+privatedef int insert_well_tubulars()
+{
+    privatedef BOOL first_tubular = TRUE;
+    matched++;
+
+    if (first_tubular)
+    {
+       sprintf (sqlstmt.arr,
+ "INSERT INTO %s.WELL_TUBULARS \
+ (UWI, \
+  TUBING_OBS_NO, \
+  TUBING_TYPE, \
+  BASE,\
+  TUBING_SIZE_DESC, \
+  SOURCE) \
+  VALUES \
+  (:uwi, \
+  :uwi_seq, \
+  :constantdata, \
+  rtrim(:base), \
+  rtrim(:tubing_size_desc),\
+  'PI-WHCS' \
+  ) ",   project );
+
+    sqlstmt.len = strlen(sqlstmt.arr);
+
+    EXEC SQL PREPARE WELL_TUBULARS FROM :sqlstmt;
+
+    if (OR_STATUS)
+       { 
+            printf("Unable to prepare WELL_TUBULARS %s\n", 
+                    sqlca.sqlerrm.sqlerrmc);
+            exit (FAIL);
+       }
+
+    first_tubular = FALSE;
+    }
+
+ EXEC SQL EXECUTE WELL_TUBULARS USING
+      :uwi, 
+      :uwi_seq, 
+      :constantdata, 
+      :base,
+      :tubing_size_desc;
+       if (OR_STATUS)
+           { 
+           printf("Table WELL_TUBULARS, Rec#: %d  %s\n", recnum, sqlca.sqlerrm.sqlerrmc);
+           write_to_bad = TRUE;
+           }
+       else
+           {
+           inserts++;
+           } 
+       uwi_seq++;
+
+}
+
+privatedef int insert_well_misc_data()
+{
+    privatedef BOOL first_misc_data = TRUE;
+    matched++;
+
+    if (first_misc_data)
+    {
+       sprintf (sqlstmt.arr,
+"INSERT INTO %s.WELL_MISC_DATA \
+(UWI, \
+ DATA_TYPE,\
+ LAST_UPDATE,\
+ REMARKS,\
+ SOURCE)\
+ VALUES\
+(:uwi, \
+ '119',\
+ '01-JAN-00', \
+ RTRIM(:stringdata), \
+ 'PI-WHCS' \
+) ", project );
+
+       sqlstmt.len = strlen(sqlstmt.arr);
+
+       EXEC SQL PREPARE WELL_MISC_DATA FROM :sqlstmt;
+       if (OR_STATUS)
+       { 
+            printf("Unable to prepare WELL_MISC_DATA %s\n", 
+                          sqlca.sqlerrm.sqlerrmc);
+            exit (FAIL);
+       }
+       first_misc_data = FALSE;
+    }
+
+     V_FROMBUF( stringdata, 26, 79 );
+     EXEC SQL EXECUTE WELL_MISC_DATA USING
+      :uwi, 
+      :stringdata;
+       if (OR_STATUS)
+       { 
+            printf("Table WELL_MISC_DATA, rec#: %d   %s\n", 
+                       recnum, sqlca.sqlerrm.sqlerrmc);
+            write_to_bad = TRUE;
+       }
+       else
+       {
+            inserts++;
+       } 
+     uwi_seq++;
+
+}
+
+privatedef int insert_well_cement_all()
+{
+    if (strncmp(buffer,"11",2) ==0 )  
+    {
+       if ( field_has_data( buffer, 46, 50) )
+       {
+          V_FROMBUF( cement_amount, 46, 50);
+          insert_well_cement();
+       }
+       if ( field_has_data( buffer, 68, 72 ) )
+       {
+          V_FROMBUF( cement_amount, 68, 72);
+          insert_well_cement();
+       }
+    }
+    if (strncmp(buffer,"12" ,2) ==0 )  
+    {
+       if ( field_has_data( buffer, 57, 61 ) )
+       {
+          V_FROMBUF( cement_amount, 57, 61);
+          insert_well_cement();
+       }
+    }
+}
+
+privatedef int insert_well_cement()
+{
+    privatedef BOOL first_cement = TRUE;
+    matched++;
+
+    if (first_cement)
+    {
+       sprintf (sqlstmt.arr,
+"INSERT INTO %s.WELL_CEMENT \
+ (UWI,  \
+ CEMENT_UNIT, \
+ CEMENT_OBS_NO,  \
+ CEMENT_AMOUNT,  \
+ SOURCE) \
+ VALUES \
+ (:uwi,  \
+ 'SACKS', \
+ :uwi_seq,  \
+ RTRIM(:cement_amount), \
+ 'PI-WHCS' \
+ ) ", project );
+
+       sqlstmt.len = strlen(sqlstmt.arr);
+
+       EXEC SQL PREPARE CEMENT_STMT FROM :sqlstmt;
+
+       if (OR_STATUS)
+       {                
+            printf("Unable to prepare CEMENT_STMT  %s\n", 
+                    sqlca.sqlerrm.sqlerrmc);
+            exit (FAIL);
+       }
+       first_cement = FALSE;
+    }
+
+     EXEC SQL EXECUTE CEMENT_STMT USING
+      :uwi, 
+      :uwi_seq, 
+      :cement_amount;
+       if (OR_STATUS)
+       { 
+            printf("Table WELL_CEMENT, Rec#: %d   %s\n", 
+            recnum, sqlca.sqlerrm.sqlerrmc);
+            write_to_bad = TRUE;
+       }
+       else
+       {
+            inserts++;
+       } 
+     uwi_seq++;
+
+}
+
+privatedef int insert_well_completions_all()
+{
+    if (field_has_data(buffer, 59, 63 ) )
+    {
+        V_FROMBUF( test_no, 2, 3);
+        V_FROMBUF( top_age, 26, 28);
+        V_FROMBUF( top_form, 29, 33);
+        V_FROMBUF( top, 59, 63);
+        V_FROMBUF( base, 65, 69);
+        V_FROMBUF( producing_thru, 35, 42);
+        V_FROMBUF( perf_type, 44, 48);
+        V_FROMBUF( perf_shots, 52, 54);
+        V_FROMBUF( perfs_per, 56, 57);
+        V_FROMBUF( comp_type, 71, 75);
+        if (*buffer == '2') V_FROMC( stringdata, "IP");
+        if (*buffer == '5') V_FROMC( stringdata, "PROD");
+        insert_well_completions();
+    }
+}
+
+privatedef int insert_well_completions_dtl()
+{
+    if (*buffer == '2') V_FROMC( test_type, "IP");
+    if (*buffer == '5') V_FROMC( test_type, "PROD");
+    V_FROMBUF( test_no, 2, 3);
+    V_FROMBUF( producing_thru, 43, 47);
+    if ( field_has_data( buffer, 31, 35 ) )   /* check top */
+    {
+        V_FROMBUF( top, 31, 35);
+        V_FROMBUF( base, 37, 41);
+        V_FROMBUF( perf_status, 42, 42);
+        insert_well_completions();
+    }
+    if ( field_has_data( buffer, 43, 47 ) )   /* check top */
+    {
+        V_FROMBUF( top, 43, 47);
+        V_FROMBUF( base, 49, 53);
+        V_FROMBUF( perf_status, 54, 54);
+        insert_well_completions();
+    }
+    if ( field_has_data( buffer, 55, 59 ) )   /* check top */
+    {
+        V_FROMBUF( top, 55, 59);
+        V_FROMBUF( base, 61, 65);
+        V_FROMBUF( perf_status, 66, 66);
+        insert_well_completions();
+    }
+}
+
+privatedef int insert_well_completions()
+{
+    privatedef BOOL well_completions = TRUE;
+    matched++;
+
+    if (well_completions)
+    {
+       sprintf (sqlstmt.arr,
+" INSERT INTO %s.WELL_COMPLETIONS \
+ (UWI,  \
+ TEST_NO, \
+ TEST_TYPE, \
+ SOURCE, \
+ COMP_OBS_NO, \
+ TOP_AGE, \
+ TOP_FORM, \
+ TOP, \
+ BASE, \
+ PRODUCING_THRU, \
+ PERF_TYPE, \
+ PERF_SHOTS, \
+ PERFS_PER, \
+ COMP_TYPE) \
+ VALUES \
+ (:uwi,  \
+ :test_no, \
+ :test_type, \
+ 'PI-WHCS', \
+ :uwi_seq,  \
+ :top_age, \
+ :top_form, \
+ RTRIM(:top), \
+ RTRIM(:base), \
+ :producing_thru, \
+ :perf_type, \
+ RTRIM(:perf_shots), \
+ :perfs_per, \
+ :comp_type) ", project );
+
+        sqlstmt.len = strlen(sqlstmt.arr);
+
+        EXEC SQL PREPARE COMPLETIONS_STMT FROM :sqlstmt; 
+       if (OR_STATUS)
+       { 
+            printf("Unable to prepare COMPLETIONS_STMT  %s\n", 
+                    sqlca.sqlerrm.sqlerrmc);
+            exit (FAIL);
+       }
+       well_completions = FALSE;
+    }
+
+     EXEC SQL EXECUTE COMPLETIONS_STMT USING
+        :uwi, 
+        :test_no,
+        :stringdata,
+        :uwi_seq, 
+        :top_age,
+        :top_form,
+        :top,
+        :base,
+        :producing_thru,
+        :perf_type,
+        :perf_shots,
+        :perfs_per,
+        :comp_type;
+
+       if (OR_STATUS)
+       { 
+            printf("Table WELL_COMPLETIONS, Rec#: %d   %s\n", 
+            recnum, sqlca.sqlerrm.sqlerrmc);
+            write_to_bad = TRUE;
+       }
+       else
+       {
+            inserts++;
+       } 
+     uwi_seq++;
+
+}
+

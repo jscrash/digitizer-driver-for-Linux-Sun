@@ -1,0 +1,314 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_MAKE_TABLE.PC*/
+/* *10   29-OCT-1990 16:23:58 GILLESPIE "(SPR 36) Add esi_sl_meth.ah with NO_MAPPING switch"*/
+/* *9    29-SEP-1990 12:05:46 GILLESPIE "(SPR 1) Merge beta deltas"*/
+/*  7B1  28-SEP-1990 18:27:14 GILLESPIE "Beta Deltas"*/
+/* *8    27-AUG-1990 14:08:40 PURNA "(SPR 0) bug fixes from ernie"*/
+/* *7     3-AUG-1990 18:24:53 PURNA "(SPR 0) fix seismic case and change include to esi_sl_meth.ah"*/
+/* *6    18-DEC-1989 16:46:27 PURNA "(SPR 5069) export facility mods"*/
+/* *5    22-SEP-1989 15:23:40 GILLESPIE "(SPR 101) Fix up castings"*/
+/* *4    19-SEP-1989 13:46:01 GILLESPIE "(SPR 100) GULF MODS"*/
+/* *3     6-SEP-1989 09:03:26 GORDON "(SPR 200) Gulf changes (August trip)"*/
+/* *2     1-JUL-1989 13:09:01 JRB "(SPR 111) qs variables need to be set"*/
+/* *1     1-JUL-1989 12:23:54 GILLESPIE ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_MAKE_TABLE.PC*/
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_FI_H
+#include "esi_fi.h"
+#endif
+
+#ifndef ESI_HO_H
+#include "esi_ho.h"
+#endif
+
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_SL_H
+#include "esi_sl.h"
+#endif
+
+#ifndef ESI_SL_METH_AH
+#define NO_MAPPING
+#include "esi_sl_meth.ah"
+#endif
+ 
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_WE_WELLS_H
+#include "esi_we_wells.h"
+#endif
+
+EXEC ORACLE OPTION (REBIND = NO);
+
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[512];
+    VARCHAR object[62];
+    long    line_id;
+EXEC SQL END DECLARE SECTION;
+
+#if USE_PROTOTYPES
+privatedef INT or_load_wells (CHAR *temp_table_name, NLIST_HEADER nlist);
+privatedef INT or_load_seismic (CHAR *temp_table_name, NLIST_HEADER nlist);
+#else
+#endif
+
+/******************************************************************************/
+/*                                                                            */
+/*                                 or_make_table                              */
+/*           given the name of a select list, construct a temporary table     */
+/*                                                                            */
+/******************************************************************************/
+
+/*
+   the command line is as follows
+   $ or_make_table name/password project_name select_list_name select_list_type temp_table_name
+*/
+
+main(argc, argv)
+INT argc;
+CHAR **argv;
+{
+    CHAR *project_name;
+    CHAR *select_list_name;
+    CHAR *temp_table_name;
+    NLIST_HEADER nlist;
+    INT status;
+    CHAR mode[128];
+    INT mode_length;
+    BOOL is_batch;
+    INT num;
+    SL_DATA_TYPE slist_type;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+	int nitems;
+	char *select_list_type;
+    EXEC SQL END DECLARE SECTION;
+
+
+/* determine if this is a batch run */
+
+    if (ho_user_mode() == HO_BATCH) is_batch = TRUE;
+    else is_batch = FALSE;
+
+    qs_set_i(QS_IF_BATCH, is_batch);
+
+    if (or_login(argc, argv) IS_NOT_EQUAL_TO SUCCESS)
+	{
+	printf("Unable to log onto Oracle - Aborting");
+	exit (EXIT_FAILURE);
+	}
+
+    if (argc < 6)
+	{
+	printf("Format is :\n\n\
+or_make_table name/password project_name select_list_name select_list_type temp_table_name\n");
+	exit (EXIT_FAILURE);
+	}
+
+    project_name = ts_sto_upper(argv[2]);
+    select_list_name = ts_sto_upper(argv[3]);
+    select_list_type = ts_sto_upper(argv[4]);
+    temp_table_name  = ts_sto_upper(argv[5]);
+
+/*  since this is a separate process, you must set the QS variables */
+    qs_set_c(QS_PROJECT_NAME, project_name, strlen(project_name));
+
+/*  configure the project - set the logical names		    */
+    status = finder_config_project (FALSE);
+
+			     /* if this is a NULL (indicated by character
+				string NULL) select list, you are finished  */
+
+
+    if (ARE_SAME(select_list_name, "NULL"))
+	{
+	exit (EXIT_SUCCESS);
+	}
+
+			     /* translate the character string to a code    */
+			     /* number                                      */
+
+    status = sl_get_dtype_from_string("DATA_TYPE_NAME",select_list_type,&slist_type);
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+	{
+	printf("Unknown select list data type (%s) - Aborting",
+		select_list_type);
+	exit (EXIT_FAILURE);
+	}
+
+			     /* read the select list                        */
+
+    status = sl_read_list (slist_type, select_list_name, &nlist);
+
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+	{
+	printf("Cannot read select list named %s - Aborting\n",
+			select_list_name);
+	exit (EXIT_FAILURE);
+	}
+
+
+    if (ARE_SAME(select_list_type,"WELLS"))
+	{
+	or_load_wells (temp_table_name, nlist);
+	}
+    else if (ARE_SAME(select_list_type,"SEISMIC"))
+	{
+	or_load_seismic(temp_table_name, nlist);
+	}
+
+    stmt.len = sprintf ((char *)stmt.arr,"SELECT COUNT(*) FROM %s", temp_table_name);
+    EXEC SQL PREPARE S1 FROM :stmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1;
+    EXEC SQL FETCH C1 INTO :nitems;
+
+    printf ("\n%d %s inserted into the table '%s'\n",
+	nitems, ts_sto_lower(select_list_type), temp_table_name);
+
+    EXEC SQL COMMIT WORK RELEASE;
+
+    exit (EXIT_SUCCESS);
+}
+
+/******************************************************************************/
+
+#if USE_PROTOTYPES
+privatedef INT or_load_wells (CHAR *temp_table_name, NLIST_HEADER nlist)
+#else
+privatedef INT or_load_wells (temp_table_name, nlist)
+CHAR *temp_table_name;
+NLIST_HEADER nlist;
+#endif
+{
+    INT status;
+    UINT ndim;
+    UINT Dim_List[1];
+    VOIDPTR Value_List[1];
+
+    stmt.len = sprintf((char *)stmt.arr,"CREATE TABLE %s (UWI CHAR(%d) NOT NULL)",
+	    temp_table_name, sizeof (UWI) - 1);
+
+    EXEC SQL EXECUTE IMMEDIATE :stmt;
+
+			     /* create a unique index on this new table     */
+
+    stmt.len = sprintf((char *)stmt.arr,"CREATE UNIQUE INDEX %s ON %s (UWI)",
+	    temp_table_name, temp_table_name);
+
+    EXEC SQL EXECUTE IMMEDIATE :stmt;
+
+			     /* set up the SQL statement for data insertion */
+
+    stmt.len = sprintf((char *)stmt.arr,"INSERT INTO %s (UWI) VALUES (:a)",
+		       temp_table_name);
+			     /* added (LINE_NAME) for insertion in above
+				statmenu by Joseph H. on 11/11/88 for SPR
+				f-128                                       */
+
+			     /* taken back out by CP because wells don't    */
+			     /* got'um line_name. 2/23/89                   */
+    EXEC SQL PREPARE S2 FROM :stmt;
+    EXEC SQL DECLARE C2 CURSOR FOR S2;
+
+			     /* retrieve the data into an allocated buffer  */
+
+    ndim = 1;
+    Dim_List[0] = 1;
+    Value_List[0] = (VOIDPTR) object.arr;
+    status = nl_first_point (nlist, ndim, Dim_List, Value_List);
+    while (status >= 0 AND NOT (status & NL_EOL))
+	{
+	V_SETLEN(object);
+
+	EXEC SQL OPEN C2 USING :object;
+	status = nl_next_point(nlist, ndim, Dim_List, Value_List);
+	}
+}
+
+/******************************************************************************/
+
+#if USE_PROTOTYPES
+privatedef INT or_load_seismic (CHAR *temp_table_name, NLIST_HEADER nlist)
+#else
+privatedef INT or_load_seismic (temp_table_name, nlist)
+CHAR *temp_table_name;
+NLIST_HEADER nlist;
+#endif
+{
+    INT status;
+    UINT ndim;
+    UINT Dim_List[1];
+    VOIDPTR Value_List[1];
+
+    stmt.len = sprintf((char *)stmt.arr,
+"CREATE TABLE %s (LINE_ID NUMBER NOT NULL)",
+	    temp_table_name);
+
+    EXEC SQL EXECUTE IMMEDIATE :stmt;
+
+			     /* create a unique index on this new table     */
+
+    stmt.len = sprintf((char *)stmt.arr,
+"CREATE UNIQUE INDEX %s ON %s (LINE_ID)",
+	    temp_table_name, temp_table_name);
+
+    EXEC SQL EXECUTE IMMEDIATE :stmt;
+
+			     /* set up the SQL statement for data insertion */
+
+    stmt.len = sprintf((char *)stmt.arr,
+"INSERT INTO %s VALUES (:a )", temp_table_name);
+
+    EXEC SQL PREPARE S3 FROM :stmt;
+    EXEC SQL DECLARE C3 CURSOR FOR S3;
+
+			     /* retrieve the data into an allocated buffer  */
+
+    ndim = 1;
+    Dim_List[0] = 1; 
+    Value_List[0] = (VOIDPTR) &line_id;
+    status = nl_first_point (nlist, ndim, Dim_List, Value_List);
+    while (status >= 0 AND NOT (status & NL_EOL))
+	{
+
+	EXEC SQL OPEN C3 USING :line_id;
+	status = nl_next_point(nlist, ndim, Dim_List, Value_List);
+	}
+}

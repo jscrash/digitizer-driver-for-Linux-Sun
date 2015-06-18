@@ -1,0 +1,113 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LGZ_DM_U_D_E.PC*/
+/* *6    14-SEP-1989 16:16:35 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *5    13-AUG-1989 03:02:43 GILLESPIE "(SPR 5) CHANGE SHARED TO SHARED_TRACE"*/
+/* *4    13-AUG-1989 01:46:29 GILLESPIE "(SPR 5) Change WLL_LOG_TRACE_HDR to WELL_LOG_CURVE; always release cursor"*/
+/* *3     8-AUG-1989 10:44:55 VINCE "(SPR -1) added Gulf mods; static in SQL declare section"*/
+/* *2    19-JUL-1989 08:04:13 GORDON "(SPR 100) Add mods from Sun port"*/
+/* *1    19-JUN-1989 12:33:18 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element LGZ_DM_U_D_E.PC*/
+
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/* **************************************************************************
+
+    Author:   James Chang
+    ************************************************************************ */
+#include "esi_lg_ldefs.h"
+#include "esi_qs.h"
+#include "esi_oracle.h"
+
+EXEC ORACLE OPTION (RELEASE_CURSOR = YES);
+
+/* **************************************************************************
+
+    ROUTINE:  LGZ_UPDATE_DB_ENTRY
+
+    DESCRIPTION
+         According to the specified search rule to lock a record( This part of
+         work has already been done by LG_LTDM_LOCK_TRACE), the update fields
+         in the data base.
+
+    ************************************************************************ */
+publicdef INT lgz_update_db_entry(     traceStruct, newTrace   )
+    /* ********************************************************************* */
+LOG_TRACE_STRUCT   *traceStruct;       /* pointer of given LOG_TRACE_STRUCT.*/
+INT newTrace;                          /* flag of existance of trace.        */
+{
+    INT status;
+    PROJECT_NAME project;
+    INT depth_type;
+
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR	upd_select[1024];
+EXEC SQL END DECLARE SECTION;  
+/* ************************************************************************* */
+
+				 /* construct the table name.               */
+    qs_inq_c(QS_PROJECT_NAME, project, (INT *) 0);
+    
+    depth_type = ( traceStruct -> depth_type EQUALS DEPTH_IN_TIME OR
+	traceStruct -> depth_or_time[0] == 'T' OR
+	traceStruct -> depth_or_time[0] == 't' )
+         ? 'T' : 'D';
+                                  /*   update the locked trace.            */
+    EXEC SQL WHENEVER SQLERROR GOTO upd_err;
+
+    upd_select.len=sprintf((char *)upd_select.arr, 
+"UPDATE %s.WELL_LOG_CURVE_HDR \
+SET SOURCE = '%s', SERVICE = '%s', \
+SHARED_TRACE = '%c', TOP = %f, BASE = %f, \
+DEPTH_INC = %f, DEPTH_UNIT = '%s', \
+DEPTH_TYPE = '%c', TRACE_MIN = %f, \
+TRACE_MAX = %f, TRACE_UNIT = '%s', \
+TRACE_REMARKS = '%s', SOURCE = user, \
+LAST_UPDATE = sysdate,\
+DIGITAL_REF = '%s',\
+DIGITAL_REF_VOLUME = '%s' \
+WHERE TRACE_ID = %d", project,
+traceStruct -> source,
+traceStruct -> service,
+traceStruct -> shared ? 'Y' : 'N',
+traceStruct -> top,
+traceStruct -> base,
+traceStruct -> dinc,
+traceStruct -> depth_uom,
+depth_type,
+traceStruct -> min,
+traceStruct -> max,
+traceStruct -> trace_uom,
+traceStruct -> comments,
+traceStruct -> nlist_id,
+traceStruct -> filename,
+traceStruct -> trace_id);
+
+   EXEC SQL EXECUTE IMMEDIATE :upd_select;
+   EXEC SQL COMMIT WORK;
+   status = SUCCESS;
+   goto way_out;
+
+upd_err:
+    status = OR_STATUS;
+    EXEC SQL ROLLBACK WORK;
+way_out:
+    return status;
+}

@@ -1,0 +1,506 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element GQ_FTRACE_F.PC*/
+/* *10   12-AUG-1991 09:03:13 PURNA "(SPR 0) removed prev mod"*/
+/* *9     9-AUG-1991 14:40:34 PURNA "(SPR 0) temporarily commented out a call to nonexisting function"*/
+/* *8    17-DEC-1990 17:49:09 VINCE "(SPR 1) fixed some casting"*/
+/* *7    11-DEC-1990 15:42:19 VINCE "(SPR 1) fixed a compiler complaint"*/
+/* *6     7-DEC-1990 14:50:32 VINCE "(SPR 1) Added savepoint and rollback to stuff"*/
+/*  4B1   3-OCT-1990 11:39:35 GILLESPIE "Change file type to stream"*/
+/* *5    20-AUG-1990 17:07:21 KEE "(SPR -1) fixing compile error at sun"*/
+/* *4    20-JUL-1990 13:46:10 VINCE "(SPR 5644) Fix a problem caused by the C-pretty-printer and reassert Gillespies changes of*/
+/*1-jul"*/
+/* *3    20-JUL-1990 12:41:46 VINCE "(SPR 5644) Header Standardization"*/
+/* *2     1-JUL-1990 13:22:04 GILLESPIE "(SPR 1) IES Link - The Next Generation"*/
+/* *1    21-JUN-1990 19:23:32 GILLESPIE "Geoquest Link"*/
+/* DEC/CMS REPLACEMENT HISTORY, Element GQ_FTRACE_F.PC*/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_am.h"
+#include "esi_ct.h"
+#include "esi_ho_files.h"
+#include "esi_qs.h"
+#include "esi_dr.h"
+#include "esi_se.h"
+#include "esi_se_err.h"
+#include "esi_ts.h"
+#include "esi_ts_err.h"
+#include "esi_oracle.h"
+#include "esi_gl_project.h"
+#include "interface.h"
+
+#if USE_PROTOTYPES
+static INT save_list (SEIS_FAULT_TRACE *ftrace);
+#else
+static INT save_list ();
+#endif
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+ 
+/* File Description ---------------------------------------------------------
+Overview:
+    Program to load Finder tables with fault trace data.
+
+    Any previously existing seismic fault traces for the given horizon and
+    owner are deleted before the new set from IES is loaded.  All graphic
+    object tables are updated such that the new traces become normal graphic
+    objects owned by the current user.  The SEIS_FAULT_TRACE table is used
+    to contain the nlist and nlist id data for the fault traces.
+
+    The SEIS_FAULT_TRACE and has the structure shown below.
+
+    Each horizon has a single nlist file which contains all fault
+    traces recorded.
+
+    The file is named after the horizon.
+
+    The individual fault trace is named with the graphic object sequencer.
+
+    The directory used is ESI$FAULT_TRACE, which defaults to
+    the path ESI$PROJECT:[SEISMIC.FTRACE].
+
+    SEIS_FAULT_TRACE
+    ----------------
+    FAULT_TRACE_ID	NUMBER	    NOT NULL    Finder internal trace id
+    HOR_CODE		CHAR(30)    NOT NULL    horizon or marker name	
+    SEQ			NUMBER			a unique id assigned by Finder
+    FAULT_CODE		CHAR(30)		fault name
+    SOURCE		CHAR(12)		owner of this interpretation
+    XMIN		NUMBER(15)		min X extent
+    XMAX		NUMBER(15)		max X extent
+    YMIN		NUMBER(15)		min Y extent
+    YMAX		NUMBER(15)		max Y extent
+    DIGITAL_REF_VOLUME	CHAR(80)		nList filename
+    DIGITAL_REF		CHAR(64)		nList id name
+    DATA_TYPE		NUMBER			fault data type
+    
+
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT c_put_ftrace_finder(SEISMIC_FTRACE *ftrace_struc_ptr,
+                                  opt_list_t *options_ptr, int_t *status_ptr);
+
+Private_Functions:
+    static INT save_list(SEIS_FAULT_TRACE *ftrace);
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT c_put_ftrace_finder(SEISMIC_FTRACE *ftrace_struc_ptr,
+                                  opt_list_t *options_ptr, int_t *status_ptr);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    ftrace_struc_ptr    -(SEISMIC_FTRACE *)
+    options_ptr         -(opt_list_t *)
+    status_ptr          -(int_t *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    SE_INVALID_VECTOR
+    TS_EMPTY_STRING
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT c_put_ftrace_finder (SEISMIC_FTRACE *ftrace_struc_ptr,
+                                   opt_list_t *options_ptr, int_t *status_ptr)
+#else
+publicdef INT c_put_ftrace_finder (ftrace_struc_ptr, options_ptr, status_ptr)
+SEISMIC_FTRACE *ftrace_struc_ptr;
+opt_list_t *options_ptr;
+int_t *status_ptr;
+#endif
+    {
+    INT i, j, k;
+    INT status;
+    CHAR last_fault[32];
+    F_HORIZON *pHorizon;
+    SEISMIC_FT_TRACE *pTrace;
+    SEIS_FAULT_TRACE fault_trace;
+    FT_POINT *pFPoint;
+    UINT n_valid_col;
+    INT data_type;
+    
+    NLIST_HEADER nlist;
+    VOIDPTR Var_List[3];
+    UINT Col_List[3];
+    UINT nCol = 3;
+    UINT table_number;
+    INT Data_Types[3];
+    size_t Data_Widths[3];
+    INT Value_List[3];
+    INT Units[3];
+    static CHAR *Column_Names[] = { "X", "Y", "Z", NULL };
+
+#if 0
+    /* project default workspace pointer    */
+    PROJECT_DEFAULT *project_default;
+    PROJECTION_STRUCTURE this_projection;
+    PROJECTION_STRUCTURE *project_projection;
+    
+    /* NOTE: This structure is filled out by finder_config_project  */
+    status = am_open_workspace ("PROJECT_DEFAULTS", AM_GLOBAL,
+                                (VOIDPTR) & project_default);
+    if (status != SUCCESS)
+        {
+        return *status_ptr = status;
+        }
+
+    ct_get_projection (project_default->projection, &project_projection);
+#endif
+
+    *status_ptr = SUCCESS;
+    
+    if (ftrace_struc_ptr->f_horizon.number_elements > 0 AND
+        (ftrace_struc_ptr->f_horizon.element_size != sizeof(F_HORIZON) ||
+         ftrace_struc_ptr->f_horizon.element_format != VEC_TYPE_F_HORIZON))
+        {
+        return *status_ptr = SE_INVALID_VECTOR;
+        }
+
+    /* ------------------------------------------- */
+    /* Set up variables to be used by n-List code  */
+    /* ------------------------------------------- */
+
+    Data_Types[0]  = Data_Types[1]  = Data_Types[2]  = FLOAT_TYPE;
+    Data_Widths[0] = Data_Widths[1] = Data_Widths[2] = sizeof(dp_t);
+    Units[0]       = Units[1]       = Units[2]       = 0;
+    Value_List[0]  = Value_List[1]  = Value_List[2]  = VALUE_LIST;
+    Col_List[0]    = 1; Col_List[1] = 2; Col_List[2] = 3;
+    
+    /* ---------------------------- */
+    /* Cycle through each horizon.  */
+    /* ---------------------------- */
+
+    EXEC SQL SAVEPOINT no_fault_trace_changes;
+    EXEC SQL SAVEPOINT horizon_faults_not_deleted;
+
+    for (i = 0, pHorizon = (F_HORIZON *)
+		    ftrace_struc_ptr->f_horizon.vector_pointer;
+         i < ftrace_struc_ptr->f_horizon.number_elements;
+	 i++, pHorizon++)
+        {
+	EXEC SQL ROLLBACK TO horizon_faults_not_deleted;
+
+        strcpy (fault_trace.hor_code, pHorizon->horizon_name);
+        if (IS_EMPTY_STRING (fault_trace.hor_code))
+            {
+            *status_ptr = TS_EMPTY_STRING;
+            pHorizon->status = TS_EMPTY_STRING;
+            continue;
+            }
+
+	EXEC SQL SAVEPOINT horizon_faults_not_deleted;
+
+	status = dr_delete_object_by_att (FAULTS_TYPE,
+					  fault_trace.hor_code,
+					  NULL);
+	if (status != SUCCESS)
+	    {
+	    continue;
+	    }
+
+        if (pHorizon->seismic_ft_trace.number_elements EQUALS 0)
+            {
+            continue;
+            }
+
+        if (pHorizon->seismic_ft_trace.element_size !=
+		sizeof(SEISMIC_FT_TRACE) OR 
+            pHorizon->seismic_ft_trace.element_format != VEC_TYPE_FT_TRACE)
+            {
+            *status_ptr = SE_INVALID_VECTOR;
+            pHorizon->status = SE_INVALID_VECTOR;
+            continue;
+            }
+
+        last_fault[0] = 0;
+
+        /* -------------------------------------------------------------- */
+        /* WARNING!!!!                                                    */
+        /* -------------------------------------------------------------- */
+	/* The handling of the Z data type used here may not be correct.  */
+        /* -------------------------------------------------------------- */
+	/* I assume that all segments associated with a fault trace are   */
+	/* either time or depth, but not mixed.  If they are mixed, then  */
+	/* I do not correctly detect this.                                */
+        /* -------------------------------------------------------------- */
+        
+	/* ------------------------------- */
+        /* Cycle through each fault trace. */
+	/* ------------------------------- */
+
+        for (j = 0, pTrace = (SEISMIC_FT_TRACE *)
+				pHorizon->seismic_ft_trace.vector_pointer;
+             j < pHorizon->seismic_ft_trace.number_elements;
+	     j++, pTrace++)
+            {
+            strcpy (fault_trace.fault_name, pTrace->fault_name);
+            if (IS_EMPTY_STRING (fault_trace.fault_name))
+                {
+                *status_ptr = TS_EMPTY_STRING;
+                pHorizon->status = TS_EMPTY_STRING;
+                continue;
+                }
+
+            if (pTrace->ft_point.number_elements > 0 &&
+                (pTrace->ft_point.element_size != sizeof(FT_POINT) ||
+                 pTrace->ft_point.element_format != VEC_TYPE_FT_POINT))
+                {
+                *status_ptr = SE_INVALID_VECTOR;
+                pHorizon->status = SE_INVALID_VECTOR;
+                continue;
+                }
+
+	    /* ----------------------------------------------- */
+            /* If this is a new fault, then start a new n-List */
+	    /* ----------------------------------------------- */
+
+            if (ARE_DIFFERENT (last_fault, fault_trace.fault_name))
+                {
+                if (IS_STRING (last_fault))
+                    {
+                    status = save_list (&fault_trace);
+                    if (status != SUCCESS)
+                        {
+                        *status_ptr = status;
+                        pHorizon->status = status;
+                        }
+                    }
+
+                status = nl_init_nlist (&nlist, nCol, Units, Data_Widths,
+					Data_Types, Value_List, 0);
+                if (status != SUCCESS)
+                    {
+                    *status_ptr = status;
+                    pHorizon->status = status;
+                    continue;
+                    }
+
+		/* -------------------- */
+		/* set the column names */
+		/* -------------------- */
+
+                nl_set_nlist_info (nlist, NL_NLIST_COLUMN_NAME, nCol, Col_List,
+				    (VOIDPTR *)Column_Names);
+
+                fault_trace.nlist = nlist;
+                strcpy (last_fault, fault_trace.fault_name);
+                switch (pTrace->z_value_code)
+                    {
+                    case Z_VALUE_UNDEFINED:
+                    default:
+                        fault_trace.data_type = SE_UNKNOWN;
+                        break;
+                    case Z_VALUE_TIME:
+                        fault_trace.data_type = SE_TIME;
+                        break;
+                    case Z_VALUE_DEPTH:
+                        fault_trace.data_type = SE_DEPTH;
+                        break;
+                    case Z_VALUE_UNSNAPPED_TIME:
+                        fault_trace.data_type = SE_UNSNAPPED_TIME;
+                        break;
+                    }
+                }
+
+	    /* ----------------------- */
+	    /* start a new nlist table */
+	    /* ----------------------- */
+
+            nl_start_table (nlist, &table_number);
+            
+	    /* ------------------------------------------------ */
+	    /* set the null value for each column.		*/
+	    /* ------------------------------------------------ */
+	    /* NOTE: GeoQuest has only one null value for each	*/
+	    /*	     set of fault traces.  All columns in all	*/
+	    /*	     tables will end up with the same value.	*/
+	    /* ------------------------------------------------ */
+
+	    Var_List[0] = (VOIDPTR) &ftrace_struc_ptr->dp_null;
+	    Var_List[1] = (VOIDPTR) &ftrace_struc_ptr->dp_null;
+	    Var_List[2] = (VOIDPTR) &ftrace_struc_ptr->dp_null;
+	    nl_set_nlist_info (nlist, NL_NLIST_NULL_VALUE,
+			       nCol, Col_List, Var_List);
+
+	    /* ---------------------------------- */
+	    /* move the point data into the table */
+	    /* ---------------------------------- */
+
+            for (k = 0, pFPoint = (FT_POINT *)pTrace->ft_point.vector_pointer;
+                 k < pTrace->ft_point.number_elements;
+		 k++, pFPoint++)
+                {
+                Var_List[0] = (VOIDPTR) &pFPoint->x;
+                Var_List[1] = (VOIDPTR) &pFPoint->y;
+                n_valid_col = 2;
+
+                if (pFPoint->valid & VALID_Z)
+                    {
+                    Var_List[2] = (VOIDPTR) &pFPoint->z;
+                    n_valid_col = 3;
+                    }
+
+#if 0
+		/* ---------------------------------------------------- */
+		/* Transform the nList into the current default project */
+		/* projection.						*/
+		/* ---------------------------------------------------- */
+		/* NOTE: THIS IS NOT IMPLEMENTED YET !!!		*/
+		/* ---------------------------------------------------- */
+
+                ct_transform_point (pFPoint->x, pFPoint->y,
+				    this_projection,
+                                    &pFPoint->x, &pFPoint->y,
+				    project_projection);
+#endif
+
+                status = nl_add_rows (nlist, 1, n_valid_col,
+				      Col_List, Var_List);
+                }
+            }
+
+        status = save_list (&fault_trace);
+        if (status != SUCCESS)
+            {
+            *status_ptr = status;
+            pHorizon->status = status;
+            }
+        }
+
+    return *status_ptr;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT save_list(SEIS_FAULT_TRACE *ftrace);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    ftrace          -(SEIS_FAULT_TRACE *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    OR_STATUS
+    
+Scope:
+    PRIVATE to <gq_ftrace_f.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT save_list (SEIS_FAULT_TRACE *ftrace)
+#else
+static INT save_list (ftrace)
+SEIS_FAULT_TRACE *ftrace;
+#endif
+    {
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR stmt[512];
+    EXEC SQL END DECLARE SECTION;
+    
+    INT status;
+    UINT nCol = 2;
+    NLIST_ID nlist_id;
+    FULL_LINE_NAME line;
+    FILENAME nlist_file;
+    FILENAME full_nlist_file;
+    DOUBLE xmin, xmax, ymin, ymax;
+    CHAR source[32];
+    VOIDPTR Var_List[2];
+    UINT Col_List[2];
+    NLIST_HEADER nlist = ftrace->nlist;
+    
+    PROJECT_NAME project;
+    
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    qs_inq_c (QS_FINDER_ACCOUNT, source, (INT *)0);
+
+    /* -------------------------------------------------------------------- */
+    /* WARNING!!!  Loading fault traces from IES completly replaces any     */
+    /* existing fault traces for the given horizon and owned by the current */
+    /* user.  This was deemed reasonable since the export to IES includes   */
+    /* ALL fault traces for a given horizon.                                */
+    /* -------------------------------------------------------------------- */
+    /* NOTE:                                                                */
+    /* Only fault traces owned by the current analyst will be deleted and   */
+    /* the newly loaded traces will be owned by the current analyst.        */
+    /* -------------------------------------------------------------------- */
+
+    nlist_id[0]        = 0;
+    nlist_file[0]      = 0;
+    full_nlist_file[0] = 0;
+    
+    se_bld_nlist_ids (&line, (VOIDPTR)ftrace, SEIS_FTRACE_DATA, nlist_id, nlist_file,
+                      full_nlist_file);
+    
+    Col_List[0] = 1; Col_List[1] = 2;
+    Var_List[0] = (VOIDPTR) &xmin; Var_List[1] = (VOIDPTR) &ymin;
+    status = nl_inq_nlist_info (nlist, NL_NLIST_MIN, nCol, Col_List, Var_List);
+
+    Var_List[0] = (VOIDPTR) &xmax; Var_List[1] = (VOIDPTR) &ymax;
+    status = nl_inq_nlist_info (nlist, NL_NLIST_MAX, nCol, Col_List, Var_List);
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+    "INSERT INTO %s.SEIS_FAULT_TRACE \
+               (HOR_CODE, FAULT_CODE, SOURCE, XMIN, XMAX, YMIN, YMAX, \
+                DIGITAL_REF, DIGITAL_REF_VOLUME, DATA_TYPE) \
+            VALUES \
+               ('%s',     '%s',       '%s',   %lf,  %lf,  %lf,  %lf, \
+                '%s',        '%s',               %d)",
+    project, ftrace->hor_code, ftrace->fault_name, source,
+    xmin, xmax, ymin, ymax, nlist_id, nlist_file, ftrace->data_type);
+    
+    EXEC SQL EXECUTE IMMEDIATE : stmt;
+    status = OR_STATUS;
+
+    if (status EQUALS SUCCESS)
+        {
+        status = nl_write_nlist (nlist, full_nlist_file, nlist_id);
+        nl_free_nlist (nlist);
+        if (status == SUCCESS)
+            {
+            EXEC SQL COMMIT WORK;
+            }
+        else
+            {
+            EXEC SQL ROLLBACK WORK;
+            }
+        }
+
+    return status;
+    }
+/* END:     */

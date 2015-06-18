@@ -1,0 +1,961 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_FP.PC */
+/* *2     1-MAY-1991 21:53:31 KEE "(SPR -1) Landmark Import" */
+/* *1     1-MAY-1991 21:19:49 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_FP.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* ************************************************************************
+
+   NAME: LD_LM2_IMP_FP.PC
+
+   AUTHOR: Rod Hanks
+   DATE:   May 14th, 1990
+   DESCRIPTION: Load a fault from a file output by Landmark.
+
+   ************************************************************************ */
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+#ifndef ESI_NL_ERR_H
+#include "esi_nl_err.h"
+#endif
+#ifndef ESI_SE_H
+#include "esi_se.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_HT_H
+#include "esi_ht.h"
+#endif
+#ifndef ESI_HT_ERR_H
+#include "esi_ht_err.h"
+#endif
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+#ifndef ESI_CTYPE_H
+#include "esi_ctype.h"
+#endif
+#ifndef LD_LM2_IMP_WORK_H
+#include "ld_lm2_imp_work.h"
+#endif
+
+#if USE_PROTOTYPES
+publicdef INT ld_lm2_imp_fp (FILENAME fileName, PROJECT_NAME project,
+			BOOL convertProj, PROJECTION_STRUCTURE *defaultProj, 
+                        PROJECTION_STRUCTURE *inputProj, CHAR *source, 
+			INT overwrite)
+#else
+publicdef INT ld_lm2_imp_fp (fileName, project,
+			convertProj, defaultProj, inputProj,
+			source, overwrite)
+FILENAME	fileName;
+PROJECT_NAME	project;
+BOOL	              convertProj;
+PROJECTION_STRUCTURE *defaultProj;
+PROJECTION_STRUCTURE *inputProj;
+CHAR		     *source;
+INT		      overwrite;
+#endif
+    {
+/****************************************************************************
+
+	V a r i a b l e   D e c l a r a t i o n s .
+
+******************************************************************************/
+
+    INT 	   status;
+    INT		   loop;
+    FILE	   *spfile;
+    FULL_LINE_NAME fullLineName;
+    NLIST_HEADER   nlist = (NLIST_HEADER) 0;
+    NLIST_HEADER   outputNlist = (NLIST_HEADER) 0;
+    CHAR	   inputSurvey[24];
+    CHAR	  *inputLine;
+    CHAR	  *pos;
+    CHAR	   lastLine[80];
+    CHAR	   lastName[80];
+    CHAR           FullFaultName[31];
+    CHAR           TempFaultName[31];
+    CHAR           FaultName[31];
+    INT            i, j, k;
+    UINT           ndim;
+    CHAR           flag;
+    BOOL	   moreFlag;
+    BOOL	   skipOne;
+    BOOL	   faultPresent;
+    INT		   tableNum;
+    SP		   thisShot;
+#ifdef CLIP
+    SP		   first_sp;
+    SP		   last_sp;
+    BOOL	   clippedFlag;
+#endif
+    FLOAT	   thisZ;
+    UINT	   colList[3];
+    VOIDPTR	   valueList[3];
+    CDP_FLOAT	   first_cdp;
+    CDP_FLOAT	   last_cdp;
+    CDP		   first_cdp_int;
+    CDP		   last_cdp_int;
+    FLOAT	   lower_time;
+    FLOAT	   upper_time;
+    CDP		   thisCdp;
+    INT		   sortFlags[2];
+    CHAR	   faultCode[10];
+    BOOL	   existingFault;
+    HASH_TABLE_P   hash_table;
+    CHAR	   thisKey[101];
+
+#ifdef USE_OLDPARSING
+    CHAR	  *inputZ;
+    CHAR	  *inputShot;
+    CHAR	  *inputFlag;
+    CHAR	   dummy[255];
+#else
+    INT inputFlag;
+    LD_SCANNER_STRUCT ld_scan;	
+#endif
+
+/*
+				General variable declarations.
+*/
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[400];
+	int	lineID;
+	VARCHAR landmarkName[81];
+	VARCHAR lineName[24];
+	VARCHAR	survey[24];
+        VARCHAR flt_code[10];
+	int	version;
+	VARCHAR surfaceCode[31];
+	VARCHAR sourceName[13];
+    EXEC SQL END DECLARE SECTION;
+/*
+				Oracle variable declarations.
+*/
+/****************************************************************************
+
+	I n i t i a l i z a t i o n .
+
+******************************************************************************/
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT FINDER_LINE_NAME, FINDER_SURVEY FROM %s.SEIS_LINE_XREF \
+WHERE VENDOR_LINE_NAME = :landmarkName AND VENDOR = 'LANDMARK'", project);
+
+    EXEC SQL PREPARE S4 FROM :sqlstmt;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s4");
+    EXEC SQL DECLARE XREF_CURS CURSOR FOR S4;
+    
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT VERSION FROM %s.SEIS_SURFACE \
+WHERE SURFACE_CODE = :surfaceCode AND SURFACE_TYPE = 2 \
+AND DATA_TYPE = 1 AND LINE_ID = :lineID AND SOURCE = :sourceName", project);
+
+    EXEC SQL PREPARE s5 FROM :sqlstmt;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s5");
+    EXEC SQL DECLARE VERS1_CURS CURSOR FOR s5;
+    
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT NVL(MAX(VERSION), -1) + 1 FROM %s.SEIS_SURFACE \
+WHERE SURFACE_CODE = :surfaceCode AND SURFACE_TYPE = 2 \
+AND DATA_TYPE = 1 AND LINE_ID = :lineID AND SOURCE = :sourceName", project);
+
+    EXEC SQL PREPARE s6 FROM :sqlstmt;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s6");
+    EXEC SQL DECLARE VERS2_CURS CURSOR FOR s6;
+    
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT LINE_ID FROM %s.SEIS_LINE_HDR \
+WHERE LINE_NAME = :lineName AND SURVEY = :survey", project);
+
+    EXEC SQL PREPARE S1 FROM :sqlstmt;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s1");
+    EXEC SQL DECLARE LOOK_CURS CURSOR FOR S1;
+/*
+				Used to retrieve line ID.
+*/
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT NVL(MAX(FAULT_CODE), 'F0000000') FROM %s.SEIS_FAULT_CODES \
+WHERE FAULT_CODE > 'F' AND FAULT_CODE < 'FA'", project);
+
+    EXEC SQL PREPARE S2 FROM :sqlstmt;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s2");
+    EXEC SQL DECLARE ID_CURS CURSOR FOR S2;
+/*
+				Used to generate fault codes.
+*/
+    spfile = ho_open(fileName, "r", NULL);
+    if (spfile == (FILE *)NULL)
+	{
+	printf("Unable to open fault file named %s", fileName);
+	}
+    else
+	{
+        printf("loading fault from %s\n", fileName);
+	status = ht_init_hash_table(200, 10, HT_CHAR_KEY, 80, 0, 
+				   HT_SYSTEM_TABLE, &hash_table);
+/*
+				Allocate a hash table to keep track of 
+				faults which we have input during this
+				run.
+*/
+	lastLine[0] = 0;
+	lastName[0] = 0;
+/*
+				Skip the first four lines, they contain
+				formatting information.  We don't use it
+				because we look for the spaces between
+				the columns.
+*/
+/*****************************************************************************
+
+	M a i n   L o g i c .
+
+*****************************************************************************/
+
+#ifdef USE_OLDPARSING
+	moreFlag = TRUE;
+        while (moreFlag)
+            {
+	    do
+		{
+		pos = fgets(dummy, 255, spfile);
+		}
+		while (pos != (CHAR *) 0 && strlen(dummy) < 5);
+
+	    if (pos == (CHAR *) 0)
+		{
+		moreFlag = FALSE;
+		}
+/*
+				Get next line from file, if any, and
+				set a flag when no more.  We want to
+				fall thru the loop one last time in
+				this case in order to output the last
+				line.
+*/
+	    if (moreFlag)
+		{
+	        while (*pos == ' ')
+		    {
+		    pos++;
+		    }
+	        inputZ = pos;
+	        while (*pos != ' ' && *pos != 0)
+		    {
+		    pos++;
+		    }
+	        *pos = 0;
+	        pos++;
+	        while (*pos == ' ')
+		    {
+		    pos++;
+		    }
+	        inputShot = pos;
+	        while (*pos != ' ' && *pos != 0)
+		    {
+		    pos++;
+		    }
+	        *pos = 0;
+	        pos++;
+	        while (*pos == ' ')
+		    {
+		    pos++;
+		    }
+	        inputLine = pos;
+	        while (*pos != ' ' && *pos != 0)
+		    {
+		    pos++;
+		    }
+	        *pos = 0;
+	        pos++;
+	        while (*pos == ' ' || *pos == '#')
+		    {
+		    pos++;
+		    }
+
+		if (*(pos-1) == '#')
+		  {
+		    strcpy(FullFaultName,"#");
+		    strncat(FullFaultName,pos,22);
+		  }
+		else
+		  {
+		    strncpy(FullFaultName,pos,23);
+		  }
+		strcpy(TempFaultName,FullFaultName);
+		for (i = strlen(TempFaultName); i>=0; i--) 
+		/* get rid of blank at the end */
+		  {
+		    if (TempFaultName[i-1] != ' ')
+		      {
+			TempFaultName[i] = 0;
+			break;
+                      }
+                  }
+       		ts_sto_upper(TempFaultName);
+		for (j=strlen(TempFaultName), i=0, k=0; i < j; i++)
+		  {
+		    if (TempFaultName[i] == ' ')
+		      {
+			FaultName[k++] = '_';
+		      }
+		    else if (TempFaultName[i] == '-')
+		      {
+			if (TempFaultName[i+1] == ' ')
+			  {
+			    i++;
+                          }
+		      }
+		    else if (TempFaultName[i] >= 'A' && TempFaultName[i] <= 'Z')
+		      {
+			FaultName[k++] = TempFaultName[i];
+                      }
+		  }
+		FaultName[k] = 0;
+
+	        pos += j; /* skip fault name */
+/*
+					B E W A R E ! ! !
+
+					se_put will use the fault name to
+					build a file name.  If that file name
+					is not legal, the nlist won't be
+					written correctly.
+*/
+	        pos++;
+	        while (*pos == ' ')
+		    {
+		    pos++;
+		    }
+	        inputFlag = pos;
+		pos++;
+	        *pos = 0;
+/*
+					I know this item is only 1 byte long,
+					and dummy doesn't seem to be null
+					terminated.
+*/
+	        pos = inputLine + strlen(inputLine);
+	        while ((int)pos > (int)inputLine && *pos != '-')
+		    {
+		    pos--;
+		    }
+	        if ((int)pos > (int)inputLine)
+		    {
+		    strncpy(inputSurvey, inputLine, (pos - inputLine));
+		    inputSurvey[(int)(pos - inputLine)] = 0;
+		    }
+	        else
+		    {
+	            pos = inputLine;
+	            while (isalpha(*pos))
+		        {
+		        pos++;
+		        }
+	            strncpy(inputSurvey, inputLine, (pos - inputLine));
+	            inputSurvey[(int)(pos - inputLine)] = 0;
+		    }
+		}
+#else
+        tc_zeroes(&ld_scan, sizeof(LD_SCANNER_STRUCT));	
+        ld_scan.in.fix_format = TRUE;
+	ld_scan.in.snowhite = FALSE; 
+        ld_scan.in.num_pair = 5;
+        ld_scan.in.start[0] = 10;    ld_scan.in.end[0] = 20;
+        ld_scan.in.start[1] = 25;    ld_scan.in.end[1] = 30;
+        ld_scan.in.start[2] = 32;    ld_scan.in.end[2] = 50;
+        ld_scan.in.start[3] = 52;    ld_scan.in.end[3] = 75;
+        ld_scan.in.start[4] = 80;    ld_scan.in.end[4] = 80;
+	while (ld_scan.eof == FALSE)
+	  {
+	    ld_scan_line(spfile, &ld_scan);
+	    /* check all items are there or empty line  */
+	    if (ld_scan.eof == TRUE)
+	      {
+	        moreFlag = !ld_scan.eof;
+	        *inputLine = *inputSurvey = 0;
+	        FullFaultName[0] = TempFaultName[0] = FaultName[0] = 0;
+              }
+	    else if (ld_scan.out_nitems == 0)
+	      {
+		continue;
+              }
+	    else if (ld_scan.out_nitems != ld_scan.in.num_pair OR
+	             ld_scan.out[0].parmtype != LD_DOUBLE OR
+		     ld_scan.out[1].parmtype != LD_DOUBLE OR
+		     ld_scan.out[2].parmtype != LD_STRING OR
+		     ld_scan.out[3].parmtype != LD_STRING OR
+		     ld_scan.out[4].parmtype != LD_INT)
+	      {
+		printf("Invalid line format - following line will be skipped\n ");
+		printf("%s",ld_scan.line);
+		continue;
+              }
+	    else
+	      {
+	        moreFlag = !ld_scan.eof;
+	        thisZ = (FLOAT) ld_scan.out[0].parmval.dbval;
+	        thisShot = ld_scan.out[1].parmval.dbval;
+	        inputFlag = ld_scan.out[4].parmval.ival;
+	        strcpy(ld_scan.out[2].parmval.cval, 
+		       ts_snowhite(ld_scan.out[2].parmval.cval));
+		inputLine = ld_scan.out[2].parmval.cval;
+	        strcpy(FullFaultName, ld_scan.out[3].parmval.cval);
+	        strcpy(TempFaultName, ts_snowhite(FullFaultName));
+       		ts_sto_upper(TempFaultName); /* Rod Hanks */
+		for (j=strlen(TempFaultName), i=0, k=0; i < j; i++)
+		  {
+		    if (TempFaultName[i] == ' ')
+		      {
+			FaultName[k++] = '_';
+		      }
+		    else if (TempFaultName[i] == '-')
+		      {
+			if (TempFaultName[i+1] == ' ')
+			  {
+			    i++;
+                          }
+		      }
+		    else if (TempFaultName[i] >= 'A' && TempFaultName[i] <= 'Z')
+		      {
+			FaultName[k++] = TempFaultName[i];
+                      }
+		  }
+		FaultName[k] = 0;
+	        pos = inputLine + strlen(inputLine);
+	        while ((int)pos > (int)inputLine && *pos != '-')
+		    {
+		    pos--;
+		    }
+	        if ((int)pos > (int)inputLine)
+		    {
+		    strncpy(inputSurvey, inputLine, (pos - inputLine));
+		    inputSurvey[(int)(pos - inputLine)] = 0;
+		    }
+	        else
+		    {
+	            pos = inputLine;
+	            while (isalpha(*pos))
+		        {
+		        pos++;
+		        }
+	            strncpy(inputSurvey, inputLine, (pos - inputLine));
+	            inputSurvey[(int)(pos - inputLine)] = 0;
+		    }
+	      }
+#endif
+/*
+				Above, parse out the input line into line
+				name (and survey), shot number, x, and y.
+*/	
+	    if (strcmp(lastLine, inputLine) != 0 ||
+	        (strcmp(lastLine, inputLine) == 0 && strcmp(lastName, FaultName))
+                || moreFlag == FALSE)
+		{
+		if (strlen(lastLine) != 0 && skipOne == FALSE)
+		    {
+		    colList[1] = 1;
+		    sortFlags[1] = NL_ASCENDING;
+		    nl_sort_nlist(nlist, 1, colList, sortFlags, &outputNlist);
+		    if (status != SUCCESS)
+			{
+			printf("Unable to sort nlist -- \n%s\n", 
+					mg_message(status));
+			return FAIL;
+			}
+/*
+					Sort the CDP's into ascending order.
+*/
+		    ndim = 2;
+		    colList[0] = 1;
+		    colList[1] = 2;
+		    valueList[0] = (VOIDPTR) &first_cdp_int;
+		    valueList[1] = (VOIDPTR) &lower_time;
+		    status = nl_inq_nlist_info(outputNlist, NL_NLIST_MIN,
+						ndim, colList, valueList);
+		    first_cdp = first_cdp_int;
+		    if (status != SUCCESS)
+			{
+			printf("Error getting min values \n%s\n",
+				mg_message(status));
+			return FAIL;
+			}
+		    valueList[0] = (VOIDPTR) &last_cdp_int;
+		    valueList[1] = (VOIDPTR) &upper_time;
+		    status = nl_inq_nlist_info(outputNlist, NL_NLIST_MAX,
+					       ndim, colList, valueList);
+		    last_cdp = last_cdp_int;
+		    if (status != SUCCESS)
+			{
+			printf("Error getting max values \n%s\n",
+				mg_message(status));
+			return FAIL;
+			}
+		    if (nlist != (NLIST_HEADER) 0)
+		        {
+		        nl_free_nlist(nlist);
+		        nlist = (NLIST_HEADER) 0;
+		        }
+/*
+					Free up the starting list, we don't
+					need it anymore.
+*/
+		    if (existingFault == FALSE)
+			{
+		        status = se_put(outputNlist, faultCode, 
+					SE_FAULT, SE_TIME,
+			   		&fullLineName, source, 
+			   		SE_AT_NM, SE_FINDER, version);
+			}
+		    else
+			{
+			status = se_rep(outputNlist, faultCode, 
+				SE_FAULT, SE_TIME,
+			       &fullLineName, source, 
+			       SE_AT_NM, SE_FINDER, version);
+			}
+		    if (status != SUCCESS)
+			{
+			printf("Unable to dispose line, %s\n",
+					mg_message(status));
+			return FAIL;
+			}
+/*
+	Above, write out the nlist.
+*/
+		    if (outputNlist != (NLIST_HEADER) 0)
+		        {
+		        nl_free_nlist(outputNlist);
+		        outputNlist = (NLIST_HEADER) 0;
+		        }
+		    }
+/*
+				free up the memory the nlist used.  If we have
+				another line, we'll start up another list.
+*/
+		if (moreFlag)
+		    {
+/*
+				From here down, we are at the beginning of a
+				new line, so initialize to begin collecting
+				data from the file for it.
+*/
+		    strcpy(lastLine, inputLine);
+		    skipOne = FALSE;
+/*
+				Set control break value for next time.
+*/
+		    V_FROMC(landmarkName, inputLine);
+		    V_FROMC(lineName, inputLine);
+		    V_FROMC(survey, inputSurvey);
+		    EXEC SQL OPEN XREF_CURS USING :landmarkName;
+		    if (OR_STATUS != 0) ld_show_error(OR_STATUS, 
+							"open xref_curs");
+		    EXEC SQL FETCH XREF_CURS INTO :lineName, :survey;
+		    if (OR_STATUS < 0) ld_show_error(OR_STATUS,
+							"fetch xref_curs");
+		    EXEC SQL CLOSE XREF_CURS;
+		    if (OR_STATUS != 0) ld_show_error(OR_STATUS,
+							"close xref_curs");
+/*
+					Look in the cross reference file to
+					find the line name and survey we should
+					use for this landmark line name.  If we
+					don't find it, we'll use the results of
+					the parsing algorithm above.
+*/
+		    printf("Line %s of fault %s\n", inputLine, FullFaultName);
+		    EXEC SQL OPEN LOOK_CURS USING :lineName, :survey;
+    		    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "open look_curs");
+		    lineID = 0;
+		    EXEC SQL FETCH LOOK_CURS INTO :lineID;
+    		    if (OR_STATUS < 0)
+			{
+			ld_show_error(OR_STATUS, "fetch look_curs");
+			}
+		    else if (OR_STATUS > 0)
+			{
+			printf("Not in the database.  Being skipped...\n");
+			skipOne = TRUE;
+			}
+		    EXEC SQL CLOSE LOOK_CURS;
+ 		    if (OR_STATUS != 0) ld_show_error(OR_STATUS, 
+							"close look_curs");
+/*
+				First step, find out if this line already
+				exists.
+*/
+		    if (strcmp(lastName, FaultName) != 0 && skipOne == FALSE)
+			{
+			sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT FAULT_CODE FROM %s.SEIS_FAULT_CODES WHERE DISPLAY_NAME = '%s'", 
+project, FullFaultName);
+
+			EXEC SQL PREPARE S8 FROM :sqlstmt;
+			if (OR_STATUS != 0) ld_show_error(OR_STATUS, 
+							"prepare s8");
+			EXEC SQL DECLARE FLT_CURS CURSOR FOR S8;
+			EXEC SQL OPEN FLT_CURS;
+			if (OR_STATUS != 0) ld_show_error(OR_STATUS, "open s8");
+			EXEC SQL FETCH FLT_CURS INTO :flt_code;
+			if (OR_STATUS == SUCCESS)
+			    {
+			    faultPresent = TRUE;
+			    }
+			else if (OR_STATUS > SUCCESS)
+			    {
+			    faultPresent = FALSE;
+			    }
+			else
+			    {
+			    ld_show_error(OR_STATUS, "fetch s8");
+			    }
+			EXEC SQL CLOSE FLT_CURS;
+			if (OR_STATUS != 0) ld_show_error(OR_STATUS, "close s8");
+
+			if (faultPresent == FALSE)
+			    {
+	                    if (strlen(FaultName) > 8)
+		                {
+				    EXEC SQL OPEN ID_CURS;
+				    if (OR_STATUS != 0) ld_show_error(OR_STATUS,
+							    "open id curs");
+				    EXEC SQL FETCH ID_CURS INTO :flt_code;
+				    if (OR_STATUS != 0) ld_show_error(OR_STATUS, 
+							    "fetch id curs");
+			            EXEC SQL CLOSE ID_CURS;
+				    if (OR_STATUS != 0) ld_show_error(OR_STATUS,
+							    "close id curs");
+				    if (flt_code.len < 8)
+				      {
+				        while (flt_code.len < 8)
+					  {
+					    flt_code.arr[flt_code.len] = '0';
+					    flt_code.len++;
+					  }
+				      }
+				    else
+				      {
+				        flt_code.arr[7]++;
+				        for (loop = 7; loop > 0; loop--)
+					  {
+					    if (flt_code.arr[loop] > '9'
+					    &&  flt_code.arr[loop] < 'A')
+					      {
+					        flt_code.arr[loop] = 'A';
+					      }
+					    else if (flt_code.arr[loop] > 'Z')
+					      {
+					        flt_code.arr[loop] = '0';
+					        flt_code.arr[loop - 1]++;
+					      }
+					  }
+				      }
+	                            strncpy(faultCode, (CHAR *)flt_code.arr, flt_code.len);
+	                            faultCode[flt_code.len]=0;
+				  }
+			    else
+				{
+				strcpy(faultCode, FaultName);
+				}
+/*
+				Seis_fault_codes table imposes a limit of
+				8 bytes on this name.  If our horizon name
+				is bigger than that, assign a unique name
+				by incrementing an id number.  Anyone could
+				cripple this algorithm simply by inserting
+				an FZZZZZZZ fault code into the 
+				SEIS_FAULT_CODES table.  The algorithm does
+				not take advantage of any gaps which may
+				appear in it's range.
+*/
+			    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"INSERT INTO %s.SEIS_FAULT_CODES(FAULT_CODE, DISPLAY_NAME, REMARKS) \
+VALUES ('%s', '%s', 'Created by importing from Landmark')", project, 
+faultCode, FullFaultName);
+
+		    	    EXEC SQL PREPARE S9 FROM :sqlstmt;
+		    	    if (OR_STATUS != 0) ld_show_error(OR_STATUS, 
+								"prepare s9");
+		    	    EXEC SQL EXECUTE S9;
+		    	    if (OR_STATUS != 0) ld_show_error(OR_STATUS, 
+								"execute s9");
+		    	    EXEC SQL COMMIT WORK;
+		            if (OR_STATUS != 0) ld_show_error(OR_STATUS, 
+								"commit s9");
+			    }
+			else
+			    {
+	                    strncpy(faultCode, (CHAR *)flt_code.arr, flt_code.len);
+	                    faultCode[flt_code.len]=0;
+			    }
+
+		}
+
+/*
+				Add the fault name into the list of fault
+				names.
+*/
+		    strcpy(lastName, FaultName);
+/*
+				If the fault name is present, collect it for
+				use when we store the horizon.
+*/
+		    fullLineName.id = lineID;
+		    V_V_TO_C(fullLineName.line_name, lineName);
+		    V_V_TO_C(fullLineName.survey, survey);
+#ifdef CLIP
+		    status = se_first_last_sp(&fullLineName, 
+						&first_sp, &last_sp);
+		    clippedFlag = FALSE;
+#endif
+/*
+				Build the full line name structure.
+*/
+                    if (nlist == (NLIST_HEADER) 0 && skipOne == FALSE)
+		        {
+			strcpy(thisKey, faultCode);
+			strcat(thisKey, ":");
+			strcat(thisKey, fullLineName.survey);
+			strcat(thisKey, ":");
+			strcat(thisKey, fullLineName.line_name);
+/*
+				We'll use this key to keep track of whether
+				or not this is a continuation of a fault/line
+				combination already begun.
+*/
+			version = 0;
+			V_FROMC(surfaceCode, faultCode);
+			V_FROMC(sourceName, source);
+			EXEC SQL OPEN VERS1_CURS USING :surfaceCode,
+						:lineID, :sourceName;
+			if (OR_STATUS != 0) ld_show_error(OR_STATUS, 
+							"OPEN VERS1_CURS");
+			EXEC SQL FETCH VERS1_CURS INTO :version;
+			if (OR_STATUS < 0) ld_show_error(OR_STATUS, 
+							"OPEN VERS1_CURS");
+			EXEC SQL CLOSE VERS1_CURS;
+			if (OR_STATUS != 0) ld_show_error(OR_STATUS,
+							"OPEN VERS1_CURS");
+/*
+				Get the version number to use with this source.
+				There is a problem in the data model.  It needs
+				to have a unique version number for each
+				unique source, although it does not enforce
+				this.
+*/
+		        status = se_get(&nlist, faultCode, 
+					SE_FAULT, SE_TIME,
+					&fullLineName, source, 
+					SE_AT_NM, SE_FINDER, &version,
+					&upper_time, &lower_time, 
+					&first_cdp, &last_cdp);
+			if (status == SUCCESS)
+			    {
+			    existingFault = TRUE;
+			    status = ht_find(hash_table, thisKey, (VOIDPTR) 0);
+			    switch (status)
+				{
+				case SUCCESS:
+				    printf("Adding to fault already begun.\n");
+				    break;
+/*
+				    We have previously entered information for
+				    this fault and line combination.  Therefore,
+				    we are just going to be adding to the fault
+				    which we were already making up.
+*/
+				case HT_KEY_NOT_FOUND:
+				    nl_free_nlist(nlist);
+				    nlist = (NLIST_HEADER) 0;
+				    if (overwrite == 0)
+					{
+					skipOne = TRUE;
+					printf("Existing fault with this name \
+and source, not overwritten.\n");
+					}
+				    break;
+/*
+				    if the key was not found, it means that we
+				    have not dealt with this line and fault on
+				    this run.  Therefore this is not a 
+				    continuation of an existing fault but one
+				    new to this run.  If they don't specify
+				    overwrite, we don't want to do anything
+				    with this fault.
+*/
+				default:
+				    printf("Error on ht_find, %s\n", 
+						mg_message(status));
+				    return FAIL;
+				    break;
+				}
+			    }
+			else
+			    {
+			    existingFault = FALSE;
+			    version = 0;
+			    V_FROMC(surfaceCode, faultCode);
+			    EXEC SQL OPEN VERS2_CURS USING :surfaceCode,
+						:lineID, :sourceName;
+			    if (OR_STATUS != 0) ld_show_error(OR_STATUS, 
+							"OPEN VERS2_CURS");
+			    EXEC SQL FETCH VERS2_CURS INTO :version;
+			    if (OR_STATUS < 0) ld_show_error(OR_STATUS, 
+							"FETCH VERS2_CURS");
+			    EXEC SQL CLOSE VERS2_CURS;
+			    if (OR_STATUS != 0) ld_show_error(OR_STATUS,
+							"CLOSE VERS2_CURS");
+/*
+				Get the version number to use for this entry.
+				The database stores things by version, not 
+				source, then Finder proceeds to ignore version
+				and use source, so we must find unique version
+				numbers for each source.
+*/
+			    }
+			if (nlist == (NLIST_HEADER) 0 && skipOne == FALSE)
+			    {
+			    status = ht_insert(hash_table, thisKey, 
+								(VOIDPTR) 0);
+			    if (status != SUCCESS)
+				{
+				printf("Unable to add to hash table, %s\n",
+					mg_message(status));
+				return FAIL;
+				}
+		            status = se_init_hor_nlist(&nlist);
+		            if (status != SUCCESS)
+			        {
+			        printf("Unable to initialize nlist, %s\n", 
+					mg_message(status));
+			        return FAIL;
+		                }
+#ifdef USE_OLDPARSING
+			    *inputFlag = '1';
+#else
+			    inputFlag = 1;
+#endif
+			    }
+			}
+		    }
+/*
+				Find out if this is a new line.  Initialize 
+				an nlist for it.
+				The stroke marker should be 1, but if it isn't 
+				for some reason this routine would blow up, 
+				so make it one.
+*/
+		}
+	    if (moreFlag == 1 && skipOne == FALSE)
+		{
+#ifdef USE_OLDPARSING
+		if (strcmp(inputFlag, "1") == 0)
+#else
+	        if (inputFlag == 1)
+#endif
+		    {
+		    status = nl_start_table(nlist, (UINT *)&tableNum);
+		    status = nl_set_current_row(nlist, 0, tableNum);
+		    }
+#ifdef USE_OLDPARSING
+	        sscanf(inputShot, "%lf", &thisShot);
+		sscanf(inputZ, "%f", &thisZ);
+#endif
+#ifdef CLIP
+		if (thisShot < first_sp || thisShot > last_sp)
+		    {
+		    if (clippedFlag == FALSE)
+			{
+			printf("Clipped...\n");
+			clippedFlag = TRUE;
+			}
+		    }
+		else
+		    {
+#endif
+#ifdef USE_OLDPARSING
+		    if (strcmp(inputFlag,"1") == 0)
+		      {
+			flag = '1';
+		      }
+		    else if (strcmp(inputFlag,"2") == 0)
+		      {
+			flag = '2';
+		      }
+		    else if (strcmp(inputFlag,"3") == 0)
+		      {
+			flag = '3';
+		      }
+#else
+	            flag = inputFlag + '0';
+#endif
+		    ndim = 3;
+		    status = se_cdp_from_sp(&fullLineName, thisShot, &thisCdp);
+	            colList[0] = 1;
+	            colList[1] = 2;
+	            colList[2] = 3;
+	            valueList[0] = (VOIDPTR)&thisCdp;
+	            valueList[1] = (VOIDPTR)&thisZ;
+	            valueList[2] = (VOIDPTR)&flag;
+	            status = nl_add_rows(nlist, 1, ndim, colList, valueList);
+		    if (status != SUCCESS)
+		        {
+		        printf("Unable to add to nlist, %s\n", 
+					mg_message(status));
+		        return FAIL;
+		        }
+/*
+				Put this row into the nlist.
+*/
+#ifdef CLIP
+		    }
+#endif
+		}
+	    }
+/*****************************************************************************
+
+	C l e a n   U p   A n d   E x i t .
+
+******************************************************************************/
+	status = ht_free_table(&hash_table);
+	}
+    if (spfile != (FILE *)NULL) fclose(spfile);
+    return;
+    }
+
+
+
+
+
+
+
+
+
+

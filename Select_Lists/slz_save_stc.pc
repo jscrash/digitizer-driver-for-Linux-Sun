@@ -1,0 +1,171 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SLZ_SAVE_STC.PC*/
+/*  5    13-FEB-1992 15:50:09 PURNA "(SPR 5101) added data type in the select phrase"*/
+/* *4    30-JUL-1990 17:23:12 PURNA "(SPR 0) add lynx,lease select_list"*/
+/* *3    14-SEP-1989 16:20:33 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *2    13-AUG-1989 00:20:06 GILLESPIE "(SPR 5) Some minor cleanup"*/
+/* *1    19-JUN-1989 12:36:56 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element SLZ_SAVE_STC.PC*/
+#include "esi_gl_defs.h"
+#include "esi_oracle.h"
+#include "esi_nl.h"
+#include "esi_sl.h"
+#include "esi_sl_err.h"
+#include "esi_ts.h"
+
+
+/* **************************************************************************
+
+    ROUTINE:  SLZ_SAVE_STRUCT
+
+    DESCRIPTION
+	To save the data structure of select list to the PROJECT.SLIST_HDR
+    table.
+
+    STATUS CODES
+	SUCCESS;
+	SQL ERROR CODES.
+
+    INPUT:
+	SELECT_STRUCT =(SELECT_STRUCT *)The pointer points to saved select
+					list structure.
+	NITEMS =(INT )The total items of select list.
+	OVERWRITE =(INT )the over-written flag.
+
+    OUTPUT:
+	STATUS CODES
+
+    ************************************************************************ */
+publicdef INT slz_save_struct(select_struct, nitems, overwrite)
+    /* ********************************************************************* */
+SELECT_STRUCT *select_struct;
+INT nitems;
+INT overwrite;
+{
+    INT status = SUCCESS;         /*return status.                           */
+    PROJECT_NAME project;
+    CHAR data_type[32];
+    CHAR *expiration_column;
+
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR select[1024];
+    int total_items;
+    char *name_column;
+    char *data_type_column;
+    int  nitem_column;
+    char *desc_column;
+EXEC SQL END DECLARE SECTION;
+/* ************************************************************************* */
+
+				 /* construct the table name.               */
+    strcpy(project, select_struct -> project_name);
+
+    EXEC SQL WHENEVER SQLERROR GOTO errpt;
+    name_column = select_struct -> name;
+    nitem_column = nitems;
+    desc_column = select_struct -> description;
+    expiration_column = ts_sto_upper(select_struct -> expiration_date);
+
+				/* check the existance of specified selected*/
+				/* list.                                    */
+
+    select.len = sprintf((char *)select.arr,"SELECT COUNT\(*\) FROM %s.SLIST_HDR \
+			  WHERE NAME = :name_column", project);
+    EXEC SQL PREPARE S1 FROM :select;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1 USING :name_column;
+    EXEC SQL FETCH C1 INTO :total_items;
+    EXEC SQL CLOSE C1;
+
+				/* If the specified selected list does exist*/
+				/* and the overwrite flag is off, returns   */
+				/* error.                                   */
+
+    if( total_items IS_NOT_EQUAL_TO 0 AND ( ! overwrite) )
+	return SL_SELECT_LIST_EXIST;
+
+				/* set the updated/inserted data.           */
+    status = sl_inq_dtype_string("DATA_TYPE_NAME",select_struct -> data_type,data_type);
+    if(status != SUCCESS) return status;
+    data_type_column = data_type;
+
+
+    if( total_items EQUALS 0 )
+				/* If the specified select list does not    */
+				/* exist, insert a new select list.         */
+
+    {
+	if( select_struct -> permanent_flag )
+	{
+		select.len = sprintf((char *)select.arr,"INSERT INTO %s.SLIST_HDR \
+		\(NAME, SOURCE, DATA_TYPE, LAST_UPDATE, NITEMS, REMARKS, \
+		  LAST_REFERENCE\) \
+		VALUES \(:name_column, user, :data_type_column, \
+			 sysdate, :nitem_column, :desc_column, sysdate \)",
+			project);
+
+		EXEC SQL PREPARE S2 FROM :select;
+		EXEC SQL EXECUTE S2 USING :name_column, :data_type_column,
+				  :nitem_column, :desc_column;
+		EXEC SQL DECLARE C2 CURSOR FOR S2;
+		EXEC SQL CLOSE C2;
+	}
+	else
+	{
+		select.len = sprintf((char *)select.arr,"INSERT INTO %s.SLIST_HDR \
+		\(NAME, SOURCE, DATA_TYPE, LAST_UPDATE, NITEMS, REMARKS, \
+		  LAST_REFERENCE, EXPIRATION_DATE\) \
+		VALUES \(:name_column, user, :data_type_column, sysdate, \
+		:nitem_column, :desc_column, sysdate, \
+		TO_DATE('%s')\)",project, expiration_column);
+
+		EXEC SQL PREPARE S3 FROM :select;
+		EXEC SQL EXECUTE S3 USING :name_column, :data_type_column,
+			:nitem_column, :desc_column;
+		EXEC SQL DECLARE C3 CURSOR FOR S3;
+		EXEC SQL CLOSE C3;
+	}
+    }
+    else
+				/* If the specified select list exist,      */
+				/* updates the existing select list.        */
+    {
+	if( select_struct -> permanent_flag )
+	{
+		select.len = sprintf((char *)select.arr,"UPDATE %s.SLIST_HDR SET \
+		SOURCE = user, LAST_REFERENCE = sysdate, \
+		DATA_TYPE = :data_type_column, LAST_UPDATE = sysdate, \
+		NITEMS = :nitem_column, REMARKS = :desc_column, \
+		WHERE NAME = :name_column",
+		project);
+
+		EXEC SQL PREPARE S4 FROM :select;
+		EXEC SQL EXECUTE S4 USING :data_type_column, :nitem_column,
+					:desc_column, :name_column;
+		EXEC SQL DECLARE C4 CURSOR FOR S4;
+		EXEC SQL CLOSE C4;
+	}
+	else
+	{
+		select.len = sprintf((char *)select.arr,"UPDATE %s.SLIST_HDR SET \
+		SOURCE = user, LAST_REFERENCE = sysdate, \
+		DATA_TYPE = :data_type_column, LAST_UPDATE = sysdate, \
+		NITEMS = :nitem_column, REMARKS = :desc_column,\
+		EXPIRATION_DATE = TO_DATE('%s') \
+		WHERE NAME = :name_column", project, expiration_column);
+
+		EXEC SQL PREPARE S5 FROM :select;
+		EXEC SQL EXECUTE S5 USING :data_type_column, :nitem_column,
+			:desc_column, :name_column;
+		EXEC SQL DECLARE C5 CURSOR FOR S5;
+		EXEC SQL CLOSE C5;
+	}
+    }
+    EXEC SQL COMMIT WORK;
+    return status;
+
+
+errpt:
+    EXEC SQL ROLLBACK WORK;
+    return OR_STATUS;
+
+}

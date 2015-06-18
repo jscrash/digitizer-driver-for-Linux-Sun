@@ -1,0 +1,349 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element TO_ASSM_NL.PC */
+/* *4     1-AUG-1990 16:47:26 PURNA "(SPR 0) move init nlist" */
+/* *3    18-JUL-1990 18:13:21 JESSIE "(SPR 1) change include files" */
+/* *2    31-MAY-1990 15:56:03 PURNA "(SPR 0) from static of to_draw_line" */
+/* *1    31-MAY-1990 15:54:37 PURNA "assemble nlist " */
+/* DEC/CMS REPLACEMENT HISTORY, Element TO_ASSM_NL.PC */
+
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Finder Graphics Systems, Inc.
+			201 Tamal Vista Blvd
+			Corte Madera, CA  USA 94925
+			(415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_ly.h"
+
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_HT_H
+#include "esi_ht.h"
+#endif
+
+#ifndef ESI_TO_H
+#include "esi_to.h"
+#endif
+
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+
+/* EXEC ORACLE OPTION (REBIND=NO); */
+
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+#define MAXARRAYFETCH 500
+
+#define FINAL 1
+#define INIT 0
+
+typedef INT NODETYPE;
+
+typedef struct node_list
+{
+    INT arc_index;
+    NODETYPE type;
+    struct node_list *next;
+}NODE_LIST;
+
+static PROJECT_NAME project;
+
+#if USE_PROTOTYPES
+static INT toz_load_node (NLIST_HEADER nlist,int	node_id);
+static INT toz_remove_node(HASH_TABLE_P node_table,NODE_ID current_node,
+	   INT arc_index,NODE_LIST **curr);
+static INT toz_get_rowcol(INT id,INT *row,INT *col);
+#else
+static INT toz_load_node ();
+static INT toz_remove_node();
+static INT toz_get_rowcol();
+#endif
+
+
+/***********************************************************
+
+    function : to_assemble_nlist
+    DESCRIPTION : one method of traversing arcs using all 
+	the search arrays by storing node ids into hash table 
+
+
+*************************************************************/
+
+publicdef INT to_assemble_nlist (nlist,n_arcs,final_node_array,
+				 init_node_array,visited)
+    NLIST_HEADER *nlist;
+    INT	    n_arcs;
+    INT	    *final_node_array;
+    INT	    *init_node_array;
+    INT	    *visited;
+{
+    INT	    status=SUCCESS,i;
+    UINT    table_number;
+    INT	    current_node,current_arc;
+    BOOL    first_node_forward,search_end;
+    HASH_TABLE *node_table=(HASH_TABLE *)0;
+    NODE_LIST *curr,*data,*newdata;
+    long no_of_buckets;
+
+    qs_inq_c(QS_PROJECT_NAME,project,(INT *)0);
+
+                             /* INITIALIZE NLIST */
+    status=ly_init_line_nlist(nlist);
+
+                             /* INITIALIZE HASH TABLE */
+    no_of_buckets=n_arcs/5;
+    FOREVER {
+	no_of_buckets++;
+	if(tc_prime(no_of_buckets)) break;
+	}
+    ht_init_hash_table(no_of_buckets,10,HT_INT_KEY,sizeof(INT),sizeof(NODE_LIST *),
+                                HT_APPLICATION_TABLE,&node_table);
+
+                             /* STORE NODE IDS INTO HASH TABLE */
+    for(i=0;i<n_arcs;i++) {
+	newdata=(NODE_LIST *)tc_alloc(sizeof(NODE_LIST));
+	if(newdata EQUALS (NODE_LIST *)0) return FAIL;
+	newdata->arc_index=i;
+	newdata->next=(NODE_LIST *)0;
+	newdata->type=INIT;
+	if((status=ht_find(node_table,(VOIDPTR)&init_node_array[i],
+	    (VOIDPTR)&data)) EQUALS SUCCESS) {
+	    newdata->next=data->next;
+	    data->next=newdata;	        
+	    }
+	else {
+	    data=newdata;
+	    ht_insert(node_table,(VOIDPTR)&init_node_array[i],(VOIDPTR)&data);
+	    }
+	newdata=(NODE_LIST *)tc_alloc(sizeof(NODE_LIST));
+	newdata->arc_index=i;
+	newdata->next=(NODE_LIST *)0;
+	newdata->type=FINAL;
+	if((status=ht_find(node_table,(VOIDPTR)&final_node_array[i],
+	    (VOIDPTR)&data)) EQUALS SUCCESS) {
+            newdata->next=data->next;
+            data->next=newdata;
+	    }
+	else {
+	    data=newdata;
+	    ht_insert(node_table,(VOIDPTR)&final_node_array[i],(VOIDPTR)&data);
+	    }
+	}
+
+                             /* FIRST ARCS IS ASSUMED TO BE THE LAST ON THE
+                             SEARCH ARRAY */
+    n_arcs--;
+    FOREVER {
+                             /* CREATE A FRESH NEW TABLE(NEW STROKE) ON NLIST 
+                             IF THERE IS NO ARCS CONNECTED FROM LAST NODE ON
+                             PREVIOUS TABLE */
+	status = nl_start_table (*nlist, &table_number); 
+	current_node=final_node_array[n_arcs];
+	current_arc=n_arcs;
+	visited[n_arcs]*=-1;
+	first_node_forward=TRUE; /* FLAG true IF FIRST ARC IN A FRESH TABLE IS
+                             TRAVERSE FROM INIT NODE TO FINAL NODE */
+
+	search_end=FALSE;
+	FOREVER {	
+                             /* GET THE NEXT ARC	*/
+            if((status=ht_find(node_table,(VOIDPTR)&current_node,(VOIDPTR)&data)) EQUALS SUCCESS) {
+                             /* STORE FIRST NODE IN TABLE */
+		toz_remove_node(node_table,current_node,current_arc,&data);
+		if(data != (NODE_LIST *)0) {
+		    if(first_node_forward) {
+			status = toz_load_node (*nlist,init_node_array[n_arcs]);
+			status = ht_find(node_table,(VOIDPTR)&init_node_array[n_arcs],
+			    (VOIDPTR)&newdata);
+			if (status == SUCCESS) {
+			    toz_remove_node(node_table,init_node_array[n_arcs],
+				n_arcs,&newdata);
+			    }
+			first_node_forward=FALSE;
+			}
+		    curr=data;
+		    current_arc=curr->arc_index;
+		    visited[current_arc]*=-1;
+		    toz_remove_node(node_table,current_node,current_arc,&data);
+		    switch(curr->type) {
+                             /* FORWARD	*/
+		    case INIT :
+		    status = toz_load_node (*nlist, init_node_array[current_arc]);
+		    current_node=final_node_array[current_arc];
+		    break;
+		
+                             /* REVERSE	*/
+		    case FINAL:
+		    status = toz_load_node (*nlist, final_node_array[current_arc]);
+		    current_node=init_node_array[current_arc];
+		    break;
+		    }
+		}
+		else search_end=TRUE;
+	    }
+	    else search_end=TRUE;
+
+	    if (search_end) {
+                             /* IF FIRST NODE IN A NEW TABLE AND THERE IS NO WAY
+                             OUT, TRY AGAIN BY REVERSING INIT AND FINAL NODE */
+		if(first_node_forward) {
+                    status=toz_load_node(*nlist,final_node_array[n_arcs]);
+		    first_node_forward=FALSE;
+                    current_node=init_node_array[n_arcs];
+		    }
+                             /* LOAD THE LAST NODE ON CURRENT TABLE */
+                else {
+		    status = toz_load_node (*nlist, current_node);
+		    break;
+		    }
+		search_end=FALSE;
+		}
+	}
+                             /* FIND A NEW FIRST ARC FOR A NEW TABLE */
+	for (i=n_arcs;(i>0) &&  (visited[i-1]<-1); i--) ;
+	if (i == 0) break;
+	n_arcs=i-1;
+    }
+
+#ifdef DEBUG
+lib$show_timer();
+#endif
+                             /* FREE HASH TABLE */
+    ht_free_table (&node_table);
+
+    return status;
+}
+
+/*****************************************************
+
+    FUNCTION : TOZ_LOAD_NODE
+    DESCRIPTION : load a node in the nlist 
+    
+    AUTHOR : Vince Cardinale 
+    modified by Purna Tjahjana (Feb 8,1990)
+
+*******************************************************/
+
+static INT toz_load_node (nlist, node_id)
+    NLIST_HEADER nlist;
+    int	node_id;
+{
+    int	    status;
+    static int	first_time = TRUE;
+    static VOIDPTR	value_array[2];
+    static UINT	ndim		= 2;
+    static UINT	dim_array[2]	= { 1, 2 };
+
+    EXEC SQL BEGIN DECLARE SECTION;
+	static double   node_x_in;
+	static double   node_y_in;
+	static int id;
+	VARCHAR  sqlstmt[500];
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO :sqlerr;
+
+    if (first_time) {
+	value_array[0] = (VOIDPTR)&node_x_in;
+	value_array[1] = (VOIDPTR)&node_y_in;
+	first_time = FALSE;
+	sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+	"SELECT NODE_X, NODE_Y FROM	%s.NODES \
+WHERE	NODE_ID = :node_id",project);
+	EXEC SQL PREPARE S21 FROM :sqlstmt;
+	EXEC SQL DECLARE C21 CURSOR FOR S21;
+    }
+
+                             /* FETCH NODE X AND NODE Y FROM DATA BASE */
+    EXEC SQL WHENEVER NOT FOUND GOTO :no_node;
+    id=node_id;
+
+    EXEC SQL OPEN C21 USING :id;
+    EXEC SQL FETCH C21 INTO :node_x_in,:node_y_in;
+
+    status = nl_add_rows (nlist, 1, ndim, dim_array, value_array);
+    return SUCCESS;
+no_node:
+    return FAIL;
+sqlerr:
+    return OR_STATUS;
+}
+/*******************************************************************************/
+
+static INT toz_remove_node(node_table, current_node, arc_index, curr)
+HASH_TABLE_P node_table;
+NODE_ID current_node;
+INT arc_index;
+NODE_LIST **curr;
+{
+    INT status;
+    NODE_LIST *plast_node,*next_node;
+                             /* Remove the current node (curr) from the hash
+                             table. If this is the last (only) node in the
+                             table, then delete the node. If the current node to
+                             be deleted is the first node, then update the hash
+                             table entry If this is an interior node, then
+                             update the link */
+
+    plast_node = (NODE_LIST *)*curr;
+
+    if (plast_node == (NODE_LIST *)0) {
+	status = SUCCESS;
+	*curr = (NODE_LIST *)0;
+	}
+    else if (plast_node->next EQUALS (NODE_LIST *)0) 	{
+	status = ht_delete(node_table, (VOIDPTR) &current_node);
+	*curr=(NODE_LIST *)0;
+        }
+    else if (plast_node->arc_index EQUALS arc_index) {
+	status = ht_update (node_table, (VOIDPTR) &current_node,
+                (VOIDPTR) &(plast_node -> next));
+	*curr=plast_node->next;
+	}
+    else {
+	/*  find a node preceeding the one containing the arc	*/
+	while ( (plast_node->next != (NODE_LIST *)0) &&
+		(plast_node->arc_index != arc_index) ) {
+	    plast_node = plast_node->next;
+	    }
+	
+	/* remove the next node (which now contains the arc) from the chain */
+	if (plast_node->next != (NODE_LIST *)0) {
+	    plast_node->next = plast_node->next->next;
+	    }
+
+	status = SUCCESS;
+	}
+
+    return status;
+}

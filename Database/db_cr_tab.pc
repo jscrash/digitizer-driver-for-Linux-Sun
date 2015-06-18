@@ -1,0 +1,358 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_CR_TAB.PC*/
+/* *5    23-AUG-1990 15:29:11 PURNA "(SPR 0) fix compiling error"*/
+/* *4    14-AUG-1990 13:08:41 VINCE "(SPR 5644) Header Standardization"*/
+/* *3    14-OCT-1989 15:56:15 VINCE "(SPR -1) mods for new update schem"*/
+/* *2    11-AUG-1989 13:49:24 CONROY "(SPR 9999) Mods for ORACLE V6"*/
+/* *1    19-JUN-1989 12:30:04 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_CR_TAB.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_db.h"
+#include "esi_oracle.h"
+#include "esi_qs.h"
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+struct space
+    {
+    int dinit;
+    int dincr;
+    int dmaxext;
+    int pctfree;
+    int iinit;
+    int iext;
+    int imaxext;
+    char partition[20];
+    };
+
+/* File Description ---------------------------------------------------------
+Overview:
+    Routine to create the current space definition. If FINDER_SPACE 
+    definition does not exist, create it; Otherwise, modify it.
+
+    (NOTE: This is for Oracle Version 5 only)
+
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT db_create_table(DB_ACCOUNT_STRUCT *db_account, CHAR *table_name);
+    
+Private_Functions:
+    static INT db_create_space_def(struct SPACE *sp);
+    
+    static INT db_define_space_def(CHAR *tname);
+    
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+    This module creates a table using SQL.  The columns are extracted from the
+    table ESI.FINDER_COLUMNS and sorted by the COLNUM column.
+
+    Under Oracle Version 5, a space definition is used to allocate storage
+    for both the table and indexes.  Under Oracle Version 6, a table is
+    allocated in a tablespace, and any indexes are independently stored in their
+    own tablespace.  These tablespaces are collections of one or more
+    operating system files which must exist prior to this function...
+
+    The code here has been modified to run under both Version 5 and Version 6. It
+    tests the global symbol QS_ORACLE_VERSION to determine which space allocation
+    mechanism to use.  For this release, the tables for an account will be routed
+    to the default tablespace for that account, which is defined using the SQL
+    statements: 
+
+    GRANT CONNECT,RESOURCE TO <username> IDENTIFIED BY <password>;
+    CREATE TABLESPACE <tablespace> DATAFILE filespec SIZE [nM | nK];
+    ALTER USER <username> DEFAULT TABLESPACE <tablespace>;
+
+    (See p. 16-7 of DBA manual 6.0 for more information about creating tablespaces)
+
+Prototype:
+    static INT db_create_space_def(struct SPACE *sp);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (O) sp          -(SPACE *) Space structure.
+    
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PRIVATE to <db_create_table>
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT db_create_space_def (struct space *sp) 
+#else
+static INT db_create_space_def (sp)
+struct space *sp;
+#endif
+    {
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR spacedef[511];
+    EXEC SQL END DECLARE SECTION;
+    
+    spacedef.len = sprintf ((char *)spacedef.arr, 
+"ALTER SPACE DEFINITION FINDER_SPACE \
+DATAPAGES  (INITIAL    %d\
+            INCREMENT  %d\
+            MAXEXTENTS %d\
+            PCTFREE    %d)\
+INDEXPAGES (INITIAL    %d\
+            INCREMENT  %d\
+            MAXEXTENTS %d)\
+PARTITION  %s"
+            , sp->dinit, sp->dincr, sp->dmaxext, sp->pctfree, sp->iinit, sp->iext,
+                            sp->imaxext, sp->partition);
+    
+    EXEC SQL WHENEVER SQLERROR GOTO create_space_def;
+    EXEC SQL EXECUTE IMMEDIATE : spacedef;
+    
+    return OR_STATUS;
+    
+create_space_def:                   /* should only be necessary on system initializations */
+    
+    EXEC SQL WHENEVER SQLERROR continue;
+    
+    V_FROMC (spacedef, "CREATE SPACE DEFINITION FINDER_SPACE");
+    EXEC SQL EXECUTE IMMEDIATE : spacedef;
+    if (OR_STATUS EQUALS SUCCESS)
+        {
+        return db_create_space_def (sp);
+        }
+    else
+        {
+        return OR_STATUS;
+        }
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Eventually, this routine will calculate the correct size to set on table
+    creation.  For now, take a small size.
+    
+    See above.
+    
+Prototype:
+    static INT db_define_space_def(CHAR *tname);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) tname       -(CHAR *) Name of space table.
+    
+Return Value/Status:
+    SUCCESS - Successful completion
+    FAIL    - Unsuccessful completion
+
+Scope:
+    PRIVATE to <db_create_table>
+
+Limitations/Assumptions:
+    Oracle Version 5 ONLY.
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT db_define_space_def (CHAR *tname) 
+#else
+static INT db_define_space_def (tname)
+CHAR *tname;
+#endif
+    {
+    
+    struct space table_space;
+    
+    table_space.dinit = 5;
+    table_space.dincr = 20;
+    table_space.dmaxext = 9999;
+    table_space.pctfree = 5;
+    table_space.iinit = 5;
+    table_space.iext = 10;
+    table_space.imaxext = 9999;
+    strcpy (table_space.partition, "SYSTEM");
+    
+    return db_create_space_def (&table_space);
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Routine to create a new table in ORACLE.
+    The FINDER data dictionary is queried for the named table,
+    Its definition is constructed and a CREATE TABLE SQL command is
+    submitted.
+
+Prototype:
+    publicdef INT db_create_table(DB_ACCOUNT_STRUCT *db_account, CHAR *table_name);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) table_name  -(CHAR *) Name of table to create.
+    (I) db_account  -(DB_ACCOUNT_STRUCT) Account structure.
+    
+Return Value/Status:
+    SUCCESS - Successful completion
+    Function also returns status of dba_update_1_table, usually meaning that
+        the table already exists.
+        
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT db_create_table (DB_ACCOUNT_STRUCT *db_account, CHAR *table_name) 
+#else
+publicdef INT db_create_table (db_account, table_name)
+DB_ACCOUNT_STRUCT *db_account;
+CHAR *table_name;
+#endif
+    {
+    INT oracle_version;
+    CHAR *ps;
+    INT ncol;
+    INT fetchcode;
+    INT status;
+    CHAR storage[511];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR table[31];
+    VARCHAR scope[10];
+    VARCHAR definition[61];
+    VARCHAR outstring[2048];
+    EXEC SQL END DECLARE SECTION;
+    
+    V_FROMC (table, table_name);
+    
+    EXEC SQL SELECT NULL FROM USER_TABLES WHERE TABLE_NAME =  : table;
+    
+    /* if the table already exists perform an update and return */
+    
+    if (OR_STATUS != OR_EOF)
+        {
+        status = dba_update_1_table (db_account, table_name);
+        return status;
+        }
+    /*
+        This SQL statement creates a valid SQL
+        column definition which is assembled into a
+        valid table definition.  The program builds
+        up the CREATE TABLE statement until the
+        table name changes.  The CREATE TABLE SQL
+        statement is then executed.
+    */
+    
+    EXEC SQL WHENEVER SQLERROR GOTO wayout;
+    
+    V_FROMC (table, table_name);
+    V_FROMC (scope, db_account->scope);
+    
+    EXEC SQL DECLARE TABLE_CURSOR CURSOR FOR SELECT CNAME || ' ' || CTYPE ||
+        DECODE (CTYPE, 'DATE', NULL, 'LONG', NULL, 'NUMBER', DECODE (WIDTH, NULL, NULL,
+                                                                     0, NULL, '(' ||
+                                                                     WIDTH ||
+                                                                     DECODE (
+                                                                           SCALE,
+                                                                           NULL,
+                                                                            NULL,
+                                                                             ',' 
+                                                                             || SCALE) 
+                                                                     || ')'), '(' ||
+                WIDTH || ')') || DECODE (NULLS, 'NOT NULL', ' NOT NULL', NULL)
+    FROM ESI.FINDER_TABLES T,
+                                                                   ESI.
+                                                                   FINDER_COLUMNS C 
+                                                                   WHERE T.TNAME =
+                                                                   C.TNAME AND SCOPE =
+                                                                   : scope AND T.
+                                                                   TNAME =  :
+                                                                   table ORDER BY 
+                                                                   COLNUM;
+    
+    EXEC SQL OPEN TABLE_CURSOR;
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL FETCH TABLE_CURSOR INTO : definition;
+    
+    V_SETZERO (definition);
+    
+    ps = (CHAR *)outstring.arr;
+    ps += sprintf (ps, "CREATE TABLE %s (%s", table_name, definition.arr);
+    printf ("    Creating the table %-30s", table_name);
+    
+    qs_inq_i (QS_ORACLE_VERSION, &oracle_version);
+    
+    if (oracle_version EQUALS 5)
+        {
+        db_define_space_def (table_name);
+        }
+    ncol = 1;
+    
+    if (OR_STATUS EQUALS SUCCESS)
+        {
+        EXEC SQL FETCH TABLE_CURSOR INTO : definition;
+        while (OR_STATUS EQUALS SUCCESS)    /* keep processing until EOF */
+            {
+            V_SETZERO (definition);
+            ps += sprintf (ps, ", %s", definition.arr);
+            ncol++;
+            EXEC SQL FETCH TABLE_CURSOR INTO : definition;
+            }
+        }
+    if (OR_STATUS EQUALS OR_EOF)
+        {
+        
+        if (oracle_version EQUALS 5)
+            {
+            strcat (ps, ") space finder_space");
+            }
+        else
+            {
+            db_get_storage_string (table_name, "DATA", storage);
+            strcat (ps, ")");
+            strcat (ps, (char *)storage);   /* Version 6 */
+            }
+        V_SETLEN (outstring);
+        EXEC SQL EXECUTE IMMEDIATE : outstring;
+        if (OR_STATUS EQUALS SUCCESS)
+            {
+            printf ("%3d Columns created.\n\n", ncol);
+            }
+        }
+wayout:
+    
+    status = OR_STATUS;
+    if (status < 0)
+        {
+        printf ("\nORACLE error detected while trying to create table:\n\
+%-.70s\n\n", OR_MESSAGE);
+        }
+    EXEC SQL CLOSE TABLE_CURSOR;
+    return status;
+    }
+/* END:     */

@@ -1,0 +1,352 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_GET_WELLS.PC */
+/* *2     1-MAY-1991 22:14:25 KEE "(SPR -1) Landmark Import & Export" */
+/* *1     1-MAY-1991 20:52:10 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_GET_WELLS.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* ************************************************************************
+
+   NAME: LD_GET_WELLS.C
+
+   AUTHOR: Rod Hanks, May 21st, 1990
+
+   DESCRIPTION: Function to get the nlist of uwi's of wells.  Responds to
+		the presence of 'select by phrase' OR 'select list'.  In
+		wells, FINDER does not seem to AND these two together like it
+		does seismic lists.
+
+   ************************************************************************ */
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+#ifndef ESI_OV_H
+#include "esi_ov.h"
+#endif
+
+#define OFFSET 10000.
+
+#if USE_PROTOTYPES
+publicdef INT ld_get_wells(CHAR *selectPhrase, CHAR *selectList,
+			NLIST_HEADER *well_nlist, INT *num_wells,
+			DOUBLE lower_left_x, DOUBLE lower_left_y, 
+			DOUBLE upper_right_x, DOUBLE upper_right_y, 
+			PROJECT_NAME project)
+#else
+publicdef INT ld_get_wells(selectPhrase,selectList,well_nlist,num_wells,
+			   lower_left_x, lower_left_y, 
+			   upper_right_x, upper_right_y, project)
+CHAR *selectList;
+CHAR *selectPhrase;
+NLIST_HEADER *well_nlist;                /* LIST OF UWI'S (RETURNED) */
+INT *num_wells;                         /* NUMBER OF UWI'S (RETURNED) */
+DOUBLE lower_left_x;
+DOUBLE lower_left_y;
+DOUBLE upper_right_x;
+DOUBLE upper_right_y;
+PROJECT_NAME project;                   /* PROJECT NAME */
+#endif
+    {
+    INT 		status;
+    NLIST_HEADER 	s_list;         
+    CHAR 		and[8];
+    FILENAME 		nlist_file;
+    INT 		myUnits[4];
+    size_t 		mySizes[4];
+    INT 		myTypes[4];
+    INT 		myValueInc[4];
+    UINT 		Blocksize;
+    VOIDPTR 		v_list[4];
+    UINT    		colList[4];
+    CHAR    		uwi[51];
+    CHAR		thisName[51];
+    CHAR		thisStatus[11];
+    CHAR 	       *select_phrase;
+    INT			wellCount;
+    INT			well;
+    INT			table_num;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR 	sqlstmt[1024];
+	VARCHAR 	theUwi[51];
+	VARCHAR		name[51];
+	int		plotSymbol;
+	float		xCoord;
+	float		yCoord;
+	VARCHAR 	var_name[100][51];
+	int 		var_sym[100];       
+	float 		var_x[100];
+	float 		var_y[100];
+    EXEC SQL END DECLARE SECTION;
+
+/************************************************************************
+
+	I n i t i a l i z a t i o n .
+
+*************************************************************************/
+    *num_wells = 0;
+    colList[0] = 1;
+    colList[1] = 2;
+    colList[2] = 3;
+    colList[3] = 4;
+    myUnits[0] = 0;
+    myUnits[1] = 0;
+    myUnits[2] = 0;
+    myUnits[3] = 0;
+    mySizes[0] = 51;
+    mySizes[1] = 11;
+    mySizes[2] = sizeof(FLOAT);
+    mySizes[3] = sizeof(FLOAT);
+    myTypes[0] = CHAR_TYPE;
+    myTypes[1] = CHAR_TYPE;
+    myTypes[2] = FLOAT_TYPE;
+    myTypes[3] = FLOAT_TYPE;
+    myValueInc[0] = VALUE_LIST;
+    myValueInc[1] = VALUE_LIST;
+    myValueInc[2] = VALUE_LIST;
+    myValueInc[3] = VALUE_LIST;
+    Blocksize = 20;
+    status = nl_init_nlist(well_nlist, 4, myUnits, mySizes, myTypes, 
+				myValueInc, Blocksize);
+    if (status != SUCCESS) ld_show_error(status, mg_message(status));
+    status = nl_start_table(*well_nlist, (UINT *)&table_num);
+    if (status != SUCCESS) ld_show_error(status, mg_message(status));
+/*
+				Initialize the nlist we will return, it
+				contains (1) well name, (2) status, 
+				(3) x coordinate, (4) y coordinate.
+*/
+/****************************************************************************
+
+	W i t h   S e l e c t   L i s t .
+
+*****************************************************************************/
+
+    if (strlen(selectList)>0)
+        {
+        ho_add_path("ESI$SELECTS", "WELLS_SELECTS", sizeof (FILENAME), 
+							nlist_file );
+	myUnits[0] = 0;
+        mySizes[0] = 51;
+        myTypes[0] = CHAR_TYPE;
+	myValueInc[0] = VALUE_LIST;
+	Blocksize = 20;
+	status = nl_init_nlist(&s_list, 1, myUnits, mySizes, myTypes, 
+				myValueInc, Blocksize);
+	if (status != SUCCESS) ld_show_error(status, mg_message(status));
+	status = nl_read_nlist(&s_list, nlist_file, selectList);
+        if (status == 0)
+	    {
+/*
+	Read in a list of well UWI's.  I am not using SL_READ_LIST for a simple
+	reason.  SL_READ_LIST does not NL_INIT_NLIST the list.  It demands that
+	the list be already initialized.  None of the routines I can find in
+	the ESI$SRC: library that call SL_READ_LIST do initialize the lists 
+	which they pass.  This should mean that the lists are created at a 
+	random and unpredictable spot in memory.  Yet the program does seem to
+	work, doesn't it?  This has so unnerved me that I prefer to stay the
+	heck away from SL_READ_LIST.
+*/
+	    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT WELL_NAME, NVL(PLOT_SYMBOL,27), \
+NODE_X+NVL(TOP_DELTA_X,0), NODE_Y+NVL(TOP_DELTA_Y,0) \
+FROM %s.WELL_HDR A, %s.NODES B WHERE A.NODE_ID = B.NODE_ID \
+AND UWI = :uwi", project,project);
+
+	    EXEC SQL PREPARE S1 FROM :sqlstmt;
+	    if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "prepare s1");
+	    EXEC SQL DECLARE C1 CURSOR FOR S1;
+/*
+	Prepare to look up the information we need once we get the
+	UWI.
+*/
+	    v_list[0] = (VOIDPTR)uwi;
+	    colList[0] = 1;
+	    status = nl_first_row(s_list, 1, colList, v_list);
+	    while (status >= 0 && ((status & NL_EOL) != NL_EOL))
+		{
+		V_FROMC(theUwi, uwi);
+		EXEC SQL OPEN C1 USING :theUwi;
+	        if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "open s1");
+		EXEC SQL FETCH C1 INTO :name, :plotSymbol, :xCoord, :yCoord;
+	        if (OR_STATUS == SUCCESS)
+		    {
+		    strncpy(thisName, (char *)name.arr, name.len);
+	            thisName[name.len]=0;
+		    switch (plotSymbol)
+			{
+			case 20:
+			    strcpy(thisStatus, "GAS");
+			    break;
+			case 19:
+		    	    strcpy(thisStatus, "OIL");
+			    break;
+			case 1:
+			    strcpy(thisStatus, "DRY");
+			    break;
+			case 21:
+			default:
+		    	    strcpy(thisStatus, "WELL");
+			    break;
+		        }
+		    colList[0] = 1;
+		    colList[1] = 2;
+		    colList[2] = 3;
+		    colList[3] = 4;
+		    v_list[0] = (VOIDPTR)thisName;
+		    v_list[1] = (VOIDPTR)thisStatus;
+		    v_list[2] = (VOIDPTR)&xCoord;
+		    v_list[3] = (VOIDPTR)&yCoord;
+		    status = nl_add_rows(*well_nlist, 1, 4, colList, v_list);
+		    if (status != SUCCESS) 
+			{
+			ld_show_error(status, mg_message(status));
+			}
+		    (*num_wells)++;
+		    }
+		else if (OR_STATUS > 0)
+		    {
+		    ld_show_error(OR_STATUS, "fetch s1");
+		    }
+/*
+				Note there are several legitimate circumstances
+				under which the well might not have been found.
+				Select lists are not kept up to date and the
+				well's UWI could have changed or been deleted.
+				Or the well could simply be outside the map's
+				clipping region.
+*/
+		EXEC SQL CLOSE C1;
+		if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "close s1");
+	        v_list[0] = (VOIDPTR)uwi;
+		colList[0] = 1;
+	        status = nl_next_row(s_list, 1, colList, v_list);
+		}
+	    }
+	status = nl_free_nlist(s_list);
+	if (status != SUCCESS) ld_show_error(status, mg_message(status));
+	}
+
+
+
+/****************************************************************************/
+
+/* * GET LIST BY QUERYING WELL_HDR TABLE * */
+/* --------------------------------------- */
+
+    else
+ 	{
+        if (strlen(selectPhrase) > 0)
+	    {
+	    select_phrase = STRING_ALLOCATE(selectPhrase);
+	    strcpy((char *)select_phrase,(char *)selectPhrase);
+	    ov_chk_where(&select_phrase);
+	    strcpy((char *)and, " AND ");
+	    }
+        else
+	    {
+	    select_phrase = (CHAR *)tc_alloc(2);
+	    strcpy((CHAR *)select_phrase,"");
+	    strcpy((CHAR *)and, "");
+	    }
+	sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT WELL_NAME, NVL(PLOT_SYMBOL,27), \
+NODE_X+NVL(TOP_DELTA_X,0), NODE_Y+NVL(TOP_DELTA_Y,0) \
+FROM %s.WELL_HDR A, %s.NODES B WHERE A.NODE_ID = B.NODE_ID \
+AND NODE_X BETWEEN %lf AND %lf \
+AND NODE_Y BETWEEN %lf AND %lf%s%s", project,project,
+lower_left_x - OFFSET, upper_right_x + OFFSET,
+lower_left_y - OFFSET, upper_right_y + OFFSET,
+and, select_phrase);
+	tc_free((VOIDPTR)select_phrase);
+
+	EXEC SQL PREPARE S4 FROM :sqlstmt;
+	if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "prepare c4");
+	EXEC SQL DECLARE C4 CURSOR FOR S4;
+
+	EXEC SQL OPEN C4;
+	if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "open c4");
+	EXEC SQL FETCH C4 INTO :var_name, :var_sym, :var_x, :var_y;
+	while (OR_STATUS >= SUCCESS && sqlca.sqlerrd[2] > 0)
+	    {
+	    wellCount = sqlca.sqlerrd[2];
+	    for (well = 0; well < wellCount; well++)
+		{
+		strncpy(thisName, (CHAR *)var_name[well].arr, var_name[well].len);
+	        thisName[var_name[well].len]=0;
+		switch (var_sym[well])
+		    {
+		    case 20:
+			strcpy(thisStatus, "GAS");
+			break;
+		    case 19:
+		    	strcpy(thisStatus, "OIL");
+			break;
+		    case 1:
+			strcpy(thisStatus, "DRY");
+			break;
+		    case 21:
+		    default:
+		    	strcpy(thisStatus, "WELL");
+			break;
+		    }
+		colList[0] = 1;
+		colList[1] = 2;
+		colList[2] = 3;
+		colList[3] = 4;
+		v_list[0] = (VOIDPTR)thisName;
+		v_list[1] = (VOIDPTR)thisStatus;
+		v_list[2] = (VOIDPTR)&var_x[well];
+		v_list[3] = (VOIDPTR)&var_y[well];
+		status = nl_add_rows(*well_nlist, 1, 4, colList, v_list);
+		if (status != SUCCESS) ld_show_error(status, mg_message(status));
+		(*num_wells)++;
+		}
+	    if (OR_STATUS == SUCCESS)
+		{
+	        EXEC SQL FETCH C4 INTO :var_name, :var_sym, :var_x, :var_y;
+		}
+	    else
+		{
+		sqlca.sqlerrd[2] = 0;
+		}
+	    }
+	if (OR_STATUS < SUCCESS) ld_show_error(OR_STATUS, "fetch c4");
+	EXEC SQL CLOSE C4;
+	if (OR_STATUS < SUCCESS) ld_show_error(OR_STATUS, "close c4");
+	}
+    return status;
+    }

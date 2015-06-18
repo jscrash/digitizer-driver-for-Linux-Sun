@@ -1,0 +1,632 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element FILESTAT.PC */
+/* *1    13-NOV-1990 11:27:38 VINCE "initial release" */
+/* DEC/CMS REPLACEMENT HISTORY, Element FILESTAT.PC */
+/* DEC/CMS REPLACEMENT HISTORY, Element FILESTAT.PC */
+/* *2    25-SEP-1990 06:01:56 JULIAN "(SPR -1) fix select bug." */
+/* *1     6-MAR-1990 08:37:33 GILLESPIE "initial release" */
+/* DEC/CMS REPLACEMENT HISTORY, Element FILESTAT.PC */
+#include "esi_gl_defs.h"
+#include "esi_glue.h"
+#include "lnmdef.h"
+#include "ssdef.h"
+/*
+ *   Copyright (C) 1987  Exploration Systems, Inc.   Sausalito, CA   USA
+ *                       ALL RIGHTS RESERVED
+ *
+ * Author: Julian Carlisle 
+ */
+
+#include "esi_c_lib.h"
+#include "esi_ho.h"
+#include "esi_oracle.h"
+#include "esi_ts.h"
+#include "esi_nl.h"
+#include "time.h"
+#include "stdio.h"
+#include "curses.h"
+
+EXEC ORACLE OPTION (REBIND = NO);
+
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR module[8];
+    VARCHAR file_name[241];
+    VARCHAR compile_status[241];
+    VARCHAR compile_time[241];
+    VARCHAR extension[241];
+    VARCHAR library[241];
+    VARCHAR main_program[10];
+    VARCHAR compile_opt[40];
+    int linecount;
+	int filecount;
+	int ccount;
+	int misccount;
+	int pendcount;
+	int badcount;
+  VARCHAR stmt[1024];	
+    VARCHAR  userid[47];			/* User or table owner        */
+    VARCHAR  userpass[47];			/* Their password to Oracle   */
+  VARCHAR stmt0[1024];	
+  VARCHAR stmt1[1024];	
+EXEC SQL END DECLARE SECTION;
+
+privatedef CHAR fspec[256];
+
+#if 0
+#define errchk(status)  if (!( (status) & 1)) title( getmsg((status),0))
+#define errmsg(status)  msg( (getmsg((status),0) )
+#else
+#define errchk(status)  if ( (status) & 1) status = SUCCESS
+#define errmsg(status)  if ( (status) & 1) status = SUCCESS
+#endif
+
+#define PAGESIZE  21
+#define MSG_TEXT        1
+#define MSG_ID		2
+#define MSG_SEVERITY	4
+#define MSG_FACILITY	8
+#define MAXBUFSIZE 128
+#define TEXTBUFSIZE 256
+
+
+
+/* 
+* define the status codes from for CLI as SHORT integers.
+*/
+#define STATUS_WARNING	0
+#define STATUS_SUCCESS  1
+#define STATUS_ERROR	2
+#define STATUS_INFO     3
+#define STATUS_FAIL     4
+
+/* Low nibble:  0000 = Warning */
+#define	CLI$_ABSENT	0X000081F0  
+#define	CLI$_NEGATED	0X000081F8  
+#define	CLI$_LOCNEG	0X00008230
+
+/* Low nibble:  0001 = Success */
+#define	CLI$_PRESENT	0X0000FD19
+#define	CLI$_DEFAULTED	0X0000FD21
+#define	CLI$_CONCAT	0X0000FD29
+#define	CLI$_LOCPRES	0X0000FD31
+#define	CLI$_COMMA	0X0000FD39
+#define	CLI$_NORMAL	0X00000001
+
+/* Low nibble:  0010 = Error  */
+#define	CLI$_NOVALUE	0X0000882A
+
+
+
+/* prototypes */
+privatedef DSC *todsc(CHAR *str, DSC *d);
+privatedef CHAR *curtime();
+privatedef CHAR *getmsg(INT code, CHAR *string);
+privatedef DSC *dalloc();
+privatedef INT tocs(DSC *d, CHAR *cs);
+privatedef INT arg(CHAR *str, CHAR *val);
+privatedef INT ifarg(CHAR *str);
+privatedef INT zz_trnlnm(CHAR *symbol, CHAR *outstr);
+privatedef VOID msg(CHAR *str);
+extern SHORT cli$get_value(),cli$present();
+extern INT lib$sys_trnlog();
+privatedef INT *outfile;
+privatedef INT outscreen = 1;
+privatedef CHAR *librarian_account = "ESI$LIBRARIAN_ACCOUNT";
+
+/******************************************************************************/
+
+INT main(argc, argv)
+INT argc;
+CHAR **argv;
+{
+
+INT status;
+privatedef CHAR buffer[512];         	    /* Gen purpose	    */
+privatedef struct {
+    short buflen;
+    short itmcod;
+    char *bufadr;
+    int *retadr;
+} itemlist[2];
+
+INT ifstat = FALSE,
+    iffile = FALSE,
+    ifpending = FALSE,
+    ifbad = FALSE,
+    iflogfile = FALSE,
+    ifsummary = FALSE,
+    ifselect = FALSE;
+
+INT iflib = FALSE, iflog = FALSE, ifbatch = FALSE,    
+    ifexclude = FALSE, ifdebug = FALSE, ifportable = FALSE;
+CHAR	filespec[128],
+	select[256],
+	account[128],
+	listfile[128],
+	pendstr[32],
+	badstr[32],
+	text[256],
+	altcond[256];    
+CHAR	string[512],
+	input[64],
+	header[256];
+DSC *cmd;    
+SHORT s_len;
+INT i;
+
+    filecount = 0;
+    ccount = 0;
+    misccount = 0;
+    pendcount = 0;
+    badcount = 0;
+    
+    outscreen = ifarg("LOG");	
+    
+    if (arg("OUT",listfile) == SUCCESS)
+	{
+	if ((outfile = fopen(listfile, "w")) == (INT *)0)
+	    {
+	    msg("Error creating output file...\n");
+	    }
+	}
+
+    if ((arg("ACCOUNT",account) != SUCCESS))
+	{
+	zz_trnlnm(librarian_account,(CHAR *)&account[0]);
+	}
+    userid.len = sprintf(userid.arr,"%s",account);
+    userpass.len = 0;
+    if (userid.len <= 0 )
+	{
+	sprintf(string,"Problem logging into %s \n",account);
+	msg(string);
+	}	
+    msg("\t.... One Moment \n");
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL WHENEVER SQLWARNING CONTINUE;
+    EXEC SQL CONNECT :userid IDENTIFIED BY :userpass;
+
+    if (OR_STATUS != 0)
+	{
+	sprintf(string,"SQL_ERROR: %s     Err#: %d \n",
+	sqlca.sqlerrm.sqlerrmc, -sqlca.sqlcode);
+	msg(string);
+	    
+	sprintf(string,"Problem logging into %s .....Aborting\n",account);
+	msg(string);
+	exit(1);	    
+	}
+    
+    fspec[0] = '\0';
+    
+    if (arg("FSPEC",fspec) == SUCCESS)
+	{
+	iffile =TRUE;
+	for (i=0;fspec[i] != '\0'; i++)
+	    {
+	    if (fspec[i] == '*')
+		fspec[i] = '%';
+	    }
+	sprintf(filespec," FILE_NAME LIKE '%s' ",fspec);
+	}
+    else
+	{
+	strcpy(filespec ," ");
+	iffile = FALSE;
+	}
+
+    if (ifarg("SELECT"))
+	{
+	if (arg("SELECT",select) == SUCCESS)	
+	    {
+	    sprintf(altcond," %s ",select);
+	    if (iffile)
+		{
+		sprintf(string, " %s AND %s ",filespec ,altcond);
+		strcpy (altcond, string);
+		}
+	    ifselect = TRUE;
+	    strcpy(filespec, " ");
+	    iffile = FALSE;
+	    }
+	}
+    if (!iffile AND (!ifselect))
+	{
+	strcpy(filespec, " ");
+	strcpy (altcond, " FILE_NAME IS NOT NULL");
+	iffile = TRUE;
+	}			
+	    
+    ifsummary = ifarg("SUMMARY");
+    ifstat = FALSE;
+    strcat(altcond,    " ");			
+    if (ifarg("PENDING"))
+		{
+		if (ifselect OR iffile)
+		    {
+		    strcat (altcond, " AND ");
+		    }
+		    
+		if (ifarg("BAD"))
+		    strcat (altcond, "  COMPILE_STATUS IS NOT NULL ");
+		else
+		    strcat(altcond,"  COMPILE_STATUS = 'PENDING' ");
+		ifstat = TRUE;
+		}
+	    else if (ifarg("BAD"))
+		{
+		if (iffile OR ( ifselect))
+		    strcat(altcond,  " AND ");
+		if (ifarg("PENDING"))
+		    strcat (altcond, "  COMPILE_STATUS IS NOT NULL ");
+		else
+		    strcat(altcond," COMPILE_STATUS = 'BAD'");
+		ifstat = TRUE;
+		}	
+	    else
+		{
+		ifstat = FALSE;
+		}
+									
+    if (ifsummary)
+	{
+	/* Give a summary report */
+	sprintf(string,"\nFILESTAT V2.0  -File Summary-\t%s\n",account);
+	msg(string);
+	EXEC SQL DECLARE FILECOUNT CURSOR FOR
+	    SELECT COUNT(*) FROM SOURCE_FILES;  
+	EXEC SQL OPEN FILECOUNT;
+	EXEC SQL FETCH FILECOUNT INTO :filecount;
+	EXEC SQL CLOSE FILECOUNT;
+
+	EXEC SQL DECLARE CCOUNT CURSOR FOR
+	    SELECT COUNT(*) FROM SOURCE_FILES
+	    WHERE EXTENSION LIKE '%C';
+	EXEC SQL OPEN CCOUNT;
+	EXEC SQL FETCH CCOUNT INTO :ccount;
+        EXEC SQL CLOSE CCOUNT;
+
+	EXEC SQL DECLARE MISCCOUNT CURSOR FOR
+	    SELECT COUNT(*) FROM SOURCE_FILES
+	    WHERE EXTENSION != 'PC' AND EXTENSION != 'C';
+	EXEC SQL OPEN MISCCOUNT;
+	EXEC SQL FETCH MISCCOUNT INTO :misccount;
+	EXEC SQL CLOSE MISCCOUNT;
+	
+	EXEC SQL DECLARE PENDCOUNT CURSOR FOR
+	    SELECT COUNT(*) FROM SOURCE_FILES
+	    WHERE COMPILE_STATUS = 'PENDING' OR COMPILE_STATUS = 'BAD';
+	EXEC SQL OPEN PENDCOUNT;
+	EXEC SQL FETCH PENDCOUNT INTO :pendcount;
+	EXEC SQL CLOSE PENDCOUNT;
+	
+	sprintf(string,"Total of %d files. (%d .C/PC files,  %d Others)\n",
+			filecount,ccount,misccount);
+	msg(string);
+	sprintf(string,"%d file(s) PENDING or BAD as of %s\n",pendcount,
+	    (CHAR *)curtime()); 
+	msg(string);
+	
+	}
+	
+		    
+			
+    stmt.len = sprintf(stmt.arr,
+	"SELECT FILE_NAME,COMPILE_STATUS, \
+	TO_CHAR(COMPILE_TIME, 'DD-MON-YY HH24:MI:SS'),LIBRARY,MAIN_PROGRAM \
+	    FROM SOURCE_FILES \
+	    WHERE %s %s ORDER BY FILE_NAME",filespec,altcond);	
+    if (ifarg("VERBOSE"))
+	msg(stmt.arr);
+	
+    EXEC SQL PREPARE S2 FROM :stmt;
+    EXEC SQL DECLARE C2 CURSOR FOR S2;
+    
+    EXEC SQL OPEN C2;
+    EXEC SQL FETCH C2 INTO :file_name,:compile_status,:compile_time,
+:library,:main_program;
+    
+    sprintf(header,
+"\n\
+ FILE_NAME                       STATUS      COMPILE_TIME      LIBRARY   MAIN \n\
+ ---------                       ------   ------------------   -------  ------\n");
+    filecount = 0;
+    while(OR_STATUS == SUCCESS)
+	{
+	filecount++;
+	if (!(filecount % PAGESIZE) OR (filecount == 1))
+		{
+		msg(header);
+		}
+	V_SETZERO(file_name);
+	V_SETZERO(compile_status);
+	V_SETZERO(compile_time);
+	V_SETZERO(library);
+	V_SETZERO(main_program);
+	
+	if (strlen(compile_status.arr) == 0)
+	    {
+	    compile_status.len = sprintf(compile_status.arr," .......");
+	    }
+
+
+	if (strlen(library.arr) == 0)
+	    {
+	    library.len = sprintf(library.arr," ...... ");
+	    }
+
+	if (strlen(main_program.arr) == 0)
+	    {
+	    main_program.len = sprintf(main_program.arr," ......");
+	    }
+
+	sprintf(string,"%-31s %8s  %-18s %8s %7s\n",file_name.arr,
+		    compile_status.arr,compile_time.arr,library.arr,main_program.arr);
+	msg(string);
+				
+	EXEC SQL FETCH C2 INTO :file_name,:compile_status,:compile_time,
+			:library,:main_program;
+	}
+EXEC SQL CLOSE C2;
+
+msg("All done..\n");
+fclose(outfile);		
+exit(1);
+}
+
+
+
+
+/*------------------------------------------------------------------*/
+		
+/* 
+* Return TRUE or FALSE for existence of arg. on command line.
+*  If param is specified as NEGATED then status is FALSE.
+*  If param is not specified but present by default status is TRUE.
+*/		
+privatedef INT ifarg(str)
+CHAR *str;
+{
+INT status, clistat;
+DSC d;
+clistat = cli$present ( todsc(str,&d) );
+
+switch (clistat & 0x00000007 )
+    {
+    case STATUS_SUCCESS:
+	status = TRUE;
+	break;
+		
+    case STATUS_WARNING:
+	status = FALSE;
+	break;
+	
+    case STATUS_ERROR:
+    case STATUS_FAIL:
+    default:    
+	status =FALSE;
+	lib$signal(clistat);
+	break;
+    }
+        
+return status;
+}
+
+/*------------------------------------------------------------------*/
+
+/*
+* Get the value of the specified CLI parameter/qualifier.
+* return SUCCESS or status from CLI$GET_VALUE.
+*/
+privatedef INT arg(str, val)
+CHAR *str, *val;
+{
+INT status = SUCCESS;
+static DSC sd, *pvd;
+INT clistat;
+
+pvd = dalloc();
+
+clistat = cli$get_value(todsc(str,&sd), pvd);
+tocs(pvd, val);
+
+dfree(pvd);
+status = (clistat & 1) ? SUCCESS : (clistat & 0x00FFFFFF);
+    
+return status;
+}
+
+/*------------------------------------------------------------------*/
+
+
+/*
+* Allocate memory for a descriptor structure.
+*/
+privatedef DSC *dalloc()
+{
+DSC *d;
+
+d = tc_zalloc(sizeof(DSC));
+
+d->dsc$b_class = DSC$K_CLASS_D;
+d->dsc$b_dtype = DSC$K_DTYPE_T;
+d->dsc$a_pointer = (CHAR *)0;
+d->dsc$w_length = (USHORT)0;
+
+return d;
+}
+
+
+/*------------------------------------------------------------------*/
+
+/* 
+* Free a descriptor pointer.
+*/
+privatedef INT dfree(d)
+DSC *d;
+{
+if (d)
+    {
+    tc_free(d);
+    d = (DSC *)0;
+    }
+else
+    msg("Attempt to free a NULL descriptor.");
+
+return SUCCESS;
+}
+
+/*------------------------------------------------------------------*/
+
+
+/*
+* Make a descriptor for the given string.  Return address of descriptor.
+*/
+privatedef DSC *todsc(str,d)
+CHAR *str;
+DSC *d;
+{
+
+if (d != (DSC *)0)
+    {
+    d->dsc$a_pointer = str;
+    d->dsc$b_dtype = DSC$K_DTYPE_T;
+    d->dsc$b_class = DSC$K_CLASS_D;
+    d->dsc$w_length = (USHORT)strlen(str);
+    }
+return d;
+} 
+
+/*------------------------------------------------------------------*/
+
+
+/*
+* Move a string from descriptor format to C format and return length.
+*/
+privatedef INT tocs(d,cs)
+DSC *d;
+CHAR *cs;
+{
+if (d->dsc$w_length <= 0 OR (d->dsc$a_pointer == (CHAR *)0))
+    return NULL;
+
+hoblockmove(d->dsc$a_pointer, cs, d->dsc$w_length);
+cs[d->dsc$w_length] = NULL;
+
+return strlen(cs);
+}
+
+/*------------------------------------------------------------------*/
+
+privatedef VOID msg(CHAR *str)
+{
+if (str != (CHAR *)0)
+	{
+	if (outfile != (FILE *)0)
+		fprintf((FILE *)outfile,"%s",str);
+	
+	if (outscreen)
+		printf("%s",str);
+	}
+return;
+}
+
+privatedef CHAR *curtime()
+{
+privatedef CHAR str[64];
+INT bintime = 0;
+
+	bintime = (INT)time(0);
+	strncpy(str,(CHAR *)ctime(&bintime), 20);
+	str[(INT)strlen(str)-1] = '\0';
+	
+return str;
+}
+		
+privatedef INT zz_trnlnm(CHAR *symbol, CHAR *outstr)
+{
+    INT status = SUCCESS;
+    CHAR string[256];
+    USHORT len;
+    struct dsc$descriptor logical;
+    struct dsc$descriptor result;
+    
+
+    logical.dsc$b_class = DSC$K_CLASS_S;
+    logical.dsc$b_dtype = DSC$K_DTYPE_T;
+    logical.dsc$a_pointer = symbol;
+    logical.dsc$w_length = strlen(symbol);
+    result.dsc$b_class = DSC$K_CLASS_S;
+    result.dsc$b_dtype = DSC$K_DTYPE_T;
+    result.dsc$a_pointer = string;
+    result.dsc$w_length = sizeof string;
+
+    status = lib$sys_trnlog(&logical,&len,&result,0,0,0);
+
+    if ((status & 1) == SS$_NORMAL) 
+	{
+    	status = SUCCESS;
+        string[len] = 0;
+    	strcpy(outstr,string);
+    	}
+    else
+	errmsg(status);
+
+
+return status;
+}
+
+/***********************************************************************/
+privatedef CHAR *getmsg(INT code, CHAR *string)
+{
+INT status = SUCCESS;
+INT flags = MSG_TEXT | MSG_SEVERITY;
+INT reslen = 0;
+CHAR tmp[512];
+struct dsc$descriptor result;
+CHAR p = (CHAR *)0;
+privatedef definit = FALSE;
+CHAR blankstr[4] = {' ','\0','\0','\0'};
+privatedef CHAR defmsg[64];
+
+        
+    p = (CHAR *)tc_zeroes(&tmp[0], (sizeof tmp)-1);
+    if (definit == FALSE)
+	{
+	definit = TRUE;
+	strcpy(defmsg, "*** NO MESSAGE IN BUFFER ***");
+	}
+	    
+    result.dsc$b_class = DSC$K_CLASS_S;
+    result.dsc$b_dtype = DSC$K_DTYPE_T;
+    result.dsc$a_pointer = tmp;
+    result.dsc$w_length = sizeof tmp;
+    
+    if	((lib$sys_getmsg(&code,&reslen,&result,&flags,0) & 1) == 1)
+	{
+	if (reslen < 0)
+	    reslen = 1;
+	
+	tmp[reslen] = '\0';
+	
+	if (string == (CHAR *)0)
+	    p = (CHAR *)tc_zalloc(sizeof(CHAR) * reslen + 1);
+	else
+	    p = (CHAR *)string;
+	        
+	strcpy(p, tmp);
+	if (strlen(p) <= 1)
+	    p = blankstr;
+	}
+    else
+	{
+	p = defmsg;
+	}
+	
+return p;
+}	    
+    	
+    	
+    
+
+
+

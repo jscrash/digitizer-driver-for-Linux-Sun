@@ -1,0 +1,309 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element PF_FILE_CDLG.PC*/
+/* *2    17-AUG-1990 22:11:21 VINCE "(SPR 5644) Code Cleanup"*/
+/* *1    19-JUN-1989 12:35:50 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element PF_FILE_CDLG.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_ho.h"
+#include "esi_pf.h"
+#include "esi_oracle.h"
+#include "esi_am.h"
+#include "esi_tc.h"
+#include "esi_wi.h"
+#include "pf_cdlgs.rh"
+
+/****************************************************************************
+   --- Copyright 1988, Exploration Systems Inc.  San Francisco CA. ---
+          STATUS RETURN:   SUCCESS / FAIL;
+        Julian Carlisle  Feb 27, 1988
+*****************************************************************************/
+
+EXEC ORACLE OPTION (RELEASE_CURSOR = YES);
+static CHAR PF_RESOURCE_FILE[] = "PF_CDLGS";
+
+#define pfmsg(str)  wiscdt(pfp->cdlgids.pf_file_id,PF_FILE_MSG_WINDOW, str)
+
+/* File Description ---------------------------------------------------------
+Overview:
+
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    extern INT pf_file_srvr_init(PF_STRUCT *pfp);
+
+Private_Functions:
+    static INT pf_file_srvr(INT id, INT item, PF_STRUCT *pfp);
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT pf_file_srvr(INT id, INT item, PF_STRUCT *pfp);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    id              -(INT)
+    item            -(INT)
+    pfp             -(PF_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE to <pf_file_cdlg.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT pf_file_srvr (INT id, INT item, PF_STRUCT *pfp)
+#else
+static INT pf_file_srvr (id, item, pfp)
+INT id, item;
+PF_STRUCT *pfp;
+#endif
+    {
+    INT status;
+    CHAR text[255];
+    INT num_items;
+    INT sidx[5];
+    INT done = FALSE;
+    CHAR string[255];
+    
+    status = FAIL;
+    
+    /* Switch on the Items in the Dialog */
+    switch (item)
+        {
+    case PF_FILE_BTN_SEL_PLOTTER:
+        wiqsel (id, PF_FILE_PLOTTER_SELECTOR, &num_items, sidx);
+        if (num_items != 1)
+            {
+            pfmsg ("A plotter Must be highlighted First");
+            break;
+            }
+        pfmsg ("One moment...");
+        status = pf_inq_plotter (pfp->pname_tcp[sidx[0] - 1], pfp->selected_plotter);
+        
+        sprintf (text, "%.2f", pfp->selected_plotter->xsize);
+        wiscdt (id, PF_FILE_XSIZE_EDT, text);
+        sprintf (text, "%.2f", pfp->selected_plotter->ysize);
+        wiscdt (id, PF_FILE_YSIZE_EDT, text);
+        
+        wiscdt (id, PF_FILE_PLOTTER_EDT, pfp->selected_plotter->name);
+        wiscdt (id, PF_FILE_DRIVER_EDT, pfp->selected_plotter->driver);
+        wiscdt (id, PF_FILE_STATUS_EDT, pfp->selected_plotter->status);
+        wiscdt (id, PF_FILE_QUEUE_EDT, pfp->selected_plotter->queue);
+        sprintf (text, "%d", pfp->selected_plotter->pens);
+        wiscdt (id, PF_FILE_PENS_EDT, text);
+        
+        pfmsg (" ");
+        done == FALSE;
+        break;
+        
+    case PF_FILE_LOCAL_RB:
+        sprintf (string, "[000000...]");
+        sprintf (text, "Plot files in %s ", string);
+        pfmsg (text);
+        wiencdi (id, PF_FILE_BTN_SEL_FILE, ON);
+        strcpy (text, "*");
+        status = pf_get_files (pfp, string, TRUE);
+        wisselt (id, PF_FILE_FILE_SELECTOR, PF_FILE_FILE_VSCROLL,
+                 pfp->neut_files.num_files, 1, pfp->neut_files.filelist);
+        break;
+        
+    case PF_FILE_ALL_RB:
+        sprintf (string, "ESI$PROJECT:[PLOTS...]");
+        sprintf (text, "Plot files from %s ", string);
+        pfmsg (text);
+        wiencdi (id, PF_FILE_BTN_SEL_FILE, ON);
+        strcpy (text, "*");
+        status = pf_get_files (pfp, string, TRUE);
+        wisselt (id, PF_FILE_FILE_SELECTOR, PF_FILE_FILE_VSCROLL,
+                 pfp->neut_files.num_files, 1, pfp->neut_files.filelist);
+        break;
+        
+    case PF_FILE_BTN_SEL_FILE:
+        wiqsel (id, PF_FILE_FILE_SELECTOR, &num_items, sidx);
+        if (num_items != 1)
+            {
+            pfmsg ("Select a file from the list...");
+            break;
+            }
+        strcpy (pfp->plotfile.neutral_file, pfp->neut_files.filelist[sidx[0] - 1]);
+        pfmsg (" ");
+        break;
+        
+    case PF_FILE_BTN_CANCEL:
+        done = TRUE;
+        break;
+        
+    case PF_FILE_BTN_PROCEED:
+        wiqsel (id, PF_FILE_PLOTTER_SELECTOR, &num_items, sidx);
+        if (num_items != 1)
+            {
+            pfmsg ("No plotter Selected.. Press cancel to exit");
+            break;
+            }
+        done = TRUE;
+        pfmsg ("Assigning plotter device.");
+        pfp->selected_plotter = (PDS *)tc_zalloc (sizeof(PDS));
+        status = pf_inq_plotter (pfp->pname_tcp[sidx[0] - 1], pfp->selected_plotter);
+        break;
+        
+    default:
+        done = FALSE;
+        break;
+        }
+    if (done == TRUE)
+        {
+        am_release_resource (id);
+        status = SUCCESS;
+        }
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    extern INT pf_file_srvr_init(PF_STRUCT *pfp);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    pfp             -(PF_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    OR_STATUS
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+extern INT pf_file_srvr_init (PF_STRUCT *pfp)
+#else
+extern INT pf_file_srvr_init (pfp)
+PF_STRUCT *pfp;
+#endif
+    {
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR plotter_name[80];
+    int num_plotters;
+    EXEC SQL END DECLARE SECTION;
+    
+    INT status = SUCCESS, i, tmplen = 0, default_index = 0, use_default = FALSE;
+    
+    CHAR default_pname[55];
+    CHAR string[255], selection[255];
+    INT tempnpens = 0;
+    CHAR **tcp;
+    
+    num_plotters = 0;
+    use_default = FALSE;
+    
+    if ((status = ho_translate_symbol ("ESI$SELECTED_PLOTTER", &tcp)) != SUCCESS)
+        {
+        status = ho_translate_symbol ("ESI$DEFAULT_PLOTTER", &tcp);
+        if (status != SUCCESS)
+            {
+            strcpy (default_pname, "NONE");
+            }
+        else
+            {
+            strcpy (default_pname, *tcp);
+            ts_tcp_free (tcp);
+            }
+        }
+    else
+        {
+        strcpy (default_pname, *tcp);
+        ts_tcp_free (tcp);
+        }
+    status = am_define_resource (AM_DIALOG, PF_RESOURCE_FILE, PF_FILE_CDLG,
+                                 pf_file_srvr, &pfp->cdlgids.pf_file_id, pfp);
+    if (status != SUCCESS)
+        {
+        return status;
+        }
+    EXEC SQL SELECT COUNT (*)INTO : num_plotters FROM ESI.FINDER_PLOTTERS;
+    
+    if (num_plotters > 0)
+        {
+        pfp->pname_tcp = (CHAR **)tc_zalloc (sizeof(CHAR *) * (num_plotters + 1));
+        
+        EXEC SQL WHENEVER SQLERROR GOTO error_return;
+        
+        EXEC SQL DECLARE DB_DEVICES CURSOR FOR SELECT NAME FROM ESI.
+            FINDER_PLOTTERS ORDER BY NAME;
+        
+        EXEC SQL OPEN DB_DEVICES;
+        
+        EXEC SQL FETCH DB_DEVICES INTO : plotter_name;
+        
+        for (i = 0; OR_STATUS == SUCCESS; i++)
+            {
+            V_SETZERO (plotter_name);
+            
+            pfp->pname_tcp[i] = (CHAR *)tc_alloc (plotter_name.len + 1);
+            
+            strcpy (pfp->pname_tcp[i], (char *)plotter_name.arr);
+            
+            if (!strcmp (pfp->pname_tcp[i], default_pname))
+                {
+                use_default = TRUE;
+                default_index = i + 1;
+                }
+            EXEC SQL FETCH DB_DEVICES INTO : plotter_name;
+            }
+        EXEC SQL CLOSE DB_DEVICES;
+        
+        /* having made a tcp of plotter names, place them into the selector */
+        status = wisselt (pfp->cdlgids.pf_file_id, PF_FILE_PLOTTER_SELECTOR,
+                          PF_FILE_PLOTTER_VSCROLL, i, 1, pfp->pname_tcp);
+        if (use_default == TRUE)
+            wi_set_default_sel (pfp->cdlgids.pf_file_id, PF_FILE_PLOTTER_SELECTOR,
+                                default_index);
+        wiencdi (pfp->cdlgids.pf_file_id, PF_FILE_BTN_SEL_FILE, OFF);
+        
+        status = wiopcd (pfp->cdlgids.pf_file_id);
+        }
+    else
+        {
+        am_message (AM_STATUS, "Sorry, No plotters available. ");
+        }
+    return SUCCESS;
+    
+error_return:
+    return OR_STATUS;
+    }
+/* END:     */

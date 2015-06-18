@@ -1,0 +1,382 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_EXP_CULTURE_OUT.PC */
+/* *3    14-AUG-1991 11:57:54 KEE "(SPR -1) Put in File Lock/Unlock logic" */
+/* *2     1-MAY-1991 21:57:32 KEE "(SPR -1) Landmark Export" */
+/* *1     1-MAY-1991 20:58:05 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_EXP_CULTURE_OUT.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* ************************************************************************
+
+   NAME: LD_LM2_EXP_CULTURE_OUT.PC
+
+   AUTHOR: Rod Hanks
+   DATE:   June 18th, 1990
+   DESCRIPTION: Unload cultural data from a particular map overlay in Finder.
+
+   ************************************************************************ */
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+#ifndef LD_LM2_EXP_WORK_H
+#include "ld_lm2_exp_work.h"
+#endif
+
+#if USE_PROTOTYPES
+publicdef VOID ld_lm2_exp_culture_out (CHAR *selectPhrase, CHAR *cultureType, 
+		   BOOL *firstIteration, FILE **myfile, 
+		   CHAR *mapName, PROJECT_NAME projectName, 
+		   DOUBLE lowerLeftX, DOUBLE lowerLeftY, 
+		   DOUBLE upperRightX, DOUBLE upperRightY,
+		   FILENAME fileName1, BOOL convertProj, 
+		   PROJECTION_STRUCTURE *defaultProj, 
+	           PROJECTION_STRUCTURE *inputProj)
+#else
+publicdef VOID ld_lm2_exp_culture_out (selectPhrase, cultureType, firstIteration, myfile, 
+		   mapName, projectName, 
+		   lowerLeftX, lowerLeftY, upperRightX, upperRightY,
+		   fileName1, convertProj, defaultProj, inputProj)
+CHAR		*selectPhrase;
+CHAR		*cultureType;
+FILE    	**myfile;
+BOOL		*firstIteration;
+CHAR		*mapName;
+PROJECT_NAME	projectName;
+DOUBLE		lowerLeftX;
+DOUBLE		lowerLeftY;
+DOUBLE		upperRightX;
+DOUBLE		upperRightY;
+FILENAME	fileName1;
+BOOL	             convertProj;
+PROJECTION_STRUCTURE *defaultProj;
+PROJECTION_STRUCTURE *inputProj;
+#endif
+    {
+/****************************************************************************
+
+	V a r i a b l e   D e c l a r a t i o n s .
+
+******************************************************************************/
+
+    INT 	   status;
+    NLIST_HEADER   nlist;
+    INT ndim = 2;
+    UINT dim_list[2];
+    INT units[2];
+    size_t data_sizes[2];
+    INT data_types[2];
+    VOIDPTR value_list[2];
+    UINT nstrokes;
+    UINT npts;
+    UINT i, j, k;
+    FLOAT *x_out,*y_out;
+    FILENAME culture_file;
+    COORD   x,y;
+    CHAR   *ptr1;
+    CHAR   *ptr2;
+    CHAR    ourPhrase[100];
+    CHAR    tempString[50];
+    CHAR    color[21];
+    CHAR    polyColor[21];
+    CHAR    polyFlag[21];
+    CHAR    textString[241];
+/*
+				General variable declarations.
+*/
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[2000];
+	int	nlist_id;
+	VARCHAR mapUnits[26];
+	float	mapScale;
+	VARCHAR lineColor[21];
+	VARCHAR fillColor[21];
+	VARCHAR flag[21];
+	int	path;
+	VARCHAR text[241];
+	float	textX;
+	float	textY;
+	VARCHAR textColor[21];		
+    EXEC SQL END DECLARE SECTION;
+/*
+				Oracle variable declarations.
+*/
+/****************************************************************************
+
+	I n i t i a l i z a t i o n .
+
+******************************************************************************/
+
+    if (*firstIteration)
+	{
+	*myfile = ho_open((CHAR *)fileName1, "w", NULL);
+	status = ho_lock(*myfile, ON);
+	if (*myfile == (FILE *)NULL || status != SUCCESS)
+	    {
+	    printf("Unable to open an output file named %s\n", 
+					fileName1);
+	    }
+	else
+	    {
+	    printf("Creating Landmark .asc format culture \
+file named %s\n", fileName1);
+
+	    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+		"SELECT MAP_SCALE, MAP_SCALE_UNIT \
+FROM %s.MAP_DEFINITIONS \
+WHERE MAP_NAME = '%s'", projectName, mapName);
+	    
+	    EXEC SQL PREPARE S21 FROM :sqlstmt;
+	    if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "PREPARE S21");
+	    EXEC SQL DECLARE MAPHEAD CURSOR FOR S21;
+	    EXEC SQL OPEN MAPHEAD;
+	    if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "OPEN MAPHEAD");
+	    EXEC SQL FETCH MAPHEAD INTO :mapScale, :mapUnits;
+	    if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "FETCH MAPHEAD");
+	    EXEC SQL CLOSE MAPHEAD;
+	    if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "CLOSE MAPHEAD");
+	    mapUnits.arr[mapUnits.len] = 0;
+	    ptr1 = (CHAR *)mapUnits.arr;
+	    while (*ptr1 != '/' && *ptr1 != 0)
+		{
+		ptr1++;
+		}
+	    if (*ptr1 == '/')
+		{
+		*ptr1 = 0;
+		ptr2 = ptr1 + 1;
+	        ptr1 = (CHAR *) mapUnits.arr; 
+		}
+	    else
+		{
+		ptr1 = ptr2 = (CHAR *)mapUnits.arr; 
+		}
+	    fprintf(*myfile, "METAFILE,FINDER01,%s,%s,%.0f,0,0\n", ptr2, ptr1,
+								mapScale);
+	    *firstIteration = FALSE;
+	    }
+	}
+
+/*****************************************************************************
+
+	M a i n   L o g i c .
+
+*****************************************************************************/
+
+    if (*myfile != (FILE *)NULL)
+	{
+	for (i = 0; i < ndim; i++)
+	    {
+	    dim_list[i] = i + 1;
+	    units[i] = 0;
+	    data_sizes[i] = sizeof (FLOAT);
+	    data_types[i] = FLOAT_TYPE;
+	    }
+/*
+					Initialize arrays we will use for 
+					dealing with the nlist array.
+*/
+	fprintf(*myfile, "IMAGE,%s\n", cultureType);
+/*
+					Begin the image with it's name.
+*/
+	if (strlen(selectPhrase) > 0)
+	    {
+	    sprintf(ourPhrase, "AND OBJECT_NAME = '%s'", cultureType);
+	    }
+	else
+	    {
+	    sprintf(ourPhrase, "WHERE OBJECT_NAME = '%s'", cultureType);
+	    }
+	sqlstmt.len = sprintf((char *)sqlstmt.arr,
+		"SELECT B.TEXT_PATH, B.TEXT_STRING, B.TEXT_COLOR, \
+C.NODE_X, C.NODE_Y \
+FROM %s.GRAPHIC_OBJECT_CORRELATIONS A, %s.TEXT B, %s.NODES C \
+WHERE A.ITEM_ID = B.TEXT_ID \
+AND C.NODE_ID = B.POSITION \
+AND A.OBJECT_ID IN (SELECT OBJECT_ID \
+FROM %s.GRAPHIC_OBJECTS %s %s)", projectName, projectName, 
+				 projectName, projectName, 
+				 selectPhrase, ourPhrase);
+/*
+					This way we can use our select 
+					phrase (which most likely begins with
+					"WHERE" and does not fully qualify the
+					column names with table names) without
+					reworking it.
+*/
+	EXEC SQL PREPARE s7 FROM :sqlstmt;
+	if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "preparing s7");
+	EXEC SQL DECLARE TEXT_CUR CURSOR FOR s7;
+	EXEC SQL OPEN TEXT_CUR;
+	if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "opening s7");
+	EXEC SQL FETCH TEXT_CUR INTO :path, :text, :textColor, :textX, :textY;
+	if (OR_STATUS == SUCCESS)
+	    {
+	    while (OR_STATUS == SUCCESS)
+		{
+		V_V_TO_C(textString, text);
+		V_V_TO_C(color, textColor);
+		ld_lm2_exp_culture_color(color);
+		x = (COORD) textX;
+		y = (COORD) textY;
+	        if (convertProj)
+		    {
+	            ct_transform_point(x, y, defaultProj,
+					  &x, &y, inputProj);
+		    }
+		fprintf(*myfile, "TEXT,'%s' %f, %f .05, .05, %d,\n", 
+				textString, x, y, path);
+		fprintf(*myfile, "BL, 0.0, DRAFT, %s\n", color);
+		EXEC SQL FETCH TEXT_CUR INTO :path, :text, :textColor, 
+					     :textX, :textY;
+		}
+	    }
+	EXEC SQL CLOSE TEXT_CUR;
+	if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "closing s7");
+/*
+					Output all the text at the top.
+*/
+	sqlstmt.len = sprintf((char *)sqlstmt.arr,
+		"SELECT NLIST_ID, LINE_COLOR, \
+POLYGON_FLAG, POLYGON_FILL_COLOR \
+FROM %s.GRAPHIC_OBJECT_CORRELATIONS, %s.LINES \
+WHERE GRAPHIC_OBJECT_CORRELATIONS.ITEM_ID = LINES.LINE_ID \
+AND GRAPHIC_OBJECT_CORRELATIONS.OBJECT_ID IN (SELECT OBJECT_ID \
+FROM %s.GRAPHIC_OBJECTS %s %s)", projectName, projectName, projectName, 
+					selectPhrase, ourPhrase);
+/*
+					Obviously a 3 way join would be faster
+					than this 2 way join with a sub-query,
+					but this way we can use our select 
+					phrase (which most likely begins with
+					"WHERE" and does not fully qualify the
+					column names with table names) without
+					reworking it.
+*/
+	EXEC SQL PREPARE S2 FROM :sqlstmt;
+	if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "preparing s2");
+	EXEC SQL DECLARE LINE_CUR CURSOR FOR S2;
+	EXEC SQL OPEN LINE_CUR;
+	if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "opening s2");
+	EXEC SQL FETCH LINE_CUR INTO :nlist_id, :lineColor, :flag, :fillColor;
+	if (OR_STATUS == SUCCESS)
+	    {
+	    while (OR_STATUS == SUCCESS)
+		{
+                ho_add_path("ESI$CULTURE", cultureType, 
+				sizeof(FILENAME), culture_file);
+
+		V_V_TO_C(color, lineColor);
+		ld_lm2_exp_culture_color(color);
+
+		V_V_TO_C(polyFlag, flag);
+		V_V_TO_C(polyColor, fillColor);
+		ld_lm2_exp_culture_color(polyColor);
+
+		sprintf(tempString, "%d", nlist_id);
+       	        status = nl_read_nlist (&nlist, culture_file, 
+							tempString); 
+       	        if (status < 0)
+    	            {
+    	            printf("Error reading NLIST %d\n", status);
+    	            }
+	        else
+    		    {
+                    nl_inq_nlist_int(nlist, NL_NLIST_NSTROKES,
+						(INT *)&nstrokes);
+		    for(i=1;i<=nstrokes;i++)
+                        {
+			if (i > 1)
+			    {
+			    fprintf(*myfile, "LINE\n");
+			    }
+			else
+			    {
+			    if (strcmp(polyFlag, "YES") == 0)
+				{
+				fprintf(*myfile, "POLYGON,%s,%s\n", color,
+							polyColor);
+				}
+			    else
+				{
+			    	fprintf(*myfile, "LINE,,,,,%s\n", color);
+				}
+			    }
+                        nl_inq_stroke_int(nlist,i,NL_STROKE_NPOINTS,
+	                                       		(INT *)&npts);
+                        x_out = (FLOAT *)tc_zalloc(npts*sizeof(FLOAT));
+                        y_out = (FLOAT *)tc_zalloc(npts*sizeof(FLOAT));
+                        value_list[0] = (VOIDPTR)x_out;
+                        value_list[1] = (VOIDPTR)y_out;
+		        status = nl_set_current_row(nlist,1,i);
+                        status = nl_get_rows_convert(nlist,npts,ndim,
+						  	dim_list,
+	                                          	value_list,units,
+							data_sizes,
+	                                          	data_types,&j);
+		        for (k=0;k<j;k++)
+			    {
+			    x = (COORD) x_out[k];
+			    y = (COORD) y_out[k];
+	                    if (convertProj)
+		                {
+	                        ct_transform_point(x, y, defaultProj,
+					  &x, &y, inputProj);
+		                }
+			    fprintf(*myfile, 
+					"XY,%12.3lf,%12.3lf\n", 
+							x, 
+							y);
+			    }
+                        tc_free(x_out);
+                        tc_free(y_out);
+		        }
+		    }
+	        EXEC SQL FETCH LINE_CUR INTO :nlist_id, :lineColor;
+		}
+	    EXEC SQL CLOSE LINE_CUR;
+	    }
+	}
+    else if (OR_STATUS < SUCCESS)
+	{
+	ld_show_error(OR_STATUS, "FETCHING NLIST IDS");
+	}
+    else
+	{
+	printf("No fault polygon information found in map %s\n",
+			mapName);
+	}
+/*****************************************************************************
+
+	C l e a n   U p   A n d   E x i t .
+
+******************************************************************************/
+    return;
+    }

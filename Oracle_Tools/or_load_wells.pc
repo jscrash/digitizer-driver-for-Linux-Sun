@@ -1,0 +1,134 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_LOAD_WELLS.PC*/
+/* *3    25-JUL-1990 19:57:25 VINCE "(SPR 5644) Header Standardization"*/
+/* *2    11-AUG-1989 20:44:00 CONROY "(SPR 0) Revised global, selects, SQL macros & fixes"*/
+/* *1    19-JUN-1989 12:35:31 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_LOAD_WELLS.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_nl.h"
+#include "esi_oracle.h"
+EXEC ORACLE OPTION (SELECT_ERROR = NO);
+
+/* Function Description -----------------------------------------------------
+Description:
+    Load the TEMP_WELL_LISTS table with the specified
+    select list of wells.
+
+Prototype:
+    publicdef INT or_load_wells(CHAR *unique_name, NLIST_HEADER nlist);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    unique_name     -(CHAR *)
+    nlist           -(NLIST_HEADER)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT or_load_wells (CHAR *unique_name, NLIST_HEADER nlist)
+#else
+publicdef INT or_load_wells (unique_name, nlist)
+CHAR *unique_name;
+NLIST_HEADER nlist;
+#endif
+    {
+    INT status;
+    UINT ndim;
+    UINT Dim_List[1];
+    VOIDPTR Value_List[1];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    int count;
+    VARCHAR stmt[255];
+    VARCHAR uwi[100][64];
+    char *id;
+    EXEC SQL END DECLARE SECTION;
+    
+    /* I assume that if the  list name exists in
+    the TEMP_WELL_LISTS table, then this list
+    has already been inserted, and that the select
+    list has NOT changed its contents since the list
+    was entered.  This implies that any select list editing
+    function should make sure that the TEMP_WELL_LISTS
+    table entry is brought up to date before allowing other
+    interactions... */
+    id = unique_name;
+    EXEC SQL WHENEVER NOT FOUND GOTO not_yet_loaded;
+    EXEC SQL SELECT NULL FROM TEMP_WELL_LISTS WHERE TEMP_PROCESS_ID =
+                                                                      USERENV (
+                                                                           'SESSIONID')
+    AND TEMP_LIST_NAME =  : id;
+    return SUCCESS;
+    
+not_yet_loaded:
+    stmt.len = sprintf ((char *)stmt.arr, 
+"INSERT INTO TEMP_WELL_LISTS \
+(TEMP_LIST_NAME, KEY_UWI, TEMP_PROCESS_ID) VALUES \
+('%s', :uwi, USERENV('SESSIONID'))"
+            , unique_name);
+    EXEC SQL PREPARE S1 FROM : stmt;
+    
+    /* retrieve the select list data into a buffer */
+    
+    ndim = 1;
+    Dim_List[0] = 1;
+    Value_List[0] = (VOIDPTR)uwi[0].arr;
+    status = nl_first_point (nlist, ndim, Dim_List, Value_List);
+    V_SETLEN (uwi[0]);
+    
+    /* NOTE: the initialization of COUNT is as it is because we want a smooth
+     data flow using nl_next_point.  It's the easiest way to keep from
+     using nl_set_current_point I could think of.  JGG
+     */
+    
+    for (count = 1; status >= 0 AND NOT (status & NL_EOL); count = 0)
+        {
+        /* load up 100 rows at a time */
+        for (; count < 100; count++)
+            {
+            Value_List[0] = (CHAR *)uwi[count].arr;
+            status = nl_next_point (nlist, ndim, Dim_List, Value_List);
+            if (status >= 0 AND NOT (status & NL_EOL))
+                {
+                V_SETLEN (uwi[count]);
+                }
+            else
+                {
+                break;
+                }
+            }
+        EXEC SQL FOR : count EXECUTE S1 USING : uwi;
+        }
+    EXEC SQL COMMIT WORK;
+    
+    return SUCCESS;
+    }
+/* END:     */

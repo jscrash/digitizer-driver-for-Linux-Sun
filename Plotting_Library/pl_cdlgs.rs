@@ -1,0 +1,22 @@
+*T CDLG 
+,1
+*N PL_DIALOG
+*S PR 1 PU 0 
+100 100 185 368
+Plot
+3 
+
+*I PL_PROCEED 
+BtnItem Enabled
+49 31 80 110 
+PROCEED
+
+*I PL_CANCEL 
+BtnItem Enabled
+49 142 80 222
+CANCEL
+
+*I PL_PLOT_SIZE 
+StatText Enabled
+10 20 42 265
+<Message>

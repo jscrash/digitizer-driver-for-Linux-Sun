@@ -1,0 +1,189 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element FI_CNFG_AN.PC*/
+/* *4    14-AUG-1990 13:13:10 VINCE "(SPR 5644) Header Standardization"*/
+/* *3    23-FEB-1990 10:19:29 GILLESPIE "(SPR 1) RELEASE CURSORS USING ORACLE OPTIONS"*/
+/* *2    26-JUN-1989 10:43:27 GILLESPIE "(SPR 20) Fix castings"*/
+/* *1    19-JUN-1989 12:31:42 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element FI_CNFG_AN.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_ho.h"
+#include "esi_oracle.h"
+#include "esi_tc.h"
+#include "esi_qs.h"
+#include "esi_am.h"
+#include "esi_am_stat.h"
+#include "esi_mg.h"
+#include "esi_fi_msg.h"
+#include "esi_fi_err.h"
+#include "esi_conf_ws.h"
+EXEC ORACLE OPTION (RELEASE_CURSOR = YES);
+EXEC ORACLE OPTION (HOLD_CURSOR = NO);
+
+/* Function Description -----------------------------------------------------
+Description:
+    FINDER_CONFIG_ANALYST is part of the Finder configuration process.
+    Each analyst who uses Finder has certain "attributes" which are
+    associated with who the analyst is, rather than what terminal he is
+    using, or what graphics he needs. Such attributes are:
+
+         - the project he works with
+         - whether or not he is a programmer
+         - his level of expertise, or experience
+
+    These attributes may be stored for each analyst in the database file
+    "analyst_configuration". There is a record in this file for each
+    analyst who uses the Finder system. The key to each record in the
+    file is the user's login name.
+
+    It is a system management function, outside the scope of the analyst
+    configuration process, to set the attributes for an analyst to other
+    than the default settings.
+
+    In addition to the attributes for each analyst, the date and time
+    that the analyst ran the Finder system is recorded.
+
+    If any of the attributes specified for the analyst in the file
+    "analyst_configuration" are overridden by command line parameters,
+    the command line parameters take precedence.
+
+Prototype:
+    publicdef INT finder_config_analyst();
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+    
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT finder_config_analyst () 
+#else
+publicdef INT finder_config_analyst ()
+#endif
+    {
+    INT status;                     /* Completion status */
+    CHAR text[100];                 /* Messages */
+    INT number_of_projects;         /* Number of current projects */
+    PROJECT_NAME project_name;      /* Configured project name */
+    INT len;                        /* length of configured name */
+    CONFIGURATION_WORKSPACE *c;     /* Pointer to CONFIGURATION workspace */
+    CONFIGURATION_WORKSPACE c4;     /* Only needed to support version 4 */
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    
+    VARCHAR project[32];            /* Current project */
+    VARCHAR test_menu[2];           /* Programmer flag, TRUE if programmer */
+    int *experience_level;
+    
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ********************************************************************** */
+    
+    /*   Assume success. */
+    
+    status = SUCCESS;
+    
+    /*   Access CONFIGURATION global workspace. */
+    
+    if (am_static ()->initialized)
+        am_open_workspace ("CONFIGURATION", AM_GLOBAL, (VOIDPTR *)(VOIDPTR *) & c);
+    else
+        {
+        tc_zeroes (&c4, sizeof(CONFIGURATION_WORKSPACE));
+        c = &c4;
+        }
+    /*   Get user's login name, and place in
+         CONFIGURATION global workspace. */
+    
+    strcpy (c->user_name, ho_user_name (NULL));
+    
+    /*   Set default programmer flag to "not
+         a programmer". */
+    
+    experience_level = &c->experience_level;
+    
+    EXEC SQL SELECT PROJECT, EXPERIENCE_LEVEL, TEST INTO : project,
+        : experience_level,
+        : test_menu FROM ESI.ANALYST_CONFIGURATION WHERE ACCOUNT_NAME = USER;
+    
+    if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+        {
+        /*   If there is no record for this analyst,
+             disallow use. */
+        
+        am_message (AM_STATUS, mg_message (FI_ILLEGAL_USER));
+        status = FAIL;
+        }
+    else
+        {
+        V_SETZERO (project);
+        V_SETZERO (test_menu);
+        status = SUCCESS;
+        
+        /*   Record date/time stamp for analyst's
+             use of the system. */
+        
+        EXEC SQL UPDATE ESI.ANALYST_CONFIGURATION SET DATE_LAST_RUN =
+                                                                      SYSDATE WHERE 
+                                                                      ACCOUNT_NAME =
+                                                                      USER;
+        EXEC SQL COMMIT WORK;
+        
+        }
+    /*   Set programmer flag, as indicated in the
+         configuration file, unless it was
+         overridden already (via command line
+         argument). */
+    
+    if (status EQUALS SUCCESS)
+        {
+        if (!c->test)
+            {
+            if (test_menu.arr[0] == 'Y')
+                c->test = TRUE;
+            else
+                c->test = FALSE;
+            qs_set_i (QS_USER_SKILL, c->test);
+            }
+        /*   Set project, as indicated in the
+             configuration file, unless it was
+             overridden already (via command line
+             argument). */
+        
+        qs_inq_c (QS_PROJECT_NAME, project_name, &len);
+        if (len EQUALS 0)
+            qs_set_c (QS_PROJECT_NAME, (char *)project.arr, project.len);
+        }
+    return status;
+    }
+/* END:     */

@@ -1,0 +1,160 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element XSZ_ADD_REC.PC*/
+/* *2    17-AUG-1990 22:32:54 VINCE "(SPR 5644) Code Cleanup"*/
+/* *1    19-JUN-1989 12:42:16 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element XSZ_ADD_REC.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#ifndef ESI_GL_DEFS_H
+
+#include "esi_gl_defs.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_XS_DEFS_H
+
+#include "esi_xs_defs.h"
+
+#endif
+
+#ifndef ESI_HO_H
+
+#include "esi_ho.h"
+
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+    A module of routines of Cross Section. This module includes
+    all routines which perform function on database. 
+
+    This module will access one table in data base, <AREA>.XS_VERB_KEYWORDS.
+    Adds a row of record to the table named <PROJECT>.CROSS_SECTION_LAYOUTS
+        
+Prototype:
+    publicdef INT xsz_add_record(CHAR layoutName[], CHAR verbName[], CHAR sentence[]);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) layoutName  -(CHAR []) The name of layout.
+    (I) verbName    -(CHAR []) The name of verb.
+    (I) sentence    -(CHAR []) The requested storing sentence.
+ 
+Return Value/Status:
+    SUCCESS - Successful completion.
+    SQL ERROR CODES
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT xsz_add_record (CHAR layoutName[], CHAR verbName[], CHAR sentence[])
+#else
+publicdef INT xsz_add_record (layoutName, verbName, sentence)
+CHAR layoutName[];
+CHAR verbName[];
+CHAR sentence[];
+#endif
+    {
+    INT status = SUCCESS;           /*   result status.                       */
+    INT re_build = FALSE;           /*   flag of rebuilding the new cursor.   */
+    /*------------------------------------*/
+    /* name of table opened for declaring */
+    /* cursor                             */
+    /*------------------------------------*/
+    static CHAR openTableName[STMAX];
+    
+    CHAR tableName[STMAX];
+    CHAR userName[32];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR select[1024];
+    char *name;
+    char *verb;
+    char *content;
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ************************************************************************* */
+    
+    /* inquire the project name.         */
+    
+    qs_inq_c (QS_PROJECT_NAME, tableName, (INT *)0);
+    strcat (tableName, XS_PARAMS_TABLE);
+    
+    /* if the project name is not same,  */
+    /* re-build the sql statement.       */
+    
+    if (strcmp (openTableName, tableName))
+        {
+        re_build = TRUE;
+        strcpy (openTableName, tableName);
+        }
+    /* set the inserted value.      */
+    
+    name = layoutName;
+    verb = verbName;
+    content = sentence;
+    /* if it is necessary, re-build the*/
+    /* SQL statement.                  */
+    
+    EXEC SQL WHENEVER SQLERROR GOTO errrpt;
+    
+    if (re_build)
+        {
+        select.len = sprintf ((char *)select.arr, 
+"INSERT INTO %s \
+                              \(SOURCE, LAYOUT_NAME, VERB, KEY_PARM\)\
+         VALUES \(user, :name, :verb, :content \)"
+                , tableName);
+        
+        EXEC SQL PREPARE S1 FROM : select;
+        }
+    EXEC SQL EXECUTE S1 USING : name,  : verb,  : content;
+    
+    /* if succeed, commit the insertion,  */
+    /* otherwise, roll back the operation */
+    
+    EXEC SQL COMMIT WORK;
+    return status;
+    
+errrpt:
+    status = sqlca.sqlcode;
+    EXEC SQL ROLLBACK WORK;
+    return status;
+    }
+/* END:     */

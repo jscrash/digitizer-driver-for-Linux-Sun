@@ -1,0 +1,120 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LG_GET_PRIV.PC */
+/* *6    13-NOV-1989 23:08:24 GILLESPIE "(SPR 1) Fix grants view for Version 6 (sum de rows -- grrrrh)" */
+/* *5    17-OCT-1989 10:11:23 GORDON "(SPR 999) change decode to allow 'A' in sql statement" */
+/* *4    16-OCT-1989 15:20:58 GORDON "(SPR 999) use ALL_TAB_GRANTS_RECD, not USER_TAB_GRANTS_RECD" */
+/* *3    21-SEP-1989 09:04:10 GILLESPIE "(SPR 100) Gulf mods" */
+/* *2    20-SEP-1989 15:46:51 GORDON "(SPR 200) Renamed version" */
+/* *1    20-SEP-1989 15:45:58 GORDON "renamed version" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LG_GET_PRIV.PC */
+/*
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+#include "esi_lg_edit.h"
+#include "esi_oracle.h"
+#include "esi_qs.h"
+
+/* ************************************************************************** */
+/*                                                                            */
+/*   ROUTINE:   LG_GET_PRIVILEGES                                             */
+/*                                                                            */
+/*   FUNCTION:  To examine the SYSTABAUTH table and find out if the user has  */
+/*              authorization to perform update, delete, select, and insert   */
+/*              operations on WELL_LOG_CURVE_HDR table.  The priviledges for  */
+/*              each are returned as integer flags (1 = YES, 0 = NO).         */
+/*								              */
+/* ************************************************************************** */
+
+publicdef INT lg_get_privileges( plg )
+
+LOG_EDIT_STRUCT  *plg;
+{
+ INT        status;
+ PROJECT_NAME current_project;       /* Project name                */
+
+/******************************************************************************/
+   EXEC SQL BEGIN DECLARE SECTION;
+
+    VARCHAR select_phrase[512];        /* Declare ORACLE retrieval arrays */
+    int ora_delete; 
+    int ora_update;
+    int ora_select;
+    int ora_insert;
+
+   EXEC SQL END DECLARE SECTION;
+/******************************************************************************/
+
+
+                                       /* Get the project name, user account  */
+
+   qs_inq_c( QS_PROJECT_NAME, current_project, (INT *)0);
+
+
+                                       /* Set ORACLE error jump conditions    */
+   EXEC SQL WHENEVER SQLERROR GOTO errrpt;
+   EXEC SQL WHENEVER NOT FOUND GOTO errnfd;
+
+
+			     /*	Set up the SELECT phrase		    */
+
+			     /*	Oracle V6 returns MULTIPLE rows in the
+			     	authorization tables - we want only the
+			     	positive hits, so we sum up the values	    */
+
+
+   select_phrase.len =  sprintf((char *)select_phrase.arr,
+    "SELECT \
+SUM(DECODE(DELETE_PRIV,'Y',1,'A',1,0)),\
+SUM(DECODE(UPDATE_PRIV,'Y',1,'A',1,0)),\
+SUM(DECODE(SELECT_PRIV,'Y',1,'A',1,0)),\
+SUM(DECODE(INSERT_PRIV,'Y',1,'A',1,0)) \
+FROM ALL_TAB_GRANTS_RECD \
+WHERE TABLE_NAME = 'WELL_LOG_CURVE_HDR' AND OWNER = '%s'",
+            current_project);
+
+                                       /* Prepare cursor and fetch the mother */
+    EXEC SQL PREPARE S1 FROM :select_phrase;
+
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+
+    EXEC SQL OPEN C1;
+
+    EXEC SQL FETCH C1 INTO :ora_delete, :ora_update, :ora_select, :ora_insert;
+
+    plg->delete_priv = ora_delete > 0;
+    plg->update_priv = ora_update > 0;
+    plg->select_priv = ora_select > 0;
+    plg->insert_priv = ora_insert > 0;
+
+    status = SUCCESS;
+    goto way_out;
+
+                                   /* If an error return the ORACLE error code*/
+errrpt:
+    status = OR_STATUS;
+    goto way_out;
+
+errnfd:
+    status = SUCCESS;
+
+way_out:
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL CLOSE C1;
+    return status;
+}

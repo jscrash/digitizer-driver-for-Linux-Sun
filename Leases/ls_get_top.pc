@@ -1,0 +1,340 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LS_GET_TOP.PC*/
+/*  4     9-MAR-1992 17:08:28 LOEBL "(SPR 4471) Alter Sql for efficiency selecting well_tops"*/
+/* *3    17-JAN-1990 22:04:26 GILLESPIE "(SPR 6001) Changes for new well struct stuff"*/
+/* *2    14-SEP-1989 16:17:52 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *1    19-JUN-1989 12:33:55 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element LS_GET_TOP.PC*/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Finder Graphics Systems, Inc.
+			201 Tamal Vista Blvd
+			Corte Madera, CA  USA 94925
+			(415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_gl_defs.h"
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_WE_WELLS_H
+#include "esi_we_wells.h"
+#endif
+#ifndef ESI_LS_ERR_H
+#include "esi_ls_err.h"
+#endif
+#ifndef ESI_LS_MSG_H
+#include "esi_ls_msg.h"
+#endif
+
+/* EXEC ORACLE OPTION (REBIND = NO); */
+
+EXEC SQL BEGIN DECLARE SECTION;
+				  /*   WELL_TOPS table.                    */
+    static VARCHAR uwi_column[21];
+    static VARCHAR formcode_column[31];
+    static VARCHAR source_column_array[50][31];
+    static VARCHAR source_column[31];
+    static double md_column[50];
+    static VARCHAR best_pick_column[50][1];
+EXEC SQL END DECLARE SECTION;
+
+static BOOL first_time = TRUE;
+
+/*  *************************************************************************
+
+    ROUTINE:  LS_GET_TOP
+
+    DESCRIPTION
+	This is the method of retrieving a top from the tops database tables
+     	sccording to pre-defined search rules.
+        
+    STATUS CODES
+        LS_PRIMARY_SOURCE_FOUND.
+	LS_ALTERNATE_SOURCE_FOUND.
+	LS_SOURCES_NOT_FOUND.
+	LS_TOP_NOT_FOUND.
+        SQL ERROR CODES.
+	
+    INPUT
+	UWI   =(UWI ) Unique Well Identifier.
+	TOP   =(CHAR *)The name of Top.
+
+    OUTPUT
+	PTOP  =(TOP_STRUCT *)A pointer points to TOP_STRUCT.
+	STATUS CODES.
+
+    Author: James Chang
+    ********************************************************************** */
+publicdef INT ls_get_top(uwi, top, ptop)
+    /************************************************************************/
+UWI uwi;
+CHAR top[];
+TOP_STRUCT *ptop;
+{
+    INT status = SUCCESS;         /*   result status.                      */
+    INT i = 0, found = FALSE;
+    INT j = 0, k = 0, target = 0;
+    INT total_tops = 0;           /*   the total items retrieved from      */
+    PROJECT_NAME current_project;
+    CHAR **top_source_list;       /*   the list retrieved from WELL_TOPS.  */
+    DOUBLE *top_md_list;	  /*   the MD list retrieved from ...      */
+    CHAR *top_best_pick_list;     /*   the best_pick list retrievd from ...*/
+    CHAR **temp_top_source_list;  /*   the list retrieved from WELL_TOPS.  */
+    DOUBLE *temp_top_md_list;	  /*   the MD list retrieved from ...      */
+    CHAR *temp_top_best_pick_list;/*   the best_pick list retrievd from ...*/
+    CHAR **source_list;		  /*   the list retrieved from WELL_SOURCE_*/
+				  /*   SEARCH_RULE.			   */
+ANALYST_NAME source;    
+  
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR select2[129];
+EXEC SQL END DECLARE SECTION;
+
+/* ************************************************************************* */
+
+	if (first_time)
+	    {
+					/* inquire the current project.	     */
+	    qs_inq_c(QS_PROJECT_NAME, current_project, (INT *) 0);
+	    EXEC SQL WHENEVER SQLERROR GOTO errrpt;
+
+	    select2.len = sprintf((char *)select2.arr,
+"SELECT SOURCE, MD, NVL(PICK_REF,' ') \
+FROM %s.WELL_TOPS WHERE UWI = :uwi_column AND \
+FORM_CODE = :formcode_column", current_project);
+
+	    EXEC SQL PREPARE S2 FROM :select2;
+	    EXEC SQL DECLARE C2 CURSOR FOR S2;
+
+	    EXEC SQL DECLARE C3 CURSOR FOR
+		SELECT SOURCE
+		FROM WELL_SOURCE_SEARCH_LIST
+		ORDER BY SEQ;
+
+	    first_time = FALSE;
+	    }
+					/* construct the select phrase.	     */
+	V_FROMC(uwi_column, uwi);
+        V_FROMC(formcode_column, top);
+					/* create SOURCE, MD, BEST_PICK tables*/
+
+					/* select and fetch requested tops.   */
+
+	EXEC SQL OPEN C2 USING :uwi_column, :formcode_column;
+
+					/* fetch row from the cursor.	*/
+        for( i = 0; i < 50; i++)
+		V_CLEAR(source_column_array[i]);
+        total_tops = 0;
+
+					/* fetch the array.          */
+        EXEC SQL WHENEVER NOT FOUND GOTO endloop;
+        while ( TRUE )
+        {	
+        	EXEC SQL FETCH C2 INTO :source_column_array, :md_column, 
+                                       :best_pick_column;
+                total_tops = OR_ROWCOUNT;
+		temp_top_md_list =(DOUBLE *)tc_alloc ( sizeof (DOUBLE) 
+						* (total_tops + 1));
+		temp_top_best_pick_list =(CHAR *)tc_alloc( sizeof (CHAR)
+						* (total_tops + 1));
+		temp_top_source_list =(CHAR **)tc_zalloc( sizeof (CHAR *)
+						* (total_tops +1));
+
+                if( total_tops EQUALS 50 )
+                {
+		     top_source_list = temp_top_source_list;
+                     top_md_list = temp_top_md_list;
+                     top_best_pick_list =temp_top_best_pick_list;
+
+                     for( i = 0; i < 50; i++)
+                     {
+        	          top_source_list[i] = 
+			     (CHAR *)tc_alloc(source_column_array[i].len + 1);
+			  V_FROMV(top_source_list[i], source_column_array[i]);
+
+			  top_md_list[i] = md_column[i];
+			  top_best_pick_list[i] = best_pick_column[i].arr[0];
+                     } 
+                }
+                else
+                {
+                     for( i = 0; i < total_tops - 50; i++)
+                     {
+			  temp_top_source_list[i] = top_source_list[i];
+                          temp_top_md_list[i] = top_md_list[i];
+                          temp_top_best_pick_list[i] = top_best_pick_list[i];
+                     }
+
+                     tc_free( (BYTE *)top_source_list );
+		     tc_free( (BYTE *)top_md_list);
+		     tc_free( (BYTE *)top_best_pick_list );                   
+		     top_source_list = temp_top_source_list;
+                     top_md_list = temp_top_md_list;
+                     top_best_pick_list =temp_top_best_pick_list;
+
+                     for( i = total_tops - 50; i < total_tops; i++)
+                     {
+        	          top_source_list[i] = 
+			     (CHAR *)tc_alloc(source_column_array[i].len + 1);
+			  V_FROMV(top_source_list[i], source_column_array[i]);
+
+			  top_md_list[i] = md_column[i];
+			  top_best_pick_list[i] = best_pick_column[i].arr[0];
+                     } 
+                }
+	}
+
+endloop:
+        if( (OR_ROWCOUNT EQUALS 0) AND (total_tops EQUALS 0) )
+        {
+		return LS_TOP_NOT_FOUND;
+        }
+	if( OR_ROWCOUNT - total_tops > 0 )
+        {
+		temp_top_md_list =(DOUBLE *)tc_alloc ( sizeof (DOUBLE) 
+					* (OR_ROWCOUNT + 1));
+		temp_top_best_pick_list =(CHAR *)tc_alloc( sizeof (CHAR)
+						* (OR_ROWCOUNT + 1));
+		temp_top_source_list =(CHAR **)tc_zalloc( sizeof (CHAR *)
+						* (OR_ROWCOUNT +1));
+                for( i = 0; i < total_tops ; i++)
+                {
+		     temp_top_source_list[i] = top_source_list[i];
+                     temp_top_md_list[i] = top_md_list[i];
+                     temp_top_best_pick_list[i] = top_best_pick_list[i];
+                }
+
+		if( total_tops > 0 )
+                {
+                     tc_free( (BYTE *)top_source_list );
+		     tc_free( (BYTE *)top_md_list);
+		     tc_free( (BYTE *)top_best_pick_list );                   
+                }
+		top_source_list = temp_top_source_list;
+                top_md_list = temp_top_md_list;
+                top_best_pick_list =temp_top_best_pick_list;
+
+                for( i = total_tops; i < OR_ROWCOUNT; i++)
+                {
+        	     top_source_list[i] = 
+	         (CHAR *)tc_alloc(source_column_array[i - total_tops].len + 1);
+		     V_FROMV(top_source_list[i], 
+				source_column_array[i - total_tops]);
+
+		     top_md_list[i] = md_column[i - total_tops ];
+		     top_best_pick_list[i] =
+				 best_pick_column[i - total_tops].arr[0];
+                } 
+        }
+        total_tops = OR_ROWCOUNT;
+					/* retrieve the source from WELL_ */
+					/* SOURCE_SEARCH_LIST.            */
+	EXEC SQL WHENEVER NOT FOUND GOTO ernfds;
+
+	EXEC SQL OPEN C3;
+
+					/* fetch row from the cursor.	*/
+
+	for(i = 0; ! found; i++)
+        {
+	    EXEC SQL FETCH C3 INTO :source_column;
+	    V_FROMV(source, source_column);
+	    for (j = 0;
+		 NOT found AND j < total_tops ;
+		 j++)
+	    {
+		if(! strcmp(source, top_source_list[j]) )
+		{
+			found = TRUE;
+				/* found the source, set the values */
+				/* to the TOP_STRUCT.		    */
+			target= j;
+			status = LS_PRIMARY_SOURCE_FOUND;
+		}
+		else if(! strcmp(source, "BEST SOURCE") )
+		{
+				/* checking all BEST_PICK values.    */
+		    for(k = 0; k < total_tops; k++)
+		    {
+			if( top_best_pick_list[k] != ' ')
+			{
+			    found = TRUE;
+			    target = k;
+			    status = LS_ALTERNATE_SOURCE_FOUND;
+			}
+		    }
+		}
+	    } 
+
+				    /* If found, fills TOP_STRUCT data.*/
+
+	    if(  found  )
+	    {
+		ptop -> Depth.md = top_md_list[target];
+		strcpy(ptop -> Marker.Code, top);
+		ptop -> Best_Pick = top_best_pick_list[target];
+		strcpy(ptop -> Source, top_source_list[target]);
+	    }
+	
+	}
+
+					/* free temperary lists.	*/
+        if( total_tops > 0 )
+        {
+            ts_tcp_free( top_source_list );
+	    tc_free( (BYTE *)top_best_pick_list );
+	    tc_free( (BYTE *)top_md_list );
+        }
+	return status;
+
+errrpt:
+	status = OR_STATUS;
+	return status;
+	
+ernfds:
+					/* free temperary lists.	*/
+	if( total_tops  > 0 )
+        {
+        ts_tcp_free( top_source_list );
+	tc_free( (BYTE *)top_best_pick_list );
+	tc_free( (BYTE *)top_md_list );
+        }
+	return LS_SOURCES_NOT_FOUND;
+}
+
+publicdef INT lsz_get_tops_term()
+/* Close the cursors associated with ls_get_top */
+{
+    if (NOT first_time)
+	{
+	EXEC SQL WHENEVER SQLERROR continue;
+	EXEC SQL CLOSE C2;
+	EXEC SQL CLOSE C3;
+
+	first_time = TRUE;
+	}
+
+    return SUCCESS;
+}	

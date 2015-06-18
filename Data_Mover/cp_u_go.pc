@@ -1,0 +1,124 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element CP_U_GO.PC */
+/*  4    13-FEB-1992 16:35:52 PURNA "(SPR 1347) removed ho_add_path" */
+/* *3     2-AUG-1991 17:30:27 PURNA "(SPR 0) culture data update" */
+/* *2     6-MAY-1991 16:41:31 PURNA "(SPR 0) init change" */
+/* *1     6-MAY-1991 16:36:14 PURNA "data mover function" */
+/* DEC/CMS REPLACEMENT HISTORY, Element CP_U_GO.PC */
+#ifndef ESI_GL_DEFS_H
+
+#include "esi_gl_defs.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_CP_H
+
+#include "esi_cp.h"
+
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#include "esi_ho.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+    update seismic line extends value in seis_line_hdr table
+
+Prototype:
+publicdef INT cp_upd_graphic_object(CHAR *nlist_file,CHAR *nlist_id,
+                               DOUBLE ll_x, DOUBLE ll_y,
+                               DOUBLE ur_x, DOUBLE ur_y);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+	CHAR *nlist_file (I) - nlist_file column in seis_line_hdr table
+	CHAR *nlist_id 	 (I) - SHOT_XY_ID column in SEIS_LINE_HDR table
+        DOUBLE ll_x      (I) - LOWER_LEFT_X
+	DOUBLE ll_y      (I) - LOWER_LEFT_Y
+        DOUBLE ur_x      (I) - UPPER_RIGHT_X
+	DOUBLE ur_y 	 (I) - UPPER_RIGHT_Y
+
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    OR_STATUS
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT cp_upd_graphic_object(INT  table_flag,CHAR *nlist_file,CHAR *nlist_id,
+                               DOUBLE ll_x, DOUBLE ll_y,
+                               DOUBLE ur_x, DOUBLE ur_y)
+#else
+publicdef INT cp_upd_graphic_object(table_flag,nlist_file,nlist_id,
+                                 ll_x, ll_y, ur_x,ur_y)
+INT table_flag;
+CHAR *nlist_file;
+CHAR *nlist_id;
+DOUBLE ll_x;
+DOUBLE ll_y;
+DOUBLE ur_x;
+DOUBLE ur_y;
+#endif
+    {
+PROJECT_NAME project_name;
+CHAR buff[200];
+PATHNAME full_filename;
+INT status;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[500];
+    EXEC SQL END DECLARE SECTION;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO orerror;
+    
+    qs_inq_c(QS_PROJECT_NAME,project_name,(INT *)0);
+
+    switch(table_flag)
+	{
+	case CP_GRAPHIC_OBJECT_EXTENDS :
+	    status = ho_add_path("ESI$CULTURE",nlist_file,MAXPATHLENGTH,
+				full_filename);
+	    sprintf(buff,"%s.LINES B WHERE A.ITEM_ID = B.LINE_ID AND \
+NLIST_FILE = '%s' AND NLIST_ID = '%s'",
+	    project_name,full_filename,nlist_id);
+	    break;
+	case CP_FAULT_TRACE_EXTENDS :
+	    sprintf(buff,"%s.SEIS_FAULT_TRACE B WHERE A.ITEM_ID = B.SEQ AND \
+DIGITAL_REF_VOLUME = '%s' AND DIGITAL_REF = '%s'",
+	    project_name,nlist_file,nlist_id);
+	    break;
+	}	
+    sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+	"UPDATE %s.GRAPHIC_OBJECTS \
+	SET LOWER_LEFT_X = %lf, \
+	    LOWER_LEFT_Y = %lf, \
+	    UPPER_RIGHT_X = %lf, \
+	    UPPER_RIGHT_Y = %lf \
+	WHERE OBJECT_ID IN \
+	(SELECT OBJECT_ID FROM %s.GRAPHIC_OBJECT_CORRELATIONS A, %s)",
+	project_name,
+	ll_x,ll_y,ur_x,ur_y,
+	project_name,buff);
+
+    EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+
+    EXEC SQL COMMIT WORK;
+    
+    return SUCCESS;
+orerror:
+    return OR_STATUS;
+    }
+/* END:     */

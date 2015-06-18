@@ -1,0 +1,125 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LM_RTR_COL_ENT.PC */
+/* *4    11-SEP-1991 13:41:11 PURNA "(SPR 0) add comments" */
+/* *3     6-AUG-1991 16:25:18 PURNA "(SPR 3592) replaced retrieving from select_phrases to lease_attributes" */
+/* *2    18-MAR-1991 18:09:16 PURNA "(SPR 0) Lease Mapping Init Checkin" */
+/* *1    18-MAR-1991 17:56:27 PURNA "Lease Mapping" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LM_RTR_COL_ENT.PC */
+#include "esi_lm.h"
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_GL_VCHAR_H
+#include "esi_gl_vchar.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+    Routine to retrieve the column entry given 
+
+Prototype:
+    publicdef INT lm_retrieve_column_entry(CHAR *column_name,LM_LEASE_ID lease_id,
+					CHAR *column_entry)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) column_name	- (CHAR *)
+    (I) lease_id	- (LM_LEASE_ID)
+    (O) column_entry	- (CHAR *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lm_retrieve_column_entry(CHAR *column_name,LM_LEASE_ID lease_id,
+					CHAR *column_entry)
+#else
+publicdef INT lm_retrieve_column_entry(column_name,lease_id,column_entry)
+CHAR *column_name;
+LM_LEASE_ID lease_id; 
+CHAR *column_entry; 
+#endif
+{
+    PROJECT_NAME project_name;
+    BOOL found = FALSE;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[1024];
+	static VARCHAR tname[32];
+	static VARCHAR phrase[244];
+	static VARCHAR col_entry[244];
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO :orcerr;
+
+    qs_inq_c(QS_PROJECT_NAME,project_name,(INT *)0); 
+
+	/* get the table name and the column name 
+	   for creating the select phrase to retrieve
+	   the column entry */
+
+    sqlstmt.len = sprintf((CHAR *)sqlstmt.arr,
+    "SELECT DISTINCT LEASE_TABLE,LEASE_DATA_ITEM \
+FROM %s.LEASE_ATTRIBUTES WHERE ATTRIBUTE_NAME = '%s'",
+    project_name,column_name);
+    EXEC SQL PREPARE S0 FROM :sqlstmt;
+    EXEC SQL DECLARE C0 CURSOR FOR S0;
+    EXEC SQL OPEN C0;
+    EXEC SQL FETCH C0 INTO :tname,:phrase;
+    EXEC SQL CLOSE C0;
+
+	/* build the select phrase  */
+    V_SETZERO(phrase); V_SETZERO(tname); 
+    V_CLEAR(col_entry);
+    sqlstmt.len = sprintf((CHAR *)sqlstmt.arr,
+    "SELECT %s FROM %s.%s WHERE LEASE_ID = '%s'",
+    (char *)phrase.arr,project_name,(char *)tname.arr,lease_id);
+
+    EXEC SQL PREPARE S1 FROM :sqlstmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1;
+  
+        /* loop to all possible entry.
+	   (If there are more than one possibility,
+	    take the last one). */
+    FOREVER 
+	{
+        EXEC SQL FETCH C1 INTO :col_entry;
+
+	    /* If the entry can't be found
+	       until we run out of all the possibility,
+	       return '--' */
+	if(OR_STATUS EQUALS OR_EOF) 
+	    {
+	    if(!found) strcpy(column_entry,"--");
+	    break;
+	    }
+	if(!found) found = TRUE;
+	V_SETZERO(col_entry);
+	if(col_entry.len EQUALS 0)
+	    strcpy(column_entry,"--");
+	else
+	    V_FROMV(column_entry,col_entry);
+	}
+	
+    return SUCCESS;
+orcerr:
+    return OR_STATUS;
+}

@@ -1,0 +1,50 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LYNX_CLEAR.SQL */
+/* *1    13-NOV-1990 11:25:05 VINCE "initial release" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LYNX_CLEAR.SQL */
+set echo on
+delete from LYNX_ARCS;                                                          
+commit;
+delete from LYNX_ARC_GC;                                                        
+commit;
+delete from LYNX_AREA_BUNDLE;                                                   
+commit;
+delete from LYNX_CULTURE;                                                       
+commit;
+delete from LYNX_CULTURE_ATTRIBUTES;                                            
+commit;
+delete from LYNX_DATA_TYPES;                                                    
+commit;
+delete from LYNX_DTYPE_ARC_GC;                                                  
+commit;
+delete from LYNX_DTYPE_NODE_GC;                                                 
+commit;
+delete from LYNX_DTYPE_REGION_GC;                                               
+commit;
+delete from LYNX_DTYPE_TEXT_GC;                                                 
+commit;
+delete from LYNX_FEATURE;                                                       
+commit;
+delete from LYNX_IFV;                                                           
+commit;
+delete from LYNX_LINE_BUNDLE;                                                   
+commit;
+delete from LYNX_LRFR;                                                          
+commit;
+delete from LYNX_NODE_GC;                                                       
+commit;
+delete from LYNX_OBJECTS;                                                       
+commit;
+delete from LYNX_REGION_GC;                                                     
+commit;
+delete from LYNX_SYMBOL_BUNDLE;                                                 
+commit;
+delete from LYNX_TEXT;                                                          
+commit;
+delete from LYNX_TEXT_BUNDLE;                                                   
+commit;
+delete from LYNX_TEXT_GC;                                                       
+commit;
+delete from sections;
+commit;
+delete from nodes;
+commit;

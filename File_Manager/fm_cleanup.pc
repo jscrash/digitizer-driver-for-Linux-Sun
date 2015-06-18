@@ -1,0 +1,390 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element FM_CLEANUP.PC */
+/* *6     7-JUN-1991 17:01:42 MING "(SPR 0) cleanup plot file, dls nts nlist" */
+/* *5    14-MAR-1991 16:11:45 MING "(SPR -1) delete the OS file in update option" */
+/* *4    17-DEC-1990 12:33:08 MING "(SPR 5753) bug fix" */
+/* *3    18-DEC-1989 16:45:59 PURNA "(SPR 5069) export facility mods" */
+/* *2    13-NOV-1989 16:09:31 PURNA "(SPR 30) fix casting" */
+/* *1    10-NOV-1989 11:27:20 GILLESPIE "Restore from Gulf" */
+/* DEC/CMS REPLACEMENT HISTORY, Element FM_CLEANUP.PC */
+#ifdef RCSID
+static char *RCSid = 
+   "$Header: /j/finder/main/RCS/fm_cleanup.pc,v 1.1 2008/02/09 09:23:35 julian Exp julian $ fm_cleanup.pc ";
+#endif 
+
+#ifdef RCSID
+static char *RCSid = 
+   "$Header: /j/finder/main/RCS/fm_cleanup.pc,v 1.1 2008/02/09 09:23:35 julian Exp julian $ fm_cleanup.pc ";
+#endif 
+
+/* DEC/CMS REPLACEMENT HISTORY, Element FM_CLEANUP.PC*/
+/* *3     8-APR-1989 01:19:58 GILLESPIE "Add copyright notice"*/
+/* *2    31-MAR-1989 09:59:57 CONROY "(SPR 0) Initial checkin"*/
+/* *1    31-MAR-1989 09:48:41 CONROY "Stand alone program to delete obsolete finder files"*/
+/* DEC/CMS REPLACEMENT HISTORY, Element FM_CLEANUP.PC*/
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+
+
+/* * FILE DESCRIPTION * */
+/* -------------------- */
+/* ************************************************************************
+
+   NAME: FM_CLEANUP.PC
+
+   AUTHOR: JOHN CONROY
+
+   DESCRIPTION: Stand alone program to delete those disk files flagged
+		by the file management system as needing to be deleted.
+		Then either update the file management data record to
+		show that the file has been deleted or delete the 
+		file management records for the file as well.
+
+		There are two arguments passed into this program.
+		The first is the FINDER account/password to send to ORACLE.
+		This must be a FINDER system account.  The second is the 
+		delete records flag (if not supplied it will be defaulted
+		to FALSE).
+
+		Currently this program is setup to correctly deal with
+		file_types SCATTER, GRID, CONTOUR, and PERSPECTIVE.
+		If and when more file_types are added, this program
+		may need to be modified in order to insure deletion
+		from the file_type specific table (eg GC_FILE_HDR).
+
+   ************************************************************************ */
+
+
+
+
+/* * INCLUDE FILES * */
+/* ----------------- */
+
+#include "esi_gl_defs.h"
+#include "esi_c_lib.h"
+#include "esi_fm_msg.h"
+#include "esi_fm_err.h"
+#include "esi_am.h"
+#include "esi_mg.h"
+#include "esi_oracle.h"
+#include "esi_qs.h"
+#include "esi_ho.h"
+
+
+/* * FUNCTION TITLE * */
+/* ------------------ */
+
+main(argc,argv)
+
+/* * ARGUEMENT LIST * */
+/* ------------------ */
+
+INT argc;
+CHAR **argv;
+
+
+/* * VARIABLE LIST * */
+/* ----------------- */
+
+{
+INT status;
+CHAR priv[4];
+CHAR text[STMAX];
+BOOL delete_rec = FALSE;
+BOOL deleted;
+CHAR *pdot;
+
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR project[55];
+    VARCHAR sqlstmt[512];
+    long file_id;
+    VARCHAR os_path[241];
+    VARCHAR fpath[84];
+    VARCHAR ffile[84];
+    long file_type;
+    VARCHAR tname[31];
+EXEC SQL END DECLARE SECTION;
+
+
+/***************************************************************************/
+
+
+/* * TRY TO LOGON TO ORACLE * */
+/* -------------------------- */
+
+if (argc < 2  OR  or_login(argc,argv) !=SUCCESS)
+    {
+    printf ("Usage: %s <oracle_login> <Y/N>\n",argv[0]);
+    exit(EXIT_SUCCESS);
+    }
+
+
+/* * SET DELETE_REC FLAG * */
+/* ----------------------- */
+
+if (argc > 2  AND
+	(strncmp(argv[2],"y",1) EQUALS 0  OR  strncmp(argv[2],"Y",1) EQUALS 0) )
+   {
+   delete_rec = TRUE;
+   }
+
+printf ("\n\nFinder Graphics System Inc. FM Cleanup.\n");
+if (delete_rec)
+  {
+  printf ("* Delete option turned on.\n\n\n");
+  }
+else
+  {
+  printf ("* Update option turned on.\n\n\n");
+  }  
+
+/* * PREPARE AND OPEN CURSOR FOR GET PROJECT CURSOR * */
+/* -------------------------------------------------- */
+
+sqlstmt.len = sprintf((CHAR *)sqlstmt.arr,
+    "SELECT DISTINCT ACCOUNT_NAME FROM  ESI.FINDER_ACCOUNTS \
+    WHERE TYPE = 'PROJECT' AND ACCOUNT_NAME != 'DEFAULT_PROJECT'");
+
+EXEC SQL PREPARE S1 FROM :sqlstmt;
+EXEC SQL DECLARE GET_PROJ CURSOR FOR S1;
+EXEC SQL OPEN GET_PROJ;
+if (OR_STATUS != SUCCESS)
+    {
+    sprintf(text,"CURSOR GET_PROJ ERR: %s",mg_message(OR_STATUS));
+    am_message(AM_STATUS,text);
+    exit(EXIT_FAILURE);
+    }
+
+
+/* * PREPARE CURSOR FOR TABLE ACCESS CHECKS * */
+/* ------------------------------------------ */
+
+if (delete_rec)
+    {
+    strcpy(priv,"DELETE_PRIV");
+    }
+else
+    {
+    strcpy(priv,"UPDATE_PRIV");
+    }
+sqlstmt.len = sprintf((CHAR *)sqlstmt.arr,
+    "SELECT ROWNUM FROM TABLE_PRIVILEGES WHERE OWNER = :V1 AND TABLE_NAME = :V2 AND \
+    (GRANTEE = USER OR GRANTEE = 'PUBLIC') AND %s IS NOT NULL",priv);
+EXEC SQL PREPARE S2 FROM :sqlstmt;
+EXEC SQL DECLARE CHECK_PRIV CURSOR FOR S2;
+if (OR_STATUS != SUCCESS)
+    {
+    sprintf(text,"CURSOR CHECK_PRIV ERR: %s",mg_message(OR_STATUS));
+    am_message(AM_STATUS,text);
+    exit(EXIT_FAILURE);
+    }
+
+
+/* * LOOP THRU PROJECTS AND DELETE OBSOLETE FILES * */
+/* ------------------------------------------------ */
+
+FOREVER
+    {
+    EXEC SQL FETCH GET_PROJ INTO :project;
+    if (OR_STATUS != SUCCESS)
+	{
+	if (OR_STATUS != OR_EOF)
+	    {
+	    sprintf(text,"FETCH GET_PROJ ERR: %s",mg_message(OR_STATUS));
+	    am_message(AM_STATUS,text);
+	    }
+	break;
+	}
+
+    V_SETZERO(project);
+    sprintf(text,"%s %s",mg_message(FM_PROCESSING_PROJECT),project.arr);
+    am_message(AM_STATUS,text);
+   
+				/* CONFIGURE PROJECT */
+
+    qs_set_c(QS_PROJECT_NAME,(CHAR *)project.arr,0);
+    if ( (status = finder_config_project(FALSE)) != SUCCESS)
+	{
+	am_message(AM_STATUS,mg_message(status));
+	continue;
+	}
+
+
+/* * DO TABLE ACCESS CHECKS * */
+/* -------------------------- */
+
+    V_FROMC(tname,"FM_HDR");
+    EXEC SQL OPEN CHECK_PRIV USING :project, :tname;
+    EXEC SQL FETCH CHECK_PRIV INTO :file_id;
+    if (OR_STATUS != SUCCESS)
+	{
+	sprintf(text,"\t.....FETCH CHECK_PRIV ERR (FM_HDR): %s",
+						    mg_message(OR_STATUS));
+	am_message(AM_STATUS,text);
+	continue;
+	}
+    if (delete_rec)
+	{
+	V_FROMC(tname,"FM_HISTORY");
+	EXEC SQL OPEN CHECK_PRIV USING :project, :tname;
+	EXEC SQL FETCH CHECK_PRIV INTO :file_id;
+	if (OR_STATUS != SUCCESS)
+	    {
+	    sprintf(text,"\t.....FETCH CHECK_PRIV ERR (FM_HISTORY): %s",
+							mg_message(OR_STATUS));
+	    am_message(AM_STATUS,text);
+	    continue;
+	    }
+
+	V_FROMC(tname,"GC_FILE_HDR");
+	EXEC SQL OPEN CHECK_PRIV USING :project, :tname;
+	EXEC SQL FETCH CHECK_PRIV INTO :file_id;
+	if (OR_STATUS != SUCCESS)
+	    {
+	    sprintf(text,"\t.....FETCH CHECK_PRIV ERR (GC_FILE_HDR): %s",
+						    mg_message(OR_STATUS));
+	    am_message(AM_STATUS,text);
+	    continue;
+	    }
+	}
+
+
+/* * ESTABLISH POST DELETE PROCESSING STATEMENTS * */
+/* ----------------------------------------------- */
+
+    if (NOT delete_rec)
+	{
+	sqlstmt.len = sprintf((CHAR *)sqlstmt.arr,
+	    "UPDATE %s.FM_HDR SET DELETE_FLAG = 'T' WHERE FILE_ID = :V1",
+	    project.arr);
+	EXEC SQL PREPARE FM_UPDATE FROM :sqlstmt;
+	}
+    else
+	{
+	sqlstmt.len = sprintf((CHAR *)sqlstmt.arr,
+	    "DELETE FROM %s.FM_HDR WHERE FILE_ID = :V1",project.arr);
+	EXEC SQL PREPARE FM_DELETE FROM :sqlstmt;
+
+	sqlstmt.len = sprintf((CHAR *)sqlstmt.arr,
+	    "DELETE FROM %s.FM_HISTORY WHERE FILE_ID = :V1",project.arr);
+	EXEC SQL PREPARE FM_HIST_DELETE FROM :sqlstmt;
+
+	sqlstmt.len = sprintf((CHAR *)sqlstmt.arr,
+	    "DELETE FROM %s.GC_FILE_HDR WHERE FILE_ID = :V1",project.arr);
+	EXEC SQL PREPARE GC_DELETE FROM :sqlstmt;
+	}
+
+
+/* * PREPARE AND OPEN GET_FILES CURSOR * */
+/* ------------------------------------- */
+
+    sqlstmt.len = sprintf((CHAR *)sqlstmt.arr,
+	"SELECT FILE_ID,FINDER_PATHNAME,FINDER_FILENAME, \
+	DECODE(FILE_TYPE,'SCATTER',1,'GRID',1,'CONTOUR',1,'PERSPECTIVE',1, \
+	      'PLOTFILE',2,'DLSCOORDS',2,'NTSCOORDS',2,0), \
+	OS_PATHNAME FROM  %s.FM_HDR \
+	WHERE DELETE_FLAG = 'T' OR EXPIRATION_DATE < SYSDATE",project.arr);
+
+    EXEC SQL PREPARE S3 FROM :sqlstmt;
+    EXEC SQL DECLARE GET_FILES CURSOR FOR S3;
+    EXEC SQL OPEN GET_FILES;
+    if (OR_STATUS != SUCCESS)
+	{
+	sprintf(text,"\t     .....CURSOR GET_FILES ERR: %s",mg_message(OR_STATUS));
+	am_message(AM_STATUS,text);
+	EXEC SQL CLOSE GET_FILES;
+	continue;
+	}
+
+
+/* * LOOP THROUGH ALL FILES TO DELETE FOR THIS PROJECT * */
+/* ----------------------------------------------------- */
+
+    FOREVER
+	{
+	EXEC SQL FETCH GET_FILES INTO :file_id, :fpath, :ffile, :file_type, :os_path;
+	if (OR_STATUS EQUALS SUCCESS)
+	    {
+	    V_SETZERO(os_path);
+            V_SETZERO(fpath);
+	    V_SETZERO(ffile);
+	    sprintf (text,".....Processing file \"%s\"",(CHAR *)ffile.arr);
+		am_message (AM_STATUS,text);
+            deleted = TRUE;
+            pdot = strchr ((CHAR *)os_path.arr,':') + 1;
+	    ho_add_path ((CHAR *)fpath.arr,pdot,sizeof(PATHNAME),(CHAR *)os_path.arr);
+
+	    if (hoexists((CHAR *)os_path.arr))
+	      {
+	      ho_delete_file((CHAR *)os_path.arr,&status);
+	      if (status != SUCCESS)
+		{
+		sprintf (text,"\t .....Error: cannot delete.");
+		am_message (AM_STATUS,text);
+                sprintf (text,"\t      Please check the file:%s",os_path.arr);
+		am_message (AM_STATUS,text);
+		deleted = FALSE;
+		}
+     	      }
+	    if (deleted AND delete_rec)
+		{
+		EXEC SQL EXECUTE FM_DELETE USING :file_id;
+		EXEC SQL EXECUTE FM_HIST_DELETE USING :file_id;
+
+		switch (file_type)
+		  {
+		  case 1:		/* SCAT, GRID, CONT FILES */
+	            EXEC SQL EXECUTE GC_DELETE USING :file_id;
+		    break;
+
+                                        /* do nothing */
+                  case 2:
+		    break;
+
+		  default:
+		    sprintf(text,"\t .....%s %d",
+		                 mg_message(FM_UNKNOWN_TYPE),file_id);
+	            am_message(AM_STATUS,text);
+		    break;
+		  }
+                }
+	    else 
+	      {
+	      EXEC SQL EXECUTE FM_UPDATE USING :file_id;
+	      }
+            EXEC SQL COMMIT WORK;
+            }
+
+	else
+	    {
+	    if (OR_STATUS != OR_EOF)
+		{
+		sprintf(text,"\t.....FETCH GET_FILES ERR: %s",mg_message(OR_STATUS));
+		am_message(AM_STATUS,text);
+		}
+	    break;
+	    }
+	}
+    }
+	
+    am_message (AM_STATUS,"Done.");
+	
+}

@@ -1,0 +1,469 @@
+C  DEC/CMS REPLACEMENT HISTORY, Element SF_PLOT.FOR
+C  *4    18-DEC-1989 10:47:14 GILLESPIE "(SPR 5077) Use WMG_GPL"
+C  *3    17-OCT-1989 08:56:06 GORDON "(SPR 4999) Update color selection method"
+C  *2    19-SEP-1989 10:16:33 GORDON "(PURNA) GULF MODS UNDER SPR 100"
+C  *1    10-AUG-1989 18:51:57 VINCE "Fortran code after UNIX mods"
+C  DEC/CMS REPLACEMENT HISTORY, Element SF_PLOT.FOR
+
+      SUBROUTINE SF_PLOT(ITYPE, NUM_SAMPLES, FA, F1, F2, F3, F4,
+     X                   IPHASE, PREDOMINANT_FREQUENCY,
+     X                   RICKER_TYPE,ISAMP)
+C *********************************************************************
+C
+C   ROUTINE:   SF_PLOT
+C
+C   FUNCTION:  DISPLAY THE INPUT FILTER WAVELETS: 1) IN TIME
+C              AND 2) IN THE FREQUENCY DOMAIN ( BY FOURIER TRANSFOR-
+C              MATION OF THE WAVELET.
+C
+C   VARIABLES: NUM_SAMPLES  = NUMBER OF SAMPLES IN WAVELET
+C              ISAMP        = SAMPLING RATE
+C              ITYPE        =  0 = COSINE, 1 = RICKER,
+C                              2 = BUTTERWORTH, 3 = ORMSBY,
+C                              4 = USER DEFINED  
+C              FA           = FILTER ARRAY
+C              F1           = LOW CUT FREQ  --+
+C              F2           = LOW PASS FREQ   + (BANDPASS FILTER
+C              F3           = HIGH PASS FREQ  +  ONLY)
+C              F4           = HIGH CUT FREQ --+
+C              IPHASE       = PHASE ROTATION APPLIED TO FILTER
+C              PREDOMINANT_FREQUENCY = JUST THAT OF RICKER WAVELET
+C              RICKER_TYPE  = JUST THAT
+C
+C *********************************************************************
+
+      INCLUDE 'sun_gks77.i'
+      INCLUDE 'esi_wm.i'
+      INCLUDE 'sf_defs.i'
+
+
+      DIMENSION      FA(1),XB(514),YB(514),FAOUT(1026)
+      CHARACTER*3    JNUMB
+      CHARACTER*4    KNUMB
+      CHARACTER*255  STRING, STRING2
+      REAL*8         TEMP
+      INTEGER        F1, F2, F3, F4, RICKER_TYPE, PREDOMINANT_FREQUENCY
+      INTEGER HIGHLIGHT, NORMAL, BACKGROUND
+
+      CALL LUG_TEXT_TO_INDEX( 'COLOR', HIGHLIGHT, 'HIGHLIGHT' )
+      CALL LUG_TEXT_TO_INDEX( 'COLOR', NORMAL, 'NORMAL' )
+      CALL LUG_TEXT_TO_INDEX( 'COLOR', BACKGROUND, 'BACKGROUND' )
+
+      LENGTH = (NUM_SAMPLES - 1) * ISAMP
+      MAX_FREQ = 500
+
+C
+C  SET THE DISPLAY BUFFERS TO ZERO
+C
+      DO 20 I=1,1024
+20    FAOUT(I)=0.
+
+      DO 1 I = 1, NUM_SAMPLES + 2
+      XB(I)=0.
+    1 YB(I)=0.
+
+C
+C  SET GKS DISPLAY PARAMETERS, ALLOCATE A WINDOW
+C
+      IFONT=SIMPLX
+      IPREC=GSTRKP
+      CALL WMG_INQ_WKWN(XNDC1,XNDC2,YNDC1,YNDC2)
+      CALL WMGWALLOCATE(IW1,XNDC1,XNDC2,YNDC1,YNDC2,BACKGROUND)
+      STRING2='FILTERPLOT'
+      STRING ='FILTERPLOT'
+      CALL WMGOSET(IW1,WM_CLASS_WINDOW,STRING2,STRING)
+C
+C  ALLOCATE A SEGMENT, TRANSFORMATION AND DRAW THE BORDER
+C
+
+      CALL WMGTALLOCATE(IT1,0.,1.,0.,1.,0.,10.,0.,7.)
+      CALL WMGSALLOCATE(IS1)
+      STRING='TIME DOMAIN LABEL'
+      CALL WMGOSET(IS1,WM_CLASS_SEGMENT,STRING2,STRING)
+      CALL GSTXFP(IFONT,IPREC)
+      CALL GSCHH(.2)
+      CALL GSFACI(HIGHLIGHT)
+      CALL GSPLCI(HIGHLIGHT)
+      CALL GSTXCI(NORMAL)
+      CALL GSCHSP(.1)
+
+      CALL SF_DRAW_BOX( 0.0, 10.0, 0.0, 7.0)
+      CALL SF_DRAW_BOX( 0.5, 3.0, 4.7, 6.4)
+
+      X=2.90
+      Y=6.5
+      STRING='DIGITAL WAVELET DISPLAY'
+      CALL GSTXAL(GAHNOR,GAVNOR)
+      CALL GSCHUP(0.,1.)
+      CALL GSCHXP(1.0)
+      CALL GTX(X,Y,STRING)
+      X = 4.2
+      Y = 6.1
+      CALL GSCHH(.15)
+      CALL GTX(X,Y,'TIME DOMAIN')
+      X = 3.8
+      Y = 2.8
+      CALL GTX(X,Y,'FREQUENCY DOMAIN')
+
+C
+C  LABEL THE WAVELET TYPE
+C
+      STRING = 'TYPE: '
+      X = 0.6
+      Y = 6.2
+      CALL GSCHH(.1)
+      CALL GSCHSP(.06)
+      CALL GTX(X, Y, STRING)
+
+      CALL GSTXCI(NORMAL)
+      IF (ITYPE.EQ.COSINE_WAV)       STRING = 'COSINE BANDPASS'
+      IF (ITYPE.EQ.RICKER_WAV)       STRING = 'RICKER WAVELET'
+      IF (ITYPE.EQ.BUTTERWORTH_WAV)  STRING = 'BUTTERWORTH'
+      IF (ITYPE.EQ.ORMSBY_WAV) THEN
+      	  IF (F2.EQ.0) THEN  
+	    STRING = 'ORMSBY LOWPASS'
+      	  ELSE IF (F3.EQ.0) THEN
+	    STRING = 'ORMSBY HIGHPASS'
+      	  ELSE
+	    STRING = 'ORMSBY BANDPASS'
+	  ENDIF
+      ENDIF
+      IF (ITYPE.EQ.USER_DEFINED_WAV) STRING = 'USER DEFINED'
+      X = X + 0.7
+      CALL GTX(X, Y, STRING)
+
+C
+C  LABEL THE WAVELET LENGTH, SAMPLE INTERVAL, PHASE ROTATION
+C
+      CALL GSCHH(.08)
+      CALL GSTXCI(NORMAL)
+      X = 0.6
+      Y = Y - 0.2
+      CALL GTX(X, Y, 'FILTER LENGTH(MSEC): ')
+
+      CALL GSTXCI(HIGHLIGHT)
+      WRITE (KNUMB, '(I4)') LENGTH
+      CALL GTX(X + 1.7, Y, KNUMB)
+
+      CALL GSTXCI(NORMAL)
+      STRING = 'SAMPLE INTERVAL(MSEC): '
+      Y = Y - 0.2
+      CALL GTX(X, Y, STRING)
+
+      CALL GSTXCI(HIGHLIGHT)
+      WRITE (KNUMB, '(I4)') ISAMP
+      CALL GTX(X + 1.7, Y, KNUMB)
+
+
+      CALL GSTXCI(NORMAL)
+      STRING = 'PHASE ROTATION(DEG.): '
+      Y = Y - 0.2
+      CALL GTX(X, Y, STRING)
+
+      CALL GSTXCI(HIGHLIGHT)
+      WRITE (KNUMB, '(I4)') IPHASE
+      CALL GTX(X + 1.7, Y, KNUMB)
+
+C
+C  NOW LABEL FILTER SPECIFIC INFORMATION (DESIGN FREQUENCIES, ETC.)
+C
+      CALL GSTXCI(NORMAL)
+      Y = Y - 0.2
+      IF (ITYPE.EQ.RICKER_WAV) THEN
+
+          CALL GTX(X, Y, 'PREDOM. FREQ. (HZ): ')
+          MAX_FREQ = 125
+          CALL GSTXCI(HIGHLIGHT)
+          WRITE(KNUMB,'(I4)') PREDOMINANT_FREQUENCY
+          CALL GTX( X + 1.7,Y,KNUMB)
+
+      ELSE IF (ITYPE.EQ.BUTTERWORTH_WAV) THEN
+
+          CALL GTX(X, Y, 'LOW PASS FREQ. (HZ): ')
+
+          CALL GSTXCI(HIGHLIGHT)
+          WRITE(KNUMB,'(I4)') F2
+          CALL GTX(X + 1.7, Y, KNUMB)
+
+          CALL GSTXCI(NORMAL)
+          Y = Y - 0.2
+          CALL GTX(X , Y, 'ROLLOFF (DB/OCTAVE): ')
+    
+          CALL GSTXCI(HIGHLIGHT)
+          WRITE(KNUMB,'(I4)') F1
+          CALL GTX(X + 1.7, Y, KNUMB)
+
+          CALL GSTXCI(NORMAL)
+          Y = Y - 0.2
+          CALL GTX(X , Y, 'HIGH PASS FREQ. (HZ): ')
+    
+          CALL GSTXCI(HIGHLIGHT)
+          WRITE(KNUMB,'(I4)') F3
+          CALL GTX(X + 1.7, Y, KNUMB)
+
+          CALL GSTXCI(NORMAL)
+          Y = Y - 0.2
+          CALL GTX(X , Y, 'ROLLOFF (DB/OCTAVE): ')
+
+          CALL GSTXCI(HIGHLIGHT)
+          WRITE(KNUMB,'(I4)') F4
+          CALL GTX(X + 1.7, Y, KNUMB)
+
+          IF (F3.LT.230) MAX_FREQ = 250
+          IF (F3.LT.90) MAX_FREQ = 125
+               
+
+      ELSE IF (ITYPE.EQ.ORMSBY_WAV) THEN
+
+	IF ( F2.EQ.0 ) GOTO 55
+
+          CALL GTX(X, Y, 'LOW CUT,PASS (HZ): ')
+
+          CALL GSTXCI(NORMAL)
+          WRITE (STRING,51) F1, F2
+51        FORMAT(I4,',',I3)
+          CALL GTX(X + 1.7, Y, STRING)
+
+55	CONTINUE
+
+	IF ( F3.EQ.0 ) GOTO 56
+
+          Y = Y - 0.2
+          CALL GSTXCI(NORMAL)
+          CALL GTX(X, Y, 'HIGH PASS,CUT (HZ): ')
+
+          CALL GSTXCI( HIGHLIGHT)
+          WRITE (STRING,52)  F3, F4
+52        FORMAT(I4,',',I3)
+          CALL GTX(X + 1.7, Y, STRING)
+          CALL GSTXCI(NORMAL)
+
+56	CONTINUE
+
+          IF (F4.LT.126) THEN
+             MAX_FREQ = 125
+          ELSE IF (F4.LT.251) THEN
+             MAX_FREQ = 250
+          ENDIF
+
+      ELSE IF (ITYPE.EQ.USER_DEFINED_WAV) THEN
+
+          CALL GTX(X, Y, 'USER DEFINED WAVELET')
+
+      ENDIF
+
+C
+C  ANNOTATE THE X - AXIS (TIME)
+C
+      CALL GSTXCI(NORMAL)
+      CALL GSCHH( 0.08)
+      CALL GSCHSP( 0.05)
+      YY = 3.96
+      Y = 3.50
+
+
+      SCALE = 10.0 / (LENGTH + 2 * ISAMP) 
+      LENGTH_2 = (LENGTH + 2 * ISAMP) / 2
+      ITICK_INC = 25
+      IF (LENGTH.LT.401) ITICK_INC = 20
+      IF (LENGTH.LT.301) ITICK_INC = 15
+      IF (LENGTH.LT.201) ITICK_INC = 10
+      IF (LENGTH.LT.101) ITICK_INC = 5
+      IANNO_INC = 2 * ITICK_INC
+
+
+      DO 6 I = -LENGTH_2, LENGTH_2
+
+        IF (MOD(I,ITICK_INC).EQ.0) THEN
+           X = ( I + LENGTH_2) * SCALE
+           CALL GTX(X - 0.04,YY,'+')
+        ENDIF
+
+        IF (MOD(I,IANNO_INC).EQ.0) THEN
+           X = ( I + LENGTH_2) * SCALE
+           IF (X.GT.0.2.AND.X.LT.9.8) THEN
+             IF (ABS(I).LT.100) THEN
+               WRITE(KNUMB,'(I3)') I
+             ELSE IF (ABS(I).LT.10) THEN
+               WRITE(KNUMB,'(I2)') I
+             ELSE
+               WRITE(KNUMB,'(I4)') I
+             ENDIF
+             CALL GTX(X - 0.2,Y,KNUMB)
+           ENDIF
+        ENDIF
+
+6     CONTINUE
+
+
+
+      CALL GSCHH(0.10)
+      YY = 3.3
+      CALL GTX(4.4, YY, 'TIME (MSEC)')
+
+
+      CALL WMGSCLOSE(IS1)
+
+
+C
+C  NOW ALLOCATE SEGMENT AND DRAW THE WAVELET IN TIME
+C 
+      XMIN = 0.
+      XMAX = NUM_SAMPLES + 1
+      YMIN = -1.
+      YMAX = 1.
+      CALL WMGTALLOCATE(IT2,0.,1.,.4286,.7143,XMIN,XMAX,YMIN,YMAX)
+      CALL WMGSALLOCATE(IS2)
+      STRING ='TIME DOMAIN FILTER'
+      CALL WMGOSET(IS2,WM_CLASS_SEGMENT,STRING2,STRING)
+
+      XB(1) = 0
+      XB(NUM_SAMPLES + 2) = NUM_SAMPLES + 1
+      FAOUT(1) = 0.
+      FAOUT(NUM_SAMPLES + 2) = 0.
+
+      DO 2 I = 2, NUM_SAMPLES + 1
+        XB(I) = I - 1
+2     FAOUT(I) = FA(I - 1)
+
+      CALL GSFAIS(GSOLID)
+      CALL GFA(NUM_SAMPLES + 2, XB, FAOUT)
+      CALL GSPLCI(HIGHLIGHT)
+      CALL WMG_GPL(NUM_SAMPLES + 2, XB, FAOUT)
+
+
+      CALL WMGSCLOSE(IS2)
+
+
+
+C
+C  SET MAXIMUM DISPLAY FREQUENCY AND ALLOCATE SEGMENT AND
+C     TRANSFORMATION FOR THE FREQUENCY DOMAIN GRAPH 
+C
+
+      CALL WMGTALLOCATE(IT3,0.,1.,.0714,.3571,0., FLOAT(MAX_FREQ),
+     X 0.,1.)
+      CALL WMGSALLOCATE(IS4)
+      STRING ='FREQ DOMAIN FILTER'
+      CALL WMGOSET(IS4,WM_CLASS_SEGMENT,STRING2,STRING)
+
+C
+C  CALCULATE POWER SPECTRA ( PSPEC = SQRT(REAL**2 + IMAG**2) )
+C
+      CALL SF_POWER_SPEC( FA, NUM_SAMPLES, ISAMP, FREQ_SAMP, FAOUT)
+
+      CALL MINMAX( MAX_FREQ + 1, FAOUT(1), YMIN, YMAX)
+C
+C  SCALE VALUES, REMOVING ANY OUTRAGEOUS ONES, AND LOAD IN DISPLAY BUFFERS
+C
+      IF (FAOUT(1).NE.YMIN) FAOUT(1) = YMIN
+
+      YMAX = YMAX - YMIN
+
+      DO 12 I = 1, MAX_FREQ + 1
+        TEMP = (FAOUT(I) - YMIN) / YMAX
+        IF(TEMP.GT. -1.0E-35 .AND. TEMP.LT. 1.0E-35) TEMP = YMIN
+        FAOUT(I)=TEMP
+   12 XB(I) = FLOAT(I-1) * FREQ_SAMP
+
+      FAOUT( MAX_FREQ + 2 ) = FAOUT(1)
+      XB(MAX_FREQ+2) = XB(MAX_FREQ+1)
+
+      CALL GSFACI(NORMAL)
+      CALL GSPLCI(NORMAL)
+      CALL GFA(MAX_FREQ + 2,XB,FAOUT)
+      CALL WMG_GPL(MAX_FREQ + 2,XB,FAOUT)
+      CALL WMGSCLOSE(IS4)
+
+C
+C  RESELECT TEXT TRANSFORMATION (0 - 10 IN X) AND ANNOTATE FREQ. ON GRAPH
+C
+      CALL WMGTSELECT(IT1)
+      CALL WMGSALLOCATE(IS5)
+      CALL GSCHH( 0.08)
+      CALL GSCHSP( 0.05)
+      STRING ='FREQ ANNOTATION'
+      CALL WMGOSET(IS5,WM_CLASS_SEGMENT,STRING2,STRING)
+
+      Y = .25
+      YY = 0.44
+      CALL GSTXAL(GACENT,GABOTT)
+C
+C  ANNOTATE FREQUENCY ON THE GRAPH
+C
+      IF (MAX_FREQ.EQ.500) THEN
+        IDISP_INC = 40
+      ELSE IF (MAX_FREQ.EQ.250) THEN
+        IDISP_INC = 20
+      ELSE
+        IDISP_INC = 10
+      ENDIF
+      FINC = IDISP_INC * 10.0 / MAX_FREQ
+
+C  TICK THE FREQUENCY AXIS IN 5,10, OR 20 HZ INTERVALS 
+
+      DO 21 I = 1, 24
+        X = I * FINC / 2.0
+21    CALL GTX(X,YY,'+')
+
+C  ANNOTATE THE FREQUENCY AXIS IN 10,20 OR 20 HZ INTERVALS
+
+      DO 22 I = 1, 12
+        X = I * FINC
+        J = I * IDISP_INC
+        IF(J.LT.100) THEN
+          WRITE(JNUMB,'(I2)') J
+        ELSE
+          WRITE(JNUMB,'(I3)') J
+        ENDIF
+22    CALL GTX(X,Y,JNUMB)
+
+      CALL GSCHH(0.10)
+      CALL GTX( 4.6, 0.1, 'FREQUENCY (HZ)')
+C
+C  CLOSE THE FREQ GRAPH SEGMENT, CLOSE THE WINDOW, AND EXIT
+C
+
+      CALL WMGSCLOSE(IS5)
+      CALL WMGTSELECT(IT1)
+      CALL WMGWCLOSE(IW1)
+      CALL WMG_UPDATE()
+      RETURN
+      END
+
+
+
+
+
+
+
+
+      SUBROUTINE SF_DRAW_BOX(XMIN, XMAX, YMIN, YMAX)
+C *********************************************************************
+C
+C   ROUTINE:   SF_DRAW_BOX
+C
+C   FUNCTION:  DRAW A BOX ON THE SCREEN USING THE CURRENT TRANSFORM-
+C              ATION, LINE ATTRIBUTES, ETC.
+C
+C   VARIABLES: XMIN,XMAX,YMIN,YMAX  = CORNERS OF THE BOX
+C
+C *********************************************************************
+
+      DIMENSION    XB(5), YB(5)
+
+      XB(1) = XMIN
+      YB(1) = YMAX
+      XB(2) = XMAX
+      YB(2) = YMAX
+      XB(3) = XMAX
+      YB(3) = YMIN
+      XB(4) = XMIN
+      YB(4) = YMIN
+      XB(5) = XMIN
+      YB(5) = YMAX
+
+      CALL WMG_GPL(5,XB,YB)
+
+      RETURN
+      END

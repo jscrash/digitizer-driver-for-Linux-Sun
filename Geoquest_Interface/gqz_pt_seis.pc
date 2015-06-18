@@ -1,0 +1,1339 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element GQZ_PT_SEIS.PC*/
+/* *4    23-AUG-1990 15:30:13 PURNA "(SPR 0) fix compiling error"*/
+/* *3    23-JUL-1990 16:05:11 GILLESPIE "(SPR 1) Fix syntax problems with last checkin"*/
+/* *2    20-JUL-1990 11:52:32 VINCE "(SPR 5644) Header Standardization"*/
+/* *1    21-JUN-1990 19:23:13 GILLESPIE "Geoquest Link"*/
+/* DEC/CMS REPLACEMENT HISTORY, Element GQZ_PT_SEIS.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "fgs_gq_ies.h"
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+
+#ifndef ESI_HO_H
+#include "esi_ho.h"
+#endif
+
+#ifndef ESI_SL_H
+#include "esi_sl.h"
+#endif
+
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_SE_H
+#include "esi_se.h"
+#endif
+
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_WI_H
+#include "esi_wi.h"
+#endif
+
+#ifndef ESI_GL_PROJECT_H
+#include "esi_gl_project.h"
+#endif
+
+#include "interface.h"
+
+#if USE_PROTOTYPES
+static INT gqz_ies_line (FULL_LINE_NAME *fullLine, VECTOR *vPtr, CHAR *line_type);
+static INT gqz_ies_line_points (LINE_HDR *pLineHdr, INT *cntPtr,
+                                    SEISMIC_DATA_POINT **ppp);
+static INT gqz_ies_surface (LINE_HDR *pLineHdr, INT *cntPtr,
+                                SEISMIC_SURFACE **spp);
+static INT gqz_ies_segment (LINE_HDR *pLineHdr, NLIST_HEADER segNl,
+                                SEIS_SURFACE_DATA_TYPE dataType, INT *cntPtr,
+                                SEGMENT **spp);
+static INT gqz_ies_segment_points (LINE_HDR *pLineHdr, NLIST_HEADER segNl,
+                                       UINT tabNum, INT *cntPtr,
+                                       SEISMIC_DATA_POINT **ppp);
+static INT gqz_ies_contact (CHAR *hor_code, INT *cntPtr, CONTACT **cpp);
+static VOID gqz_free_survey (SEISMIC_SURVEY *sPtr);
+static INT gqz_fill_2d_survey (SEISMIC_SURVEY *sPtr);
+static INT gqz_fill_3d_survey (SEISMIC_SURVEY *sPtr);
+#else
+static INT gqz_ies_line ();
+static INT gqz_ies_line_points ();
+static INT gqz_ies_surface ();
+static INT gqz_ies_segment ();
+static INT gqz_ies_segment_points ();
+static INT gqz_ies_contact ();
+static VOID gqz_free_survey ();
+static INT gqz_fill_2d_survey ();
+static INT gqz_fill_3d_survey ();
+#endif
+EXEC SQL BEGIN DECLARE SECTION;
+static VARCHAR stmt[512];
+EXEC SQL END DECLARE SECTION;
+
+static PROJECT_NAME project;
+static PROJECT_DEFAULT *defaults;
+
+/* File Description ---------------------------------------------------------
+Overview:
+    Seismic functions.
+    
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT gqz_put_seismic(IES_STRUCT *iesPtr);
+    
+Private_Functions:
+    static INT gqz_ies_line (FULL_LINE_NAME *fullLine, VECTOR *vPtr,
+                             CHAR *line_type);
+
+    static INT gqz_ies_line_points (LINE_HDR *pLineHdr, INT *cntPtr,
+                                    SEISMIC_DATA_POINT **ppp);
+
+    static INT gqz_ies_surface (LINE_HDR *pLineHdr, INT *cntPtr,
+                                SEISMIC_SURFACE **spp);
+
+    static INT gqz_ies_segment (LINE_HDR *pLineHdr, NLIST_HEADER segNl,
+                                SEIS_SURFACE_DATA_TYPE dataType, INT *cntPtr,
+                                SEGMENT **spp);
+    
+    static INT gqz_ies_segment_points (LINE_HDR *pLineHdr, NLIST_HEADER segNl,
+                                UINT tabNum, INT *cntPtr, SEISMIC_DATA_POINT **ppp);
+
+    static INT gqz_ies_contact (CHAR *hor_code, INT *cntPtr, CONTACT **cpp);
+
+    static VOID gqz_free_survey (SEISMIC_SURVEY *sPtr);
+
+    static INT gqz_fill_2d_survey(SEISMIC_SURVEY *sPtr);
+
+    static INT gqz_fill_3d_survey(SEISMIC_SURVEY *sPtr);
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+    For the given seismic select list in the passed in data,
+    export each seismic line to the IES database. The IES seismic
+    data heirarchy looks like this:
+    
+    Methodology:
+    1) Create and/or clear a scratch table in the analyst account
+       to receive the lines entered as a select list
+    2) Fill this table and additionally include whether
+       lines are 2-D or 3d.
+    3) Fetch the lines, sorted by survey and line name
+    4) For each line, determine if this is the same survey as the
+       previous line.  If not, then ship the last survey (SHIP IT!)
+    5) If this is a changed survey, then read in the survey header information
+   
+Prototype:
+    publicdef INT gqz_put_seismic(IES_STRUCT *iesPtr);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) ies         -(IES_STRUCT *) The IES data structure.
+
+Return Value/Status:
+    SUCCESS or error status.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT gqz_put_seismic (IES_STRUCT *iesPtr)
+#else
+publicdef INT gqz_put_seismic (iesPtr)
+IES_STRUCT *iesPtr;
+#endif
+    {
+    INT status, ii;
+    INT fetch_status;
+    UINT numRows;
+    UINT col = 1;
+    UINT actual;
+    NLIST_HEADER slist;
+    SEISMIC_SURVEY *curSurvey = (SEISMIC_SURVEY *)0;
+    SEIS_LINE_ID *idPtr = (SEIS_LINE_ID *)0;
+    SEIS_SURV c_survey, last_survey;
+    SEIS_LINE_NAME c_line_name;
+    FULL_LINE_NAME fullLine;
+    CHAR tempTable[64];
+    CHAR message[133];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR survey[24];
+    VARCHAR line_name[24];
+    long int line_id;
+    VARCHAR line_type[16];
+    VARCHAR survey_type[16];
+    float datum_elevation;
+    VARCHAR z_unit[16];
+    EXEC SQL END DECLARE SECTION;
+    
+    /* Get the handle of the nlist containing the line names. */
+    status = sl_read_list (SEISMIC_DATA_TYPE, iesPtr->seis_list_name, &slist);
+    if (status != SUCCESS)
+        return status;
+    
+    status = nl_inq_table_int (slist, 1, NL_TABLE_NROWS, (INT *) & numRows);
+    idPtr = (SEIS_LINE_ID *)tc_alloc (sizeof(SEIS_LINE_ID) * numRows);
+    nl_set_current_row (slist, 1, 1);
+    status = nl_get_rows (slist, (UINT)numRows, 1, &col, (VOIDPTR *) & idPtr, &actual);
+    if (status < SUCCESS)
+        return status;
+    
+    /* The first problem is that the lines we process must be
+       in survey order.  Since the select list order is undefined,
+       we'll create a temporary table & use Oracle to sort them
+       for us. */
+    
+    EXEC ORACLE OPTION (RELEASE_CURSOR = YES);
+    strcpy (tempTable, "TEMP_SEIS");
+    stmt.len = sprintf ((char *)stmt.arr,
+               "CREATE TABLE %s (LINE_NAME CHAR(20), SURVEY CHAR(20), LINE_TYPE CHAR(12))"
+                        , tempTable);
+    EXEC SQL WHENEVER SQLERROR continue;
+    EXEC SQL EXECUTE IMMEDIATE : stmt;
+    
+    /* The following statement makes sure that if the table
+        exists from a previous run, then it is deleted here.
+        This implies that only one transfer per account can occur
+        at a time - otherwise, the is a pretty good chance that
+        the two users will interfere with each other... */
+    
+    stmt.len = sprintf ((char *)stmt.arr, "DELETE FROM %s", tempTable);
+    EXEC SQL EXECUTE IMMEDIATE : stmt;
+    EXEC SQL COMMIT WORK;
+    EXEC ORACLE OPTION (RELEASE_CURSOR = NO);
+    
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT SURVEY, LINE_NAME, LINE_TYPE \
+INTO :survey, :line_name, :line_type \
+FROM %s.SEIS_LINE_HDR \
+WHERE LINE_ID = :line_id"
+            , project);
+    EXEC SQL PREPARE LINE_HDR_STMT FROM : stmt;
+    EXEC SQL DECLARE LINE_HDR_CUR CURSOR FOR LINE_HDR_STMT;
+    stmt.len = sprintf ((char *)stmt.arr, 
+"INSERT INTO %s \
+(SURVEY, LINE_NAME, LINE_TYPE) \
+VALUES (:survey, :line_name, :line_type)"
+            , tempTable);
+    EXEC SQL PREPARE INSERT_STMT FROM : stmt;
+    EXEC SQL DECLARE INSERT_CUR CURSOR FOR INSERT_STMT;
+    
+    /* Retrieve the project defaults structure
+    This is filled out in the FINDER_CONFIG_PROJECT function
+    (which must have been executed before this function is called) */
+    
+    status = am_open_workspace ("PROJECT_DEFAULTS", AM_GLOBAL, (VOIDPTR *) & defaults);
+    if (status != SUCCESS)
+        {
+        return status;
+        }
+    /* For each row in the select list nlist, */
+    for (ii = 0; ii < actual; ++ii)
+        {
+        line_id = (int)idPtr[ii];
+        EXEC SQL OPEN LINE_HDR_CUR USING : line_id;
+        EXEC SQL FETCH LINE_HDR_CUR INTO : survey,  : line_name,  : line_type;
+        
+        /* Put it into the temporary table */
+        EXEC SQL EXECUTE INSERT_STMT USING : survey,  : line_name,  : line_type;
+        }
+    tc_free ((VOIDPTR)idPtr);
+    EXEC SQL CLOSE LINE_HDR_CUR;
+    EXEC SQL CLOSE INSERT_CUR;
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT LINE_NAME, SURVEY, LINE_TYPE \
+INTO :line_name, :survey, :line_type \
+FROM %s ORDER BY SURVEY, LINE_NAME"
+            , tempTable);
+    EXEC SQL PREPARE TEMP_STMT FROM : stmt;
+    EXEC SQL DECLARE TEMP_CUR CURSOR FOR TEMP_STMT;
+    EXEC SQL OPEN TEMP_CUR;
+    stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT SURVEY_TYPE, DATUM_ELEVATION, Z_UNIT \
+INTO :survey_type, :datum_elevation, :z_unit \
+FROM %s.SEIS_SURVEY_HDR \
+WHERE SURVEY_NAME = :survey"
+            , project);
+    EXEC SQL PREPARE SURVEY_HDR_STMT FROM : stmt;
+    EXEC SQL DECLARE SURVEY_HDR_CUR CURSOR FOR SURVEY_HDR_STMT;
+    
+    /* Now pull out each line from temp table, ordering
+    by survey, and process it.  When a different SEISMIC_SURVEY
+    is encountered, the previous survey is shipped off to IES */
+    
+    last_survey[0] = '\0';
+    while (TRUE)
+        {
+        EXEC SQL FETCH TEMP_CUR INTO : line_name,  : survey,  : line_type;
+        fetch_status = OR_STATUS;
+        if (fetch_status == OR_EOF)
+            c_survey[0] = '\0';
+        else
+            {
+            V_FROMV (c_survey, survey);
+            V_FROMV (c_line_name, line_name);
+            V_SETZERO (line_type);
+            }
+        /* (CP) just for now we substitute line_type of X_2D if no line_type */
+        /* (CP) this is really a database problem */
+        if (line_type.len == 0)
+            {
+            strcpy ((char *)line_type.arr, "X_2D");
+            line_type.len = 4;
+            }
+        /* (CP) */
+        if (ARE_DIFFERENT (c_survey, last_survey))
+            {
+            sprintf (message, "Sending survey %s to IES", c_survey);
+            wi_set_dialog_text (iesPtr->cdlg_id, iesPtr->message_field, message);
+            strcpy (last_survey, c_survey);
+            
+            /* pack off last survey, if there is one */
+            if (curSurvey != (SEISMIC_SURVEY *)0)
+                {
+                /* This is where we've been headed -- send to IES!      */
+                /* -----------------------------------------------      */
+                c_put_seis_ies (curSurvey, (opt_list_t *)0, &status);
+                if (status EQUALS SUCCESS)
+                    {
+                    gqz_free_survey (curSurvey);
+                    }
+                else
+                    {
+                    iesPtr->ies_error = status;
+                    status = SUCCESS;
+                    break;
+                    }
+                }
+            if (fetch_status == OR_EOF)
+                {
+                status = SUCCESS;
+                break;
+                }
+            /* Prepare for a new survey */
+            EXEC SQL OPEN SURVEY_HDR_CUR USING : survey;
+            EXEC SQL FETCH SURVEY_HDR_CUR INTO : survey_type,  : datum_elevation,
+                : z_unit;
+            status = OR_STATUS;     /* Remember the status. */
+            curSurvey = (SEISMIC_SURVEY *)tc_zalloc (sizeof(SEISMIC_SURVEY));
+            strcpy (curSurvey->name, c_survey);
+            curSurvey->dp_null = -1E20;
+            curSurvey->int_null = -99999;
+            if (status != OR_EOF)   /* If we found a survey, use it. */
+                {
+                curSurvey->z_datum = (DOUBLE)datum_elevation;
+                V_FROMV (curSurvey->z_units, z_unit);
+                V_SETZERO (survey_type);
+                if (ARE_SAME ((char *)survey_type.arr, "PROJECT_2D"))
+                    {
+                    gqz_fill_2d_survey (curSurvey);
+                    }
+                else if (ARE_SAME ((char *)survey_type.arr, "PROJECT_3D"))
+                    {
+                    gqz_fill_3d_survey (curSurvey);
+                    }
+                }
+            else
+                {
+                /* In this case, the SEIS_LINE_HDR table referred to
+                   a survey that the SEIS_SURVEY_HDR table doesn't know
+                   about. We still send the survey to IES, such as it is. */
+                /* (CP) to get things going we also make it a 2d by default */
+                /* (CP) the units should be extracted from project defaults NOT set null */
+                /* (CP) just to get by we're Feet */
+                /* (CP) until Matt removes test, desc is not null */
+                curSurvey->svy_type = SVY_2D;
+                curSurvey->z_datum = 0.0;
+                strcpy (curSurvey->z_units, "Feet");
+                /* (CP) */
+                }
+            /* load up the projection information */
+            
+            gqz_init_carto (&curSurvey->proj, &curSurvey->gd);
+            }
+        fullLine.id = 0;            /* Set to Zero to cause line id to be looked up */
+        strcpy (fullLine.line_name, c_line_name);
+        strcpy (fullLine.survey, c_survey);
+        
+        sprintf (message, "Retrieving line %s-%s", c_survey, c_line_name);
+        wi_set_dialog_text (iesPtr->cdlg_id, iesPtr->message_field, message);
+        
+        /* fill up a line struct for this line. */
+        status = gqz_ies_line (&fullLine, &curSurvey->seis_line,
+                               (CHAR *)line_type.arr);
+        }
+    EXEC SQL CLOSE TEMP_CUR;
+    EXEC SQL CLOSE SURVEY_HDR_CUR;
+    
+    stmt.len = sprintf ((char *)stmt.arr, "DROP TABLE %s", tempTable);
+    EXEC SQL EXECUTE IMMEDIATE : stmt;
+    return status > SUCCESS ? SUCCESS : status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    For the given line name, create and fill an IES-style LINE
+    data structure. On error, vPtr is unchanged.
+    
+Prototype:
+    static INT gqz_ies_line (FULL_LINE_NAME *fullLine, VECTOR *vPtr,
+        CHAR *line_type);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) fullLine    -(FULL_LINE_NAME *) Line data.
+    (O) vPtr        -(VECTOR *) The modified LINE vector.
+    (I) line_type   -(CHAR *) The line type.
+
+Return Value/Status:
+    SUCCESS or error status.
+
+Scope:
+    PRIVATE to <gqz_pt_seis.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT gqz_ies_line (FULL_LINE_NAME *fullLine, VECTOR *vPtr, CHAR *line_type)
+#else
+static INT gqz_ies_line (fullLine, vPtr, line_type)
+FULL_LINE_NAME *fullLine;
+VECTOR *vPtr;
+CHAR *line_type;
+#endif
+    {
+    LINE_HDR *pLineHdr;
+    INT status;
+    INT i;
+    SEISMIC_LINE tline;
+    SEISMIC_CLASS *sclass;
+    
+    /* Fill up the structure */
+    tc_zeroes ((VOIDPTR) & tline, sizeof(SEISMIC_LINE));
+    strcpy (tline.line_name, fullLine->line_name);
+    if (ARE_SAME ((char *)line_type, "X_2D"))
+        {
+        tline.line_type = LINE_2D;
+        }
+    else if (ARE_SAME ((char *)line_type, "X_3D"))
+        {
+        /* Both 3-D inline and cross-lines have their 'line number' embedded
+            in the line name: In-Lines have an 'I' on the end, and cross-lines
+            have an 'X' on the end.. The following strips this out and places
+            the integer part in the line number field */
+        tline.line_name[strlen (tline.line_name) - 1] = 0;
+        tline.line_number = atoi (tline.line_name);
+        tline.line_type = LINE_3DI;
+        }
+    else if (ARE_SAME ((char *)line_type, "Y_3D"))
+        {
+        tline.line_name[strlen (tline.line_name) - 1] = 0;
+        tline.line_number = atoi (tline.line_name);
+        tline.line_type = LINE_XLN;
+        }
+    else if (ARE_SAME ((char *)line_type, "T_3D"))
+        {
+        tline.line_type = LINE_TSL;
+        }
+    else if (ARE_SAME ((char *)line_type, "R_3D"))
+        {
+        tline.line_type = LINE_RCN;
+        }
+    else
+        {
+        tline.line_type = LINE_2D;  /* (CP) */
+        }
+    status = se_retrieve_header (fullLine, &pLineHdr);
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+        return status;
+        }
+    if (tline.line_type EQUALS LINE_2D)
+        {
+        tline.loc.cdp_sp_reg_flag = (cdp_sp_corresp_t)pLineHdr->regular;
+        tline.loc.shotpoint_interval = pLineHdr->sp_spacing;
+        /* WARNING!!! The rational_t things which follow are not yet fully
+        supported... 2-jun-1990 jgg */
+        tline.loc.cdp1.num = pLineHdr->init_cdp, tline.loc.cdp1.den = 1;
+        tline.loc.sp1.num = pLineHdr->init_sp, tline.loc.sp1.den = 1;
+        tline.loc.cdp_per_sp.num = pLineHdr->cdp_per_sp, tline.loc.cdp_per_sp.den = 1;
+        
+        /* Do point vector */
+        tline.loc.point.element_format = VEC_TYPE_POINT;
+        tline.loc.point.element_size = sizeof(SEISMIC_DATA_POINT);
+        status = gqz_ies_line_points (pLineHdr, &tline.loc.point.number_elements,
+                                      (SEISMIC_DATA_POINT * *) &
+                                      tline.loc.point.vector_pointer);
+        if (status != SUCCESS)
+            {
+            return status;
+            }
+        }
+    /* Do seismic class vector */
+    tline.seismic_class.element_format = VEC_TYPE_SEIS_CLASS;
+    tline.seismic_class.element_size = sizeof(SEISMIC_CLASS);
+    
+    /* Number of elements is set to 1 for now because the
+       Finder data structure does not, at present, support
+       multiple seismic traces */
+    tline.seismic_class.number_elements = 1;
+    
+    sclass = (SEISMIC_CLASS *)tc_zalloc (sizeof(SEISMIC_CLASS) *
+                                         tline.seismic_class.number_elements);
+    tline.seismic_class.vector_pointer = sclass;
+    sclass->surface.element_format = VEC_TYPE_SURFACE;
+    sclass->surface.element_size = sizeof(SEISMIC_SURFACE);
+    for (i = 0; i < tline.seismic_class.number_elements; i++)
+        {
+        status = gqz_ies_surface (pLineHdr, &sclass->surface.number_elements,
+                                  (SEISMIC_SURFACE **) &
+                                  sclass->surface.vector_pointer);
+        sclass->status = status;
+        sclass++;
+        }
+    /* If we got here, then the line is good & should be tacked
+       on to the end of the existing line array. */
+    ++(vPtr->number_elements);
+    if (vPtr->number_elements == 1) /* If first one, initialize it */
+        {
+        vPtr->element_size = sizeof(SEISMIC_LINE);
+        vPtr->element_format = VEC_TYPE_SEIS_LINE;
+        vPtr->vector_pointer = tc_zalloc (sizeof(SEISMIC_LINE));
+        }
+    else                            /* Not first one, just reallocate the array pointer. */
+        {
+        vPtr->vector_pointer = tc_realloc ((VOIDPTR)vPtr->vector_pointer,
+                                           vPtr->number_elements *
+                                           sizeof(SEISMIC_LINE));
+        tc_zeroes ((VOIDPTR)((SEISMIC_LINE *)vPtr->vector_pointer +
+                             vPtr->number_elements - 1), sizeof(SEISMIC_LINE));
+        }
+    /* Now copy over the new SEISMIC_LINE */
+    hoblockmove ((VOIDPTR) & tline,
+                 (VOIDPTR)((SEISMIC_LINE *)(vPtr->vector_pointer) +
+                           (vPtr->number_elements - 1)), sizeof(SEISMIC_LINE));
+    
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    For the given seismic line, create an array of 2-n IES-style
+    LINE structures, each containing x, y, cdp & shot point.
+
+Prototype:
+    static INT gqz_ies_line_points (LINE_HDR *pLineHdr, INT *cntPtr,
+        SEISMIC_DATA_POINT **ppp);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) pLineHdr    -(LINE_HDR *) The line memory structure.
+    (O) cntPtr      -(INT *) Number of POINTs returned.
+    (O) ppp         -(SEISMIC_DATA_POINT **) Ptr to list of points.
+
+Return Value/Status:
+    SUCCESS or error status.
+
+Scope:
+    PRIVATE to <gqz_pt_seis.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT gqz_ies_line_points (LINE_HDR *pLineHdr, INT *cntPtr,
+                                    SEISMIC_DATA_POINT **ppp)
+#else
+static INT gqz_ies_line_points (pLineHdr, cntPtr, ppp)
+LINE_HDR *pLineHdr;
+INT *cntPtr;
+SEISMIC_DATA_POINT **ppp;
+#endif
+    {
+    NLIST_HEADER nlist;
+    INT status;
+    UINT totalRows;
+    UINT numRows;
+    UINT actual;
+    UINT row;
+    UINT numTables;
+    UINT table;
+    UINT nCols;
+    UINT Col_List[3];
+    VOIDPTR Var_List[3];
+    CDP *cdps;
+    CDP *cdpp;
+    SP tempDub;
+    FLOAT *x, *y;
+    FLOAT *xp, *yp;
+    SEISMIC_DATA_POINT *pPtr;
+    INT valid = VALID_CDP | VALID_SP | VALID_X | VALID_Y;
+    
+    /* Get a handle to the nlist with cdp, x & y. */
+    status = se_rd_nl_shot_xy (&pLineHdr->line, &nlist);
+    if (status != SUCCESS)
+        return status;
+    
+    status = nl_inq_nlist_int (nlist, NL_NLIST_NTABLES, (INT *) & numTables);
+    status = nl_inq_nlist_int (nlist, NL_NLIST_NROWS, (INT *) & totalRows);
+    if (status < SUCCESS)
+        return status;
+    cdps = (CDP *)tc_alloc (totalRows * sizeof(INT));
+    x = (FLOAT *)tc_alloc (totalRows * sizeof(FLOAT));
+    y = (FLOAT *)tc_alloc (totalRows * sizeof(FLOAT));
+    
+    nCols = 3;
+    Col_List[0] = 1, Col_List[1] = 2, Col_List[2] = 3;
+    
+    /* First, load up the local arrays from the nlist */
+    for (table = 1, cdpp = cdps, xp = x, yp = y, numRows = 0; table <= numTables;
+         ++table, cdpp += numRows, xp += numRows, yp += numRows)
+        {
+        status = nl_set_current_row (nlist, 1, table);
+        status = nl_inq_table_int (nlist, table, NL_TABLE_NROWS, (INT *) & numRows);
+        if (status < SUCCESS)
+            {
+            break;
+            }
+        Var_List[0] = (VOIDPTR)cdpp;
+        Var_List[1] = (VOIDPTR)xp;
+        Var_List[2] = (VOIDPTR)yp;
+        status = nl_get_rows (nlist, numRows, nCols, Col_List, Var_List, &actual);
+        if (status < SUCCESS)
+            break;
+        }
+    if (status >= SUCCESS)
+        {
+        /* Now put our data into IES-format */
+        pPtr = (SEISMIC_DATA_POINT *)tc_zalloc (totalRows *
+                                                sizeof(SEISMIC_DATA_POINT));
+        for (row = 0; row < totalRows; ++row)
+            {
+            pPtr[row].valid = (int_t)valid;
+            pPtr[row].cdp = (real_t)cdps[row];
+            se_sp_from_cdp_intern (pLineHdr, (CDP_FLOAT)pPtr[row].cdp, &tempDub);
+            pPtr[row].shot_point = (real_t)tempDub;
+            pPtr[row].x = (dp_t)x[row];
+            pPtr[row].y = (dp_t)y[row];
+            }
+        }
+    tc_free ((VOIDPTR)cdps);
+    tc_free ((VOIDPTR)x);
+    tc_free ((VOIDPTR)y);
+    *ppp = pPtr;
+    *cntPtr = totalRows;
+    return status > SUCCESS ? SUCCESS : status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    For the given line id, create an array of 0-n IES-style
+    SEISMIC_SURFACE structures.
+
+Prototype:
+    static INT gqz_ies_surface (LINE_HDR *pLineHdr, INT *cntPtr, 
+        SEISMIC_SURFACE **spp);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) pLineHdr    -(LINE_HDR *) Unique database id of line. 
+    (O) cntPtr      -(INT *) Number of SURFACEs returned.
+    (O) spp         -(SEISMIC_SURFACE **) Ptr to list of surfaces.
+
+Return Value/Status:
+    SUCCESS or error status. Zero surfaces does not constitute an error.
+
+Scope:
+    PRIVATE to <gqz_pt_seis.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT gqz_ies_surface (LINE_HDR *pLineHdr, INT *cntPtr, SEISMIC_SURFACE **spp)
+#else
+static INT gqz_ies_surface (pLineHdr, cntPtr, spp)
+LINE_HDR *pLineHdr;
+INT *cntPtr;
+SEISMIC_SURFACE **spp;
+#endif
+    {
+    FILENAME cNlistFile;
+    NLIST_ID cNlistId;
+    NLIST_HEADER segNl = (NLIST_HEADER)0;
+    INT status = SUCCESS;
+    SEISMIC_SURFACE *sPtr;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    int line_id;
+    int data_type;
+    int surface_type;
+    VARCHAR digital_ref[64];
+    VARCHAR digital_ref_volume[80];
+    VARCHAR surface_code[32];
+    VARCHAR last_update[18];
+    EXEC SQL END DECLARE SECTION;
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT DIGITAL_REF, \
+DIGITAL_REF_VOLUME, DATA_TYPE, SURFACE_TYPE, \
+SURFACE_CODE, TO_CHAR(LAST_UPDATE,'YYMMDD-HH24MISS') \
+INTO :digital_ref, :digital_ref_volume, :data_type, \
+:surface_type, :surface_code, :last_update \
+FROM %s.SEIS_SURFACE \
+WHERE LINE_ID = :line_id \
+ORDER BY SURFACE_TYPE, SURFACE_CODE"
+            , project);
+    
+    EXEC SQL WHENEVER SQLERROR GOTO sqlerr;
+    EXEC SQL WHENEVER NOT FOUND GOTO finished;
+    EXEC SQL PREPARE SURFACE_HDR_STMT FROM : stmt;
+    EXEC SQL DECLARE SURFACE_HDR_CUR CURSOR FOR SURFACE_HDR_STMT;
+    line_id = pLineHdr->line.id;
+    EXEC SQL OPEN SURFACE_HDR_CUR USING : line_id;
+    
+    /* For each entry in seis_surface table with this line id, */
+    for (*cntPtr = 0; TRUE; )
+        {
+        /* Read a row from the database */
+        EXEC SQL FETCH SURFACE_HDR_CUR INTO : digital_ref,  : digital_ref_volume,
+            : data_type,  : surface_type,  : surface_code,  : last_update;
+        
+        V_FROMV (cNlistFile, digital_ref_volume);
+        V_FROMV (cNlistId, digital_ref);
+        ho_add_path ("ESI$SEISMIC_SURFACE", cNlistFile, sizeof(FILENAME), cNlistFile);
+        /* Get the surface nlist pointer (don't leave home without it) */
+        status = nl_read_nlist (&segNl, cNlistFile, cNlistId);
+        if (status != SUCCESS)
+            {
+            continue;
+            }
+        /* Add a SEISMIC_SURFACE structure to the array. */
+        if (*cntPtr == 0)
+            *spp = sPtr = (SEISMIC_SURFACE *)tc_zalloc (sizeof(SEISMIC_SURFACE));
+        else
+            {
+            *spp = (SEISMIC_SURFACE *)tc_realloc ((VOIDPTR) * spp,
+                                                  sizeof(SEISMIC_SURFACE) *
+                                                  (*cntPtr + 1));
+            sPtr = *spp + *cntPtr;
+            tc_zeroes ((VOIDPTR)sPtr, sizeof(SEISMIC_SURFACE));
+            }
+        /* Get retrived data into where we want it. */
+        switch (surface_type)
+            {
+        case SE_HORIZ:
+            sPtr->surface_type = SRF_TYPE_HOR;
+            break;
+        case SE_FAULT:
+            sPtr->surface_type = SRF_TYPE_FLT;
+            break;
+        default:
+            sPtr->surface_type = SRF_TYPE_UNKNOWN;
+            break;
+            }
+        sPtr->snap_event = SNAP_UNDEFINED;
+        
+        V_FROMV (sPtr->surface_name, surface_code);
+        V_FROMV (sPtr->modified_date, last_update);
+        
+        /* Get the array of SEGMENTS for this surface. */
+        sPtr->segment.element_format = VEC_TYPE_SEGMENT;
+        sPtr->segment.element_size = sizeof(SEGMENT);
+        status = gqz_ies_segment (pLineHdr, segNl, (SEIS_SURFACE_DATA_TYPE)data_type,
+                                  &sPtr->segment.number_elements,
+                                  (SEGMENT * *) & sPtr->segment.vector_pointer);
+        nl_free_nlist (segNl);
+        
+        if (status != SUCCESS)
+            {
+            sPtr->status = status;
+            continue;
+            }
+        /* At this point, we have successfully read in the horizon/fault and
+        constructed a point vector.  Now we can increment the surface counter.  Note
+        that the result of retrieving contact points is independent of retrieving
+        the data points which define the horizon */
+        
+        ++(*cntPtr);
+        
+        /* Get the array of CONTACT points for this surface. */
+        sPtr->contact.element_format = VEC_TYPE_CONTACT;
+        sPtr->contact.element_size = sizeof(CONTACT);
+        status = gqz_ies_contact (sPtr->surface_name, &sPtr->contact.number_elements,
+                                  (CONTACT * *) & sPtr->contact.vector_pointer);
+        /* WE SHOULD PRESS ON WHETHER OR NOT CONTACT POINTS WERE RETRIEVED... */
+        }
+    goto finished;
+    
+sqlerr:
+    status = OR_STATUS;
+
+finished:
+    EXEC SQL WHENEVER SQLERROR continue;
+    EXEC SQL CLOSE SURFACE_HDR_CUR;
+    return status > SUCCESS ? SUCCESS : status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    For the given nlist, create an array of 0-n IES-style
+    SEGMENT structures. Each segment corresponds to an nList table.
+
+Prototype:
+    static INT gqz_ies_segment (LINE_HDR *pLineHdr, NLIST_HEADER segNl,
+        SEIS_SURFACE_DATA_TYPE dataType, INT *cntPtr, SEGMENT **spp);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) pLineHdr    -(LINE_HDR *) Full seismic line identifier.
+    (I) segNl       -(NLIST_HEADER) The nlist to read from.
+    (I) dataType    -(SEIS_SURFACE_DATA_TYPE) Type of data to be read.
+    (O) cntPtr      -(INT *) Number of SEGMENTs returned.
+    (O) spp         -(SEGMENT **) Ptr to list of segments.
+
+Return Value/Status:
+    SUCCESS or error status.
+
+Scope:
+    PRIVATE to <gqz_pt_seis.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT gqz_ies_segment (LINE_HDR *pLineHdr, NLIST_HEADER segNl,
+                                SEIS_SURFACE_DATA_TYPE dataType, INT *cntPtr,
+                                SEGMENT **spp)
+#else
+static INT gqz_ies_segment (pLineHdr, segNl, dataType, cntPtr, spp)
+LINE_HDR *pLineHdr;
+NLIST_HEADER segNl;
+SEIS_SURFACE_DATA_TYPE dataType;
+INT *cntPtr;
+SEGMENT **spp;
+#endif
+    {
+    UINT tabNum;
+    UINT totalTables;
+    INT status;
+    SEGMENT *sPtr;
+    
+    status = nl_inq_nlist_int (segNl, NL_NLIST_NTABLES, (INT *) & totalTables);
+    if (status < SUCCESS)
+        return status;
+    
+    /* For each table in the nlist, */
+    for (tabNum = 1; tabNum <= totalTables; ++tabNum)
+        {
+        /* Make a new segment */
+        if (tabNum == 1)
+            *spp = sPtr = (SEGMENT *)tc_zalloc (sizeof(SEGMENT));
+        else
+            {
+            *spp = (SEGMENT *)tc_realloc ((VOIDPTR) * spp, tabNum * sizeof(SEGMENT));
+            sPtr = (*spp) + (tabNum - 1);
+            tc_zeroes ((VOIDPTR)sPtr, sizeof(SEGMENT));
+            }
+        /* Now fill it in */
+        sPtr->seg_id = tabNum;
+        switch (dataType)
+            {
+        case SE_TIME:
+            sPtr->z_type = TIME_UNSNAPPED;
+            break;
+        case SE_DEPTH:
+            sPtr->z_type = Z_TYPE_UNDEFINED;
+            break;
+        case SE_AMPL:
+            sPtr->z_type = AMPLITUDE;
+            break;
+#if 0
+        case SE_VEL:
+#endif
+        default:
+            sPtr->z_type = Z_TYPE_UNDEFINED;
+            break;
+            }
+        sPtr->point.element_format = VEC_TYPE_POINT;
+        sPtr->point.element_size = sizeof(SEISMIC_DATA_POINT);
+        status = gqz_ies_segment_points (pLineHdr, segNl, tabNum,
+                                         &sPtr->point.number_elements,
+                                         (SEISMIC_DATA_POINT **) &
+                                         sPtr->point.vector_pointer);
+        if (status != SUCCESS)
+            break;
+        }
+    *cntPtr = totalTables;
+    return status > SUCCESS ? SUCCESS : status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Get the CDP and Z values for each point in the given
+    segment nlist.
+
+Prototype:
+    static INT gqz_ies_segment_points (LINE_HDR *pLineHdr, NLIST_HEADER segNl,
+        UINT tabNum, INT *cntPtr, SEISMIC_DATA_POINT **ppp);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) pLineHdr    -(LINE_HDR *) Full seismic line identifier.
+    (I) segNl       -(NLIST_HEADER) Nlist to read.
+    (I) tabNum      -(UINT) Table to read.
+    (O) cntPtr      -(INT *) Number of SEISMIC_DATA_POINTs returned.
+    (O) ppp         -(SEISMIC_DATA_POINT **) Ptr to list of points.
+    
+Return Value/Status:
+    SUCCESS or error status.
+
+Scope:
+    PRIVATE to <gqz_pt_seis.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT gqz_ies_segment_points (LINE_HDR *pLineHdr, NLIST_HEADER segNl,
+                                       UINT tabNum, INT *cntPtr,
+                                       SEISMIC_DATA_POINT **ppp)
+#else
+static INT gqz_ies_segment_points (pLineHdr, segNl, tabNum, cntPtr, ppp)
+LINE_HDR *pLineHdr;
+NLIST_HEADER segNl;
+UINT tabNum;
+INT *cntPtr;
+SEISMIC_DATA_POINT **ppp;
+#endif
+    {
+    SEISMIC_DATA_POINT *pPtr;
+    UINT row;
+    UINT numRows;
+    UINT actual;
+    INT status;
+    UINT nCols = 2;
+    UINT Col_List[2];
+    VOIDPTR Var_List[2];
+    FLOAT *z;
+    CDP *cdps;
+    SP sp;
+    INT valid = VALID_CDP | VALID_SP | VALID_Z;
+    
+    nl_set_current_row (segNl, 1, tabNum);
+    status = nl_inq_table_int (segNl, tabNum, NL_TABLE_NROWS, (INT *) & numRows);
+    if (status < SUCCESS)
+        {
+        return status;
+        }
+    cdps = (CDP *)tc_alloc (numRows * sizeof(INT));
+    z = (FLOAT *)tc_alloc (numRows * sizeof(FLOAT));
+    
+    Col_List[0] = 1, Col_List[1] = 2;
+    Var_List[0] = (VOIDPTR)cdps;
+    Var_List[1] = (VOIDPTR)z;
+    
+    /* Get all the rows from the table */
+    status = nl_get_rows (segNl, numRows, nCols, Col_List, Var_List, &actual);
+    if (status < SUCCESS)
+        {
+        return status;
+        }
+    /* Create the IES point array */
+    *ppp = pPtr = (SEISMIC_DATA_POINT *)tc_zalloc (sizeof(SEISMIC_DATA_POINT) *
+                                                   actual);
+    
+    /* Fill it up */
+    for (row = 0; row < actual; ++row, pPtr++)
+        {
+        pPtr->valid = (int_t)valid;
+        pPtr->cdp = (real_t)cdps[row];
+        se_sp_from_cdp_intern (pLineHdr, (CDP_FLOAT)pPtr->cdp, &sp);
+        pPtr->shot_point = (real_t)sp;
+        pPtr->z = (dp_t)z[row];
+        }
+    *cntPtr = actual;
+    tc_free ((VOIDPTR)cdps);
+    tc_free ((VOIDPTR)z);
+    return status > SUCCESS ? SUCCESS : status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    For the given seismic line, create an array of 0-n IES-style
+    CONTACT structures.
+
+Prototype:
+    static INT gqz_ies_contact (CHAR *hor_code, INT *cntPtr, CONTACT **cpp);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) hor_code    -(CHAR *) Name of horizon. 
+    (O) cntPtr      -(INT *) Number of CONTACTs returned.
+    (O) cpp         -(CONTACT **) Ptr to list of contacts.
+
+Return Value/Status:
+    SUCCESS or error status.
+
+Scope:
+    PRIVATE to <gqz_pt_seis.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT gqz_ies_contact (CHAR *hor_code, INT *cntPtr, CONTACT **cpp)
+#else
+static INT gqz_ies_contact (hor_code, cntPtr, cpp)
+CHAR *hor_code;
+INT *cntPtr;
+CONTACT **cpp;
+#endif
+    {
+    INT cnt;
+    INT status = SUCCESS;
+    CONTACT *cPtr;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR fault_code[12];
+    float lower_cdp;
+    float upper_cdp;
+    float lower_time;
+    float upper_time;
+    EXEC SQL END DECLARE SECTION;
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT FAULT_CODE, \
+LOWER_CDP, UPPER_CDP, LOWER_TIME, UPPER_TIME \
+FROM %s.SEIS_FAULT_POST WHERE HOR_CODE = '%s'"
+            , project, hor_code);
+    EXEC SQL WHENEVER SQLERROR GOTO sqlerr;
+    EXEC SQL WHENEVER NOT FOUND continue;
+    EXEC SQL PREPARE FAULT_STMT FROM : stmt;
+    EXEC SQL DECLARE FAULT_CUR CURSOR FOR FAULT_STMT;
+    EXEC SQL OPEN FAULT_CUR;
+    cnt = 0;
+    while (TRUE)
+        {
+        EXEC SQL FETCH FAULT_CUR INTO : fault_code,  : lower_cdp,  : upper_cdp,
+            : lower_time,  : upper_time;
+        if (OR_STATUS == OR_EOF)
+            break;
+        cnt += 2;
+        if (cnt == 2)
+            *cpp = cPtr = (CONTACT *)tc_zalloc (cnt * sizeof(CONTACT));
+        else
+            {
+            *cpp = (CONTACT *)tc_realloc ((VOIDPTR) * cpp,
+                                          (cnt + 2) * sizeof(CONTACT));
+            cPtr = (*cpp) + cnt - 2;
+            tc_zeroes ((VOIDPTR)cPtr, sizeof(CONTACT) * 2);
+            }
+        cPtr->cdp = upper_cdp;
+        cPtr->time = upper_time;
+        cPtr->surface_type_2 = SRF_TYPE_FLT;
+        V_FROMV (cPtr->name_2, fault_code);
+        (cPtr + 1)->cdp = lower_cdp;
+        (cPtr + 1)->time = lower_time;
+        (cPtr + 1)->surface_type_2 = SRF_TYPE_FLT;
+        strcpy ((cPtr + 1)->name_2, cPtr->name_2);
+        }
+sqlerr:
+    status = OR_STATUS;
+finished:
+    EXEC SQL WHENEVER SQLERROR continue;
+    EXEC SQL CLOSE FAULT_CUR;
+    *cntPtr = cnt;
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Free the whole chain of dynamic memory structures associated
+    with the given IES-type SURVEY pointer.
+
+Prototype:
+    static VOID gqz_free_survey (SEISMIC_SURVEY *sPtr);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) sPtr        -(SEISMIC_SURVEY *) Survey to free.
+
+Return Value/Status:
+    None.
+
+Scope:
+    PRIVATE to <gqz_pt_seis.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static VOID gqz_free_survey (SEISMIC_SURVEY *sPtr)
+#else
+static VOID gqz_free_survey (sPtr)
+SEISMIC_SURVEY *sPtr;
+#endif
+    {
+    SEGMENT *segment;
+    SEISMIC_SURFACE *surface;
+    SEISMIC_LINE *line;
+    SEISMIC_CLASS *sclass;
+    
+    if (sPtr == (SEISMIC_SURVEY *)0)
+        return;
+    
+    if (sPtr->seis_line.number_elements == 0)
+        return;
+    line = sPtr->seis_line.vector_pointer;
+    if (line->loc.point.number_elements > 0)
+        tc_free ((VOIDPTR)line->loc.point.vector_pointer);
+    
+    sclass = line->seismic_class.vector_pointer;
+    if (sclass->surface.number_elements > 0)
+        {
+        surface = sclass->surface.vector_pointer;
+        if (surface->contact.number_elements > 0)
+            tc_free ((VOIDPTR)surface->contact.vector_pointer);
+        if (surface->segment.number_elements > 0)
+            {
+            segment = surface->segment.vector_pointer;
+            if (segment->point.number_elements > 0)
+                tc_free ((VOIDPTR)segment->point.vector_pointer);
+            tc_free ((VOIDPTR)segment);
+            }
+        tc_free ((VOIDPTR)surface);
+        }
+    tc_free ((VOIDPTR)line);
+    tc_free ((VOIDPTR)sPtr);
+    return;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Retrieves 2D location information.
+
+Prototype:
+    static INT gqz_fill_2d_survey(SEISMIC_SURVEY *sPtr);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) sPtr        -(SEISMIC_SURVEY *) Survey to load 2D survey info.
+
+Return Value/Status:
+    SUCCESS
+    OR_EOF (1403) - No data found.
+
+Scope:
+    PRIVATE to <gqz_pt_seis.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT gqz_fill_2d_survey (SEISMIC_SURVEY *sPtr)
+#else
+static INT gqz_fill_2d_survey (sPtr)
+SEISMIC_SURVEY *sPtr;
+#endif
+    {
+    INT status = SUCCESS;
+    SEISMIC_LOCATION_3D *pLoc = &sPtr->loc;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    double sp_spacing;              /* distance between shot points */
+    double datum;
+    VARCHAR z_unit[32];
+    EXEC SQL END DECLARE SECTION;
+    
+    sPtr->svy_type = SVY_2D;
+    stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT SHOT_POINT_INTERVAL, DATUM_ELEVATION, Z_UNIT \
+FROM %s.SEIS_SURVEY_HDR \
+WHERE SURVEY = '%s'"
+            , project, sPtr->name);
+    
+    EXEC SQL WHENEVER SQLERROR continue;
+    EXEC SQL PREPARE S20 FROM : stmt;
+    EXEC SQL DECLARE C20 CURSOR FOR S20;
+    
+    EXEC SQL OPEN C20;
+    EXEC SQL FETCH C20 INTO : sp_spacing, datum, z_unit;
+    switch (OR_STATUS)
+        {
+    case SUCCESS:
+        pLoc->status = SUCCESS;
+        break;
+        
+    case OR_EOF:
+        /* No entry was found in the SEIS_SURVEY_HDR table, so use
+        some 'reasonable' defaults, like, the ones for the project */
+        sPtr->svy_type = SVY_2D;
+        sPtr->z_datum = 0.0;
+        strcpy (sPtr->z_units, "FEET");
+        status = pLoc->status = SUCCESS;
+        break;
+    default:
+        status = pLoc->status = OR_STATUS;
+        break;
+        }
+    EXEC SQL CLOSE C20;
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Retrieves 3D location information.
+
+Prototype:
+    static INT gqz_fill_3d_survey(SEISMIC_SURVEY *sPtr);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) sPtr        -(SEISMIC_SURVEY *) Survey to load 3D location.
+
+Return Value/Status:
+    SUCCESS
+    OR_EOF (1403) - No data found.
+
+Scope:
+    PRIVATE to <gqz_pt_seis.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT gqz_fill_3d_survey (SEISMIC_SURVEY *sPtr)
+#else
+static INT gqz_fill_3d_survey (sPtr)
+SEISMIC_SURVEY *sPtr;
+#endif
+    {
+    INT status = SUCCESS;
+    SEISMIC_LOCATION_3D *pLoc = &sPtr->loc;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    double azimuth;
+    double inline_dist;             /* station spacing along azimuth */
+    double line_spacing;            /* station spacing against azimuth */
+    int lin1;                       /* line # of origin inline line. */
+    int lininc;                     /* line number incr */
+    int cdp1;                       /* origin cdp on inline lines. */
+    /*---------------------------------------------------------------*/
+    /* cdp increment on inline lines.                                */
+    /* the following are coordinates with which to locate the survey */
+    /*---------------------------------------------------------------*/
+    int cdpinc;
+    
+    double x_surv_0;                /* x coord of a 3-D survey trace */
+    double y_surv_0;                /* y coord of a 3-D survey trace */
+    EXEC SQL END DECLARE SECTION;
+    
+    sPtr->svy_type = SVY_3D;
+    stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT X_AZIMUT, CDP_INTERVAL, LINE_INTERVAL, LOWER_LINE, LINE_INC,\
+    LOWER_CDP, CDP_INC, X_ORIGIN, Y_ORIGIN \
+FROM %s.SEIS_GRID_3D \
+WHERE SURVEY = '%s'"
+            , project, sPtr->name);
+    
+    EXEC SQL WHENEVER SQLERROR continue;
+    EXEC SQL PREPARE S21 FROM : stmt;
+    EXEC SQL DECLARE C21 CURSOR FOR S21;
+    
+    EXEC SQL OPEN C21;
+    EXEC SQL FETCH C21 INTO : azimuth,  : inline_dist,  : line_spacing,  : lin1,
+        : lininc,  : cdp1,  : cdpinc,  : x_surv_0,  : y_surv_0;
+    switch (OR_STATUS)
+        {
+    case SUCCESS:
+        pLoc->azim_surv = azimuth;
+        pLoc->inline_dist = inline_dist;
+        pLoc->line_spacing = line_spacing;
+        pLoc->lin1.num = lin1, pLoc->lin1.den = 1;
+        pLoc->lininc.num = lininc, pLoc->lininc.den = 1;
+        pLoc->cdp1.num = cdp1, pLoc->cdp1.den = 1;
+        pLoc->cdpinc.num = cdpinc, pLoc->cdpinc.den = 1;
+        pLoc->sp1 = pLoc->cdp1;     /* Equate Shot Points and CDPs */
+        pLoc->spinc = pLoc->cdpinc;
+        pLoc->x_surv_0 = x_surv_0;
+        pLoc->y_surv_0 = y_surv_0;
+        pLoc->status = SUCCESS;
+        break;
+        
+    case OR_EOF:
+        status = pLoc->status = SUCCESS;
+        break;
+    default:
+        status = pLoc->status = OR_STATUS;
+        break;
+        }
+    EXEC SQL CLOSE C21;
+    return status;
+    }
+/* END:     */

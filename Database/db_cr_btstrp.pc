@@ -1,0 +1,179 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_CR_BTSTRP.PC */
+/* *8     2-AUG-1991 17:37:10 LOEBL "(SPR 2238) Standardize hold/release cursor handling" */
+/* *7     4-JAN-1991 14:39:52 VINCE "(SPR 6205) Fixed up index creation to work on Account_TB_Defs" */
+/* *6    31-DEC-1990 11:33:51 VINCE "(SPR 6205) added index creation for the bootstrap tables" */
+/* *5    14-AUG-1990 13:08:28 VINCE "(SPR 5644) Header Standardization" */
+/* *4    14-OCT-1989 15:55:59 VINCE "(SPR -1) mods for new update schem" */
+/* *3    19-SEP-1989 13:35:31 GILLESPIE "(SPR 100) GULF MODS" */
+/* *2    11-AUG-1989 13:48:24 CONROY "(SPR 9999) Initial checkin" */
+/* *1    11-AUG-1989 13:19:21 CONROY "Creates bootstrap tables for account creation" */
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_CR_BTSTRP.PC */
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_gl_defs.h"
+#include "esi_db.h"
+#include "esi_am.h"
+#include "esi_mg.h"
+#include "esi_oracle.h"
+
+#include "esi_db_msg.h"
+
+#if USE_PROTOTYPES
+static INT dbz_create_bootstrap_index (DB_ACCOUNT_STRUCT *db_account,
+					   CHAR              *tname);
+#else
+static INT dbz_create_bootstrap_index ();
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+    Create the bootstrap tables before letting db_ver_tabs loose on
+    the new account.
+
+        ACCOUNT_TB_DEF
+        TEMP_TBSPACE_DEF
+        LOGICAL_NAMES
+
+Prototype:
+    publicdef INT db_create_bootstrap_tables(DB_ACCOUNT_STRUCT *db_account);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) db_account  -(DB_ACCOUNT_STRUCT *) Account structure.
+    
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT db_create_bootstrap_tables (DB_ACCOUNT_STRUCT *db_account) 
+#else
+publicdef INT db_create_bootstrap_tables (db_account)
+DB_ACCOUNT_STRUCT *db_account;
+#endif
+{
+
+    INT  status;
+    EXEC ORACLE OPTION (HOLD_CURSOR=NO);
+    EXEC ORACLE OPTION (RELEASE_CURSOR=YES);
+
+    /* -------------------------------------------------------------------- */
+    /* Create the bootstrap tables and indexes				    */
+    /*									    */
+    /* Note: - The indexes for ACCOUNT_TB_DEFS must be created before any   */
+    /* other tables get created.					    */
+    /* -------------------------------------------------------------------- */
+
+    status = db_create_table (db_account, "ACCOUNT_TB_DEFS");
+    status = dbz_create_bootstrap_index (db_account, "ACCOUNT_TB_DEFS");
+
+    status = db_create_table (db_account, "TEMP_TBSPACE_DEFS");
+    status = dbz_create_bootstrap_index (db_account, "TEMP_TBSPACE_DEFS");
+
+    status = db_create_table (db_account, "LOGICAL_NAMES");
+    status = dbz_create_bootstrap_index (db_account, "LOGICAL_NAMES");
+
+    return SUCCESS;
+}
+
+#if USE_PROTOTYPES
+static INT dbz_create_bootstrap_index (DB_ACCOUNT_STRUCT *db_account,
+					   CHAR              *tname)
+#else
+static INT dbz_create_bootstrap_index (db_account, tname)
+DB_ACCOUNT_STRUCT *db_account;
+CHAR              *tname;
+#endif
+{
+    /* -------------------------------------------------------------------- */
+    /* Look for any indexes on the bootstrap tables and create them.	    */
+    /* -------------------------------------------------------------------- */
+
+    INT ii, status;
+    CHAR msg[133], status_fmt[133];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+	VARCHAR table_name[33];
+	VARCHAR index_name[33];
+	int     n_indexes;
+    EXEC SQL END DECLARE SECTION;
+
+    /* get the "creating index %s (%d of %d)" format string */
+    strcpy (status_fmt, mg_message(DB_CREATE_INDEX));
+
+    V_FROMC (table_name, tname);
+
+    /* how many indexes need to be created ? */
+
+    n_indexes = 0;
+    EXEC SQL
+	SELECT	COUNT (DISTINCT INAME)
+	INTO	:n_indexes
+	FROM	ESI.FINDER_COLUMN_INDEXES
+	WHERE	TNAME = :table_name;
+
+    if (n_indexes == 0) return SUCCESS;		/* nothing more to do. */
+    
+    /* get the index names and send them to the index creator */
+
+    ii = 1;
+    EXEC SQL DECLARE NEXT_INDEX CURSOR FOR
+	SELECT 	DISTINCT INAME
+	FROM	ESI.FINDER_COLUMN_INDEXES
+	WHERE	TNAME = :table_name;
+
+    EXEC SQL OPEN NEXT_INDEX;
+
+    EXEC SQL FETCH NEXT_INDEX INTO :index_name;
+    while (OR_STATUS == SUCCESS)
+	{
+	V_SETZERO (index_name);
+
+	sprintf (msg, status_fmt, (char *)index_name.arr, ii++, n_indexes);
+	am_message (AM_STATUS, msg);
+
+	status = dba_update_1_index (db_account, (char *)index_name.arr);
+
+	if ((status != SUCCESS) &&
+	    (status != -1408)   &&	/* Index Exists		*/
+	    (status != -1409)    )	/* Multi-Column Warning	*/
+	    {
+	    am_message (AM_STATUS, mg_message(status));
+	    }
+
+	EXEC SQL FETCH NEXT_INDEX INTO :index_name;
+	}
+
+    EXEC SQL CLOSE NEXT_INDEX;
+
+    return SUCCESS;
+}
+/* END:     */

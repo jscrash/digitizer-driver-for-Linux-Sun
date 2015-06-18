@@ -1,0 +1,214 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LGZ_DM_R_D_E.PC*/
+/* *7    19-NOV-1990 11:18:32 MING "(SPR 6192) fix rename and delete options in logDB"*/
+/* *6    23-AUG-1990 17:40:36 JESSIE "(SPR 1) fix include files"*/
+/* *5    14-SEP-1989 16:16:29 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *4    13-AUG-1989 01:46:20 GILLESPIE "(SPR 5) Change WLL_LOG_TRACE_HDR to WELL_LOG_CURVE; always release cursor"*/
+/* *3     8-AUG-1989 10:44:43 VINCE "(SPR -1) added Gulf mods; static in SQL declare section"*/
+/* *2    19-JUL-1989 08:04:51 GORDON "(SPR 100) Add mods from Sun port"*/
+/* *1    19-JUN-1989 12:33:14 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element LGZ_DM_R_D_E.PC*/
+
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/* ****************************************************************************
+
+    Author:   James Chang
+    ************************************************************************* */
+
+#include "esi_lg_defs.h"
+#ifndef ESI_LG_LDEFS_H
+#include "esi_lg_ldefs.h"
+#endif
+#ifndef ESI_LG_ERR_H
+#include "esi_lg_err.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+#include "esi_oracle.h"
+
+/*  ***************************************************************************
+
+    ROUTINE:  LGZ_RENAME_DB_ENTRY
+
+    DESCRIPTION
+         A internal help routine of Log Trace Data Manager.  The function of this
+         routine is to perform renaming the database entry.
+
+    ************************************************************************* */
+publicdef INT lgz_rename_db_entry(oldTrace, newTrace)
+    /*************************************************************************/
+
+LOG_TRACE_STRUCT *oldTrace;       /* the old trace structure.                */
+LOG_TRACE_STRUCT   *newTrace;     /* the new trace structure.                */
+{
+    INT status;
+    INT i;
+    PROJECT_NAME project;
+    FILENAME traceFileOld;
+    FILENAME traceFileNew;
+    UINT dim_list[2];
+    INT units[2];
+    size_t data_sizes[2];
+    INT data_types[2];
+    INT value_inc[2];
+    VOIDPTR value_list[2];
+    NLIST_HEADER old_nlist;
+    NLIST_HEADER new_nlist;
+    static CHAR *c_name[3] = {"DEPTH","VALUE",NULL};
+    CHAR msg[256];
+
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR	select[1024];
+EXEC SQL END DECLARE SECTION;  
+/* ************************************************************************* */
+
+
+				 /* get the current project name.            */
+    qs_inq_c(QS_PROJECT_NAME, project, (INT *) 0);
+
+
+                                      /* construct the filename and nlist id.*/
+   lgz_construct_trace_id(newTrace);
+   if ((status = ho_get_filename( newTrace -> uwi, newTrace -> filename)))
+    {
+	return status;
+    }
+  
+                                      /* construct the filename and nlist id.*/
+     ho_add_path("ESI$LOGS", oldTrace -> filename, sizeof (FILENAME), traceFileOld);
+     ho_add_path("ESI$LOGS", newTrace -> filename, sizeof (FILENAME), traceFileNew);
+
+    for (i = 0; i < 2; ++i)
+      {
+      dim_list[i] = i + 1;
+      units[i] = 0;
+      data_sizes[i] = sizeof (FLOAT);
+      data_types[i] = FLOAT_TYPE;
+      value_inc[i] = VALUE_LIST;
+      }
+
+    status = nl_init_nlist (&old_nlist,2,units,data_sizes,
+			    data_types,value_inc,500);
+    status = nl_set_nlist_info (old_nlist,NL_NLIST_COLUMN_NAME,2,
+				dim_list,(VOIDPTR) c_name);
+    status = nl_init_nlist (&new_nlist,2,units,data_sizes,
+			    data_types,value_inc,500);
+    status = nl_set_nlist_info (new_nlist,NL_NLIST_COLUMN_NAME,2,
+				dim_list,(VOIDPTR) c_name);
+
+    if (status != SUCCESS)
+      {
+      return status;
+      }
+
+    oldTrace->ptrace = old_nlist;
+    newTrace->ptrace = new_nlist;
+
+
+				      /* read the old trace and rewrite it
+					 with new name.			    */
+                
+    if ((status = nl_read_nlist( &newTrace -> ptrace, traceFileOld, oldTrace -> nlist_id)) != SUCCESS)
+      {
+      sprintf (msg,"Failed to read nlist id %s from nlist file %s",
+	       oldTrace->nlist_id,traceFileOld);
+      am_message (AM_STATUS,msg);
+      return status;
+      }
+
+    if ((status = nl_write_nlist(newTrace -> ptrace, traceFileNew, newTrace -> nlist_id)) != SUCCESS)
+      {
+      sprintf (msg,"Failed to write nlist id %s into nlist file %s",
+	       newTrace->nlist_id,traceFileNew);
+      am_message (AM_STATUS,msg);
+      return status;
+      }
+
+    if ((status = nl_delete_nlist(traceFileOld, oldTrace -> nlist_id)) != SUCCESS)
+      {
+      sprintf (msg,"Failed to delete nlist id %s from nlist file %s",
+	       oldTrace->nlist_id,traceFileOld);
+      am_message (AM_STATUS,msg);
+      return status;
+      }
+
+    status = nl_free_nlist (oldTrace->ptrace);
+    status = nl_free_nlist (newTrace->ptrace);
+     
+
+    EXEC SQL WHENEVER SQLERROR GOTO errrpt;
+    EXEC SQL WHENEVER NOT FOUND GOTO ernofd;
+
+    select.len = sprintf((char *)select.arr,
+"UPDATE %s.WELL_LOG_CURVE_HDR SET SOURCE = '%s',\
+TRACE_TYPE = '%s',\
+SERVICE = '%s',\
+VERSION = %d,\
+DIGITAL_REF = '%s',\
+DIGITAL_REF_VOLUME = '%s',\
+LAST_UPDATE = sysdate \
+WHERE trace_id = %d",
+project,
+newTrace -> source,
+newTrace -> trace,
+newTrace -> service,
+newTrace -> version,
+newTrace -> nlist_id, 
+newTrace -> filename,
+oldTrace -> trace_id);
+
+    EXEC SQL PREPARE RENAME_DB_S2 FROM :select;
+    EXEC SQL DECLARE C2 CURSOR FOR RENAME_DB_S2;
+    EXEC SQL EXECUTE  RENAME_DB_S2;
+
+   if( OR_ROWCOUNT <= 0 )
+	goto ernofd;
+
+	EXEC SQL COMMIT WORK;
+	status = SUCCESS;
+	goto way_out;
+
+ernofd:
+   status = LG_TRACE_NOT_FOUND;
+   goto way_out;
+
+errrpt:
+   status = OR_STATUS;
+
+way_out:
+	EXEC SQL WHENEVER SQLERROR CONTINUE;
+	EXEC SQL CLOSE C2;
+	return status;
+}

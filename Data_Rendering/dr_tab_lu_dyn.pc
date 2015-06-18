@@ -1,0 +1,88 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_TAB_LU_DYN.PC*/
+/* *1    19-JUN-1989 12:31:34 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_TAB_LU_DYN.PC*/
+
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/******************************************************************************
+
+NAME:          	dr_table_lookup_dynamic 
+
+DESCRIPTION:   	Translate a value from name to code by direct
+				access to sql table.
+
+
+     Input:    table_name - The table to be used
+               name_value - the name value
+               code_value - The code value
+
+     Output:   code_value
+               
+******************************************************************************/
+
+#include    "esi_c_lib.h"
+#include    "esi_dr.h"
+#include    "esi_mg.h"
+#include    "esi_am.h"
+#include    "esi_oracle.h"
+
+publicdef INT dr_table_lookup_dynamic( table_name, name, value )
+
+CHAR 	*table_name;
+CHAR 	*name;
+INT 	*value;
+{
+    INT status = SUCCESS;
+    static BOOL s1_defined = FALSE;
+    static EXTENDED_TABLE_NAME current_table = {0};
+    CHAR message[128];
+
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR code_name[40];
+        int code_value;
+        VARCHAR sqlstmt[128];
+    EXEC SQL END DECLARE SECTION;
+
+    if(!s1_defined || strcmp(table_name, current_table) != 0)
+        {
+    	strcpy( current_table, table_name );
+    	
+	sqlstmt.len = sprintf((char *)sqlstmt.arr, 
+	    "SELECT CODE FROM %s WHERE NAME = :code_name", table_name);
+        
+        EXEC SQL PREPARE S1 FROM :sqlstmt;
+        EXEC SQL DECLARE C1 CURSOR FOR S1;
+        s1_defined = TRUE;
+        }
+
+/*	Private copies of parameters for Oracle */    
+    V_C_TO_V( code_name, name );
+
+    EXEC SQL OPEN C1 USING :code_name;
+    EXEC SQL FETCH C1 INTO :code_value;
+    
+    *value = code_value;
+
+    if (OR_STATUS != SUCCESS)status = FAIL;
+
+    return status;
+}

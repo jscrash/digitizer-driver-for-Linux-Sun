@@ -1,0 +1,304 @@
+; DEC/CMS REPLACEMENT HISTORY, Element FI_MENUS_MACROS.MAR
+; *3     5-AUG-1991 18:03:59 JTM "(SPR 0) Extended MENU macro to handle Beta items."
+; *2    27-NOV-1989 14:32:36 GORDON "(SPR 0) Use -1 for terminator instead of 0"
+; *1    20-JUN-1989 12:08:24 GILLESPIE ""
+; DEC/CMS REPLACEMENT HISTORY, Element FI_MENUS_MACROS.MAR
+;   This VAX Assembler program is designed to construct
+;   the data structure to control the Finder top-level menu
+;   structure
+;
+;   J Gillespie  June 1988
+;
+;   The data structure being loaded is as follows:
+;
+;   Entry   Name        Length  Type    Description
+;   1       MenuID      4       INT     ID of menu (user defined)
+;   2       MenuText    32      CHAR    Menu text associated with this entry
+;   3       Type        4       INT     Data type of this entry
+;   4       AppEntry    4       PTR     Address of routine entry point
+;   5       AppText     255     CHAR    Name of application, command or help
+;   6       Beta        255     CHAR    Name of logical to turn BETA item on.
+;
+;   Entry 1 is an integer ID you assign to each menu.  This menu ID must be
+;   unique for each menu.  By using a menu ID, we can allow the same text
+;   for a menu name to be used more than once in the menu tree.  The last entry
+;   in the table should have a menu ID of zero.
+;
+;   Entry 2 is the ASCII text associated with this entry.  Since the string is
+;   null terminated (a la C), the maximum number of characters is 31.  or 
+;   record type 1, this entry is the NAME of a menu.  For any other record type,
+;   this entry contains the menu item text.  Any characters permitted by the 
+;   Macintosh is permitted, including spaces and special;  print character 
+;   strings.  Enclose the string in angle brackets (<>), as in <My Text> 
+;   and <Mapping>
+;
+;   Entry 3 specifies the type of menu entry.  A type of 1 means that this
+;   is the NAME of the menu.  This character string will appear in the top
+;   title bar of the menu.  Any other value indicates that this is a menu entry
+;   in the menu specified by the menu ID.  There should be one and only one
+;   type 1 entry per menu ID, but there can be many (at least 16) menu entries
+;   per menu ID.  The following types of entries are valid:
+;
+;   Type:           0 (Default)
+;   Meaning:        Undefined Menu Item (Unserviced)
+;   Fields Used:    none
+;   Description:    No action to be taken if this menu item selected
+;
+;   Type:           1
+;   Meaning:        Menu name record
+;   Fields Used:    MenuText, AppText
+;   Description:    Used to specify the name of a menu.  Use only one type 1
+;                   record per menu ID.  The Help activation string is placed
+;		    in the AppText field
+;
+;   Type:           2
+;   Meaning:        Menu item record - Activate another menu
+;   Fields Used:    MenuText, AppEntry
+;   Description:    Used to specify the ID of the next menu to activate.. The
+;                   next menu ID is placed in the AppEntry field 
+;
+;   Type:           3
+;   Meaning:        Menu item record - Activate a Finder function
+;   Fields Used:    MenuText, AppText, AppEntry
+;   Description:    Used to specify the name of the function to activate.
+;                   The user function should accept a single byte pointer
+;                   as its lone argument.  All application manager services
+;		    are available.  The function should put up its menus
+;		    and at lease one dialog, then return to the application
+;		    manager to await its next event.
+;
+;   Type:           4
+;   Meaning:        Menu item record - Activate a 'black pipe' function
+;   Fields Used:    MenuText, AppText, AppEntry
+;   Description:    Used to specify the name of the function to activate.
+;                   The user function should accept a single byte pointer
+;                   as its lone argument. The Finder environment is
+;		    'pushed' prior to invoking the function, and 'popped'
+;		    upon return.  No application manager services are available,
+;		    and the application must handle its own events.
+;
+;   Type:           5
+;   Meaning:        Menu item record - start an executable program
+;   Fields Used:    MenuText, AppText
+;   Description:    Used to specify the name of a user program that will be
+;                   activated through the SPAWN mechanism.  This program
+;                   executes normally, and on termination, control is
+;                   returned to Finder.  The executable should be placed
+;		    in the directory ESI$BIN.
+;
+;   Type:           6
+;   Meaning:        Menu item record - start a command procedure
+;   Fields Used:    MenuText, AppText
+;   Description:    Used to specify the name of a user command procedure
+;                   activated through the SPAWN mechanism.  This procedure
+;                   executes normally, and on termination, control is
+;                   returned to Finder.
+;
+;   Type:           7
+;   Meaning:        Menu item record - Perform a CLI command
+;   Fields Used:    MenuText, AppText
+;   Description:    Used to specify a host command through the SPAWN
+;		    mechanism.  The actual host command is placed in the
+;		    AppText field. On termination, control is returned
+;		    to Finder.
+;
+;   Entry 4 is the ID of the next menu for a type 2 record, or the function
+;   entry point (address) for a type 3 record.  For a type 2 record, place
+;   the integer ID in this field, and for a type 3 record, put the name of
+;   the function to call in this field.  The assembler and linker will
+;   eventually convert this 'character string' to an address.  This field
+;   is ignored for type 4 records and should be set to zero.
+;
+;   Entry 5 is the text field associated with this activation entry type:
+;	Type 1:	    Help Acvivation string
+;	Type 2:	    Unused
+;	Type 3:	    Application Manager 'application tag'
+;	Type 4:	    Application Manager 'application tag'
+;	Type 5:	    Name of stand-alone executable
+;	Type 6:	    Name of command procedure
+;	Type 7:	    Host command text
+;   This entry can be as long as necessary, and should be enclosed in angle
+;   brackets, as in <DIR/SIZE>.  Note that for entry types 1, 5, 6 and 7 that
+;   a zero must be placed before the AppText as a place-holder for the
+;   unused AppEntry field.
+;
+; (jtm)
+;   If entry 6 is present, it is a character string giving the logical name
+;   that must be set to "ON" before this item will appear.
+;   If no entry is present, or the entry is "(CHAR *) 0", then this item
+;   is not a BETA function and will always appear.
+;
+;   The following is an example of how to set up this data structure.
+;
+;BEGIN_FINDER_MENUS		;	!!! THIS LINE REQUIRED
+;MENU	1,<Beers>,1,0,<Beers>
+;   MENU    1,<Lagers>,2,2
+;   MENU    1,<Ales>,2,3
+;   MENU    1,<Bock>,2,4
+;   MENU    1,<Show Files>,7,0,<Dir>
+;MENU	2,<Lagers>,1,0,<Lagers>
+;   MENU    2,<Old Peculiar>,3,drink_peculiar,<Downer>
+;   MENU    2,<St Pauli Girl>
+;MENU	3,<Ales>,1,0,<Ales>
+;   MENU    3,<Lorimer>,3,drink_scotch,<Scottie>
+;   MENU    3,<Samual Smyth>,3,drink_smoothie,<Smoothie>
+;MENU	4,<Bock>,1,0,<Bock>
+;   MENU    4,<Lucky>,5,0,<run_rotgut>
+;   MENU    4,<Wilshire>,4,drink_atownrisk,<Black Pipe>
+;END_FINDER_MENUS		;	!!! THIS LINE REQUIRED
+;.END				;	!!! THIS LINE REQUIRED
+;
+;   In the above example, 4 menus are defined.  The first menu activates
+;   one of the following three menus, depending on which item is selected:
+;   choosing "Lagers" activates menu 2, "Ales" activates menu 3 and "Bock"
+;   activates menu 4.  Picking "Lucky" from menu 4 would start a program
+;   named ESI$BIN:RUN_ROTGUT, and picking "Wilshire" would call a function
+;   named "drink_atownrisk" in the current Finder image.  Note that picking
+;   "St Pauli Girl" from menu 2 produces no action, since the action code
+;   has been omitted.  This is a good method for deactivating menu
+;   entries for test versions of Finder.  Picking "Show Files" asks for the
+;   host command DIR (directory listing) to be performed.
+;
+;   Note that a semicolon on the line begins a comment at that point.  Thus,
+;   when you are defining your own menus, please do not include the ';'
+;   character as the first character on the line (e.g. simply copying the
+;   above example without removing the initial ';' will produce nothing).
+;
+;------------------------------------------------------------------------------
+;
+;   To make your own menus:
+;	1. Prepare an input file (e.g. mymenus.mar) using the system editor.
+;	2. Compile the file using the VAX command
+;		$ MACRO mymenus+esi$lib:finder/lib
+;	3. Link the resulting file using the FLINK procedure:
+;		$ @ESI$BIN:ZZ_FLINK MYFINDER MYMENUS -B
+;
+;------------------------------------------------------------------------------
+;
+;       BEGIN MACRO DEFINITIONS
+;
+;------------------------------------------------------------------------------
+;
+.macro  MENU MenuID,MenuText,Type=0,AppEntry=0,AppText=<>,BetaLogical=<>
+;
+;------------------------------------------------------------------------------
+;
+.psect  FINDER_MENU_STRINGS
+    pText = .
+    .asciz  "MenuText"
+.if     NOT_BLANK   <AppText>
+    pName = .
+    .asciz  "AppText" ; Use only if defined
+.endc
+.if	NOT_BLANK	<BetaLogical>
+	bName = .
+        .asciz "BetaLogical"
+.endc
+;
+;------------------------------------------------------------------------------
+;
+.psect  FINDER_MENUS
+;
+				;   Perform an initial structure check
+				;   (All menu definitions must be contiguous
+				;   and no entry can exist without a
+				;   corresponding type 1 record)
+.if	IDENTICAL	Type 1
+    LastID = MenuID		;   Set the LastID field for Type 1 Records
+.if_false
+				;   For any other type, the MenuID fields
+				;   must match the ID of the Type 1 record
+				;   of the current Menu
+				;   Exception: MenuID of -1, which
+				;   is the termination step...
+.if	NOT_EQUAL	LastID-MenuID
+.if	NOT_EQUAL	MenuID+1
+.error	0			;  Found bad Menu ID;
+.print	LastID			;= I expected this Menu ID;
+.print	MenuID			;= but encountered this Menu ID;
+.mexit
+.endc
+.endc
+.endc
+;
+				;   Begin normal block processing
+    .long       MenuID          ;   Entry 1  (INT id)
+    .blkl	2		;   Reserved (INT Item, Flag)
+    .address    pText		;   Entry 2  (CHAR *Name)
+    .long       Type            ;   Entry 3  (MenuType Type)
+				;
+				;
+				;   Entry 4 is a C struct:
+				;   struct {
+				;	INT (*AppEntry)();
+				;	INT menu;
+				;	CHAR *pointer;
+				;	} Activates;
+.if	IDENTICAL	Type 2
+    .long	0
+    .long	AppEntry	;   For type 2 entry 4 is next menu id
+    .long	0
+.if_false
+.if	IDENTICAL	Type 3
+    .external	AppEntry
+    .address    AppEntry        ;   For type 3 entry 4 is function entry point
+    .blkl	2
+.if_false
+.if	IDENTICAL	Type 4
+    .external	AppEntry
+    .address    AppEntry        ;   For type 4 entry 4 is function entry point
+    .blkl	2
+.if_false
+    .blkl	3		;   Entry 4 is ignored for other records
+.endc
+.endc
+.endc
+;
+.if     NOT_BLANK	<AppText>
+    .address    pName		;   Entry 5    (CHAR *AppName)
+.if_false   
+    .long	0               ;   Use null ptr if application name undefined
+.endc
+;
+;
+;
+.if	NOT_BLANK	<BetaLogical>
+    .address    bName           ; Entry 6  (CHAR *Logical) 
+.if_false
+    .long       0               ; Not a BETA item
+.endc
+;
+;
+;------------------------------------------------------------------------------
+;
+.endm MENU
+;
+;------------------------------------------------------------------------------
+;------------------------------------------------------------------------------
+;
+;   This is required to set up the Finder Menus data structure
+;   To access this data set from C, create the appropriate data structure
+;   (esi_fi_int.h) and declare finder_menus as an external variable.
+;   The linking process will make this variable coincide with this
+;   macro-defined program section (psect).
+;
+;------------------------------------------------------------------------------
+;
+	.MACRO BEGIN_FINDER_MENUS
+;
+	.TITLE  FINDER_MENUS		
+	.PSECT  FINDER_MENU_STRINGS,	pic,ovr,rel,long,rd,nowrt,lcl,shr,noexe
+	.PSECT  FINDER_MENUS,		pic,ovr,rel,long,rd,wrt,lcl,noshr,noexe
+;
+	.ENDM BEGIN_FINDER_MENUS
+;
+;------------------------------------------------------------------------------
+;------------------------------------------------------------------------------
+;	This is a macro to terminate the definition of Finder Menus
+;	It is here more as a convenience than a real necessity
+;
+	.MACRO END_FINDER_MENUS
+;
+	MENU -1,<>
+;
+	.ENDM END_FINDER_MENUS

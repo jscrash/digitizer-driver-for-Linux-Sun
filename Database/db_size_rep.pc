@@ -1,0 +1,522 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_SIZE_REP.PC */
+/* *1    13-NOV-1990 11:27:36 VINCE "initial release" */
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_SIZE_REP.PC */
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_SIZE_REP.PC */
+/* *1     6-MAR-1990 08:37:29 GILLESPIE "initial release" */
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_SIZE_REP.PC */
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+#ifndef ESI_DB_H
+#include "esi_db.h"
+#endif
+
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#if USE_PROTOTYPES
+privatedef INT db_acct_size(FILE *output);
+privatedef INT db_all_acct_size(FILE *output);
+#else
+privatedef INT db_acct_size();
+privatedef INT db_all_acct_size();
+#endif
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+/*  This routine gives a report of the space utilization of either
+    the oracle account logged to or all accounts if requested and
+    the supplied oracle account has dba authority.
+
+    This program takes upto three command line arguments:
+	1) ORACLE LOGIN
+	2) -A  (a flag for whether to report on (A)ll accounts.)
+	3) -O <filename>   (Alternative (O)utput file name.)
+ */
+
+publicdef INT main(argc, argv)
+INT argc;
+CHAR **argv;
+
+{
+INT status;
+INT i;
+CHAR *cp;
+PATHNAME output_file;
+FILE *output;
+    
+DB_ACCOUNT_STRUCT db_account;
+BOOL all = FALSE;
+
+EXEC SQL BEGIN DECLARE SECTION;
+    int dba;
+EXEC SQL END DECLARE SECTION;
+
+/**********************************************************************/
+
+strcpy(output_file,"ACCOUNT_SIZE.REP");
+
+/* * FIND THE OPTION LIST(S) AND PARSE THEM * */
+/* ------------------------------------------ */
+
+for (i=argc-1; i>0; i--) 
+    {
+    cp = argv[i];
+    if (*cp == '-') 
+	{
+	for (cp++; *cp; cp++) 
+	    {
+	    if (toupper(*cp) EQUALS 'A')
+		{
+		all = TRUE;
+		}
+	    else if (toupper(*cp) EQUALS 'O')
+		{
+		strcpy(output_file,argv[i+1]);
+		}
+	    }
+	}
+    }
+    
+
+/* * LOGIN TO ORACLE * */
+/* ------------------- */
+    
+if ( (status = or_login(argc,argv)) != SUCCESS)
+    {
+    printf("ORACLE LOGIN ERROR: %d\n",status);
+    exit(EXIT_FAILURE);
+    }
+
+
+/* * OPEN OUTPUT FILE * */
+/* -------------------- */
+
+if ( (output = fopen(output_file,"w")) EQUALS (FILE *)0)
+    {
+    printf("COULD NOT OPEN FILE: %s\n",output_file);
+    exit(EXIT_FAILURE);
+    }
+
+
+/* * DO ALL OR ONLY CURRENT ACCOUNT * */
+/* ---------------------------------- */
+
+if (all)
+    {
+
+				/* CHECK FOR DBA AUTHORITY */
+    EXEC SQL
+	SELECT DBA_PRIV INTO :dba FROM USER_USERS;
+
+    if (NOT dba)
+	{
+	printf("NOT A DBA ACCOUNT\n");
+	exit(EXIT_FAILURE);
+	}
+
+    db_all_acct_size(output);
+    }
+
+else
+    {
+    db_acct_size(output);
+    }
+
+fclose(output);
+exit(EXIT_SUCCESS);
+}
+
+
+
+/***********************************************************************/
+/***********************************************************************/
+/***********************************************************************/
+/***********************************************************************/
+
+privatedef INT db_acct_size(output)
+FILE *output;
+
+{
+CHAR plus[2];
+CHAR term_format[20];
+CHAR term[50];
+CHAR clause[10000];
+
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[10000];
+    long size;
+    VARCHAR table_name[31];
+    VARCHAR user[31];
+    VARCHAR column_name[31];
+    long long_col;
+EXEC SQL END DECLARE SECTION;
+
+/**********************************************************************/
+
+strcpy(term_format,"%sNVL(VSIZE(%s),0)");
+
+EXEC SQL
+    SELECT USER INTO :user FROM DUAL;
+
+V_SETZERO(user);
+fprintf(output,"\n\n\nTable size report for ORACLE account '%s'.\n\n\n",
+								user.arr);
+
+/* * SET UP CURSORS * */
+/* ------------------ */
+
+EXEC SQL DECLARE GET_TABLE CURSOR FOR
+    SELECT TABLE_NAME FROM USER_TABLES ORDER BY TABLE_NAME;
+
+EXEC SQL DECLARE GET_COLUMN CURSOR FOR
+    SELECT COLUMN_NAME,DECODE(DATA_TYPE,'LONG',1,0) 
+    FROM USER_TAB_COLUMNS WHERE TABLE_NAME = :table_name;
+
+
+/* * PROCESS TABLE BY TABLE * */
+/* -------------------------- */
+
+EXEC SQL OPEN GET_TABLE;
+FOREVER
+    {
+    size = 0;
+    EXEC SQL FETCH GET_TABLE INTO :table_name;
+
+    if (OR_STATUS EQUALS OR_EOF) break;
+
+    V_SETZERO(table_name);
+    fprintf(output,"Summary for table '%s':\n",table_name.arr);
+
+
+/* * CONSTRUCT CLAUSE * */
+/* -------------------- */
+
+    strcpy(clause,"");
+    strcpy(plus,"(");
+
+    EXEC SQL OPEN GET_COLUMN;
+    FOREVER
+	{
+	EXEC SQL FETCH GET_COLUMN INTO :column_name, long_col;
+
+	if (OR_STATUS EQUALS OR_EOF)
+	    {
+	    strcat(clause,")");
+	    break;
+	    }
+
+	V_SETZERO(column_name);
+	if (NOT long_col)
+	    {
+	    sprintf(term,term_format,plus,column_name.arr);
+	    strcat(clause,term);
+	    strcpy(plus,"+");
+	    }
+
+	else
+	    {
+	    fprintf(output,"    Column %s is LONG data_type./n",
+						(char *)column_name.arr);
+	    }
+	}
+
+
+/* * GET SIZE * */
+/* ------------ */
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+	"SELECT SUM%s FROM %s",clause,table_name.arr);
+
+    EXEC SQL PREPARE S1 FROM :sqlstmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1;
+    EXEC SQL FETCH C1 INTO :size;
+    EXEC SQL CLOSE C1;
+
+    fprintf(output,"    Number of bytes = %ld\n",size);
+
+
+/* * GET NUMBER OF ROWS * */
+/* ---------------------- */
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+	"SELECT COUNT(*) FROM %s",table_name.arr);
+
+    EXEC SQL PREPARE S2 FROM :sqlstmt;
+    EXEC SQL DECLARE C2 CURSOR FOR S2;
+    EXEC SQL OPEN C2;
+    EXEC SQL FETCH C2 INTO :size;
+    EXEC SQL CLOSE C2;
+
+    fprintf(output,"    Number of rows = %ld\n",size);
+
+
+/* * GET AVERAGE ROW SIZE * */
+/* ------------------------ */
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+	"SELECT AVG%s FROM %s",clause,table_name.arr);
+
+    EXEC SQL PREPARE S3 FROM :sqlstmt;
+    EXEC SQL DECLARE C3 CURSOR FOR S3;
+    EXEC SQL OPEN C3;
+    EXEC SQL FETCH C3 INTO :size;
+    EXEC SQL CLOSE C3;
+
+    fprintf(output,"    Average row size (bytes) = %ld\n",size);
+
+
+/* * GET MAXIMUM ROW SIZE * */
+/* ------------------------ */
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+	"SELECT MAX%s FROM %s",clause,table_name.arr);
+
+    EXEC SQL PREPARE S4 FROM :sqlstmt;
+    EXEC SQL DECLARE C4 CURSOR FOR S4;
+    EXEC SQL OPEN C4;
+    EXEC SQL FETCH C4 INTO :size;
+    EXEC SQL CLOSE C4;
+
+    fprintf(output,"    Maximum row size (bytes) = %ld\n",size);
+
+
+/* * GET MINIMUM ROW SIZE * */
+/* ------------------------ */
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+	"SELECT MIN%s FROM %s",clause,table_name.arr);
+
+    EXEC SQL PREPARE S5 FROM :sqlstmt;
+    EXEC SQL DECLARE C5 CURSOR FOR S5;
+    EXEC SQL OPEN C5;
+    EXEC SQL FETCH C5 INTO :size;
+    EXEC SQL CLOSE C5;
+
+    fprintf(output,"    Minimum row size (bytes) = %ld\n\n\n\n",size);
+    }
+
+return;
+}
+
+
+
+/***********************************************************************/
+/***********************************************************************/
+/***********************************************************************/
+/***********************************************************************/
+
+
+privatedef INT db_all_acct_size(output)
+FILE *output;
+
+{
+CHAR plus[2];
+CHAR term_format[20];
+CHAR term[50];
+CHAR clause[10000];
+
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[10000];
+    long size;
+    VARCHAR table_name[31];
+    VARCHAR user[31];
+    VARCHAR column_name[31];
+    long long_col;
+EXEC SQL END DECLARE SECTION;
+
+/**********************************************************************/
+
+strcpy(term_format,"%sNVL(VSIZE(%s),0)");
+
+/* * SET UP CURSORS * */
+/* ------------------ */
+
+EXEC SQL DECLARE GET_USER CURSOR FOR
+    SELECT USERNAME FROM SYS.DBA_USERS
+    WHERE USERNAME NOT IN ('SYSTEM','SYS','PUBLIC','_NEXT_USER');
+
+EXEC SQL DECLARE GET_USER_TABLE CURSOR FOR
+    SELECT TABLE_NAME FROM SYS.DBA_TABLES 
+    WHERE OWNER = :user ORDER BY TABLE_NAME;
+
+EXEC SQL DECLARE GET_USER_COLUMN CURSOR FOR
+    SELECT COLUMN_NAME,DECODE(DATA_TYPE,'LONG',1,0) 
+    FROM SYS.DBA_TAB_COLUMNS 
+    WHERE OWNER = :user AND TABLE_NAME = :table_name;
+
+
+/* * PROCESS USER BY USER * */
+/* ------------------------ */
+
+EXEC SQL OPEN GET_USER;
+FOREVER
+    {
+    EXEC SQL FETCH GET_USER INTO :user;
+    if (OR_STATUS EQUALS OR_EOF)
+	{
+	break;
+	}
+
+    V_SETZERO(user);
+    fprintf(output,"\n\n\nTable size report for ORACLE account '%s'.\n\n\n",
+								user.arr);
+
+
+/* * PROCESS TABLE BY TABLE * */
+/* -------------------------- */
+
+    EXEC SQL OPEN GET_USER_TABLE;
+    FOREVER
+	{
+	size = 0;
+	EXEC SQL FETCH GET_USER_TABLE INTO :table_name;
+	if (OR_STATUS EQUALS OR_EOF) 
+	    {
+	    break;
+	    }
+
+	V_SETZERO(table_name);
+	fprintf(output,"Summary for table '%s':\n",table_name.arr);
+
+
+/* * CONSTRUCT CLAUSE * */
+/* -------------------- */
+
+	strcpy(clause,"");
+	strcpy(plus,"(");
+
+	EXEC SQL OPEN GET_USER_COLUMN;
+	FOREVER
+	    {
+	    EXEC SQL FETCH GET_USER_COLUMN INTO :column_name, long_col;
+
+	    if (OR_STATUS EQUALS OR_EOF)
+		{
+		strcat(clause,")");
+		break;
+		}
+
+	    V_SETZERO(column_name);
+	    if (NOT long_col)
+		{
+		sprintf(term,term_format,plus,column_name.arr);
+		strcat(clause,term);
+		strcpy(plus,"+");
+		}
+
+	    else
+		{
+		fprintf(output,"    Column %s is LONG data_type./n",
+						(char *)column_name.arr);
+		}
+	    }
+
+
+/* * GET SIZE * */
+/* ------------ */
+
+	sqlstmt.len = sprintf((char *)sqlstmt.arr,
+		"SELECT SUM%s FROM %s.%s",clause,user.arr,table_name.arr);
+
+	EXEC SQL PREPARE S11 FROM :sqlstmt;
+	EXEC SQL DECLARE C11 CURSOR FOR S11;
+	EXEC SQL OPEN C11;
+	EXEC SQL FETCH C11 INTO :size;
+	EXEC SQL CLOSE C11;
+
+	fprintf(output,"    Number of bytes = %ld\n",size);
+
+
+/* * GET NUMBER OF ROWS * */
+/* ---------------------- */
+
+	sqlstmt.len = sprintf((char *)sqlstmt.arr,
+		"SELECT COUNT(*) FROM %s.%s",user.arr,table_name.arr);
+
+	EXEC SQL PREPARE S12 FROM :sqlstmt;
+	EXEC SQL DECLARE C12 CURSOR FOR S12;
+	EXEC SQL OPEN C12;
+	EXEC SQL FETCH C12 INTO :size;
+	EXEC SQL CLOSE C12;
+
+	fprintf(output,"    Number of rows = %ld\n",size);
+
+
+/* * GET AVERAGE ROW SIZE * */
+/* ------------------------ */
+
+	sqlstmt.len = sprintf((char *)sqlstmt.arr,
+		"SELECT AVG%s FROM %s.%s",clause,user.arr,table_name.arr);
+
+	EXEC SQL PREPARE S13 FROM :sqlstmt;
+	EXEC SQL DECLARE C13 CURSOR FOR S13;
+	EXEC SQL OPEN C13;
+	EXEC SQL FETCH C13 INTO :size;
+	EXEC SQL CLOSE C13;
+
+	fprintf(output,"    Average row size (bytes) = %ld\n",size);
+
+
+/* * GET MAXIMUM ROW SIZE * */
+/* ------------------------ */
+
+	sqlstmt.len = sprintf((char *)sqlstmt.arr,
+		"SELECT MAX%s FROM %s.%s",clause,user.arr,table_name.arr);
+
+	EXEC SQL PREPARE S14 FROM :sqlstmt;
+	EXEC SQL DECLARE C14 CURSOR FOR S14;
+	EXEC SQL OPEN C14;
+	EXEC SQL FETCH C14 INTO :size;
+	EXEC SQL CLOSE C14;
+
+	fprintf(output,"    Maximum row size (bytes) = %ld\n",size);
+
+
+/* * GET MINIMUM ROW SIZE * */
+/* ------------------------ */
+
+	sqlstmt.len = sprintf((char *)sqlstmt.arr,
+	    "SELECT MIN%s FROM %s.%s",clause,user.arr,table_name.arr);
+
+	EXEC SQL PREPARE S15 FROM :sqlstmt;
+	EXEC SQL DECLARE C15 CURSOR FOR S15;
+	EXEC SQL OPEN C15;
+	EXEC SQL FETCH C15 INTO :size;
+	EXEC SQL CLOSE C15;
+
+	fprintf(output,"    Minimum row size (bytes) = %ld\n\n\n\n",size);
+	}
+    }
+
+return;
+}

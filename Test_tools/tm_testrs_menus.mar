@@ -1,0 +1,30 @@
+; DEC/CMS REPLACEMENT HISTORY, Element TM_TESTRS_MENUS.MAR
+; *2    27-JUN-1991 17:34:31 KEE "(SPR -1) TM_TEST_RS (test resource) menus file"
+; *1    27-JUN-1991 17:33:46 KEE "TM_TEST_RS menus file"
+; DEC/CMS REPLACEMENT HISTORY, Element TM_TESTRS_MENUS.MAR
+;   Finder Menus Data Structure
+;   Copyright 1988 Exploration Systems, Inc
+;   J Gillespie  June 1988
+;
+;   To make your own menus:
+;       1. Prepare an input file (e.g. mymenus.mar) using the system editor.
+;       2. Compile the file using the VMS command
+;               $ MACRO mymenus+esi$lib:finder/lib
+;       3. Link the resulting file using the FLINK procedure:
+;               $ @ESI$BIN:ZZ_FLINK MYFINDER MYMENUS -B
+;
+;------------------------------------------------------------------------------
+;
+;       BEGIN DEFINITION OF MENU STRUCTURE
+;
+;------------------------------------------------------------------------------
+;
+;
+BEGIN_FINDER_MENUS              ; This line is required !!!
+;
+MENU    1,<Finder>,1
+    MENU    1, <Test Resource>,    3, tm_test_rs,<Test Resource>
+    MENU    1, <Quit Finder>,               3, finder_quit, <Quit Finder>
+;
+END_FINDER_MENUS        ;       !!! This line required
+.END                    ;       !!! This line required

@@ -1,0 +1,252 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element PL_GET_INFO.PC */
+/* *2    13-NOV-1990 10:52:54 JESSIE "(SPR 6162) change ailable->available" */
+/* *1    12-OCT-1990 17:44:40 GILLESPIE "Merge Ernie Deltas" */
+/* DEC/CMS REPLACEMENT HISTORY, Element PL_GET_INFO.PC */
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_pf.h"
+#include "esi_fi.h"
+#include "esi_ho.h"
+#include "esi_am.h"
+#include "esi_tc.h"
+#include "esi_ts.h"
+#include "esi_wi.h"
+#include "esi_oracle.h"
+#include "esi_qs.h"
+#include "pl_cdlg.rh"
+static CHAR PL_RESOURCE_FILE[] = "PL_CDLG";
+
+/* File Description ---------------------------------------------------------
+Overview:
+
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT pl_get_plot_info (PDS *pinfo, CHAR *layout_name);
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT pl_get_plot_info (PDS *pinfo_struct, CHAR *layout);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (O) pinfo_struct    -(PDS *) 
+    (O) layout          -(CHAR *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    CANCEL
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+#if USE_PROTOTYPES
+publicdef INT pl_get_plot_info (PDS *pinfo, CHAR *layout, INT lyt_type)
+#else
+publicdef INT pl_get_plot_info (pinfo, layout, lyt_type)
+PDS *pinfo;
+CHAR *layout;
+INT lyt_type;
+#endif
+  {
+  BOOL done = FALSE;
+  INT status = SUCCESS; 
+  INT i;
+  INT id = 0;
+  INT event_id = 0;
+  INT event_class = 0;
+  INT npnames = 0;
+  INT nlayouts = 0;
+  INT item;
+  INT pname_selected[1];
+  INT layout_selected[1];
+  CHAR *pname_string;
+  CHAR *layout_string;
+  CHAR plotter[40];
+  CHAR string[100];
+  TCP layout_tcp = (TCP) 0;
+  TCP pname_tcp = (TCP) 0;
+  PROJECT_NAME project;
+    
+  EXEC SQL BEGIN DECLARE SECTION;
+  VARCHAR plotter_name[80];
+  VARCHAR layout_name[80];
+  VARCHAR layout_type[80];
+  VARCHAR stmt[1000];
+  int num_plotters;
+  int num_layouts;
+  EXEC SQL END DECLARE SECTION;
+    
+    
+  status = am_define_resource (AM_DIALOG, PL_RESOURCE_FILE, PL_CDLG,
+                                 NULL_FUNCTION_PTR, &id, NULL);
+
+  if (status != SUCCESS)
+    {
+    am_message (AM_STATUS,"Cannot open resource file");
+    return FAIL;
+    }
+
+  qs_inq_c (QS_PROJECT_NAME, project, (INT *) 0);
+    
+  EXEC SQL SELECT COUNT (*) INTO : num_plotters FROM ESI.FINDER_PLOTTERS;
+
+  if (num_plotters <= 0)
+    {
+    am_message (AM_STATUS,"No plotter available");
+    return FAIL;
+    }
+
+  stmt.len = sprintf ((CHAR *) stmt.arr,
+"SELECT COUNT (*) FROM %s.PLOT_LAYOUT WHERE LAYOUT_TYPE = :type",project);
+
+  if (lyt_type == 0)
+    {
+    V_FROMC (layout_type,"MAP");
+    }
+  else
+    {
+    V_FROMC (layout_type,"XSECT");
+    }
+
+  EXEC SQL PREPARE S1 FROM :stmt;
+  EXEC SQL DECLARE C1 CURSOR FOR S1;
+  EXEC SQL OPEN C1 USING :layout_type;
+  EXEC SQL FETCH C1 INTO :num_layouts;
+
+  if (num_layouts <= 0)
+    {
+    am_message (AM_STATUS,"No layout available");
+    return FAIL;
+    }
+
+  EXEC SQL CLOSE C1;
+
+  fi_push ();
+
+  EXEC SQL DECLARE DB_DEVICES CURSOR FOR 
+    SELECT NAME FROM ESI.FINDER_PLOTTERS ORDER BY NAME;
+        
+  EXEC SQL OPEN DB_DEVICES;
+  EXEC SQL FETCH DB_DEVICES INTO : plotter_name;
+        
+  for (i = 0; OR_STATUS == SUCCESS; i++)
+    {
+    V_SETZERO (plotter_name);
+    ts_tcp_append (&pname_tcp,(CHAR *)plotter_name.arr);
+    EXEC SQL FETCH DB_DEVICES INTO : plotter_name;
+    }
+  EXEC SQL CLOSE DB_DEVICES;
+
+  pname_string = ts_pack_strings (i,pname_tcp);
+
+  stmt.len = sprintf ((CHAR *) stmt.arr,
+  "SELECT LAYOUT_NAME FROM %s.PLOT_LAYOUT \
+  WHERE LAYOUT_TYPE = :type ORDER BY LAYOUT_NAME",project);
+
+  EXEC SQL PREPARE S2 FROM :stmt;
+  EXEC SQL DECLARE C2 CURSOR FOR S2;
+  EXEC SQL OPEN C2 USING :layout_type;
+
+  EXEC SQL FETCH C2 INTO :layout_name;
+  for (i = 0; OR_STATUS == SUCCESS; i++)
+    {
+    V_SETZERO (layout_name);
+    ts_tcp_append (&layout_tcp,(CHAR *) layout_name.arr);
+    EXEC SQL FETCH C2 INTO :layout_name;
+    }
+  EXEC SQL CLOSE C2;
+
+  layout_string = ts_pack_strings (i,layout_tcp);
+
+  wi_set_dialog_text (id,PL_PLOTTER_SELECTOR,pname_string);
+  wi_set_dialog_text (id,PL_LAYOUT_SELECTOR,layout_string);
+
+  wi_set_selection_limit (id,PL_PLOTTER_SELECTOR,1);
+  wi_set_selection_limit (id,PL_LAYOUT_SELECTOR,1);
+
+  status = wi_open_dialog (id);
+
+  done = FALSE;
+  while (done == FALSE)
+    {
+    wi_request_event (0, &event_class, &event_id, &item);
+    switch (item)
+    {
+    case PL_CANCEL:
+      done = TRUE;
+      status = FAIL;
+      break;
+                
+    case PL_OK:
+      wi_query_selections (id,PL_PLOTTER_SELECTOR,&npnames,pname_selected);
+      if (npnames != 1)
+        {
+        wi_beep (1);
+        am_message (AM_STATUS,"Please select plotter.");
+        }
+      else
+        {
+        wi_query_selections (id,PL_LAYOUT_SELECTOR,&nlayouts,layout_selected);
+        if (nlayouts != 1)
+          {
+          wi_beep (1);
+          am_message (AM_STATUS,"Please select layout.");
+          }
+        else
+          {
+          strcpy (plotter, pname_tcp[pname_selected[0]-1]);
+          strcpy (layout, layout_tcp[layout_selected[0]-1]);
+
+          status = pf_inq_plotter (plotter,pinfo);
+          if (status == FAIL)
+            {
+            sprintf (string, "\"%s\" Offline.", plotter);
+	    am_message (AM_STATUS,string);
+            done = FALSE;
+            }
+          else
+            {
+            done = TRUE;
+            }
+          }
+        }
+      break;
+    }
+    }
+
+  ts_tcp_free (pname_tcp);
+  ts_tcp_free (layout_tcp);
+  tc_free (pname_string);
+  tc_free (layout_string);
+  am_release_resource (id);
+  fi_pop ();
+  return status;
+  }

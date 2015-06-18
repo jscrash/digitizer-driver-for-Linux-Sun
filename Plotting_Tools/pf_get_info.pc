@@ -1,0 +1,920 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element PF_GET_INFO.PC */
+/* *12   11-OCT-1991 13:30:59 MING "(SPR 4475) change MARGIN 1.5 to 1.4 in order to be consistent in pl_read_map" */
+/* *11    9-OCT-1991 10:21:14 MING "(SPR 4243) check expiration_date in pfz_file_exist" */
+/* *10    7-OCT-1991 14:54:13 MING "(SPR 4413) fix incorrect plot size when the dialog box just pop up" */
+/* *9    21-AUG-1991 12:48:26 MING "(SPR 0) revert default plotter and plot layout to use project_defaults" */
+/* *8     9-AUG-1991 15:13:10 MING "(SPR 0) use logical default plotter and plot layout and initalize selector boxes" */
+/* *7     8-AUG-1991 16:16:56 MING "(SPR 0) postfix the plot file name with _ZZZZ when plotted w/o save" */
+/* *6     7-AUG-1991 11:18:44 MING "(SPR 0) put messages into FINDER_MESSAGES. logical names for default plotter and plot layout" */
+/* *5    11-JUL-1991 14:02:10 MING "(SPR 0) fix pfz_file_exist " */
+/* *4     8-JUL-1991 15:48:26 MING "(SPR 0) fix pfz_check_file and Plotfile to Plot File" */
+/* *3    19-JUN-1991 16:16:40 MING "(SPR 0) fix empty expird_date when plotting w/o saving" */
+/* *2     6-JUN-1991 15:25:38 MING "(SPR 0) new checkin" */
+/* *1     6-JUN-1991 15:24:46 MING "get plot file and plotter info when plotting" */
+/* DEC/CMS REPLACEMENT HISTORY, Element PF_GET_INFO.PC */
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_pf.h"
+#include "esi_pl.h"
+#include "esi_fi.h"
+#include "esi_ho.h"
+#include "esi_am.h"
+#include "esi_tc.h"
+#include "esi_ts.h"
+#include "esi_wi.h"
+#include "esi_oracle.h"
+#include "esi_qs.h"
+#include "esi_gl_project.h"
+#include "esi_mp.h"
+#include "esi_mg.h"
+#include "esi_tu.h"
+#include "pf_plot_cdlg.rh"
+#include "esi_pf_msg.h"
+#include "esi_pf_err.h"
+static CHAR PF_RESOURCE_FILE[] = "PF_PLOT_CDLG";
+#define MARGIN 1.4
+
+/* File Description ---------------------------------------------------------
+Overview:
+
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT pf_get_plot_info (PDS *pinfo, PF_INFO *pf_info,
+				       CHAR *layout_name, INT lyt_type);
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description: 
+    Get cross section plotting info such as which plotter, how many copies,
+    ....
+
+Prototype:
+    publicdef INT pf_get_plot_info (PDS *pinfo_struct, CHAR *layout);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (O) pinfo_struct    -(PDS *) 
+    (I/O) pf_info       -(PF_INFO *)
+    (O) layout          -(CHAR *)
+    (I) lyt_type        -(INT)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL 
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+   ******
+   There is a similar module called pf_get_mp_info.pc
+   used for plotting map using PRIOR GKS.
+   THEREFORE, any changes here may be required to put in pf_get_mp_info.pc
+-----------------------------------------------------------------------------*/
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+#if USE_PROTOTYPES
+publicdef INT pf_get_plot_info (PDS *pinfo, CHAR *layout, 
+                                PF_INFO *pf_info,INT lyt_type)
+#else
+publicdef INT pf_get_plot_info (pinfo, layout, pf_info, lyt_type)
+PDS *pinfo;
+CHAR *layout;
+PF_INFO *pf_info;
+INT lyt_type;
+#endif
+  {
+  BOOL done = FALSE;
+  INT status = SUCCESS; 
+  INT i;
+  INT id = 0;
+  INT event_id = 0;
+  INT event_class = 0;
+  INT npnames = 0;
+  INT nlayouts = 0;
+  INT item;
+  INT value;
+  INT index;
+  INT pname_selected[1];
+  INT layout_selected[1];
+  CHAR *pname_string;
+  CHAR *layout_string;
+  CHAR plotter[40];
+  CHAR string[100];
+  CHAR content[100];
+  CHAR plot_size[80];
+  TCP layout_tcp = (TCP) 0;
+  TCP pname_tcp = (TCP) 0;
+  PROJECT_NAME project;
+  MAP_STRUCTURE *map;
+  PL_BASE_WINDOW bw;
+  PLOT_LAYOUT pl;
+  CHAR plot_size_uom[20];
+  DOUBLE wcs_to_inches;
+  BOOL yesno;
+  BOOL plotted, saved;
+  PATHNAME pathname;
+  PROJECT_DEFAULT *defaults;
+    
+  EXEC SQL BEGIN DECLARE SECTION;
+  VARCHAR plotter_name[80];
+  VARCHAR layout_name[80];
+  VARCHAR layout_type[80];
+  VARCHAR stmt[1000];
+  int num_plotters;
+  int num_layouts;
+  EXEC SQL END DECLARE SECTION;
+    
+  qs_inq_c (QS_PROJECT_NAME, project, (INT *) 0);
+    
+  /* ----------------------- */
+  /* check plotters exists ? */
+  /* ----------------------- */
+  EXEC SQL SELECT COUNT (*) INTO : num_plotters FROM ESI.FINDER_PLOTTERS;
+
+  if (num_plotters <= 0)
+    {
+    status = PF_NO_PLOTTER_EXISTS;
+    am_message (AM_ALERT,mg_message(status));
+    return FAIL;
+    }
+
+  /* -------------------------- */
+  /* check plot layout exists ? */
+  /* -------------------------- */
+  stmt.len = sprintf ((CHAR *) stmt.arr,
+"SELECT COUNT (*) FROM %s.PLOT_LAYOUT WHERE LAYOUT_TYPE = :type",project);
+
+  if (lyt_type == 0)
+    {
+    V_FROMC (layout_type,"MAP");
+    }
+  else
+    {
+    V_FROMC (layout_type,"XSECT");
+    }
+
+  EXEC SQL PREPARE S1 FROM :stmt;
+  EXEC SQL DECLARE C1 CURSOR FOR S1;
+  EXEC SQL OPEN C1 USING :layout_type;
+  EXEC SQL FETCH C1 INTO :num_layouts;
+
+  if (num_layouts <= 0)
+    {
+    status = PF_NO_PLOT_LAYOUT_EXISTS;
+    am_message (AM_ALERT,mg_message(status));
+    return FAIL;
+    }
+
+  EXEC SQL CLOSE C1;
+
+  status = am_define_resource (AM_DIALOG, PF_RESOURCE_FILE, PF_PLOT_CDLG,
+                                 NULL_FUNCTION_PTR, &id, NULL);
+
+  if (status != SUCCESS)
+    {
+    am_message (AM_STATUS,"Cannot open resource file");
+    return FAIL;
+    }
+
+  /* ----------------------------- */
+  /* get a list of online plotters */
+  /* ----------------------------- */
+  EXEC SQL DECLARE DB_DEVICES CURSOR FOR 
+    SELECT NAME FROM ESI.FINDER_PLOTTERS WHERE STATUS = 'ONLINE'
+    ORDER BY NAME;
+        
+  EXEC SQL OPEN DB_DEVICES;
+  EXEC SQL FETCH DB_DEVICES INTO : plotter_name;
+        
+  for (i = 0; OR_STATUS == SUCCESS; i++)
+    {
+    V_SETZERO (plotter_name);
+    ts_tcp_append (&pname_tcp,(CHAR *)plotter_name.arr);
+    EXEC SQL FETCH DB_DEVICES INTO : plotter_name;
+    }
+  EXEC SQL CLOSE DB_DEVICES;
+
+  if (i == 0)
+      {
+      status = PF_NO_PLOTTER_EXISTS;
+      am_message (AM_ALERT,mg_message(status));
+      return FAIL;
+      }
+
+  pname_string = ts_pack_strings (i,pname_tcp);
+
+  /* ------------------------- */
+  /* get a list of plot layout */
+  /* ------------------------- */
+  stmt.len = sprintf ((CHAR *) stmt.arr,
+  "SELECT LAYOUT_NAME FROM %s.PLOT_LAYOUT \
+  WHERE LAYOUT_TYPE = :type ORDER BY LAYOUT_NAME",project);
+
+  EXEC SQL PREPARE S2 FROM :stmt;
+  EXEC SQL DECLARE C2 CURSOR FOR S2;
+  EXEC SQL OPEN C2 USING :layout_type;
+  EXEC SQL FETCH C2 INTO :layout_name;
+  for (i = 0; OR_STATUS == SUCCESS; i++)
+    {
+    V_SETZERO (layout_name);
+    ts_tcp_append (&layout_tcp,(CHAR *) layout_name.arr);
+    EXEC SQL FETCH C2 INTO :layout_name;
+    }
+  EXEC SQL CLOSE C2;
+
+  layout_string = ts_pack_strings (i,layout_tcp);
+
+  if (i == 0)
+      {
+      status = PF_NO_PLOT_LAYOUT_EXISTS;
+      am_message (AM_ALERT,mg_message(status));
+      return FAIL;
+      }
+
+  /* --------------------- */
+  /* initialize the dialog */
+  /* --------------------- */
+  wi_set_dialog_text (id,PF_PLOT_PLOTTER_SELECTOR,pname_string);
+  wi_set_dialog_text (id,PF_PLOT_LAYOUT_SELECTOR,layout_string);
+
+  wi_set_selection_limit (id,PF_PLOT_PLOTTER_SELECTOR,1);
+  wi_set_selection_limit (id,PF_PLOT_LAYOUT_SELECTOR,1);
+
+  /* ----------------------------- */
+  /* don't save the plot - default */
+  /* ----------------------------- */
+  status = wi_set_dialog_value (id,PF_PLOT_SAVE,OFF);
+
+  /* ----------------------------------------- */
+  /* initialize some parameters of the PF info */
+  /* ----------------------------------------- */
+  pf_info->save = FALSE;
+  pf_info->copies = 1;
+  pf_info->perm = TRUE;
+  strcpy (pf_info->expired_date,"01-JAN-2999");
+  strcpy (pf_info->remark,"");
+
+  /* ------------------------ */
+  /* Default no. of copies = 1*/
+  /* ------------------------ */
+  strcpy (content,"1");
+  status = wi_set_dialog_text (id,PF_PLOT_COPIES,content);
+
+  /* ----------------------------------------------------- */
+  /* Default plotfile name = map name / cross section name */
+  /* ----------------------------------------------------- */
+  status = wi_set_dialog_text (id,PF_PLOT_NAME,pf_info->filename);
+
+  /* ming: 8/20/91 */
+  /* get DEFAULT PLOTTER and DEFAULT PLOT LAYOUT from PROJECT_DEFAULTS */
+  /* ----------------------------------------------------------------- */
+  status = am_open_workspace ("PROJECT_DEFAULTS",AM_GLOBAL,(VOIDPTR *)&defaults);
+
+  /* ming: 8/20/91 */
+  /* Default plot layout from PROJECT_DEFAULTS                         */
+  /* otherwise set to the first of the plot layout list                */
+  /* ----------------------------------------------------------------- */
+  index = ts_switch (defaults->plot_layout,layout_tcp) + 1;
+
+  if (index == 0)
+      {
+      index = 1;
+      strcpy (pf_info->layout,layout_tcp[0]);
+      }
+  else
+     {
+     strcpy (pf_info->layout,defaults->plot_layout);
+     }
+
+  status = wi_set_default_sel (id,PF_PLOT_LAYOUT_SELECTOR,index);
+
+  /* ming: 8/20/91 */
+  /* Default plotter from PROJECT_DEFAULTS                     */
+  /* otherwise set to the first of the plotters list           */
+  /* --------------------------------------------------------- */
+  index = ts_switch (defaults->plotter,pname_tcp) + 1;
+
+  if (index == 0)
+      {
+      index = 1;
+      strcpy (pinfo->name,pname_tcp[0]);
+      }
+  else
+      {
+      strcpy (pinfo->name,pname_tcp[index-1]);
+      }
+
+  pname_selected[0] = index;
+  status = wi_set_default_sel (id,PF_PLOT_PLOTTER_SELECTOR,index);
+
+
+  /* ---------------------------------------------- */
+  /* get the plot size with the default plot layout */
+  /* ---------------------------------------------- */
+  bw.width = pf_info->xsize;
+  bw.height = pf_info->ysize;
+  strcpy (pl.layout_name,pf_info->layout);
+  status =  pl_read_layout (&pl,pf_info->layout,lyt_type);
+  status = pl_place_win (&pl,&bw);
+
+#if 0
+  if (lyt_type == PL_MAP)
+      {
+      pfz_get_plot_size_uom (map->map_scale_uom,plot_size_uom);
+      if (ARE_SAME (plot_size_uom,"INCHES"))
+          {
+          wi_set_dialog_value (id,PF_PLOT_INCH,ON);
+          sprintf (plot_size,"%.2f X %.2f %s",pl.width,pl.height,plot_size_uom);
+          wi_set_dialog_text (id,PF_PLOT_SIZE,plot_size);
+	  }
+      else
+          {
+          wi_set_dialog_value (id,PF_PLOT_CM,ON);
+          sprintf (plot_size,"%.2f X %.2f %s",pl.width*2.54,pl.height*2.54,plot_size_uom);
+          wi_set_dialog_text (id,PF_PLOT_SIZE,plot_size);
+	  }
+      }
+#endif
+
+  wi_set_dialog_value (id,PF_PLOT_INCH,ON);
+  sprintf (plot_size,"%.2f X %.2f INCHES",pl.width,pl.height);
+  wi_set_dialog_text (id,PF_PLOT_SIZE,plot_size);
+
+  status = wi_enable_dialog_item (id,PF_PLOT_NAME,OFF);
+  status = wi_enable_dialog_item (id,PF_PLOT_PERM,OFF);
+  status = wi_enable_dialog_item (id,PF_PLOT_DELETED,OFF);
+  status = wi_enable_dialog_item (id,PF_PLOT_EXPIRED_DATE,OFF);
+  status = wi_enable_dialog_item (id,PF_PLOT_REMARK,OFF);
+  status = wi_enable_dialog_item (id,PF_PLOT_PLOTTER_SELECTOR,ON);
+  status = wi_enable_dialog_item (id,PF_PLOT_PLOTTER_VSCROLL,ON);
+  status = wi_enable_dialog_item (id,PF_PLOT_COPIES,ON);
+  wi_set_dialog_value (id,PF_PLOT_PLOT_MAP,ON);
+
+  /* -------------------------------------------------- */
+  /* activate the plot layout selector to receive event */
+  /* recalculate the plot size when hit                 */
+  /* -------------------------------------------------- */
+  status = wi_activate (id,PF_PLOT_LAYOUT_SELECTOR,ON);
+
+  /* -------------------------- */
+  /* start the modal event loop */
+  /* -------------------------- */
+  fi_push ();
+  status = wi_open_dialog (id);
+
+  done = FALSE;
+  while (done == FALSE)
+    {
+    wi_request_event (0, &event_class, &event_id, &item);
+    switch (item)
+    {
+    case PF_PLOT_CANCEL:   /* cancel plotting */
+      done = TRUE;
+      status = FAIL;
+      break;
+                
+    case PF_PLOT_OK:       /* ok plotting */
+      /* ---------------------------------------------------- */
+      /* check if plotfile need to send to the plotter or not */
+      /* ---------------------------------------------------- */
+      wi_query_dialog_item (id,PF_PLOT_PLOT_MAP,&plotted,content);
+
+      /* ------------------------------ */
+      /* check save the plotfile or not */
+      /* ------------------------------ */
+      wi_query_dialog_item (id,PF_PLOT_SAVE,&saved,content);
+
+      /* --------------------------- */
+      /* quit if no save and no plot */
+      /* --------------------------- */
+      if (plotted == FALSE AND saved == FALSE)
+	  {
+          done = TRUE;
+          status = FAIL;
+          break;
+	  }
+
+      /* -------------------------- */
+      /* check plot layout selector */
+      /* -------------------------- */
+      wi_query_selections (id,PF_PLOT_LAYOUT_SELECTOR,&nlayouts,layout_selected);
+      if (nlayouts != 1)
+         {
+	 status = PF_SELECT_PLOT_LAYOUT;
+	 am_message (AM_ALERT,mg_message(status));
+         am_message (AM_ALERT,"Please select a plot layout.");
+	 break;
+	 }
+      strcpy (pf_info->layout, layout_tcp[layout_selected[0]-1]);
+
+      /* --------------- */
+      /* send to plotter */
+      /* --------------- */
+      if (plotted == TRUE)
+	  {
+	  /* ---------------- */
+	  /* get plotter info */
+	  /* ---------------- */
+	  wi_query_selections (id,PF_PLOT_PLOTTER_SELECTOR,&npnames,pname_selected);
+	  if (npnames != 1)
+	      {
+	      status = PF_SELECT_PLOTTER;
+	      am_message (AM_ALERT,mg_message(status));
+	      am_message (AM_ALERT,"Please select a plotter.");
+	      break;
+	      }
+          strcpy (pinfo->name, pname_tcp[pname_selected[0]-1]);
+	  pf_inq_plotter (pinfo->name,pinfo);
+	  strcpy (pf_info->meta_type,pinfo->meta_type);
+
+	  /* ------------------------------------ */
+	  /* check plot size against plotter size */
+	  /* if bigger, complain then continue the */
+	  /* event loop                           */
+	  /* ------------------------------------ */
+          status = pfz_check_size (&pl,pinfo->xsize,pinfo->ysize);
+	  if (status != SUCCESS)
+	     {
+             break;
+	     }
+
+	  /* ------------------------------------------------------ */
+	  /* get number of copies if less than 1 or greater than 99 */
+	  /* if so, complain and continue                           */
+	  /* ------------------------------------------------------ */
+          wi_query_dialog_item (id,PF_PLOT_COPIES,&value,content);
+          pf_info->copies = atoi (content);
+          if (pf_info->copies < 1 || pf_info->copies > 10)
+	     {
+	     status = PF_INVALID_NUMBER_OF_COPIES;
+	     am_message (AM_ALERT,mg_message(status));
+	     pf_info->copies = 0;
+	     break;
+	     }
+	  }
+      else
+	  {
+	  pf_info->copies = 0;
+          /* ming - 8/20/91 */
+          index = ts_switch (defaults->plotter,pname_tcp);
+          if (index == -1)
+              {
+              status = PF_DEFAULT_PLOTTER_NOT_EXISTS;
+              am_message (AM_ALERT,mg_message(status));
+              break;
+              }
+          else
+              {
+              strcpy (pinfo->name,defaults->plotter);
+              pf_inq_plotter (pinfo->name,pinfo);
+              strcpy (pf_info->meta_type,pinfo->meta_type);
+              }
+	  }
+
+      /* ------------- */
+      /* save the plot */
+      /* ------------- */
+      if (saved == TRUE)
+	  {
+	  wi_query_dialog_item (id,PF_PLOT_NAME,&value,pf_info->filename);
+	  ts_snowhite (pf_info->filename);
+	  if (IS_EMPTY_STRING (pf_info->filename))
+	      {
+	      status = PF_ASSIGN_PLOT_FILE_NAME;
+	      am_message (AM_ALERT,mg_message(status));
+	      am_message (AM_ALERT, "Please assign a name for the Plot File.");
+	      break;
+	      }
+
+	  /* ----------------------------------------------------- */
+          /* always uppercase the plotfile name because to make it */
+	  /* consistent the naming method in finder                */
+	  /* ----------------------------------------------------- */
+	  ts_sto_upper(pf_info->filename);
+
+	  /* --------------------------------- */
+          /* check if save as permanent or not */
+	  /* --------------------------------- */
+	  wi_query_dialog_item (id,PF_PLOT_PERM,&value,content);
+	  if (value == TRUE)
+	      {
+	      strcpy (pf_info->expired_date,"01-JAN-2999");
+	      }
+          else
+	      {
+	      wi_query_dialog_item (id,PF_PLOT_EXPIRED_DATE,&value,pf_info->expired_date);
+	      if ((status = ho_check_date (pf_info->expired_date,"DD-MON-YYYY")) == FALSE)
+		  {
+		  status = PF_INVALID_EXPIRED_DATE;
+		  am_message (AM_ALERT,mg_message(status));
+		  break;
+		  }
+
+	      }
+
+	  /* ---------- */
+          /* get remark */
+	  /* ---------- */
+          wi_query_dialog_item (id,PF_PLOT_REMARK,&value,pf_info->remark);
+
+	  /* --------------------------- */
+	  /* check file already exists ? */
+	  /* --------------------------- */
+          if (pfz_file_exists (pf_info->filename,pf_info->app))
+	      {
+	      status = PF_PLOT_FILE_ALREADY_EXISTS;
+	      wiyesno (mg_message(status),"",&yesno,&status);
+	      if (yesno)
+		  {
+		  fm_create_os_filename (pf_info->file_id,pathname);
+		  ho_add_path ("ESI$PLOTS",pathname,sizeof(pathname),pathname);
+		  ho_delete_file (pathname,&status);
+		  }
+              else
+		  {
+		  break;
+		  }
+              }
+	  }
+      else
+	  {
+	  /* -------------------------------------------------------------------- */
+	  /* postfix the filename to make it not to clash with current file names */
+	  /* -------------------------------------------------------------------- */
+          ho_get_dtime ("SYSDATE","DD-MON-YYYY",pf_info->expired_date);
+	  strcat (pf_info->filename,"_ZZZZ");
+	  
+	  }
+
+      pf_info->xsize = pl.width;
+      pf_info->ysize = pl.height;
+
+      done = TRUE;
+      status = SUCCESS;
+      break;
+
+    case PF_PLOT_PLOT_MAP:
+      wi_query_dialog_item (id,PF_PLOT_PLOT_MAP,&value,content);
+      if (value == ON)
+        {
+	wi_enable_dialog_item (id,PF_PLOT_PLOTTER_SELECTOR,ON);
+        wi_enable_dialog_item (id,PF_PLOT_PLOTTER_VSCROLL,ON);
+        wi_enable_dialog_item (id,PF_PLOT_COPIES,ON);
+        sprintf (content,"%2d",pf_info->copies);
+        ts_noblanks (content);
+        status = wi_set_dialog_text (id,PF_PLOT_COPIES,content);
+        }
+      else 
+        {
+        wi_enable_dialog_item (id,PF_PLOT_PLOTTER_SELECTOR,OFF);
+        wi_enable_dialog_item (id,PF_PLOT_PLOTTER_VSCROLL,OFF);
+        wi_enable_dialog_item (id,PF_PLOT_COPIES,OFF);
+	wi_query_dialog_item (id,PF_PLOT_COPIES,&value,content);
+	pf_info->copies = atoi(content);
+        }
+      break;
+
+    case PF_PLOT_SAVE:
+      wi_query_dialog_item (id,PF_PLOT_SAVE,&value,content);
+      if (value == ON)
+          {
+	  pf_info->save = TRUE;
+          wi_enable_dialog_item (id,PF_PLOT_NAME,ON);
+          wi_enable_dialog_item (id,PF_PLOT_PERM,ON);
+          wi_enable_dialog_item (id,PF_PLOT_DELETED,ON);
+          wi_enable_dialog_item (id,PF_PLOT_REMARK,ON);
+	  if (pf_info->perm)
+	      {
+              wi_set_dialog_value (id,PF_PLOT_PERM,ON);
+	      wi_query_dialog_item (id,PF_PLOT_EXPIRED_DATE,&value,content);
+              wi_enable_dialog_item (id,PF_PLOT_EXPIRED_DATE,OFF);
+	      }
+          else
+	      {
+              wi_set_dialog_value (id,PF_PLOT_DELETED,ON);
+              wi_enable_dialog_item (id,PF_PLOT_EXPIRED_DATE,ON);
+	      strcpy (pf_info->expired_date,content);
+	      }
+          }
+      else
+          {
+	  pf_info->save = FALSE;
+          wi_enable_dialog_item (id,PF_PLOT_NAME,OFF);
+          wi_enable_dialog_item (id,PF_PLOT_PERM,OFF);
+          wi_enable_dialog_item (id,PF_PLOT_DELETED,OFF);
+          wi_enable_dialog_item (id,PF_PLOT_EXPIRED_DATE,OFF);
+          wi_enable_dialog_item (id,PF_PLOT_REMARK,OFF);
+	  wi_query_dialog_item (id,PF_PLOT_NAME,&value,content);
+	  strcpy (pf_info->filename,content);
+          }
+      break;
+
+    case PF_PLOT_PERM:
+      wi_enable_dialog_item (id,PF_PLOT_EXPIRED_DATE,OFF);
+      wi_set_dialog_value (id,PF_PLOT_PERM,ON);
+      break;
+
+    case PF_PLOT_DELETED:
+      wi_enable_dialog_item (id,PF_PLOT_EXPIRED_DATE,ON);
+      wi_set_dialog_value (id,PF_PLOT_DELETED,ON);
+      /* -------------------------- */
+      /* delete date = the next day */
+      /* -------------------------- */
+      ho_get_dtime ("SYSDATE+1","DD-MON-YYYY",content);
+      wi_set_dialog_text (id,PF_PLOT_EXPIRED_DATE,content);
+      break;
+
+    case PF_PLOT_INCH:
+      wi_set_dialog_value (id,PF_PLOT_INCH,ON);
+      wi_query_selections (id,PF_PLOT_LAYOUT_SELECTOR,&nlayouts,layout_selected);
+      if (nlayouts != 1)
+	  {
+	  status = PF_SELECT_PLOT_LAYOUT;
+	  am_message (AM_ALERT,mg_message (PF_SELECT_PLOT_LAYOUT));
+          am_message (AM_ALERT,"Please select a plot layout.");
+	  break;
+	  }
+      /* -------------------- */
+      /* recalculate the size */
+      /* -------------------- */
+      strcpy (pf_info->layout, layout_tcp[layout_selected[0]-1]);
+      status =  pl_read_layout (&pl,pf_info->layout,lyt_type);
+      status = pl_place_win (&pl,&bw);
+      sprintf (plot_size,"%.2f X %.2f INCHES",pl.width,pl.height);
+      wi_set_dialog_text (id,PF_PLOT_SIZE,plot_size);
+      break;
+
+    case PF_PLOT_CM:
+      wi_set_dialog_value (id,PF_PLOT_CM,ON);
+      wi_query_selections (id,PF_PLOT_LAYOUT_SELECTOR,&nlayouts,layout_selected);
+      if (nlayouts != 1)
+	 {
+	 status = PF_SELECT_PLOT_LAYOUT;
+	 am_message (AM_ALERT,mg_message(PF_SELECT_PLOT_LAYOUT));
+	 break;
+	 }
+      strcpy (pf_info->layout, layout_tcp[layout_selected[0]-1]);
+      /* -------------------- */
+      /* recalculate the size */
+      /* -------------------- */
+      status =  pl_read_layout (&pl,pf_info->layout,lyt_type);
+      status = pl_place_win (&pl,&bw);
+      sprintf (plot_size,"%.2f X %.2f CM",pl.width*2.54,pl.height*2.54);
+      wi_set_dialog_text (id,PF_PLOT_SIZE,plot_size);
+      break;
+
+    case PF_PLOT_LAYOUT_SELECTOR:
+      wi_query_selections (id,PF_PLOT_LAYOUT_SELECTOR,&nlayouts,layout_selected);
+      if (nlayouts != 1)
+	  {
+	  status = PF_SELECT_PLOT_LAYOUT;
+	  am_message (AM_ALERT,mg_message(status));
+	  break;
+	  }
+      /* -------------------- */
+      /* recalculate the size */
+      /* -------------------- */
+      strcpy (pf_info->layout, layout_tcp[layout_selected[0]-1]);
+      status =  pl_read_layout (&pl,pf_info->layout,lyt_type);
+      status = pl_place_win (&pl,&bw);
+      wi_query_dialog_item (id,PF_PLOT_INCH,&value,content);
+      if (value == TRUE)
+	  {
+          sprintf (plot_size,"%.2f X %.2f INCHES",pl.width,pl.height);
+	  }
+      else
+	  {
+          sprintf (plot_size,"%.2f X %.2f CM",pl.width*2.54,pl.height*2.54);
+	  }
+      wi_set_dialog_text (id,PF_PLOT_SIZE,plot_size);
+      break;
+    }
+    }
+
+  /* ------------------------ */
+  /* free the allocated space */
+  /* ------------------------ */
+  ts_tcp_free (pname_tcp);
+  ts_tcp_free (layout_tcp);
+  tc_free (pname_string);
+  tc_free (layout_string);
+
+  /* ---- */
+  /* done */
+  /* ---- */
+  am_release_resource (id);
+  fi_pop ();
+  return status;
+  }
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    Check the size of the plotfile against with the plotter size.
+
+Prototype:
+    static INT pfz_check_size (PLOT_LAYOUT *pl, DOUBLE xsize, DOUBLE ysize)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) PLOT_LAYOUT *pl;
+    (I) DOUBLE xsize;
+    (I) DOUBLE ysize;
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL 
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+#if USE_PROTOTYPES
+publicdef INT pfz_check_size (PLOT_LAYOUT *pl, DOUBLE xsize, DOUBLE ysize)
+#else
+publicdef INT pfz_check_size (pl,xsize,ysize)
+PLOT_LAYOUT *pl;
+DOUBLE xsize;
+DOUBLE ysize;
+#endif
+    {
+    INT status;
+
+    if (pl->width > xsize OR pl->height > ysize) 
+	{
+	status = PF_PLOT_FILE_TOO_BIG;
+	am_message (AM_ALERT,mg_message(status));
+	return FAIL;
+        }
+    return SUCCESS;
+    }
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    Return either CM or INCH according to the input scale.
+
+Prototype: static INT pfz_get_plot_size_uom (CHAR *scale_uom,CHAR *plot_size_uom)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) CHAR *scale_uom;
+    (O) CHAR *plot_size_uom;
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL 
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+#if USE_PROTOTYPES
+static INT pfz_get_plot_size_uom (CHAR *scale_uom,CHAR *plot_size_uom)
+#else
+static INT pfz_get_plot_size_uom (scale_uom,plot_size_uom)
+CHAR *scale_uom;
+CHAR *plot_size_uom;
+#endif
+    {
+    INT status;
+    INT mod;
+    UOM_NAME uom1;
+    UOM_NAME uom2;
+    UOM_STRUCTURE uom_node;
+    CHAR dummy[40];
+    DOUBLE scale;
+
+    sprintf (dummy,"0.00 %s",scale_uom);
+
+    status = tu_parse_unit (dummy,&scale,uom1,uom2);
+
+    status = tu_verify_uom (uom1,&uom_node);
+
+    if (status == SUCCESS)
+	{
+	/* ------------------------------------------------------ */
+	/* use the conversion factor to MM to jugde the input UOM */
+	/* is in metric or imperial unit                          */
+	/* if it is multiple of 10, then it is metric             */
+	/* ------------------------------------------------------ */
+	mod = (INT)uom_node.uom_definition % 10;
+	if (mod == 1 OR mod == 0)
+	    {
+	    strcpy (plot_size_uom,"CM");
+	    }
+        else
+	    {
+	    strcpy (plot_size_uom,"INCHES");
+	    }
+	return SUCCESS;
+	}
+    else
+	{
+	/* -------------------- */
+	/* defualt value = INCH */
+	/* -------------------- */
+	strcpy (plot_size_uom,"INCHES");
+	return FAIL;
+	}
+    }
+
+
+/* Function Description -----------------------------------------------------
+Description: check if plotfile already in FM_HDR
+
+Prototype: publicdef BOOL pfz_file_exists (CHAR *filename,CHAR *app)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) CHAR *filename;
+    (I) CHAR *app;
+
+Return Value/Status:
+    TRUE
+    FALSE
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+#if USE_PROTOTYPES
+publicdef BOOL pfz_file_exists (CHAR *filename,CHAR *app)
+#else
+publicdef BOOL pfz_file_exists (filename,app)
+CHAR *filename;
+CHAR *app;
+#endif
+    {
+    EXEC SQL BEGIN DECLARE SECTION;
+	VARCHAR file[256];
+	VARCHAR stmt[256];
+	VARCHAR creator[40];
+	VARCHAR application[40];
+    EXEC SQL END DECLARE SECTION;
+
+    PROJECT_NAME project;
+    static BOOL first = TRUE;
+    INT status = TRUE;
+
+    if (first)
+	{
+	first = FALSE;
+
+        qs_inq_c (QS_PROJECT_NAME,project,(INT *)0);
+
+        stmt.len = sprintf ((CHAR *) stmt.arr,
+"SELECT FINDER_FILENAME FROM %s.FM_HDR \
+WHERE FINDER_FILENAME = :v1 AND CREATOR_APPLICATION = :v2 \
+AND CREATOR_ANALYST = :v3 AND DELETE_FLAG = 'F' \
+AND EXPIRATION_DATE > SYSDATE \
+AND FILE_TYPE = 'PLOTFILE'", project);
+
+        EXEC SQL PREPARE S11 FROM :stmt;
+	EXEC SQL DECLARE C11 CURSOR FOR S11;
+        }
+
+    V_FROMC (application,app);
+    V_FROMC (file,filename);
+    qs_inq_c (QS_FINDER_ACCOUNT,(CHAR *)creator.arr,(INT *)0);
+    V_SETLEN (creator);
+    EXEC SQL OPEN C11 USING :file, :application, :creator;
+    EXEC SQL FETCH C11 INTO :file;
+	
+    if (OR_STATUS != SUCCESS)
+	{
+	status = FALSE;
+	}
+    EXEC SQL CLOSE C11;
+    return status;
+    }
+
+  
+
+    

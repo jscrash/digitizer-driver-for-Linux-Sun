@@ -1,0 +1,403 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element GO_DRW_OBJ.PC*/
+/* *7    14-AUG-1991 15:56:11 JTM "(SPR 8766)  Added coordinate init as submitted by Calgary."*/
+/* *6    13-MAY-1991 17:36:58 LOEBL "(SPR 0) Appears to have fixed 32K problem."*/
+/* *5    19-JUL-1990 18:40:16 GILLESPIE "(SPR 5411) CHanges to support fault traces"*/
+/* *4    28-FEB-1990 06:10:20 GILLESPIE "(SPR 1) Change call sequence to go_draw_oject to remove unused scatter parm"*/
+/* *3    12-FEB-1990 15:27:01 GORDON "(SPR 0) Do an array fetch"*/
+/* *2    10-OCT-1989 09:54:00 PURNA "(SPR 5020) Mods for CT parameter change"*/
+/* *1    19-JUN-1989 12:32:36 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element GO_DRW_OBJ.PC*/
+/******************************************************************************
+
+        Copyright Exploration Systems, Inc. 1989
+           Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+            Exploration Systems, Inc.
+            579 Market Street
+            San Francisco, CA  USA 94105
+            (415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+#include "esi_go.h"
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_WM_H
+#include "esi_wm.h"
+#endif
+
+#ifndef ESI_WM_CLS_H
+#include "esi_wm_cls.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_MP_H
+#include "esi_mp.h"
+#endif
+
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+
+#ifndef ESI_OV_H
+#include "esi_ov.h"
+#endif
+
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_GO_ERR_H
+#include "esi_go_err.h"
+#endif
+
+/************************************************************************************/
+/*                                                                                  */
+/*  Routine : GO_DRAW_OBJECT                                                        */
+/*                                                                                  */
+/*  Description :  draw one graphic object.                                         */
+/*                                                                                  */
+/*                                                                                  */
+/************************************************************************************/
+
+#if USE_PROTOTYPES
+publicdef INT go_draw_object(INT object_id_in, INT object_class, GO_STRUCT *values,
+                             MAP_STRUCTURE *map, INT *WM_group_id,
+                             PICKABLE_OBJECT *pick_obj)
+#else
+publicdef INT go_draw_object(object_id_in, object_class, values, map, WM_group_id,
+                             pick_obj)
+INT object_id_in;                   /* id of the object to draw                     */
+INT object_class;                   /* WM class of the current group                */
+GO_STRUCT *values;                  /* overriding values to object values           */
+MAP_STRUCTURE *map;                 /* current map structure                        */
+INT *WM_group_id;
+PICKABLE_OBJECT *pick_obj;
+#endif
+#define MAX_FETCH 32767
+
+    {
+    INT max_rows = 0;
+    INT fetch_status = 0;
+    INT num_returned = 0;
+    INT num_processed = 0;
+    INT status;
+    INT ii;
+    PROJECT_NAME project;           /* current project name                         */
+    INT group_id = 0;               /* object group WM id                           */
+    BOOL clip_required;             /* TRUE if object not entirely inside map       */
+    static BOOL inited = FALSE;
+    INT *line_nallocated, *line_nused;
+    INT *text_nallocated, *text_nused;
+    INT old_num_pick_elem;
+    INT segment_id;
+    INT blocksize = 20;
+    INT size_int;
+    char errmsg[131];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[256];
+    static int count;
+    static VARCHAR object_type[41];
+    static int object_id;
+    static double lower_left_x, lower_left_y;
+    static double upper_right_x, upper_right_y;
+    int *item_id_arr;
+    int *item_class_arr;
+    static VARCHAR attribute_1[41];
+    static VARCHAR attribute_2[41];
+    EXEC SQL END DECLARE SECTION;
+    
+    /********************************************************************************/
+    
+    status = SUCCESS;
+    item_id_arr = item_class_arr = (int *)0;
+    
+    /* * BUILD THE CURSORS *                                                        */
+    /* ---------------------                                                        */
+    
+    EXEC SQL WHENEVER SQLERROR GOTO ora_error;
+    EXEC SQL WHENEVER NOT FOUND GOTO ora_error;
+    if (NOT inited)
+        {
+        qs_inq_c(QS_PROJECT_NAME, project, (INT *)0);
+        
+        /* FOR GRAPHIC OBJECTS                                                      */
+        sqlstmt.len = sprintf((char *)sqlstmt.arr, 
+"SELECT LOWER_LEFT_X,LOWER_LEFT_Y,UPPER_RIGHT_X,UPPER_RIGHT_Y,\
+    ATTRIBUTE_1, ATTRIBUTE_2 FROM %s.GRAPHIC_OBJECTS \
+    WHERE OBJECT_NAME = :object_type AND OBJECT_ID = :object_id"
+                , project);
+        
+        (void) strcpy ( errmsg, "Unable to prepare S1");
+        EXEC SQL PREPARE S1 FROM : sqlstmt;
+        (void) strcpy ( errmsg, "Unable to declare OBJ_CUR");
+        EXEC SQL DECLARE OBJ_CUR CURSOR FOR S1;
+
+        
+        /* FOR CORRELATIONS                                                         */
+        sqlstmt.len = sprintf((char *)sqlstmt.arr, 
+"SELECT COUNT(ITEM_ID) FROM %s.GRAPHIC_OBJECT_CORRELATIONS \
+    WHERE OBJECT_ID = :object_id"
+                , project);
+        
+        (void) strcpy ( errmsg, "Unable to prepare S2");
+        EXEC SQL PREPARE S2 FROM : sqlstmt;
+        (void) strcpy ( errmsg, "Unable to declare COUNT_CUR");
+        EXEC SQL DECLARE COUNT_CUR CURSOR FOR S2;
+
+        
+        sqlstmt.len = sprintf((char *)sqlstmt.arr, 
+"SELECT ITEM_ID, \
+        DECODE(ITEM_CLASS,'TEXT',1,'LINE',2,'SYMBOL',3,'FAULT',4,0) \
+        FROM %s.GRAPHIC_OBJECT_CORRELATIONS \
+        WHERE OBJECT_ID = :object_id"
+                , project);
+        
+        (void) strcpy ( errmsg, "Unable to prepare S3");
+        EXEC SQL PREPARE S3 FROM : sqlstmt;
+        (void) strcpy ( errmsg, "Unable to declare CORR_CUR");
+        EXEC SQL DECLARE CORR_CUR CURSOR FOR S3;
+        
+        inited = TRUE;
+        }
+    /* * OPEN THE OBJECT CURSOR AND FETCH THE SPECIFIED OBJECT_ID *                 */
+    /* ------------------------------------------------------------                 */
+    
+    V_C_TO_V(object_type, values->object_type);
+    object_id = object_id_in;
+    
+    (void) strcpy ( errmsg, "Unable to open OBJ_CUR");
+    EXEC SQL OPEN OBJ_CUR USING : object_type,  : object_id;
+    (void) strcpy ( errmsg, "Unable to fetch OBJ_CUR");
+
+    lower_left_x = 0.0;
+    lower_left_y = 0.0;
+    upper_right_x = 0.0;
+    upper_right_y = 0.0;
+
+    EXEC SQL FETCH OBJ_CUR INTO : lower_left_x,  : lower_left_y,  : upper_right_x,
+        : upper_right_y,  : attribute_1,  : attribute_2;
+
+    V_SETZERO(attribute_1);
+    V_SETZERO(attribute_2);
+    
+    /* * CHECK AGAINST MARKER, TOP, AND BOTTOM SPECIFICATIONS *                     */
+    /* --------------------------------------------------------                     */
+    
+    if (values->marker != NULL AND ARE_DIFFERENT(values->marker,
+                                                 (char *)attribute_1.arr))
+        {
+        return SUCCESS;
+        }
+    if (values->top != NULL AND values->bottom != NULL)
+        {
+        if (ARE_DIFFERENT(values->top,
+                          (char *)attribute_1.arr) OR ARE_DIFFERENT(values->bottom,
+                                                                   (char *)
+                                                                   attribute_2.arr))
+            {
+            return SUCCESS;
+            }
+        }
+    /* * CONVERT THE OBJECT EXTENTS *                                               */
+    /* ------------------------------                                               */
+    
+    ct_map_xy(lower_left_x, lower_left_y, (DOUBLE *)&lower_left_x, (DOUBLE *)&lower_left_y);
+    ct_map_xy(upper_right_x, upper_right_y, (DOUBLE *)&upper_right_x, (DOUBLE *)&upper_right_y);
+    
+    /* * CHECK IF OBJECT INTERSECTS WITH MAP WINDOW *                               */
+    /* ----------------------------------------------                               */
+    
+    if (lower_left_x >= map->upper_right_xy.x OR lower_left_y >=
+        map->upper_right_xy.y OR upper_right_x <=
+        map->lower_left_xy.x OR upper_right_y <= map->lower_left_xy.y)
+        {
+        return SUCCESS;
+        }
+    /* * DETERMINE CLIPPING REQUIREMENT *                                           */
+    /* ----------------------------------                                           */
+    
+    clip_required = (lower_left_x < map->lower_left_xy.x OR lower_left_y <
+                     map->lower_left_xy.y OR upper_right_x >
+                     map->upper_right_xy.x OR upper_right_y > map->upper_right_xy.y);
+    
+    /* * CREATE WM OBJECT GROUP *                                                   */
+    /* --------------------------                                                   */
+    
+    if (!values->suppress_editing)
+        {
+        ov_new_object(&group_id, values->object_type, object_class, object_id);
+        *WM_group_id = group_id;
+        }
+    /* * GET THE CORRELATIONS *                                                     */
+    /* ------------------------                                                     */
+    
+    (void) strcpy ( errmsg, "Unable to open COUNT_CUR");
+    EXEC SQL OPEN COUNT_CUR USING : object_id;
+
+    
+    line_nallocated = &pick_obj->line_nallocated;
+    line_nused = &pick_obj->line_nused;
+    text_nallocated = &pick_obj->text_nallocated;
+    text_nused = &pick_obj->text_nused;
+    size_int = sizeof(INT);
+    
+    status = SUCCESS;
+    old_num_pick_elem = *line_nused + *text_nused;
+    
+    EXEC SQL WHENEVER NOT FOUND GOTO finished;
+    (void) strcpy ( errmsg, "Unable to fetch COUNT_CUR");
+    EXEC SQL FETCH COUNT_CUR INTO : count;
+
+    if (count == 0)
+        goto finished;
+    
+    count = MIN( count, MAX_FETCH );
+    item_id_arr = (int *)tc_alloc(count * sizeof(int));
+    item_class_arr = (int *)tc_alloc(count * sizeof(int));
+    
+    (void) strcpy ( errmsg, "Unable to open CORR_CUR ");
+    EXEC SQL OPEN CORR_CUR USING : object_id;
+
+    
+    /* Do the array fetch */
+
+    while( fetch_status != OR_EOF )
+    {
+    EXEC SQL WHENEVER NOT FOUND CONTINUE;
+    (void) strcpy ( errmsg, "Unable to fetch CORR_CUR");
+    EXEC SQL FOR : count FETCH CORR_CUR INTO : item_id_arr,  : item_class_arr;
+
+    fetch_status = OR_STATUS;  
+    num_returned = OR_ROWCOUNT - num_processed;
+    num_processed += num_returned;
+
+    for (ii = 0; ii < num_returned; ++ii)
+        {
+        
+        /* * DRAW THE OBJECT ELEMENT *                                              */
+        /* ---------------------------                                              */
+        switch (item_class_arr[ii])
+            {
+        case 1:                     /* Is it text?                                  */
+            if (NOT values->suppress_text)
+                {
+                status = go_draw_text(values, item_id_arr[ii], clip_required,
+                                      &segment_id);
+                if (status == SUCCESS)
+                    {
+                    /* Allocate object structure elements for software picking      */
+                    if (*text_nallocated == 0)
+                        {
+                        pick_obj->text_id = (INT *)tc_alloc(blocksize * size_int);
+                        pick_obj->text_segm = (INT *)tc_alloc(blocksize * size_int);
+                        *text_nallocated = blocksize;
+                        }
+                    else if (*text_nallocated == *text_nused)
+                        {
+                        *text_nallocated *= 2;
+                        pick_obj->text_id = (INT *)tc_realloc(pick_obj->text_id,
+                                                              *text_nallocated *
+                                                              size_int);
+                        pick_obj->text_segm = (INT *)tc_realloc(pick_obj->text_segm,
+                                                                *text_nallocated *
+                                                                size_int);
+                        }
+                    pick_obj->text_id[*text_nused] = item_id_arr[ii];
+                    pick_obj->text_segm[*text_nused] = segment_id;
+                    *text_nused += 1;
+                    }
+                }
+            break;
+        case 2:                     /* Is it a line?                                */
+        case 4:                     /* How about a fault???                         */
+            if (NOT values->suppress_lines)
+                {
+                status = go_draw_line(values, item_id_arr[ii], (CHAR *)object_type.arr,
+                                      clip_required, &segment_id);
+                if (status == SUCCESS)
+                    {
+                    /* * Allocate object structure elements for software picking *  */
+                    if (*line_nallocated == 0)
+                        {
+                        pick_obj->line_id = (INT *)tc_alloc(blocksize * size_int);
+                        pick_obj->line_segm = (INT *)tc_alloc(blocksize * size_int);
+                        *line_nallocated = blocksize;
+                        }
+                    else if (*line_nallocated == *line_nused)
+                        {
+                        *line_nallocated *= 2;
+                        pick_obj->line_id = (INT *)tc_realloc(pick_obj->line_id,
+                                                              *line_nallocated *
+                                                              size_int);
+                        pick_obj->line_segm = (INT *)tc_realloc(pick_obj->line_segm,
+                                                                *line_nallocated *
+                                                                size_int);
+                        }
+                    pick_obj->line_id[*line_nused] = item_id_arr[ii];
+                    pick_obj->line_segm[*line_nused] = segment_id;
+                    *line_nused += 1;
+                    }
+                }
+            break;
+        case 3:                     /* Is it a symbol?                              */
+            /* TODO: ADD CLIP OPTION                                                */
+            
+            status = go_draw_symbol(values, item_id_arr[ii]);
+            break;
+        default:
+            status = GO_ERR_BAD_ICLAS;
+            break;
+            }
+        }
+    /* End of main processing loop                                                  */
+    }
+    goto finished;
+    
+    /* * ORACLE ERROR *                                                             */
+    /* ----------------                                                             */
+    
+ora_error:
+    (void) printf ("%s\n%s\n", errmsg, sqlca.sqlerrm.sqlerrmc);
+    status = OR_STATUS;
+    
+    /* * RETURN *                                                                   */
+    /* ----------                                                                   */
+    
+finished:
+    EXEC SQL WHENEVER SQLERROR CONTINUE;    
+    EXEC SQL CLOSE CORR_CUR;
+    EXEC SQL CLOSE OBJ_CUR;
+    EXEC SQL CLOSE COUNT_CUR;
+    if (group_id != 0)
+        {
+        wmgclose(group_id);
+        }
+    if (old_num_pick_elem < (*line_nused + *text_nused))
+        status = SUCCESS;
+    if (item_id_arr != (int *)0)
+        tc_free((VOIDPTR)item_id_arr);
+    if (item_class_arr != (int *)0)
+        tc_free((VOIDPTR)item_class_arr);
+    
+    return(status);
+    }

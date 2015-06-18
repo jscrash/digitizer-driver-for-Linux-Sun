@@ -1,0 +1,199 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_P_TEXT_BNDL.PC */
+/* *12   25-NOV-1991 13:19:00 LOEBL "(SPR 0) Cleanup error processing" */
+/* *11   19-JUL-1990 11:19:39 JESSIE "(SPR 5628) Make LYNX functions internally consistant" */
+/* *10   19-JUL-1990 10:21:21 VINCE "(SPR 5628) Make LYNX functions internally consistant" */
+/* *9    27-MAR-1990 14:02:18 VINCE "(SPR 1) panic fixes" */
+/* *8    26-MAR-1990 20:56:45 VINCE "(SPR 1) consistancy mods" */
+/* *7    26-MAR-1990 15:12:20 MING "(SPR 0) change V_SETZERO to V_SETLEN" */
+/* *6    26-MAR-1990 14:39:28 MING "(SPR 0) add V_SETZERO(db_text_color_arr);" */
+/* *5    26-MAR-1990 14:13:30 MING "(SPR 0) change NORMAL color from -1 to 0;" */
+/* *4    26-MAR-1990 11:57:02 MING "(SPR 0) change color back to int" */
+/* *3    21-MAR-1990 18:03:29 MING "(SPR 0) add if text_id==0 not update lynx_text_gc" */
+/* *2    19-MAR-1990 18:25:46 VINCE "(SPR -1) changed calling sequence" */
+/* *1    15-MAR-1990 13:39:18 VINCE "Initial Checkin" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_P_TEXT_BNDL.PC */
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_ly.h"
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+#ifndef ESI_LU_H
+#include "esi_lu.h"
+#endif
+
+EXEC ORACLE OPTION (HOLD_CURSOR = NO);
+EXEC ORACLE OPTION (RELEASE_CURSOR = YES);
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT ly_put_text_bundle 
+                (CHAR *data_type, INT text_id, TEXT_GC *text_gc);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    data_type       -(CHAR *) Data type from lynx_data_types.
+    text_id         -(INT) Text id from lynx_text table.
+    text_gc         -(TEXT_GC *) Text Graphics Context structure.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT ly_put_text_bundle (CHAR *data_type, INT text_id, 
+                                  TEXT_GC *text_gc) 
+#else
+publicdef INT ly_put_text_bundle (data_type, text_id, text_gc)
+CHAR *data_type;
+INT text_id;
+TEXT_GC *text_gc;
+#endif
+
+    {
+    CHAR project[40];
+    INT status;
+    CHAR color_string[20];
+    static TEXT_GC default_gc;
+    static INT need_lookup = TRUE;
+    static INT first = TRUE;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[2000];
+    int db_text_bundle_id;
+    EXEC SQL END DECLARE SECTION;
+    
+    EXEC SQL WHENEVER SQLERROR goto sqlerror;
+    
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+
+    stmt.len = sprintf ((char *)stmt.arr, "%s%s%s%s%s",
+        "SELECT NVL( MAX(TEXT_BUNDLE_ID), 0 )+1 ",
+        "INTO   :db_text_bundle_id ", 
+        "FROM  ", project, ".LYNX_TEXT_BUNDLE" );
+        
+        EXEC SQL PREPARE S1 FROM :stmt;
+        EXEC SQL EXECUTE S1;
+        
+    if (need_lookup)
+        {
+        status = ly_get_default_gc (&default_gc, "TEXT");
+        need_lookup = FALSE;
+        }
+    
+    if (text_gc != (TEXT_GC *)0)
+        {
+        /* **************************************************************/
+        /* clean up invalid parameters with "reasonable" defaults       */
+        /*                                  */
+        if (text_gc->text_color < 0)
+            text_gc->text_color = default_gc.text_color;
+        if (text_gc->text_precision < 0)
+            text_gc->text_precision = default_gc.text_precision;
+        if (text_gc->text_path < 0)
+            text_gc->text_path = default_gc.text_path;
+        if (text_gc->string_h_just < 0)
+            text_gc->string_h_just = default_gc.string_h_just;
+        if (text_gc->string_v_just < 0)
+            text_gc->string_v_just = default_gc.string_v_just;
+        if (text_gc->string_spacing <= 0.0)
+            text_gc->string_spacing = default_gc.string_spacing;
+        if (text_gc->char_height <= 0.0)
+            text_gc->char_height = default_gc.char_height;
+        if (text_gc->char_spacing <= 0.0)
+            text_gc->char_spacing = default_gc.char_spacing;
+        /*                              */
+        /*  end of parameter cleanup.               */
+        /* **************************************************************/
+        
+        status = lu_index_to_text ("COLOR", color_string, text_gc->text_color);
+        
+        /* if the requested color is not valid set it to NORMAL */
+        if (status != SUCCESS)
+            {
+            strcpy (color_string, "NORMAL");
+            }
+        stmt.len = sprintf ((char *)stmt.arr, 
+"INSERT INTO %s.LYNX_TEXT_BUNDLE \
+        (TEXT_BUNDLE_ID, TEXT_COLOR, TEXT_FONT, TEXT_PRECISION, TEXT_PATH, \
+        STRING_SPACING, STRING_H_JUST, STRING_V_JUST, \
+        CHAR_HEIGHT, CHAR_SPACING) \
+    VALUES \
+        (%d, %s, %d, %d, %d, \
+        %f, %d, %d, \
+        %f, %f)"
+                , project, db_text_bundle_id, color_string, text_gc->text_font,
+                            text_gc->text_precision, text_gc->text_path,
+                            text_gc->string_spacing, text_gc->string_h_just,
+                            text_gc->string_v_just, text_gc->char_height,
+                            text_gc->char_spacing);
+        
+        EXEC SQL EXECUTE IMMEDIATE :stmt;
+        
+        if (text_id != 0)
+            {
+            stmt.len = sprintf ((char *)stmt.arr, 
+           "INSERT INTO %s.LYNX_TEXT_GC (TEXT_ID, TEXT_BUNDLE_ID) \
+            VALUES (%d, %d)"
+                                , project, text_id, db_text_bundle_id);
+            
+            EXEC SQL EXECUTE IMMEDIATE :stmt;
+            }
+        }
+    if (data_type[0] != NUL)
+        {
+        stmt.len = sprintf ((char *)stmt.arr, 
+       "INSERT INTO %s.LYNX_DTYPE_TEXT_GC (DATA_TYPE, TEXT_BUNDLE_ID) \
+       VALUES ('%s', %d)"
+                            , project, data_type, db_text_bundle_id);
+        
+        EXEC SQL EXECUTE IMMEDIATE :stmt;
+        }
+    return SUCCESS;
+
+sqlerror:
+       or_errmsg(&sqlca, "Error detected in ly_p_text_bndl.pc");
+       return sqlca.sqlcode;
+
+    }
+
+
+/* END:     */
+

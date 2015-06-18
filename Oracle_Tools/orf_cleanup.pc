@@ -1,0 +1,105 @@
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_OR_FORMS_H
+#include "esi_or_forms.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    Initialize an ORACLE form with data from Finder.
+
+Prototype:
+    publicdef INT orf_cleanup(pForm)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+
+pForm           -I pointer to form structure
+
+Return Value/Status:
+    SUCCESS/FAILURE 
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT orf_cleanup (FORM_STRUCT *pForm)
+#else
+publicdef INT orf_cleanup (pForm)
+FORM_STRUCT *pForm;
+#endif
+    {
+    INT status;
+    char project[30];
+    INT len;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    EXEC SQL END DECLARE SECTION;
+    
+    qs_inq_c (QS_PROJECT_NAME, project, &len);
+
+    if (len EQUALS 0)
+       return FAIL;
+
+
+/* because each oracle user will have a unique session id, no matter
+   how many might be sharing the same oracle user name, it is safe to
+   delete based on session id.  If the user wants to immediately
+   redisplay the data, it will be recreated for him/her */
+
+    if ( !strcmp (pForm->data_type, "WELLS") )
+        {
+            EXEC SQL
+            DELETE FROM TEMP_WELL_LISTS
+            WHERE TEMP_PROCESS_ID = USERENV ('SESSIONID');
+        }
+
+    if ( !strcmp (pForm->data_type, "SEISMIC") )
+        {
+            EXEC SQL
+            DELETE FROM TEMP_SEISMIC_LISTS
+            WHERE TEMP_PROCESS_ID = USERENV ('SESSIONID');
+        }
+
+    EXEC SQL COMMIT WORK;
+
+    return SUCCESS;
+    }
+/* END:     */

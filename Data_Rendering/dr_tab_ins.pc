@@ -1,0 +1,100 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_TAB_INS.PC*/
+/* *5    28-OCT-1991 15:35:51 PURNA "(SPR 4687) Moved setting error status"*/
+/* *4     3-OCT-1990 12:09:17 GILLESPIE "(SPR 101) Change file type to stream"*/
+/* *3    18-JUL-1990 07:22:43 GILLESPIE "(SPR 1) Add esi_dr_msg.h"*/
+/* *2    19-SEP-1989 13:36:40 GILLESPIE "(SPR 100) GULF MODS"*/
+/* *1    19-JUN-1989 12:31:28 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_TAB_INS.PC*/
+
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/******************************************************************************
+
+NAME:          	dr_table_insert
+
+DESCRIPTION:   	Insert a new code and value into the specified
+				table (must be of standard NAME | CODE| REMARKS form)
+
+
+	Input:		table_name	- Name of "code" table.
+     			name		- String defining code name to insert.
+     			value		- Value of the code to insert.
+     			desc		- String defining description of code to insert.
+
+	Output:   	None
+
+	Status:   	SUCCESS
+               	xx_OBJECT_TYPE_EXISTS
+               	
+ 	TODO:		1) Handle row already exists condition.
+               
+******************************************************************************/
+
+#include    "esi_dr.h"
+#include    "esi_c_lib.h"
+#include    "esi_am.h"
+#include    "esi_oracle.h"
+#ifndef ESI_MG_H
+#include    "esi_mg.h"
+#endif
+#include "esi_dr_msg.h"
+
+#if USE_PROTOTYPES
+publicdef INT dr_table_insert(CHAR *table_name, CHAR *name, INT value, CHAR *desc)
+#else
+publicdef INT dr_table_insert(table_name, name, value, desc)
+
+CHAR 	*table_name;
+CHAR 	*name;
+INT 	value;
+CHAR 	*desc;
+#endif
+{
+    INT status = SUCCESS;
+    CHAR mg_text[128];
+
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[511];
+    EXEC SQL END DECLARE SECTION;
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr, "INSERT INTO %s \
+	(NAME, CODE, REMARKS) VALUES \
+	('%s',%d,'%s')", table_name, name, value, desc);
+
+    EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+
+    status = OR_STATUS;
+
+    if (OR_STATUS < 0)
+    {
+    	sprintf(mg_text, mg_message(DR_BAD_INSERT), table_name);
+	am_message(AM_STATUS, (CHAR *)sqlstmt.arr);
+    	am_message(AM_STATUS, mg_text);
+    	EXEC SQL ROLLBACK;
+    }
+    else
+    {
+	dr_commit(TRUE);
+    }
+    
+    return status;
+}

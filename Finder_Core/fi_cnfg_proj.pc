@@ -1,0 +1,340 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element FI_CNFG_PROJ.PC*/
+/*  15    6-MAR-1992 20:51:17 CHARLIE "(SPR 6027) provide error checking for project default values"*/
+/* *14   12-NOV-1991 13:10:59 LOEBL "(SPR 0) Make sql statement legible on 80 char terminal"*/
+/* *13    6-JUN-1991 14:34:41 MING "(SPR 0) add default plotter and plot layout"*/
+/* *12   29-OCT-1990 13:39:33 GILLESPIE "(SPR 35) You gotta do what you say you do (Note last <non>-change)"*/
+/* *11   29-OCT-1990 13:20:44 GILLESPIE "(SPR 35) Remove esi_sl_meth.ah"*/
+/* *10   24-SEP-1990 16:18:49 GILLESPIE "Merge: Beta Deltas"*/
+/*  8B1  24-SEP-1990 16:18:19 GILLESPIE "Beta Deltas"*/
+/* *9    27-AUG-1990 14:09:30 PURNA "(SPR 0) bug fixes from ernie"*/
+/* *8    23-JUL-1990 15:43:24 GILLESPIE "(SPR 1) Add search_window project default for deviated well retrieval"*/
+/* *7    23-JUL-1990 13:05:49 VINCE "(SPR 5644) Header Standardization"*/
+/* *6     9-MAR-1990 15:39:25 GILLESPIE "(SPR 1) Add &^%$ oracle option (RELEASE_CURSOR=NO) after last open (Sun Bug)"*/
+/* *5    23-FEB-1990 10:19:37 GILLESPIE "(SPR 1) RELEASE CURSORS USING ORACLE OPTIONS"*/
+/* *4    18-DEC-1989 16:40:22 PURNA "(SPR 5069) export facility mods"*/
+/* *3    14-SEP-1989 16:14:49 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *2    26-JUN-1989 10:43:36 GILLESPIE "(SPR 20) Fix castings"*/
+/* *1    19-JUN-1989 12:31:45 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element FI_CNFG_PROJ.PC*/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_fi.h"
+
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+
+#ifndef ESI_DB_H
+#include "esi_db.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_FM_H
+#include "esi_fm.h"
+#endif
+
+#ifndef ESI_HO_H
+#include "esi_ho.h"
+#endif
+
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+
+#ifndef ESI_FI_MSG_H
+#include "esi_fi_msg.h"
+#endif
+
+#ifndef ESI_FI_ERR_H
+#include "esi_fi_err.h"
+#endif
+
+#ifndef ESI_GL_PROJECT_H
+#include "esi_gl_project.h"
+#endif
+
+#if USE_PROTOTYPES
+static INT fiz_get_var (CHAR *variable_name, VOIDPTR destination, INT type);
+#else
+static INT fiz_get_var ();
+#endif
+EXEC ORACLE OPTION (RELEASE_CURSOR = YES);
+EXEC ORACLE OPTION (HOLD_CURSOR = NO);
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+/* File Description ---------------------------------------------------------
+Overview:
+
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT finder_config_project(BOOL set_process);
+    
+Private_Functions:
+    static INT fiz_get_var(CHAR *variable_name, VOIDPTR destination, INT type);
+    
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT finder_config_project(BOOL set_process);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) set_process -(BOOL) 
+    
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT finder_config_project (BOOL set_process) 
+#else
+publicdef INT finder_config_project (set_process)
+BOOL set_process;
+#endif
+    {
+    INT status;                     /* Completion status */
+    CHAR text[100];                 /* Messages */
+    PROJECT_NAME project_name;      /* Configured project name */
+    INT len;                        /* length of configured name */
+    DB_ACCOUNT_STRUCT db_account;   /* Database account structure - for setting logicals */
+    PROJECT_DEFAULT *project_default;   /* project default workspace pointer */
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR project[32];            /* Current project */
+    VARCHAR stmt[128];
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ********************************************************************** */
+    
+    /*   Assume success */
+    
+    status = SUCCESS;
+    
+    qs_inq_c (QS_PROJECT_NAME, project_name, &len);
+    
+    if (len > 0)
+        {
+        V_FROMC (project, project_name);
+        
+        EXEC SQL SELECT ACCOUNT_NAME 
+                 FROM ESI.FINDER_ACCOUNTS 
+                 WHERE TYPE = 'PROJECT'
+                   AND ACCOUNT_NAME = UPPER(:project);
+        
+        /*   If the project is invalid,
+         set it to null and warn the user */
+        
+        if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+            {
+            status = FAIL;
+            sprintf (text, mg_message (FI_INVALID_PROJECT), project.arr);
+            am_message (AM_STATUS, text);
+            qs_set_c (QS_PROJECT_NAME, "", 0);
+            }
+        }
+    /* set the logical names */
+    if (status EQUALS SUCCESS)
+        {
+        strcpy (db_account.name, "ESI");    /* set the system logicals first */
+        strcpy (db_account.scope, "SYSTEM");
+        ho_set_logical_names (&db_account, set_process);
+        strcpy (db_account.name, (char *)project.arr);  /* then set the project logicals */
+        strcpy (db_account.scope, "PROJECT");
+        ho_set_logical_names (&db_account, set_process);
+        qs_inq_c (QS_FINDER_ACCOUNT, db_account.name, &len);    /* and finally, the curren account */
+        strcpy (db_account.scope, "ANALYST");
+        ho_set_logical_names (&db_account, set_process);
+        }
+    status = am_define_workspace ("PROJECT_DEFAULTS", AM_GLOBAL,
+                                  sizeof(PROJECT_DEFAULT),
+                                  (VOIDPTR) & project_default);
+    
+    /* if project defaults already defined,
+        then reset them */
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+        status = am_open_workspace ("PROJECT_DEFAULTS", AM_GLOBAL,
+                                    (VOIDPTR) & project_default);
+        }
+    /* retrieve the project defaults */
+    
+    EXEC SQL WHENEVER SQLERROR GOTO bad_defaults;
+    
+    stmt.len = sprintf ((char *)stmt.arr, "%s%s%s",
+               "SELECT DEFAULT_VALUE FROM ", project_name,
+                ".PROJECT_DEFAULTS WHERE DEFAULT_NAME = :value1" );
+    
+    EXEC SQL PREPARE S1 FROM :stmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    
+    status = fiz_get_var ("HORIZONTAL_UOM", (VOIDPTR)project_default->unit.horizontal,
+                          CHAR_TYPE);
+    status = fiz_get_var ("VERTICAL_UOM", (VOIDPTR)project_default->unit.vertical,
+                          CHAR_TYPE);
+    status = fiz_get_var ("LOG_DEPTH_UNITS", (VOIDPTR)project_default->unit.log_depth,
+                          CHAR_TYPE);
+    status = fiz_get_var ("TIME_UOM", (VOIDPTR)project_default->unit.time, CHAR_TYPE);
+    status = fiz_get_var ("MAP_PROJECTION", (VOIDPTR)project_default->map.projection,
+                          CHAR_TYPE);
+    status = fiz_get_var ("MAP_COORDINATE_SYSTEM",
+                          (VOIDPTR)project_default->map.coordinate_system, CHAR_TYPE);
+    status = fiz_get_var ("MAP_SCALE", (VOIDPTR) & project_default->map.scale,
+                          FLOAT_TYPE);
+    status = fiz_get_var ("MAP_SCALE_UOM", (VOIDPTR)project_default->map.scale_unit,
+                          CHAR_TYPE);
+    status = fiz_get_var ("LOWER_LEFT_X",
+                          (VOIDPTR) & project_default->map.lower_left_x, FLOAT_TYPE);
+    status = fiz_get_var ("LOWER_LEFT_Y",
+                          (VOIDPTR) & project_default->map.lower_left_y, FLOAT_TYPE);
+    status = fiz_get_var ("UPPER_RIGHT_X",
+                          (VOIDPTR) & project_default->map.upper_right_x, FLOAT_TYPE);
+    status = fiz_get_var ("UPPER_RIGHT_Y",
+                          (VOIDPTR) & project_default->map.upper_right_y, FLOAT_TYPE);
+    status = fiz_get_var ("SEARCH_WINDOW",
+                          (VOIDPTR) & project_default->map.search_window, FLOAT_TYPE);
+    
+    status = fiz_get_var ("PROJECT_PROJECTION", (VOIDPTR)project_default->projection,
+                          CHAR_TYPE);
+    qs_set_c (QS_PROJECT_PROJECTION, project_default->projection, 0);
+    
+    status = fiz_get_var ("LOG_INTERVAL",
+                          (VOIDPTR) & project_default->log_digitizing_interval,
+                          FLOAT_TYPE);
+    
+    status = fiz_get_var ("SEISMIC_SURVEY_TYPE",
+                          (VOIDPTR)project_default->seismic_survey_type, CHAR_TYPE);
+    
+    status = fiz_get_var ("PLOT_LAYOUT",
+                          (VOIDPTR)project_default->plot_layout, CHAR_TYPE);
+    
+    status = fiz_get_var ("PLOTTER",
+                          (VOIDPTR)project_default->plotter, CHAR_TYPE);
+    
+    EXEC SQL CLOSE C1;
+    
+    /* initialize file management system */
+    
+    status = fm_sys_init ();
+    if (status > 0)
+        {
+        status = SUCCESS;
+        }
+bad_defaults:
+    
+    if (status IS_NOT_EQUAL_TO SUCCESS OR OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+        {
+        status = FI_CANNOT_ACCESS_PROJECT;
+        }
+    else
+        {
+        status = SUCCESS;
+        }
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT fiz_get_var(CHAR *variable_name, VOIDPTR destination, INT type);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) variable_name   -(CHAR *)
+    (O) destination     -(VOIDPTR) 
+    (I) type            -(INT) 
+
+Return Value/Status:
+    OR_STATUS - Status returned from Oracle.
+    
+Scope:
+    PRIVATE to <finder_config_project>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT fiz_get_var (CHAR *variable_name, VOIDPTR destination, INT type) 
+#else
+static INT fiz_get_var (variable_name, destination, type)
+CHAR *variable_name;
+VOIDPTR destination;
+INT type;
+#endif
+    {
+    /* fetch a default variable */
+    INT status;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    static VARCHAR default_variable_name[32];   /* name of variable */
+    static VARCHAR default_value[132];  /* default value */
+    EXEC SQL END DECLARE SECTION;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO wayout;
+    EXEC SQL WHENEVER NOT FOUND GOTO wayout;
+    EXEC ORACLE OPTION (RELEASE_CURSOR = NO);
+    
+    V_FROMC (default_variable_name, variable_name);
+    EXEC SQL OPEN C1 USING :default_variable_name;
+    EXEC SQL FETCH C1 INTO :default_value;
+    
+    V_SETZERO (default_value);
+    
+    switch (type)
+        {
+    case CHAR_TYPE:
+        strcpy ((char *)destination, (char *)default_value.arr);
+        break;
+    case INT_TYPE:
+        *(INT *)destination = atoi ((char *)default_value.arr);
+        break;
+    case FLOAT_TYPE:
+        V_SETZERO (default_value);
+        *(DOUBLE *)destination = atof ((char *)default_value.arr);
+        break;
+        }
+wayout:
+    status = OR_STATUS;
+    return status;
+    }
+/* END:     */

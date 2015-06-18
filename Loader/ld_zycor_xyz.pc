@@ -1,0 +1,437 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_ZYCOR_XYZ.PC */
+/* *3    14-AUG-1991 12:00:18 KEE "(SPR -1) Put in File Lock/Unlock logic" */
+/* *2     1-MAY-1991 22:09:23 KEE "(SPR -1) Zycor Export" */
+/* *1     1-MAY-1991 21:34:13 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_ZYCOR_XYZ.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* ************************************************************************
+
+   NAME: LD_ZYCOR_XYZ.PC
+
+   AUTHOR: Rod Hanks (BHP - Consultant)
+   DATE:   May 17th, 1990
+   DESCRIPTION: Unload xyz data from a particular map in Finder.
+
+   MODIFY: Jim Green (Unocal)
+   DATE:   November, 1990
+
+   ************************************************************************ */
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_DG_DEFS_H
+#include "esi_dg_defs.h"
+#endif
+#ifndef ESI_OV_H
+#include "esi_ov.h"
+#endif
+#ifndef LD_ZYCOR_WORK_H
+#include "ld_zycor_work.h"
+#endif
+static INT my_open_scatter();
+
+#if USE_PROTOTYPES
+publicdef VOID ld_zycor_xyz (CHAR *mapName, PROJECT_NAME projectName,
+			     FILENAME fileName1)
+#else
+publicdef VOID ld_zycor_xyz (mapName, projectName, 
+		   fileName1)
+CHAR		*mapName;
+PROJECT_NAME	projectName;
+FILENAME	fileName1;
+#endif
+    {
+/****************************************************************************
+
+	V a r i a b l e   D e c l a r a t i o n s .
+
+******************************************************************************/
+
+    INT 	   status;
+    INT            loop;
+    INT scat_npts;                          /* NUMBER OF SCATTER POINTS */
+    INT fileCounter;
+    NLIST_HEADER scatter;                   /* SCATTER FILE */
+    FLOAT *scat_x = (FLOAT *)0;             /* SCATTER FILE X COORDS */
+    FLOAT *scat_y = (FLOAT *)0;             /* SCATTER FILE Y COORDS */
+    FLOAT *scat_z;                          /* SCATTER FILE Z COORDS */
+    FM_LONG scatterFile;
+    FILENAME os_name;
+    FILENAME outputFile;
+    GRID_NLIST_USER_STRUCT grid_user;       /* GRID NLIST USER STRUCT */
+    FILE    *myfile;
+    CHAR    *pos;
+/*
+				General variable declarations.
+*/
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[400];
+	VARCHAR	param[1000];	/* Variable in the table is LONG! */
+    EXEC SQL END DECLARE SECTION;
+/*
+				Oracle variable declarations.
+*/
+/****************************************************************************
+
+	I n i t i a l i z a t i o n .
+
+******************************************************************************/
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT PARAMETER \
+FROM %s.MAP_OVERLAYS \
+WHERE MAP_NAME = '%s' \
+AND VERB_CODE = 16 AND KEY_CODE = 9", projectName, mapName);
+
+    EXEC SQL PREPARE S1 FROM :sqlstmt;
+    if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "preparing s1");
+    EXEC SQL DECLARE OBJ_CUR CURSOR FOR S1;
+    EXEC SQL OPEN OBJ_CUR;
+    if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "opening s1");
+    EXEC SQL FETCH OBJ_CUR INTO :param;
+    fileCounter = 0;
+
+
+/*****************************************************************************
+
+	M a i n   L o g i c .
+
+*****************************************************************************/
+
+    while (OR_STATUS EQUALS SUCCESS)
+	{
+	strncpy(scatterFile, (CHAR *)param.arr, param.len);
+	scatterFile[param.len]=0;
+        status = my_open_scatter(&scatter, scatterFile ,"r",os_name);
+        if (status < 0)
+	    {
+	    printf("Unable to open scatterfile...%s\n", scatterFile);
+	    }
+        else
+            {
+	    printf("Exporting xyz's from scatterfile named %s\n", scatterFile);
+            ov_read_scatter(scatter,&scat_x,&scat_y,&scat_z,&scat_npts);
+            ov_get_scatter_horizons(scatter,grid_user.base_surface,
+					grid_user.top_surface);
+            ov_close_scatter(scatter, scatterFile, "r", os_name);
+            if (scat_npts EQUALS 0)
+                {
+		printf("This scatter file contains no x,y,z points.\n");
+	        }
+	    else
+	        {
+		fileCounter++;
+		pos = fileName1 + strlen(fileName1);
+		while (pos > fileName1 && *pos != '.')
+		    {
+		    pos--;
+		    }
+		if (*pos != '.')
+		    {
+		    sprintf(outputFile, "%s%d", fileName1, fileCounter);
+		    }
+		else
+		    {
+		    strncpy(outputFile, fileName1, 
+				(INT) pos - (INT) fileName1);
+		    outputFile[(INT) pos - (INT) fileName1] = 0;
+		    sprintf(outputFile, "%s%d", outputFile, fileCounter);
+		    strcat(outputFile, pos);
+		    }
+		myfile = ho_open(outputFile, "w", NULL);
+	        status = ho_lock(myfile, ON);
+		if (myfile == (FILE *)NULL || status != SUCCESS)
+		    {
+		    printf("Unable to open an output file named %s\n", 
+							outputFile);
+		    }
+		else
+		    {
+		    printf("Creating Zycor format xyz file named %s\n", 
+							outputFile);
+		    fprintf(myfile, "@%s, DATA, 80, 1\n", scatterFile);
+		    fprintf(myfile, "!\n");
+		    fprintf(myfile, 
+"X (EASTING),  1, 1, 1, 1,  20, 0, 0.100E+31, , 10, 3, 0\n");
+		    fprintf(myfile, 
+"Y (NORTHING), 2, 2, 1, 21, 40, 0, 0.100E+31, , 10, 3, 0\n");
+		    fprintf(myfile, 
+"Z-VALUE,      3, 3, 1, 41, 60, 0, 0.100E+31, , 10, 4, 0\n");
+		    fprintf(myfile, "!\n");
+		    fprintf(myfile, "@\n");
+		    fprintf(myfile, "!\n");
+		    fprintf(myfile, 
+"!        1         2         3         4         5         6\n");
+		    fprintf(myfile, 
+"!23456789012345678901234567890123456789012345678901234567890\n");
+	            for (loop = 0; loop < scat_npts; loop++)
+		        {
+		        fprintf(myfile, "%20.6f%20.6f%20.6f\n", 
+					scat_x[loop],
+					scat_y[loop], scat_z[loop]);
+		        }
+	            status = ho_lock(myfile, OFF);
+		    fclose(myfile);
+		    }
+		}
+	    }
+	EXEC SQL FETCH OBJ_CUR INTO :param;
+	}
+/*****************************************************************************
+
+	C l e a n   U p   A n d   E x i t .
+
+******************************************************************************/
+    if (fileCounter == 1)
+      {
+	ho_rename(outputFile, fileName1);
+      }
+    else
+      {
+	printf("More than one xyz output files have been created\n");
+      }
+    if (OR_STATUS < SUCCESS) ld_show_error(OR_STATUS, "fetching s1");
+    EXEC SQL CLOSE OBJ_CUR;
+    if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "closing s1");
+    return;
+    }
+
+
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+
+
+
+
+/* * FILE DESCRIPTION * */
+/* -------------------- */
+/* ************************************************************************
+
+   NAME: OV_OPEN_SCATTER.C
+
+   AUTHOR: JOHN CONROY
+
+   DESCRIPTION: Function to open a scatter file. Returns file pointer.
+
+   ************************************************************************ */
+
+
+
+
+/* * INCLUDE FILES * */
+/* ----------------- */
+
+#include "esi_c_lib.h"
+#include "esi_ov_defs.h"
+#ifndef ESI_OV_H
+#include "esi_ov.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_FM_H
+#include "esi_fm.h"
+#endif
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+#ifndef ESI_OV_ERR_H
+#include "esi_ov_err.h"
+#endif
+#ifndef ESI_FM_MSG_H
+#include "esi_fm_msg.h"
+#endif
+#ifndef ESI_FM_ERR_H
+#include "esi_fm_err.h"
+#endif
+
+/* * FUNCTION TITLE * */
+/* ------------------ */
+
+static INT my_open_scatter(scatter,name,mode,os_name)
+
+/*
+	Same as ov_open_scatter, but it does not check the projection of
+	the scatter file.
+*/
+/* * ARGUEMENT LIST * */
+/* ------------------ */
+
+NLIST_HEADER *scatter;				/* FILE POINTER TO RETURN */
+FM_LONG name;				/* SCATTER FILE NAME */
+CHAR *mode;				/* OPEN MODE */
+FILENAME os_name;
+
+/* * VARIABLE LIST * */
+/* ----------------- */
+
+{
+
+INT status;				/* INTERNAL STATUS */
+CHAR map_proj[80];			/* MAP PROJECTION */
+CHAR scat_proj[80];			/* MAP PROJECTION */
+BOOL perm = TRUE;
+FM_DESCRIB desc;
+CHAR temp_mode[10];
+BOOL exists;
+OV_SCATTER_USER scatter_user;
+UINT i, n;
+FLOAT null = -20000000.0;
+
+INT units[3];
+INT d_size[3];
+INT d_type[3];
+INT v_type[3];
+INT block = 128;
+
+UINT d_list[3];
+VOIDPTR v_list[3];
+
+/* ********************************************************************** */
+
+if (strcmp(mode,"a") EQUALS 0)
+    {
+    strcpy(temp_mode,"w");
+    }
+else
+    {
+    strcpy(temp_mode,mode);
+    }
+
+exists = (fm_check_access("ESI$SCATTERS",name,"SCATTER",temp_mode) !=
+							    FM_NO_SUCH_FILE);
+	    
+
+/* * FIRST TRY TO INITIALIZE FILE IN FM SYSTEM * */
+/* --------------------------------------------- */
+
+strcpy(desc,"");
+if ( (status = fm_init_file("ESI$SCATTERS",name,"SCATTER",temp_mode,perm,
+		desc,fm_scatter_term_func,os_name,"MAPPING")) EQUALS SUCCESS)
+    {
+
+/* * MODE IS READ OR APPEND TO EXISTING * */
+/* -------------------------------------- */
+
+    if ( (strcmp(mode,"r") EQUALS 0)  OR
+		    (exists  AND  strcmp(mode,"a") EQUALS 0) )
+	{
+
+				    /* GET SCATTER NLIST */
+
+	if ( (status = nl_read_nlist(scatter,os_name,"SCATTER")) EQUALS SUCCESS)
+	    {
+
+	    nl_inq_nlist_user_struct(*scatter,sizeof(OV_SCATTER_USER),
+			(VOIDPTR)&scatter_user,(size_t *)&n);
+
+				    /* SET IT TO CORRECT POINT */
+
+	    if (strcmp(mode,"a") EQUALS 0)
+		{
+		nl_inq_nlist_int(*scatter,NL_NLIST_NPOINTS,(INT *)&n);
+		status = nl_set_current_point(*scatter,n,1);
+		status = nl_delete_nlist(os_name,"SCATTER");
+		}
+	    else
+		{
+		status = nl_set_current_point(*scatter,1,1);
+		}
+	    }
+	}
+
+
+/* * MODE IS WRITE OR APPEND TO NON-EXISTING * */
+/* ------------------------------------------- */
+
+    else
+	{
+	if (exists)
+	    {
+	    nl_delete_nlist(os_name,"SCATTER");
+	    }
+
+	    n = 3;
+	    for (i = 0; i < n; i++)
+		{
+		units[i] = 0;
+		d_size[i] = sizeof (FLOAT);
+		d_type[i] = FLOAT_TYPE;
+		v_type[i] = VALUE_LIST;
+		d_list[i] = i + 1;
+		}
+	    if ( (status = nl_init_nlist(scatter,n,units,(size_t *)d_size,
+					    d_type,
+					    v_type,block)) EQUALS SUCCESS)
+		{
+		v_list[0] = (VOIDPTR) (&null);
+		v_list[1] = (VOIDPTR) (&null);
+		v_list[2] = (VOIDPTR) (&null);
+		nl_set_nlist_info(*scatter,NL_NLIST_NULL_VALUE,3,d_list,v_list);
+
+		nl_start_stroke(*scatter,&n);
+		strcpy(scatter_user.projection,map_proj);
+		status = nl_set_nlist_user_struct(*scatter,
+			    (VOIDPTR)&scatter_user,sizeof(OV_SCATTER_USER));
+		}
+	}
+
+
+/* * OPEN ERROR SO RELEASE FROM FM SYSTEM * */
+/* ---------------------------------------- */
+
+    if (status >= SUCCESS)
+	{
+	status = SUCCESS;
+	}
+    else
+	{
+	fm_release_file("ESI$SCATTERS",name,"SCATTER");
+	}
+    }
+
+
+else
+    {
+    status = OV_CANT_OPEN_SCATTER;
+    }
+
+return status;
+}

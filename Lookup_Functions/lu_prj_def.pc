@@ -1,0 +1,226 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LU_PRJ_DEF.PC*/
+/* *5    23-AUG-1990 18:04:34 PURNA "(SPR 0) compiling error"*/
+/* *4    23-AUG-1990 17:41:44 JESSIE "(SPR 1) fix include files"*/
+/* *3    12-AUG-1989 13:43:35 GILLESPIE "(SPR 3) move variables inside function  (not supposed to be extern..."*/
+/* *2    27-JUL-1989 13:29:23 GILLESPIE "(SPR 1) Fix minor casting problems"*/
+/* *1    19-JUN-1989 12:34:07 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element LU_PRJ_DEF.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_GL_DEFS_H
+
+#include "esi_gl_defs.h"
+
+#endif
+
+#ifndef ESI_C_LIB_H
+
+#include "esi_c_lib.h"
+
+#endif
+
+#ifndef ESI_LU_ERR_H
+
+#include "esi_lu_err.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#include "esi_dtypes.h"
+
+static CHAR **names_tcp = (CHAR **)
+NULL, **values_tcp = (CHAR **)
+NULL;
+
+/* Function Description -----------------------------------------------------
+Description:
+    This function retrieves the value of the requested project default
+    parameter from the PROJECT_DEFAULTS table in the current project
+    account and tries to convert it to the requested type.
+
+Prototype:
+    publicdef INT lu_project_default (CHAR *param_name, BYTE *value_pointer, 
+                                INT  value_type, INT  value_size);
+                                
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) param_name      -(CHAR *) Name of the requested parameter.
+    (I) value_pointer   -(BYTE *) Pointer of area to contain value.
+    (I) value_type      -(INT) Standard Finder variable type.
+    (I) value_size      -(INT) Size of value area in bytes.
+
+Return Value/Status:
+    SUCCESS             - No errors.
+    LU_NO_PROJECT       - There is no current project.
+    LU_VALUE_NOT_FOUND  - Requested parameter is not in the table.  
+    LU_BUFFER_TOO_SMALL - Caller's buffer is too small; value truncated.
+    LU_BAD_CONVERSION   - Could not perform the conversion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lu_project_default (CHAR *param_name, BYTE *value_pointer,
+                                  INT value_type, INT value_size) 
+#else
+publicdef INT lu_project_default (param_name, value_pointer, value_type, value_size)
+CHAR *param_name;
+BYTE *value_pointer;
+INT value_type;
+INT value_size;
+#endif
+    {
+    INT status, index, len;
+    PROJECT_NAME project_name;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR v_param_name[33];
+    VARCHAR v_param_value[129];
+    VARCHAR v_stmt[200];
+    EXEC SQL END DECLARE SECTION;
+    
+    /* check the callers parameters for sanity  */
+    status = LU_BAD_PARAMETER_IN_CALL;
+    if (value_size <= 0)
+        return status;
+    if (value_pointer == (BYTE *)0)
+        return status;
+    /* do we have write access to the pointer? */
+    if (am_check_pointer (value_pointer, "w") != SUCCESS)
+        return status;
+    
+    tc_zeroes (value_pointer, value_size);  /* clear the callers buffer */
+    if (strlen (param_name) == 0)
+        return status;
+    
+    status = SUCCESS;
+    ts_sto_upper (param_name);
+    
+    /* has this default been looked up before ? */
+    if (names_tcp == (CHAR **)NULL)
+        index = -1;
+    else
+        index = ts_switch (param_name, names_tcp);
+    
+    if (index > -1)
+        {                           /*  yes, it has  */
+        V_FROMC (v_param_value, values_tcp[index]);
+        }
+    else
+        {                           /* its not already in our TCP */
+        qs_inq_c (QS_PROJECT_NAME, project_name, &len);
+        
+        if (len == 0)
+            status = LU_NO_PROJECT;
+        else
+            {
+            V_FROMC (v_param_name, param_name);
+            
+            v_stmt.len = sprintf ((char *)v_stmt.arr, "SELECT DEFAULT_VALUE FROM %s.PROJECT_DEFAULTS \
+          WHERE  DEFAULT_NAME = :value1"
+                                  , project_name);
+            
+            EXEC SQL WHENEVER SQLERROR GOTO no_default;
+            EXEC SQL WHENEVER NOT FOUND GOTO no_default;
+            
+            EXEC SQL PREPARE S1 FROM : v_stmt;
+            EXEC SQL DECLARE C1 CURSOR FOR S1;
+            
+            EXEC SQL OPEN C1 USING : v_param_name;
+            EXEC SQL FETCH C1 INTO : v_param_value;
+            V_SETZERO (v_param_value);
+            
+            EXEC SQL CLOSE C1;
+            
+            ts_tcp_append (&names_tcp, param_name);
+            ts_tcp_append (&values_tcp, (char *)v_param_value.arr);
+            }
+        }
+    if (status == SUCCESS)
+        {
+        switch (value_type)
+            {
+        case CHAR_TYPE:
+            if (value_size > v_param_value.len)
+                {
+                strcpy ((char *)value_pointer, (char *)v_param_value.arr);
+                }
+            else
+                {
+                status = LU_BUFFER_TOO_SMALL;
+                strncpy ((char *)value_pointer, (char *)v_param_value.arr, value_size);
+                value_pointer[value_size] = NUL;
+                }
+            break;
+            
+        case INT_TYPE:
+            if (value_size == sizeof(INT))
+                *(INT *)value_pointer = atoi ((char *)v_param_value.arr);
+            else if (value_size == sizeof(SHORT))
+                *(SHORT *)value_pointer = atoi ((char *)v_param_value.arr);
+            else
+                status = LU_BAD_CONVERSION;
+            break;
+            
+        case FLOAT_TYPE:
+            if (value_size == sizeof(DOUBLE))
+                *(DOUBLE *)value_pointer = atof ((char *)v_param_value.arr);
+            else if (value_size == sizeof(FLOAT))
+                *(FLOAT *)value_pointer = atof ((char *)v_param_value.arr);
+            else
+                status = LU_BAD_CONVERSION;
+            break;
+            
+        default:
+            status = LU_BAD_CONVERSION;
+            break;
+            }
+        }
+    return status;
+    
+no_default:
+    status = LU_VALUE_NOT_FOUND;
+    return status;
+    }
+/* END:     */

@@ -1,0 +1,357 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element AS_GET_PROJ.PC*/
+/* *5     4-JAN-1991 12:11:56 JESSIE "(SPR 6390) change 'PROJECT' to 'AS_GET_PROJECT_WORKSPACE"*/
+/* *4     5-DEC-1990 12:08:30 JESSIE "(SPR 6167) fix updating analyst_configuration fail"*/
+/* *3    24-OCT-1989 11:11:38 PURNA "(SPR 0) sl_free_tcp to ts_tcp_free"*/
+/* *2    26-JUN-1989 10:39:27 GILLESPIE "(SPR 20) Fix castings"*/
+/* *1    19-JUN-1989 12:00:54 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element AS_GET_PROJ.PC*/
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/* ************************************************************************
+
+   NAME:    AS_GET_PROJECT
+
+   AUTHOR:  W. A. Jaeck, 20-May-86
+
+   DESCRIPTION:
+
+    AS_GET_PROJECT is an application server which allows the user to select
+    an exploration project. The selected application project is returned to
+    the application which started AS_GET_PROJECT. The current exploration
+    project, in QS, is not altered. It is up to the application which
+    invokes AS_GET_PROJECT to actually use the selected project as it wishes.
+
+    You start AS_GET_PROJECT via the am_start_server application manager
+    service.
+
+    The protocol between the application and the AS_GET_PROJECT server is
+    defined in the include file esi_as_getp.h. The application
+    which starts AS_GET_PROJECT is responsible for providing the protocol
+    buffer. The protocol buffer is called AS_GET_PROJECT_WORKSPACE.
+
+    Certain options are available to the calling application. These are
+    specified by setting the values of items in the AS_GET_PROJECT_WORKSPACE
+    protocol buffer before starting the AS_GET_PROJECT_SERVER server.
+
+         .cancel - boolean flag indicating whether the user is allowed
+                   to CANCEL. Set .cancel to TRUE if the user is allowed
+                   to CANCEL. Set .cancel to FALSE if the user is not
+                   allowed to cancel.
+
+         .quit - boolean flag indicating whether the user is allowed to
+                   quit, from the File menu. Set .quit to TRUE if the user
+                   is allowed to quit. Set .quit to FALSE if the user is
+                   not allowed to quit.
+
+         .no_selection - boolean flag indicating whether the user is allowed
+                   to select nothing. Set .no_selection to TRUE if it is
+                   alright for the user to depress the OK button without
+                   selecting an project. This causes a null string to be
+                   returned as the project name (in .project). Set .no_selection
+                   to FALSE if the user must select an project before selecting
+                   the OK button.
+
+         .project - character string containing the default project name. If
+                   the user depresses the OK button on the select project
+                   dialog without selecting an project, the default project
+                   specified will be returned.
+
+    When the application's server completion routine is called, the
+    following information is returned in the AS_GET_PROJECT_WORKSPACE
+    protocol buffer.
+
+         .project - character string containing the selected project name.
+
+         .status - Status information indicating success, failure, cancel,
+                   or quit.
+
+    The application's server completion routine should always check
+    .status to determine the validity of the .project string. The following
+    status codes may be returned.
+
+         SUCCESS - the operator selected an project, or used the default,
+                   and depressed the OK button.
+
+         AS_ERR_CANCEL - the operator depressed the CANCEL button.
+
+         AS_ERR_QUIT - the operator quit, using the File menu. This
+                   should be interpreted, by the application, as a quit
+                   command for the application.
+
+         other - As encountered. These would indicate unsuccessful
+                   completion.
+
+   ************************************************************************ */
+
+#include "esi_as_getp.h"
+#include "esi_c_lib.h"
+
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+
+#ifndef ESI_FINDER_H
+#include "esi_finder.h"
+#endif
+
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_WI_H
+#include "esi_wi.h"
+#endif
+
+#ifndef AS_PROH_DLG_RH
+#include "as_proj_dlg.rh"
+#endif
+
+static CHAR PROJECT_DIALOG_RSRC[] = "as_proj_dlg";
+
+typedef struct {
+    INT num_projects;
+    INT select_list[1];
+    INT num_items;
+    INT str_len;
+    CHAR project_text[81];
+    CHAR cdtext[STMAX];
+    INT dialog_id;
+    NLIST_HEADER nlist;
+    } PROJECT_WORKSPACE;
+
+#if USE_PROTOTYPES
+static INT as_get_project_server(INT id, INT item,
+     AS_GET_PROJECT_WORKSPACE *p);
+#else
+static INT as_get_project_server();
+#endif
+
+/* ********************************************************************** */
+publicdef INT as_get_project(p)
+/* ********************************************************************** */
+
+AS_GET_PROJECT_WORKSPACE *p;
+{
+    PROGNAME("as_get_project");
+    CHAR **listhead;
+    NLIST_HEADER nlist;
+    UINT Dim_List[1];
+    VOIDPTR Value_List[1];
+    UINT ndim;
+    UINT stroke_num;
+    INT Units[1];
+    size_t Data_Widths[1];
+    INT Data_Types[1];
+    INT Value_Inc[1];
+
+
+    INT status;
+    UINT npoints;
+    INT  ID, item, Value;
+    CHAR Text[255];
+    BOOL continuation = TRUE;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+	int count;
+	VARCHAR project_name[31];
+    EXEC SQL END DECLARE SECTION;
+
+    PROJECT_WORKSPACE *w;
+
+/* ********************************************************************** */
+
+    am_declare(progname);
+
+                                  /*   Define workspace for communication
+                                       with dialog server. */
+
+    am_define_workspace("PROJECT_WORKSPACE",AM_APPLICATION,sizeof(PROJECT_WORKSPACE),
+	(VOIDPTR *)&w);
+
+                                  /*   Assume success. */
+
+
+                                  /*   Define project selector dialog. */
+
+    p->status = am_define_resource(AM_DIALOG,PROJECT_DIALOG_RSRC,1,
+                                   NULL_FUNCTION_PTR,&w->dialog_id,p);
+    if (p->status IS_NOT_EQUAL_TO SUCCESS)
+	{
+	return p->status;
+	}
+
+    EXEC SQL DECLARE C1 CURSOR FOR
+             SELECT ACCOUNT_NAME
+             FROM ESI.FINDER_ACCOUNTS
+             WHERE TYPE = 'PROJECT'
+             ORDER BY ACCOUNT_NAME;
+
+    EXEC SQL OPEN C1;
+
+    ndim = 1;
+    Units[0] = 0;
+    Data_Types[0] = CHAR_TYPE;
+    Data_Widths[0] = sizeof p -> project;
+    Value_Inc[0] = VALUE_LIST;
+    Dim_List[0] = 1;
+    Value_List[0] = (VOIDPTR)project_name.arr;
+
+    nl_init_nlist(&w -> nlist, ndim, Units, Data_Widths, Data_Types,
+                   Value_Inc, 0);
+    nlist = w -> nlist;
+    nl_start_stroke(nlist, &stroke_num);	/* start a stroke */
+
+    EXEC SQL FETCH C1 INTO :project_name;
+
+    while (OR_STATUS EQUALS SUCCESS)
+        {
+        V_SETZERO(project_name);
+	nl_add_points(nlist, 1, ndim, Dim_List, Value_List);
+        EXEC SQL FETCH C1 INTO :project_name;
+	}
+
+    EXEC SQL CLOSE C1;
+
+                                /*   Remove names not accessable by this user */
+#if 0
+    w->num_projects = da_check_access (nlist);
+#else
+    nl_inq_nlist_int(nlist, NL_NLIST_NPOINTS, &w->num_projects);
+#endif    
+
+    sl_make_tcp(&listhead, nlist, 1);  /* convert select list to table of char pointers */
+
+                                  /*   Load projects into selector box */
+    wisselt( w->dialog_id, SELECTOR_BOX_ID, SCROLL_BAR_ID, w->num_projects, 1,
+             listhead);
+
+    ts_tcp_free(listhead);
+
+                                  /*   Show default project. */
+    wiscdt( w->dialog_id, CURRENT_PROJECT_ID, p->project);
+
+                                  /*   Turn on cancel button if caller asked
+                                       for it. */
+
+    if (p->cancel)
+         wiencdi(w->dialog_id,CANCEL_ID,1);
+    else
+         wiencdi(w->dialog_id,CANCEL_ID,0);
+
+                                  /*   Allow user to quit if caller asked for
+                                       it. */
+
+    if (p->quit)
+         wienfmi(w->dialog_id,WI_FILE_MENU_QUIT,1);
+    else
+         wienfmi(w->dialog_id,WI_FILE_MENU_QUIT,0);
+
+                                  /*   Present dialog to user. */
+    fi_push();
+
+    wiopcd( w->dialog_id );
+
+    while (continuation)
+      {    
+	wi_request_dialog_item(&ID, &item, &Value, Text);
+        switch (item) {
+    
+                                  /*   Process OK button. */
+
+             case OK_ID:
+
+                                  /*   Get user selection. */
+
+                  wiqsel(ID, SELECTOR_BOX_ID, &w->num_items, w->select_list );
+    
+                                  /*   If user selected an project, copy project
+                                       name to protocol buffer and return. */
+
+                  if (w->num_items) {
+                       ndim = 1;
+                       Dim_List[0] = 1;
+                       Value_List[0] = (VOIDPTR)p -> project;
+                       nlist = w -> nlist;
+                       nl_set_current_point(nlist, w -> select_list[0], 1);
+                       nl_get_points(nlist, 1, ndim, Dim_List, Value_List, &npoints);
+                       p->status = SUCCESS;
+                       fi_pop();
+                       status = am_release_resource(ID);
+                       continuation = FALSE;	
+                       }
+                                  /*   If user did not select an project, use
+                                       the default if there is one. If there
+                                       is no default, ignore user. */
+                  else
+                       if (p->no_selection) {
+                            p->project[0] = 0;
+                            p->status = SUCCESS;
+                            fi_pop();
+                            status = am_release_resource(ID);
+                            continuation = FALSE;	
+                            }
+                       else
+                            if (strlen(p->project)) {
+                                 p->status = SUCCESS;
+                                 fi_pop();
+                  		 status = am_release_resource(ID);
+        		         continuation = FALSE;	
+                                 }
+                  break;
+
+                                  /*   Process CANCEL button. */
+
+             case CANCEL_ID:
+
+                                  /*   Indicate that user cancelled. */
+
+                  p->status = AS_ERR_CANCEL;
+                  fi_pop();
+                  status = am_release_resource(ID);
+         	  continuation = FALSE;
+                  break;
+
+                                  /*   Process File menu quit command. */
+
+             case WI_FILE_MENU_QUIT:
+
+                                  /*   Indicate that user quit. */
+
+                  p->status = AS_ERR_QUIT;
+                  fi_pop();
+                  status = am_release_resource(ID);
+    	          continuation = FALSE;
+                  break;
+         }
+      }    
+    am_release_workspace("PROJECT_WORKSPACE",AM_APPLICATION);
+    return SUCCESS;
+}
+

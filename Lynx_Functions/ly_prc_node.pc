@@ -1,0 +1,157 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_PRC_NODE.PC */
+/*  7    21-FEB-1992 11:05:16 PURNA "(SPR 3955) moved the setting of the source name out of the 'if stmt'" */
+/* *6     6-MAY-1991 16:48:25 PURNA "(SPR 0) add select list in culture overlay for data mover" */
+/* *5    26-OCT-1990 13:49:18 GILLESPIE "(SPR 33)  New Lynx 3d changes" */
+/* *4    23-JUL-1990 13:24:39 VINCE "(SPR 5628) Make LYNX functions internally consistant" */
+/* *3    15-FEB-1990 00:46:30 GILLESPIE "(SPR 1) Fix column names - add better error detection" */
+/* *2    10-FEB-1990 10:42:46 GILLESPIE "(SPR 6006) Initial release" */
+/* *1    10-FEB-1990 09:59:38 GILLESPIE "Lynx node processor" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_PRC_NODE.PC */
+/************************************************************************************/
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1990                      */
+/*                    Unpublished -- All rights reserved                            */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY   */
+/*CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE      */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*                            Finder Graphics Systems                               */
+/*                            201 Tamal Vista Blvd.                                 */
+/*                            Corte Madera, CA  94925                               */
+/*                            (415) 927-0100                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+#include "esi_gl_top.h"
+#include "esi_oracle.h"
+#include "esi_qs.h"
+/* EXEC ORACLE OPTION (REBIND = NO); */
+
+/* Function Description -----------------------------------------------------       */
+/*Description:                                                                      */
+/*    This routine takes a coordinate in X and Y and                                */
+/*    determines whether a existing node within a window defined                    */
+/*    by tolerance can be found.  If so, then the node id of the                    */
+/*    found node is returned.  If not, a new node added to the database             */
+/*    and the ID of the created node is returned.                                   */
+/*                                                                                  */
+/*    The NODE_ID is obtained from the sequence LYNX_ID_SEQ in the ESI              */
+/*    account.                                                                      */
+/*                                                                                  */
+/*Prototype:                                                                        */
+/*    publicdef int ly_process_node(DOUBLE x, DOUBLE y, DOUBLE tolerance,           */
+/*                            NODE_ID *node_id);                                    */
+/*                                                                                  */
+/*Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)        */
+/*    x               -(DOUBLE)                                                     */
+/*    y               -(DOUBLE)                                                     */
+/*    tolerance       -(DOUBLE)                                                     */
+/*    node_id         -(NODE_ID *)                                                  */
+/*                                                                                  */
+/*Return Value/Status:                                                              */
+/*    OR_STATUS - Status returned by Oracle.                                        */
+/*                                                                                  */
+/*Scope:                                                                            */
+/*    PUBLIC                                                                        */
+/*                                                                                  */
+/*Limitations/Assumptions:                                                          */
+/*    This routine assumes that the X/Y coordinate space is                         */
+/*    the same as all existing nodes in the NODES table.  The                       */
+/*    calling application is responsible for performing any                         */
+/*    necessary cartographic transformation.                                        */
+/*                                                                                  */
+/*                                                                                  */
+/*-----------------------------------------------------------------------------     */
+
+/* BEGIN:                                                                           */
+
+#if USE_PROTOTYPES
+publicdef  int ly_process_node (DOUBLE x, DOUBLE y, DOUBLE tolerance, NODE_ID *node_id)
+#else
+publicdef  int ly_process_node (x, y, tolerance, node_id)
+DOUBLE x;
+DOUBLE y;
+DOUBLE tolerance;
+NODE_ID *node_id;
+#endif
+    {
+
+    PROJECT_NAME project_name;
+
+    qs_inq_c(QS_PROJECT_NAME,project_name,(INT *)0);
+    return ly_process_node_on_project(x,y,project_name,tolerance,node_id);
+    }
+
+/* LY_PROCESS_NODE_ON_PROJECT is created because we need the flexibility 
+   to be able to insert to node table to different project other than 
+   current project. It's useful for data mover application. (purna 1-30-91) */
+
+#if USE_PROTOTYPES
+publicdef  int ly_process_node_on_project (DOUBLE x, DOUBLE y, CHAR *project_name, DOUBLE tolerance, NODE_ID *node_id)
+#else
+publicdef  int ly_process_node_on_project (x, y, project_name, tolerance, node_id)
+DOUBLE x;
+DOUBLE y;
+CHAR *project_name;
+DOUBLE tolerance;
+NODE_ID *node_id;
+#endif
+    {
+    static BOOL first = TRUE;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[512];
+    static  long int theNode;
+    static  double x1, x2;
+    static  double y1, y2;
+    EXEC SQL END DECLARE SECTION;
+    
+    if (first)
+        {
+        ANALYST_NAME source;
+        
+        EXEC SQL WHENEVER SQLERROR GOTO wayout;
+        qs_inq_c (QS_SOURCE_NAME, source, (INT *)0);
+        stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT NODE_ID FROM %s.NODES \
+WHERE NODE_X BETWEEN :x1 AND :x2 AND \
+NODE_Y BETWEEN :y1 AND :y2"
+                , project_name);
+        
+        EXEC SQL PREPARE S1 FROM : stmt;
+        EXEC SQL DECLARE C1 CURSOR FOR S1;
+        
+        stmt.len = sprintf ((char *)stmt.arr, 
+"INSERT INTO %s.NODES(NODE_ID, NODE_X, NODE_Y, LOC_QUAL, SOURCE) VALUES \
+(ESI.LYNX_ID_SEQ.NEXTVAL, :x, :y, 'A', '%s')"
+                , project_name, source);
+        
+        EXEC SQL PREPARE S2 FROM : stmt;
+        
+        first = FALSE;
+        }
+    x1 = x - tolerance;
+    x2 = x + tolerance;
+    y1 = y - tolerance;
+    y2 = y + tolerance;
+    
+    EXEC SQL OPEN C1 USING : x1,  : x2,  : y1,  : y2;
+    EXEC SQL FETCH C1 INTO : theNode;
+    
+    if (OR_STATUS != 0)
+        {
+        x1 = x, y1 = y;
+        EXEC SQL EXECUTE S2 USING : x1,  : y1;
+        EXEC SQL SELECT ESI.LYNX_ID_SEQ.CURRVAL INTO : theNode FROM DUAL;
+        }
+    *node_id = theNode;
+wayout:
+    return OR_STATUS;
+    }
+/* END:                                                                             */

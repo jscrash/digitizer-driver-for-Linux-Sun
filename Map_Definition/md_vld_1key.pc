@@ -1,0 +1,175 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element MD_VLD_1KEY.PC*/
+/* *2    17-AUG-1990 21:59:44 VINCE "(SPR 5644) Code Cleanup"*/
+/* *1    19-JUN-1989 12:34:30 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element MD_VLD_1KEY.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_md_defs.h"
+#include "esi_md_err.h"
+#include "esi_md.h"
+#include "esi_am.h"
+#include "esi_oracle.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+    Function to validate the passed KEYSTRUCT record against
+    verb/keyword(synonym) combinations in ORACLE.
+
+Prototype:
+    publicdef INT md_vld_1key(MD_KEY_STRUCT *keystruc);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    keystruc        -(MD_KEY_STRUCT *) Keystruct record to validate.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    MD_ORACLE_ERROR
+    MD_KEYWORD_NOT_FOUND
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT md_vld_1key (MD_KEY_STRUCT *keystruc)
+#else
+publicdef INT md_vld_1key (keystruc)
+MD_KEY_STRUCT *keystruc;
+#endif
+    {
+    
+    INT status;                     /* RETURN STATUS */
+    MD_KEYLIST *keylist;            /* KEYLIST RETURNED FROM ORACLE */
+    CHAR text[STMAX];
+    
+/*     EXEC ORACLE OPTION (REBIND = NO); */
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    static VARCHAR queryverb[26];   /* VERB TO QUERY ON */
+    static VARCHAR querykey[26];    /* KEY TO QUERY ON */
+    static VARCHAR var_krq[2];  /* FETCHED KEY REQ FLAG */
+    static VARCHAR var_prq[2];  /* FETCHED PARM REQ FLAG */
+    static VARCHAR var_exc[2];  /* FETCHED EXCLUSION FLAG */
+    static VARCHAR var_vcode[9];    /* FETCHED VALID CODE */
+    static VARCHAR var_varg[62];    /* FETCHED VALID ARG */
+    static VARCHAR var_tran[2]; /* FETCHED TRANS FLAG */
+    static VARCHAR var_kdflt[41];   /* FETCHED KEY DEFAULT */
+    static VARCHAR var_pdflt[41];   /* FETCHED PARM DEFAULT */
+    static VARCHAR var_stvar[33];   /* FETCHED OVEWRLAY VARIABLE */
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ********************************************************************** */
+    
+    status = SUCCESS;
+    
+    
+    /* * ESTABLISH SQL CONDITIONAL BRANCHING * */
+    /* --------------------------------------- */
+    
+    EXEC SQL WHENEVER SQLERROR GOTO orcerr;
+    EXEC SQL WHENEVER NOT FOUND GOTO not_found;
+    
+    
+    /* * SEARCH FOR GIVEN KEYWORD * */
+    /* ---------------------------- */
+    
+    V_FROMC (querykey, keystruc->keywrd);
+    V_FROMC (queryverb, keystruc->realverb);
+    /* CLEAR RETURN BUFFERS */
+    V_CLEAR (var_krq);
+    V_CLEAR (var_prq);
+    V_CLEAR (var_exc);
+    V_CLEAR (var_vcode);
+    V_CLEAR (var_varg);
+    V_CLEAR (var_tran);
+    V_CLEAR (var_kdflt);
+    V_CLEAR (var_pdflt);
+    V_CLEAR (var_stvar);
+    
+    EXEC SQL SELECT KEYWORD_REQUIRED, PARMLIST_REQUIRED, KEYWORD_EXCLUSION,
+        VALIDATION_CODE, VALIDATION_ARGUMENT, TRANSLATION_FLAG, KEY_DEFAULT,
+        PARAMETER_DEFAULT, STATE_VARIABLE INTO : var_krq,  : var_prq,  : var_exc,
+        : var_vcode,  : var_varg,  : var_tran,  : var_kdflt,  : var_pdflt,
+        : var_stvar FROM CODES.EXPRESSION_SYNTAX WHERE VERB =  :
+                                                              queryverb AND KEYWORD =
+                                                              : querykey;
+    
+    /* * FOUND KEYWORD * */
+    /* ----------------- */
+    
+    /* ALLOCATE & FILL KEYLIST STRUCTURE */
+    
+    keylist = (MD_KEYLIST *)am_allocate (AM_APPLICATION, sizeof(MD_KEYLIST));
+    
+    strcpy (keylist->verb, keystruc->realverb);
+    strcpy (keylist->keyword, keystruc->keywrd);
+    keylist->key_rqd = var_krq.arr[0];
+    keylist->parm_rqd = var_prq.arr[0];
+    keylist->exclude = var_exc.arr[0];
+    V_FROMV (keylist->val_code, var_vcode);
+    V_FROMV (keylist->val_arg, var_varg);
+    keylist->tran_flg = var_tran.arr[0];
+    V_FROMV (keylist->key_dflt, var_kdflt);
+    V_FROMV (keylist->parm_dflt, var_pdflt);
+    V_FROMV (keylist->state_var, var_stvar);
+    keylist->nxtkey = 0;
+    
+    /* * VALIDATE PARAMETERS * */
+    /* ----------------------- */
+    
+    status = md_vld_parm (keystruc, keylist);
+    if (status EQUALS SUCCESS)
+        {
+        keystruc->valid = TRUE;
+        keystruc->chk_exclude = (keylist->exclude EQUALS 'Y');
+        }
+    am_free (keylist);
+    goto finished;
+    
+    
+not_found:
+    status = MD_KEYWORD_NOT_FOUND;
+    sprintf (text, "VERB = %s and KEYWORD = %s is not found in \
+CODES.EXPRESSION_SYNTAX tabel"
+             , keystruc->realverb, keystruc->keywrd);
+    am_message (AM_ALERT, text);
+    goto finished;
+    
+    /* * ORACLE ERROR * */
+    /* ---------------- */
+    
+orcerr:
+    status = MD_ORACLE_ERROR;
+    
+    /* * RETURN * */
+    /* ---------- */
+    
+finished:
+    return status;
+    }
+/* END:     */

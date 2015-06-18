@@ -1,0 +1,510 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element WL_GET_WELLS.PC*/
+/* *14   23-JUL-1990 15:43:33 GILLESPIE "(SPR 1) Add search_window project default for deviated well retrieval"*/
+/* *13   23-JUL-1990 13:08:24 VINCE "(SPR 5644) Header Standardization"*/
+/* *12   17-MAY-1990 19:12:35 SCD "(SPR 1) Temporary fix to 100000 OFFSET til proj def fixed"*/
+/* *11    9-FEB-1990 17:17:54 GORDON "(SPR 0) fix call to nl_add_rows (make ncols 7)"*/
+/* *10    9-FEB-1990 16:13:44 MING "(SPR 6007) change node id declaration to NODE_ID"*/
+/* *9    23-JAN-1990 12:34:30 GILLESPIE "(SPR 6001) Change all [21] sizes to [24] for RISC machines"*/
+/* *8    17-JAN-1990 23:56:01 GILLESPIE "(SPR 6001) Changes for new well structs"*/
+/* *7    17-NOV-1989 16:10:43 CONROY "(SPR 5059) Change dev flag to Y/N"*/
+/* *6    10-OCT-1989 10:05:16 PURNA "(SPR 5020) Mods for CT parameter change"*/
+/* *5    19-SEP-1989 13:39:52 GILLESPIE "(SPR 100) GULF MODS"*/
+/* *4    18-SEP-1989 13:48:51 GORDON "(SPR 100) fix checking of deviation flag"*/
+/* *3    14-SEP-1989 16:21:32 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *2    13-AUG-1989 02:08:51 GILLESPIE "(SPR 5) Fixes for Gulf Schema changes"*/
+/* *1    19-JUN-1989 12:42:08 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element WL_GET_WELLS.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+
+#ifndef ESI_MP_H
+#include "esi_mp.h"
+#endif
+
+#ifndef ESI_WE_WELLS_H
+#include "esi_we_wells.h"
+#endif
+
+#ifndef ESI_WL_H
+#include "esi_wl.h"
+#endif
+
+#ifndef ESI_WL_ERR_H
+#include "esi_wl_err.h"
+#endif
+
+#ifndef ESI_SL_H
+#include "esi_sl.h"
+#endif
+
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+#ifndef ESI_GL_PROJECT_H
+#include "esi_gl_project.h"
+#endif
+
+#define FETCH_COUNT 100
+
+/* Function Description -----------------------------------------------------
+Description:
+    Function to get the nlist of uwi's of wells
+    to plot and their default symbol codes if needed.
+
+Prototype:
+    publicdef INT wl_get_wells(WELLS *wells,NLIST_HEADER nodev_nlist,NLIST_HEADER *dev_nlist,
+        NLIST_HEADER well_nlist,INT *num_wells);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) wells       -(WELLS *)
+    (I) nodev_nlist -(NLIST_HEADER)
+    (I) dev_nlist   -(NLIST_HEADER *)
+    (O) well_nlist  -(NLIST_HEADER) List of uwis.
+    (O) num_wells   -(INT *) Number of uwis.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+    OR_STATUS - Status returned by Oracle.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT wl_get_wells (WELLS *wells, NLIST_HEADER nodev_nlist,
+                            NLIST_HEADER *dev_nlist, NLIST_HEADER well_nlist,
+                            INT *num_wells) 
+#else
+publicdef INT wl_get_wells (wells, nodev_nlist, dev_nlist, well_nlist, num_wells)
+WELLS *wells;
+NLIST_HEADER nodev_nlist;
+NLIST_HEADER *dev_nlist;
+NLIST_HEADER well_nlist;
+INT *num_wells;
+#endif
+    {
+    INT status = SUCCESS;           /* RETURN STATUS */
+    NLIST_HEADER s_list;            /* SELECT LIST OF UWI'S */
+    PROJECT_NAME project;           /* PROJECT NAME */
+    INT i;                          /* DUMMY INDEX */
+    UINT newrecs;                   /* NUMBER OF RECS FETCHED EACH LOOP */
+    UINT nfetched;                  /* NUMBER OF RECS FETCHED CUMULATIVE */
+    UWI nodev_uwi[FETCH_COUNT];
+    UWI dev_uwi[FETCH_COUNT];
+    SELECT_KEY_STRING uwi[FETCH_COUNT];
+    INT nodev_sym[FETCH_COUNT];
+    INT dev_sym[FETCH_COUNT];
+    FLOAT nodev_x[FETCH_COUNT];
+    FLOAT nodev_y[FETCH_COUNT];
+    FLOAT dev_bot_x[FETCH_COUNT];
+    FLOAT dev_bot_y[FETCH_COUNT];
+    FLOAT dev_top_x[FETCH_COUNT];
+    FLOAT dev_top_y[FETCH_COUNT];
+    NODE_ID top_position[FETCH_COUNT];
+    MAP_STRUCTURE *map;
+    DOUBLE xy_in[2];
+    DOUBLE xy_out[2];
+    UINT nodev_count = 0;
+    UINT dev_count = 0;
+    UINT full_count = 0;
+    CHAR *select_phrase;
+    CHAR and[8];
+    WELL_STRUCT *pwell;
+    DOUBLE xmin;
+    DOUBLE ymin;
+    DOUBLE xmax;
+    DOUBLE ymax;
+    DOUBLE offset;
+    PROJECT_DEFAULT *pDefaults = (PROJECT_DEFAULT *)0;
+    
+    /* NLIST VARIABLES */
+    UINT Col_List[7];
+    VOIDPTR nd_v_list[4];
+    VOIDPTR d_v_list[7];
+    VOIDPTR Var_List[1];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[1024];          /* SQL STATEMENT TO CONSTRUCT */
+    
+    VARCHAR var_uwi[100][24];       /* UWI RETRIEVAL ARRAY */
+    long var_sym[100];              /* SYMBOL CODE RETRIEVAL ARRAY */
+    char dev_flag[100][2];
+    float top_x[100];
+    float top_y[100];
+    float bot_x[100];
+    float bot_y[100];
+    long top_pos[100];
+    
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ********************************************************************** */
+    
+    *num_wells = 0;
+    
+    /* * GET PROJECT NAME * */
+    /* -------------------- */
+    
+    EXEC SQL WHENEVER SQLERROR GOTO orcerr;
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    
+    /* * GET MAP WORKSPACE * */
+    /* --------------------- */
+    
+    mp_get_current_map (&map);
+    ct_project_xy (map->lower_left_xy.x, map->lower_left_xy.y, &xmin, &ymin);
+    
+    ct_project_xy (map->upper_right_xy.x, map->upper_right_xy.y, &xmax, &ymax);
+    
+    status = am_open_workspace("PROJECT_DEFAULTS", AM_GLOBAL, (VOIDPTR *)&pDefaults);
+    offset = (status EQUALS SUCCESS) ? pDefaults -> map.search_window : 0.0;
+    
+    /* * INIT NLIST VALUE POINTERS * */
+    /* ----------------------------- */
+    
+    for (i = 0; i < 7; i++)
+        {
+        Col_List[i] = i + 1;
+        }
+    Var_List[0] = (VOIDPTR)uwi;
+    
+    nd_v_list[0] = (VOIDPTR)nodev_uwi;
+    nd_v_list[1] = (VOIDPTR)nodev_sym;
+    nd_v_list[2] = (VOIDPTR)nodev_x;
+    nd_v_list[3] = (VOIDPTR)nodev_y;
+    
+    d_v_list[0] = (VOIDPTR)dev_uwi;
+    d_v_list[1] = (VOIDPTR)dev_sym;
+    d_v_list[2] = (VOIDPTR)dev_bot_x;
+    d_v_list[3] = (VOIDPTR)dev_bot_y;
+    d_v_list[4] = (VOIDPTR)dev_top_x;
+    d_v_list[5] = (VOIDPTR)dev_top_y;
+    d_v_list[6] = (VOIDPTR)top_position;
+    
+    /****************************************************************************/
+    
+    /* * SELECT LIST NAME SPECIFIED * */
+    /* ------------------------------ */
+    
+    if (wells->select_list)
+        {
+        /* READ SELECT LIST */
+        
+        status = sl_read_list (WELLS_DATA_TYPE, wells->select_list, &s_list);
+        if (status < 0)
+            {
+            goto finished;
+            }
+        /* SELECT LIST LOOP */
+        nfetched = 1;
+        FOREVER
+            {
+            status = nl_set_current_row (s_list, nfetched, 1);
+            if (status < 0 OR status >= NL_EOL)
+                {
+                status = SUCCESS;
+                break;
+                }
+            nl_get_rows (s_list, FETCH_COUNT, 1, Col_List, Var_List, &newrecs);
+            
+            /* WELL BY WELL FETCH LOOP */
+            full_count = 0;
+            dev_count = 0;
+            nodev_count = 0;
+            for (i = 0; i < newrecs; i++)
+                {
+                status = we_get_well_header (uwi[i], WE_LOCATION_ONLY, &pwell);
+                
+                /* CHECK WINDOW */
+                
+                if (status EQUALS SUCCESS AND ((pwell->bottomhole_xy.x >= xmin AND
+                                                pwell->bottomhole_xy.x <= xmax AND
+                                                pwell->bottomhole_xy.y >= ymin AND
+                                                pwell->bottomhole_xy.y <= ymax) OR
+                                               (pwell->tophole_xy.x >= xmin AND
+                                                pwell->tophole_xy.x <= xmax AND
+                                                pwell->tophole_xy.y >= ymin AND
+                                                pwell->tophole_xy.y <= ymax)))
+                   {
+                    if (full_count != i)
+                        {
+                        strcpy ((char *)uwi[full_count], (char *)uwi[i]);
+                        }
+                    /* DEVIATED WELL */
+                    
+                    if (pwell->deviation.flag EQUALS'Y' OR ABS (pwell->tophole_xy.x -
+                                                               pwell->bottomhole_xy.
+                                                               x) >
+                        5.0 OR ABS (pwell->tophole_xy.y - pwell->bottomhole_xy.y) > 5.0)
+                        {
+                        strcpy ((char *)dev_uwi[dev_count], (char *)uwi[full_count]);
+                        dev_sym[dev_count] = pwell->symbol_code;
+                        top_position[dev_count] = pwell->tophole_xy.node_id;
+                        dev_top_x[dev_count] = pwell->tophole_xy.x;
+                        dev_top_y[dev_count] = pwell->tophole_xy.y;
+                        dev_bot_x[dev_count] = pwell->bottomhole_xy.x;
+                        dev_bot_y[dev_count] = pwell->bottomhole_xy.y;
+                        
+                        dev_count++;
+                        }
+                    /* NON DEVIATED WELL */
+                    else
+                        {
+                        strcpy ((char *)nodev_uwi[nodev_count],
+                                (char *)uwi[full_count]);
+                        nodev_sym[nodev_count] = pwell->symbol_code;
+                        nodev_x[nodev_count] = pwell->bottomhole_xy.x;
+                        nodev_y[nodev_count] = pwell->bottomhole_xy.y;
+                        
+                        nodev_count++;
+                        }
+                    full_count++;
+                    }
+                }
+            /* ADD TO APPROPRIATE NLISTS */
+            if (full_count > 0)
+                {
+                nl_add_rows (well_nlist, full_count, 1, Col_List, Var_List);
+                *num_wells += full_count;
+                
+                if (nodev_count > 0)
+                    {
+                    nl_add_rows (nodev_nlist, nodev_count, 4, Col_List, nd_v_list);
+                    }
+                if (dev_count > 0)
+                    {
+                    nl_add_rows (*dev_nlist, dev_count, 7, Col_List, d_v_list);
+                    }
+                }
+            nfetched += newrecs;
+            }
+        nl_free_nlist (s_list);
+        
+        }
+    /****************************************************************************/
+    
+    /* * GET LIST BY QUERYING WELL_HDR TABLE * */
+    /* --------------------------------------- */
+    
+    else
+        {
+        /* ADD USER SPECIFIED SELECT PHRASE */
+        
+        if (wells->select_by_phrase != NULL)
+            {
+            select_phrase = STRING_ALLOCATE (wells->select_by_phrase);
+            strcpy ((char *)select_phrase, (char *)wells->select_by_phrase);
+            ov_chk_where (&select_phrase);
+            strcpy ((char *)and, " AND ");
+            }
+        else
+            {
+            select_phrase = (CHAR *)tc_alloc (2);
+            strcpy ((char *)select_phrase, "");
+            strcpy ((char *)and, "");
+            }
+        /* FORM SQL STATEMENT */
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"SELECT UWI, NVL(PLOT_SYMBOL,27), \
+DECODE(DEVIATION_FLAG,NULL,'N','N','N','Y'),\
+A.NODE_ID, NODE_X+NVL(BASE_DELTA_X,0)+NVL(TOP_DELTA_X,0), \
+NODE_Y+NVL(BASE_DELTA_Y,0)+NVL(TOP_DELTA_Y,0), \
+NODE_X+NVL(TOP_DELTA_X,0), NODE_Y+NVL(TOP_DELTA_Y,0) \
+FROM %s.WELL_HDR A, %s.NODES B WHERE A.NODE_ID = B.NODE_ID \
+AND NODE_X BETWEEN %lf AND %lf \
+AND NODE_Y BETWEEN %lf AND %lf%s%s"
+                , project, project, xmin - offset, xmax + offset, ymin - offset,
+                               ymax + offset, and, select_phrase);
+        
+        tc_free ((VOIDPTR)select_phrase);
+        
+        /* PREPARE STATEMENT AND OPEN CURSOR */
+        
+        EXEC SQL PREPARE S4 FROM : sqlstmt;
+        EXEC SQL DECLARE C4 CURSOR FOR S4;
+        
+        /*
+        In order to use the speed of Oracle's internal index, we enlarge the
+        Area of Interest (AOI) to include enough room to accommodate wells
+        which may partially fall within the area.
+        
+        E.G.  if the AOI is originally like this:
+        
+        
+                  +----------------------------+
+                  |                            |
+                  x------o1                    |6x
+                  |       2x                   |
+                  |                            | x
+                  |        3x---o              |/
+                  |                            /
+                  |          4x               /|
+                  +-----------+--------------/-+
+                              |            5o
+                              o
+        
+        where x is top-hole and o is bottom hole of deviated well, rather than
+        looking for all wells whose top hole or bottom hole fall within the AOI (which
+        would miss well 5), we enlarge the AOI for the well retrieval search such that
+        all potential candidates are retrieved.  Only those wells whose top AND bottom
+        hole positions fall within these enlarged limits are fetched.  This means that
+        wells with vert large horizontal deviations may be missed. A further can then be
+        done.  Here is the enlarged map.  Note that now well 6 is retrieved, even though
+        it falls outsize the requested AOI, and that well 1, which has a very large
+        deviation, is excluded, but well 5 is now in the selection set.
+        
+        Note also that only the TOP_HOLE position is used as criterion for inclusion.
+        
+                   +----------------------------------+
+                   |                                  |
+                   |  +----------------------------+  |
+                   |  |                            |  |
+                  x------o1                        |6x|
+                   |  |       2x                   |  |
+                   |  |                            | x|
+                   |  |        3x---o              |/ |
+                   |  |                            /  |
+                   |  |          4x               /|  |
+                   |  +-----------+--------------/-+  |
+                   |              |            5o     |
+                   +--------------o-------------------+
+        */
+        
+        EXEC SQL OPEN C4;
+        
+        /* FETCH LOOP */
+        nfetched = 0;
+        
+        FOREVER
+            {
+            EXEC SQL FETCH C4 INTO : var_uwi,  : var_sym,  : dev_flag,  : top_pos,
+                : bot_x,  : bot_y,  : top_x,  : top_y;
+            
+            newrecs = OR_ROWCOUNT - nfetched;
+            nfetched = OR_ROWCOUNT;
+            dev_count = 0;
+            nodev_count = 0;
+            full_count = 0;
+            
+            /* MOVE UWI TO INPUT ARRAY */
+            
+            for (i = 0; i < newrecs; i++)
+                {
+                /* CHECK WINDOW */
+                if ((bot_x[i] < xmin OR bot_x[i] > xmax OR bot_y[i] <
+                     ymin OR bot_y[i] > ymax) AND (top_x[i] < xmin OR top_x[i] >
+                                                  xmax OR top_y[i] < ymin OR top_y[i] >
+                                                  ymax))
+                    {
+                    continue;
+                    }
+                V_FROMV (uwi[full_count], var_uwi[i]);
+                we_put_location (uwi[full_count], top_x[i], top_y[i], bot_x[i],
+                                 bot_y[i], top_pos[i], dev_flag[i][0], var_sym[i]);
+                
+                /* DEVIATED WELL */
+                
+                if (dev_flag[i][0] == 'Y' OR ABS (bot_x[i] - top_x[i]) >
+                    5.0 OR ABS (bot_y[i] - top_y[i]) > 5.0)
+                    {
+                    strcpy ((char *)dev_uwi[dev_count], (char *)uwi[full_count]);
+                    dev_sym[dev_count] = var_sym[i];
+                    top_position[dev_count] = top_pos[i];
+                    dev_top_x[dev_count] = top_x[i];
+                    dev_top_y[dev_count] = top_y[i];
+                    dev_bot_x[dev_count] = bot_x[i];
+                    dev_bot_y[dev_count] = bot_y[i];
+                    
+                    dev_count++;
+                    }
+                /* NON DEVIATED WELL */
+                else
+                    {
+                    strcpy ((char *)nodev_uwi[nodev_count], (char *)uwi[full_count]);
+                    nodev_sym[nodev_count] = var_sym[i];
+                    nodev_x[nodev_count] = bot_x[i];
+                    nodev_y[nodev_count] = bot_y[i];
+                    nodev_count++;
+                    }
+                full_count++;
+                }
+            /* ADD TO APPROPRIATE NLISTS */
+            if (full_count > 0)
+                {
+                nl_add_rows (well_nlist, full_count, 1, Col_List, Var_List);
+                *num_wells += full_count;
+                
+                if (nodev_count > 0)
+                    {
+                    nl_add_rows (nodev_nlist, nodev_count, 4, Col_List, nd_v_list);
+                    }
+                if (dev_count > 0)
+                    {
+                    nl_add_rows (*dev_nlist, dev_count, 7, Col_List, d_v_list);
+                    }
+                }
+            /* CHECK FOR END OF FETCH */
+            
+            if (OR_STATUS EQUALS OR_EOF)
+                {
+                EXEC SQL CLOSE C4;
+                break;
+                }
+            }
+        }
+    goto finished;
+    
+    /* * ORACLE ERROR * */
+    /* ---------------- */
+    
+orcerr:
+    status = OR_STATUS;
+    
+    /* * RETURN * */
+    /* ---------- */
+    
+finished:
+    return status;
+    }
+/* END:     */

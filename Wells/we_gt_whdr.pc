@@ -1,0 +1,454 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element WE_GT_WHDR.PC*/
+/* *19   11-MAR-1991 12:10:03 KEE "(SPR -1) Change FIELDCODE to FIELD for new WELL_HDR schemma"*/
+/* *18    1-AUG-1990 09:10:42 GILLESPIE "(SPR 1) Add esi_ht_err.h"*/
+/* *17   12-JUL-1990 09:11:05 GILLESPIE "(SPR 2) Changed lat/long.decimal to lat/long_decimal - saves space..."*/
+/* *16   22-MAR-1990 09:11:56 WALTERS "(SPR 0) fix select statement in detail_2"*/
+/* *15    9-FEB-1990 16:13:13 MING "(SPR 6007) change node id declaration to NODE_ID"*/
+/* *14   25-JAN-1990 16:44:40 GILLESPIE "(SPR 6001) The last (fix) change for now"*/
+/* *13   24-JAN-1990 17:54:24 GILLESPIE "(SPR 6001) Continue the evolution for new data structures"*/
+/* *12   23-JAN-1990 12:33:48 GILLESPIE "(SPR 6001) Change all [21] sizes to [24] for RISC machines"*/
+/* *11   18-JAN-1990 09:51:14 GILLESPIE "(SPR 6001) Changes for new well structs"*/
+/* *10   27-NOV-1989 11:16:07 CONROY "(SPR 5063) Check for short loc only struct"*/
+/* *9    17-NOV-1989 16:10:10 CONROY "(SPR 5059) Change dev flag to Y/N"*/
+/* *8     3-NOV-1989 16:18:55 GILLESPIE "(SPR 5054) Change TRUE_VERTICAL_DEPTH to TVD"*/
+/* *7    10-OCT-1989 10:03:45 PURNA "(SPR 5020) Mods for CT parameter change"*/
+/* *6    20-SEP-1989 07:54:45 GORDON "Undo last checkin."*/
+/* *5    19-SEP-1989 13:39:45 GILLESPIE "(SPR 100) GULF MODS"*/
+/* *4    18-SEP-1989 12:44:37 PURNA "Gulf mods under SPR 100"*/
+/* *3    14-SEP-1989 16:21:18 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *2    13-AUG-1989 02:08:24 GILLESPIE "(SPR 5) Fixes for Gulf Schema changes"*/
+/* *1    19-JUN-1989 12:41:59 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element WE_GT_WHDR.PC*/
+
+#include "esi_we_wells.h"
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_HT_H
+#include "esi_ht.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+#ifndef ESI_HT_ERR_H
+#include "esi_ht_err.h"
+#endif
+
+#define LG_DO_CARTO 0
+
+/* EXEC ORACLE OPTION (REBIND = NO); */
+
+/******************************************************************************/
+/*  we_get_well_header - retrieve a well header either from a structure in
+        memory, or by retrieving the information from the database.
+        If this well has already been referenced previously, then there
+        is no need to refetch it.  It is possible that the well exists
+        in the data structure as a result of a partial fill of X-Y data
+        from the mapping system.  If the requesting routine requires
+        X-Y data only, then set the flag to WE_LOCATION_ONLY.
+
+        The minimum data set required is the filling of the two data
+        structures tophole_xy and bottomhole_xy and name of the
+        file which contains the deviation survey, if any
+
+        Note that the detailed location description may vary from well
+        to well (as shown by the LOCATION_TABLE field in the well header
+        varying, for example, between onshore and offshore wells).  This
+        complication is not fully realized with this release. but we're
+        getting close.  JGG 6 May 88 */
+
+/******************************************************************************/
+publicdef INT we_get_well_header(request_uwi, flag, ppWell)
+UWI request_uwi;
+WELL_HDR_DETAIL flag;
+WELL_STRUCT **ppWell;
+{
+    HASH_TABLE_P SYSTEM_ANCHOR_POINT();
+    HASH_TABLE_P pwell_chain = SYSTEM_ANCHOR_POINT(1); 
+    WELL_STRUCT *pWell;
+    WELL_HDR_1 *pWell1;
+    WELL_HDR_2 *pWell2;
+    LEGAL *pLegal;
+    static PROJECT_NAME project_name;
+    static BOOL first_time[3] = {TRUE, TRUE, TRUE};
+    BOOL new_well = FALSE;
+    static INT last_location_type = 0;
+    INT status;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+
+    VARCHAR select[1024];
+    static VARCHAR  agent[52];
+    static double   base_delta_x;
+    static double   base_delta_y;
+    static VARCHAR  class[16];
+    static VARCHAR  comp_date[12];
+    static VARCHAR  county[52];
+    static VARCHAR  crstatus[16];
+    static VARCHAR  dev_survey_fname[84];
+    static char     deviation_flag;
+    static float    drillers_td;
+    static float    elevation;
+    static VARCHAR  elevation_ref[24];
+    static VARCHAR  ew[8];      
+    static float    ewfootage;
+    static VARCHAR  fieldcode[16];
+    static float    ground_elevation;
+    static double   latitude;
+    static VARCHAR  licensee[52];
+    static VARCHAR  location_table[32];
+    static int      location_type;
+    static float    loggers_td;
+    static double   longitude;
+    static VARCHAR  ns[8];
+    static float    nsfootage;
+    static VARCHAR  operator[52];
+    static int      plot_symbol;
+    static VARCHAR  prstatus[16];
+    static int      range;
+    static VARCHAR  rngew[8];
+    static int      section;
+    static VARCHAR  short_name[24];
+    static VARCHAR  spot[9];
+    static VARCHAR  spud_date[12];
+    static VARCHAR  state[28];
+    static double   top_delta_x;
+    static double   top_delta_y;
+    static long top_position;
+    static int      township;
+    static float    tvd;
+    static VARCHAR  twpns[8];
+    static VARCHAR  uwi[24];
+    static float    water_depth;
+    static VARCHAR  well_name[52];
+    static VARCHAR  well_number[24];
+    static double   x;
+    static double   y;
+
+    EXEC SQL END DECLARE SECTION;
+
+/* ********************************************************** */
+
+pWell = (WELL_STRUCT *)0;
+
+/*
+ * see if this UWI has already been retrieved into local storage
+ */
+
+
+/* the flag value allows a partial header structure to be accessed.
+The mapping portion of Finder fills up the location portion of the header.
+If a routine can handle just getting the coordinates of the well,
+then it sets the WE_LOCATION_ONLY flag.  Then, any value in the
+hash table is assumed to contain X-Y location as an absolute minimum.
+If the routine has been through a complete retrieval, then the
+full_retrieval flag is set */
+
+status = ht_find(pwell_chain, (VOIDPTR)request_uwi, (VOIDPTR)&pWell);
+switch (status) {
+case SUCCESS:
+    if ((pWell->detail.type EQUALS flag) OR (flag EQUALS WE_LOCATION_ONLY))
+        {
+        *ppWell = pWell;
+        return SUCCESS;
+        }
+    if (pWell -> detail.ptr != (VOIDPTR)0)
+        {
+        tc_free(pWell -> detail.ptr);
+        pWell -> detail.ptr = (VOIDPTR)0;
+        }
+    break;
+case HT_KEY_NOT_FOUND:
+    pWell = ALLOCATE(WELL_STRUCT);  /* allocate and zero out structure */
+    new_well = TRUE;
+    strcpy(pWell -> uwi, request_uwi);
+    break;
+default:
+    return status;
+    }
+
+V_FROMC(uwi,request_uwi);
+pWell -> detail.type = flag;
+
+/*
+ * open the header and node cursors
+ */
+
+/* set up targets for variables */
+
+if( first_time[0])
+    {
+    qs_inq_c(QS_PROJECT_NAME,project_name,(INT *)0);
+    first_time[0] = FALSE;
+    select.len = sprintf((char *)select.arr,
+"SELECT NVL(A.PLOT_SYMBOL,27),\
+DECODE(A.DEVIATION_FLAG,NULL,'N','N','N','Y'),\
+A.NODE_ID,NVL(A.TOP_DELTA_X,0.0),NVL(A.TOP_DELTA_Y,0.0),\
+NVL(A.BASE_DELTA_X,0.0),NVL(A.BASE_DELTA_Y,0.0),\
+NVL(B.NODE_X,0.0),NVL(B.NODE_Y,0.0),\
+NVL(B.LATITUDE,0.0),NVL(B.LONGITUDE,0.0) \
+FROM %s.WELL_HDR A, %s.NODES B \
+WHERE A.NODE_ID = B.NODE_ID(+) AND A.UWI = :uwi", project_name, project_name);
+
+    EXEC SQL PREPARE S1 FROM :select;
+
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+
+    }
+
+			     /*	The following body is ALWAYS executed for a
+			     	new well.  If the well is not new, then the
+			     	WELL_STRUCT portion is still valid and does
+			     	not need to be refetched		    */
+
+
+if (new_well)
+    {
+    EXEC SQL WHENEVER SQLERROR GOTO error;
+    EXEC SQL WHENEVER NOT FOUND GOTO error;
+
+    EXEC SQL OPEN C1 USING :uwi;
+
+    EXEC SQL FETCH C1 INTO :plot_symbol,:deviation_flag,
+	    :top_position,:top_delta_x,:top_delta_y,
+	    :base_delta_x,:base_delta_y, :x, :y, :latitude, :longitude;
+
+    pWell->symbol_code = plot_symbol;
+    pWell->deviation.flag = deviation_flag;
+    pWell->tophole_xy.x = x + top_delta_x;
+    pWell->tophole_xy.y = y + top_delta_y;
+    pWell->tophole_xy.latitude_decimal = latitude;
+    pWell->tophole_xy.longitude_decimal = longitude;
+    pWell->bottomhole_xy.x = x + top_delta_x + base_delta_x;
+    pWell->bottomhole_xy.y = y + top_delta_y + base_delta_y;
+
+    /* NOTE: Although not really correct, we put the node id of the
+       top hole in the bottom hole structure, for completeness and
+       symmetry, if for no other good reason */
+
+    pWell->tophole_xy.node_id = top_position;
+    pWell->bottomhole_xy.node_id = top_position;
+
+    if (flag EQUALS WE_LOCATION_ONLY)
+	{
+	goto FINISH_UP;
+	}
+    }
+
+if (first_time[1])
+    {
+    qs_inq_c(QS_PROJECT_NAME,project_name,(INT *)0);
+    first_time[1] = FALSE;
+    select.len = sprintf((char *)select.arr,
+"SELECT OPERATOR,NVL(DRILLERS_TD,0.0),NVL(LOG_TD,0.0),\
+WELL_NAME,WELL_NUMBER,SHORT_NAME,\
+NVL(ELEVATION,0.0),ELEVATION_REF,\
+NVL(WATER_DEPTH,0.0),\
+NVL(TVD,NVL(DRILLERS_TD,0.0)),\
+CLASS, CRSTATUS,\
+SPUD_DATE,COMP_DATE,\
+PROV_ST,COUNTY \
+FROM %s.WELL_HDR \
+WHERE UWI = :uwi", project_name);
+    
+    EXEC SQL PREPARE S2 FROM :select;
+
+    EXEC SQL DECLARE C2 CURSOR FOR S2;
+
+    }
+
+EXEC SQL WHENEVER SQLERROR GOTO error;
+EXEC SQL WHENEVER NOT FOUND GOTO error;
+
+EXEC SQL OPEN C2 USING :uwi;
+
+EXEC SQL FETCH C2 INTO :operator,:drillers_td, :loggers_td,
+        :well_name, :well_number, :short_name,
+        :elevation, :elevation_ref, :water_depth, :tvd,
+        :class, :crstatus, :spud_date, :comp_date,
+        :state, :county;
+
+switch (flag) {
+default:
+    break;
+case WELL_HDR_1_DETAIL:
+    pWell1 = ALLOCATE(WELL_HDR_1);
+    pWell -> detail.ptr = (VOIDPTR)pWell1;
+    pWell1->td.driller.md = drillers_td;
+    pWell1->td.driller.tvd = tvd;
+    pWell1->elevation.value = elevation;
+    pWell1->offshore.water_depth = water_depth;
+
+    V_FROMV(pWell1->operator, operator);
+    V_FROMV(pWell1->name, well_name);
+    V_FROMV(pWell1->number, well_number);
+    V_FROMV(pWell1->short_name, short_name);
+    V_FROMV(pWell1->elevation.ref, elevation_ref);
+    V_FROMV(pWell1->tophole.state,state);
+    V_FROMV(pWell1->tophole.county,county);
+    V_FROMV(pWell1->class, class);
+    V_FROMV(pWell1->crstatus, crstatus);
+    V_FROMV(pWell1->Spud_Date, spud_date);
+    V_FROMV(pWell1->Comp_Date, comp_date);
+    break;
+case WELL_HDR_2_DETAIL:
+    pWell2 = ALLOCATE(WELL_HDR_2);
+    pWell -> detail.ptr = (VOIDPTR)pWell2;
+    pWell2->td.driller.md = drillers_td;
+    pWell2->td.driller.tvd = tvd;
+    pWell2->elevation.value = elevation;
+    pWell2->offshore.water_depth = water_depth;
+
+    V_FROMV(pWell2->operator, operator);
+    V_FROMV(pWell2->name, well_name);
+    V_FROMV(pWell2->number, well_number);
+    V_FROMV(pWell2->short_name, short_name);
+    V_FROMV(pWell2->elevation.ref, elevation_ref);
+    V_FROMV(pWell2->tophole.state,state);
+    V_FROMV(pWell2->tophole.county,county);
+    V_FROMV(pWell2->class, class);
+    V_FROMV(pWell2->crstatus, crstatus);
+    V_FROMV(pWell2->Spud_Date, spud_date);
+    V_FROMV(pWell2->Comp_Date, comp_date);
+
+    if (first_time[2])
+        {
+        qs_inq_c(QS_PROJECT_NAME,project_name,(INT *)0);
+        first_time[2] = FALSE;
+	select.len = sprintf((char *)select.arr,
+"SELECT LICENSEE, AGENT, PRSTATUS,\
+DECODE(LOCATION_TABLE,'WELL_LOCATIONS',1,'ALBERTA',2,'TEXAS',3,0),\
+FIELD FROM %s.WELL_HDR \
+WHERE UWI = :uwi", project_name);
+        
+        EXEC SQL PREPARE S3 FROM :select;
+    
+        EXEC SQL DECLARE C3 CURSOR FOR S3;
+    
+        }
+    
+    EXEC SQL WHENEVER SQLERROR GOTO error;
+    EXEC SQL WHENEVER NOT FOUND GOTO error;
+    
+    EXEC SQL OPEN C3 USING :uwi;
+    
+    EXEC SQL FETCH C3 INTO :licensee, :agent, :prstatus,
+            :location_table, :fieldcode;
+    
+    V_FROMV(pWell2->licensee, licensee);
+    V_FROMV(pWell2->agent, agent);
+    V_FROMV(pWell2->prstatus, prstatus);
+    V_FROMV(pWell2->location_table, location_table);
+    V_FROMV(pWell2->field.code, fieldcode);
+
+    break;
+    }
+
+do_loc:
+
+#if LG_DO_CARTO == 1
+
+/* Do cartographic conversion, if the map projection is defined  */
+
+    qs_inq_p(QS_MAP_PROJ_HEAD,&map_data);
+
+    if(map_data != ((PROJECTION_STRUCTURE *)0))
+        {
+        ct_map_xy(pWell->tophole_xy.x,pWell->tophole_xy.y,&pWell->tophole_xy.x,
+        &pWell->tophole_xy.y);
+        }
+#endif
+
+
+/* the legal description is for Jeffersonian type retrievals.  We need
+   to be a bit more careful about this later... */
+
+/* this is the parsing step - need to reparse if this well is different
+        from the last encounter.  Note that the null set does not
+        reset the last_location_type flag, and therefore does not
+        cause a reparse. */
+
+    if (last_location_type IS_NOT_EQUAL_TO location_type)
+    {
+    switch (location_type) {
+    default:
+    case 0:
+        break;
+    case 1:     /* WELL_LOCATIONS table */
+        select.len = sprintf((char *)select.arr,
+"SELECT TOWNSHIP,RANGE,SECTION,NORTH_SOUTH,\
+EAST_WEST,NS_FOOTAGE,NS,EW_FOOTAGE,EW \
+FROM %s.WELL_LOCATIONS WHERE NODE_ID = :top_position", project_name);
+        EXEC SQL PREPARE S4 FROM :select;
+            EXEC SQL DECLARE C4 CURSOR FOR S4;
+        last_location_type = location_type;
+        break;
+        }
+    }
+
+/* This is the FETCH portion */
+    switch(location_type) {
+   default:
+    case 0:
+    break;
+    case 1:     /* WELL_LOCATIONS table */
+    township = 0; 
+    range = 0; 
+    section = 0; 
+    ewfootage = 0.0;
+    nsfootage = 0.0;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO error;
+    EXEC SQL WHENEVER NOT FOUND GOTO FINISH_UP;
+
+    EXEC SQL OPEN C4 USING :top_position;
+
+    EXEC SQL FETCH C4 INTO :township, :range, :section, :twpns, :rngew,
+     :nsfootage,:ns,:ewfootage,:ew;
+
+    switch (flag) {
+    case WELL_HDR_1_DETAIL:
+        pLegal = &pWell1->tophole;
+        break;
+    case WELL_HDR_2_DETAIL:
+        pLegal = &pWell2->tophole;
+        break;
+        }
+
+    pLegal->township = township;
+    pLegal->range = range;
+    pLegal->section = section;
+    pLegal->nsfootage = nsfootage;
+    pLegal->ewfootage = ewfootage;
+
+    V_FROMV(pLegal->twpns, twpns);
+    V_FROMV(pLegal->rngew, rngew);
+    V_FROMV(pLegal->ns, ns);
+    V_FROMV(pLegal->ew, ew);
+    }
+
+FINISH_UP:
+    
+*ppWell = pWell;
+
+if (OR_STATUS >= 0)
+    {
+    status = ht_insert(pwell_chain, (VOIDPTR)pWell->uwi, (VOIDPTR)&pWell);
+    }
+return (OR_STATUS < 0) ? OR_STATUS : SUCCESS;
+
+error:
+    if (new_well)
+        {
+        tc_free(pWell);
+        }
+    *ppWell = (WELL_STRUCT *)0;
+    return OR_STATUS;
+}

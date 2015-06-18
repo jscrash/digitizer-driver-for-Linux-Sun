@@ -1,0 +1,97 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element MG_MESSAGE.PC*/
+/* *3    12-MAR-1990 23:54:14 GILLESPIE "(SPR 5110) Fix for Oracle bug wherein oermsg logs you off oracle"*/
+/* *2    22-DEC-1989 10:02:50 SCD "(SPR 100) Work around Oracle logout upon oermsg() until fixed by Oracle."*/
+/* *1    19-JUN-1989 12:34:33 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element MG_MESSAGE.PC*/
+
+#include "esi_mg.h"
+#include "esi_oracle.x"     /* PublicDefs accessed by this function */
+#include "esi_c_lib.h"
+
+/* EXEC ORACLE OPTION (REBIND=NO); */
+
+/******************************************************************************/
+/*                                                                            */
+/*          MG_MESSAGE - retrieve a character string from ORACLE DB           */
+/*                                                                            */
+/*          Input is a message code number.  Positive numbers are status      */
+/*          messages; negative numbers are errors.  Errors have the format    */
+/*          (SYMBOL)text, where (SYMBOL) is the symbolic representation       */
+/*          of the error code, and text is the stored error text.             */
+/*          Values for ESI are outsize the range +/- ESI_ERROR_OFFSET         */
+/*          any other values are considered Oracle errors                     */
+/*                                                                            */
+/******************************************************************************/
+
+publicdef CHAR *mg_message(id)
+INT id;
+{
+   EXEC SQL BEGIN DECLARE SECTION;
+      static VARCHAR text[241];
+      static int message_id;
+   EXEC SQL END DECLARE SECTION;
+
+   CHAR *cp;
+
+    if (NOT oracle_login)
+	{
+	sprintf((char *)text.arr,"Message %d detected - cannot translate", id);
+	}
+			     /* detect if it is an ESI error message        */
+    else if (ABS(id) > ESI_ERROR_OFFSET OR id EQUALS SUCCESS)
+	{
+	message_id = id;
+
+	EXEC SQL WHENEVER NOT FOUND GOTO NO_MESSAGE;
+	EXEC SQL DECLARE C1 CURSOR FOR
+SELECT decode(type,'ERROR','('||module||'_'||symbol||') '||text,
+'STATUS','('||module||'_'||symbol||') '||text, text)
+FROM esi.finder_messages WHERE id = :message_id;
+
+	EXEC SQL OPEN C1;
+	EXEC SQL FETCH C1 INTO :text;
+
+	V_SETZERO(text);
+	}
+    else
+			     /* if it is below the ESI_ERROR_OFFSET, then   */
+			     /* it is an oracle error message               */
+	{
+	short lda[32];
+	sqllda(lda);
+	oerhms(lda, id, text.arr, 132);
+	}
+
+   /*
+    * Since the strings in the database do not pass thru the C compiler
+    * we must perform the same literal string processing that the compiler
+    * would perform.  This allows us to put backslash mnemonics in the
+    * database strings such as \n.
+    *
+    *  NOTE: This code does not currently handle a backslash followed by
+    *        an octal constant i.e. "\027"
+    */
+    for (cp=(CHAR*)text.arr; *cp; cp++) {
+       if (*cp == '\\') {
+	  strcpy (cp, cp+1);  /* remove the backslash from the string      */
+	  switch (*cp) {      /* replace the mnemonic with the translation */
+	     case 'n': case 'N':  *cp = '\n';  break;  /* newline         */
+	     case 't': case 'T':  *cp = '\t';  break;  /* horizontal tab  */
+	     case 'v': case 'V':  *cp = '\v';  break;  /* vertical tab    */
+	     case 'b': case 'B':  *cp = '\b';  break;  /* backspace       */
+	     case 'r': case 'R':  *cp = '\r';  break;  /* carriage return */
+	     case 'f': case 'F':  *cp = '\f';  break;  /* form feed       */
+	     default : break;                            /* leave it as is  */
+	  }
+       }
+    }
+
+   return (CHAR *) text.arr;
+
+NO_MESSAGE:
+			     /* gets here if it is an ESI error code, but
+				no entry found in the FINDER_MESAGES table  */
+
+   sprintf((char *)text.arr, "Message (%d) not understood.", id);
+   return (CHAR *) text.arr;
+}

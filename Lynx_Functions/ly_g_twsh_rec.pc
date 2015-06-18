@@ -1,0 +1,394 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_G_TWSH_REC.PC */
+/*  9    22-JAN-1992 16:47:12 LOEBL "(SPR 4671) Check argument count before proceeding." */
+/* *8    25-NOV-1991 13:21:32 LOEBL "(SPR 0) Cleanup error processing" */
+/* *7    28-FEB-1991 10:08:07 MING "(SPR -1) fix lynx_id not bound in oracle statement problem" */
+/* *6    26-OCT-1990 13:50:25 GILLESPIE "(SPR 33)  New Lynx 3d changes" */
+/* *5    25-MAR-1990 19:31:40 VINCE "(SPR 1) more fixes" */
+/* *4    23-MAR-1990 17:34:10 PURNA "(SPR 0) insert commit work" */
+/* *3    22-MAR-1990 09:00:50 PURNA "(SPR 0) add gc" */
+/* *2    21-MAR-1990 14:27:16 PURNA "(SPR 0) new element " */
+/* *1    21-MAR-1990 14:26:31 PURNA "generate township records" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_G_TWSH_REC.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1990                      */
+/*         Unpublished -- All rights reserved                                       */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*          Finder Graphics Systems, Inc.                                           */
+/*          201 Tamal Vista Blvd                                                    */
+/*          Corte Madera, CA  USA 94925                                             */
+/*          (415) 927-0100                                                          */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* INCLUDE FILES                                                                    */
+#include "esi_c_lib.h"
+#include "esi_gl_defs.h"
+#include "esi_oracle.h"
+#include "esi_gl_vchar.h"
+#include "esi_ht.h"
+#include "esi_qs.h"
+#include "esi_ts.h"
+#include "esi_mg.h"
+
+#if USE_PROTOTYPES
+privatedef INT ldz_get_township_records 
+          (INT meridian, DOUBLE township, DOUBLE range, CHAR td, CHAR rd);
+#else
+privatedef INT ldz_get_township_records ();
+#endif
+privatedef CHAR *project;
+
+EXEC ORACLE OPTION (REBIND = YES);
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+typedef struct 
+    {
+    INT count;
+    INT side;
+    } DATA_LIST;
+
+
+int main (argc, argv)
+INT argc;
+CHAR **argv;
+    {
+    INT status;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[500];
+    EXEC SQL END DECLARE SECTION;
+    
+    if (or_login (argc, argv) IS_NOT_EQUAL_TO SUCCESS)
+        {
+        printf ("Unable to log onto Oracle - Aborting");
+        exit (EXIT_SUCCESS);
+        }
+    project = ts_sto_upper (argv[2]);
+    
+    qs_set_c (QS_PROJECT_NAME, project, strlen (project));
+    status = finder_config_project (FALSE);
+    
+    if (status == SUCCESS)
+        status = ld_get_township_records ();
+    
+    if (status != SUCCESS)
+        {
+        goto exit_failure;
+        }
+
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    
+    sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+     "INSERT INTO %s.LYNX_DATA_TYPES (DATA_TYPE) VALUES ('TOWNSHIP')"
+                           , project);
+
+    EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+    
+    if (sqlca.sqlcode AND sqlca.sqlcode != -1 )
+        {
+        or_errmsg(&sqlca, "Unable to insert into LYNX_DATA_TYPES");
+        goto exit_failure;
+        }
+
+    sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+    "INSERT INTO %s.LYNX_DTYPE_ARC_GC \
+    (DATA_TYPE, LINE_BUNDLE_ID) \
+    VALUES ('TOWNSHIP', 0)"
+            , project);
+
+    EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+
+    if (sqlca.sqlcode AND sqlca.sqlcode != -1 )
+        {
+        or_errmsg(&sqlca, "Unable to insert into LYNX_DTYPE_ARC_GC");
+        goto exit_failure;
+        }
+
+    
+    EXEC SQL COMMIT WORK;
+    or_logout (TRUE);
+    exit (EXIT_SUCCESS);
+
+exit_failure:
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL ROLLBACK WORK;
+    or_logout (TRUE);
+    exit (EXIT_FAILURE);
+   }
+
+
+
+
+
+publicdef INT ld_get_township_records ()
+    {
+    INT status = SUCCESS;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[1000];
+    privatedef  int bundle_id;
+    privatedef  int meridian;
+    privatedef  double range;
+    privatedef  double township;
+    privatedef  char survey_system, township_dir, range_dir;
+    privatedef VARCHAR source[13];
+    EXEC SQL END DECLARE SECTION;
+    privatedef first_section = TRUE;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO sqlerror;
+    
+    sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+    "SELECT DISTINCT SURVEY_SYSTEM, MERIDIAN, SOURCE FROM  %s.SECTIONS"
+                           , project);
+    EXEC SQL PREPARE S_MER FROM :sqlstmt;
+    EXEC SQL DECLARE C_MER CURSOR FOR S_MER;
+
+    sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+    "SELECT DISTINCT TOWNSHIP, TOWNSHIP_DIR, RANGE, RANGE_DIR \
+     FROM   %s.SECTIONS \
+     WHERE  MERIDIAN = :meridian"
+            , project);
+    EXEC SQL PREPARE S_TWRG FROM :sqlstmt;
+    EXEC SQL DECLARE C_TWRG CURSOR FOR S_TWRG;
+    
+    sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, "%s%s%s%s%s%s%s",
+    "INSERT INTO ", project, ".SECTIONS ", 
+    "(LYNX_ID, SURVEY_SYSTEM, MERIDIAN, TOWNSHIP, TOWNSHIP_DIR, ",
+    " RANGE, RANGE_DIR, SECTION, SOURCE) Values ",
+    "(ESI.LYNX_ID_SEQ.CURRVAL, :survey_system, :meridian, ",
+    ":township, :township_dir, :range, :range_dir, 0, :source)" );
+
+    EXEC SQL prepare INSERT_SECTION from :sqlstmt;
+
+    EXEC SQL OPEN C_MER;
+
+    EXEC SQL WHENEVER NOT FOUND CONTINUE;
+ 
+    FOREVER
+        {
+        EXEC SQL FETCH C_MER INTO :survey_system,:meridian,:source;
+        if (OR_STATUS EQUALS OR_EOF)
+            break;
+        EXEC SQL OPEN C_TWRG USING :meridian;
+        FOREVER
+            {
+            EXEC SQL FETCH C_TWRG INTO :township,:township_dir,
+                           :range,:range_dir;
+            if (OR_STATUS EQUALS OR_EOF)
+                break;
+            
+            status = ldz_get_township_records 
+                     (meridian, township, range, township_dir, range_dir);
+            if (status != SUCCESS)
+               {
+               return status;
+               }
+
+            EXEC SQL EXECUTE INSERT_SECTION using
+               :survey_system, :meridian, :township, :township_dir, 
+               :range, :range_dir, :source;
+
+/* commit after each section */
+
+            EXEC SQL COMMIT WORK;
+            }
+        }
+    EXEC SQL COMMIT WORK;
+    
+    return status;
+sqlerror:
+    or_errmsg(&sqlca, "Error in ld_get_township_record");
+    return OR_STATUS;
+    }
+
+privatedef INT ldz_get_township_records (meridian, township, range, td, rd)
+INT meridian;
+DOUBLE township, range;
+CHAR td, rd;
+    {
+    INT i, status = SUCCESS;
+    DATA_LIST data;
+    HASH_TABLE *ht_table = (HASH_TABLE *)0;
+    INT nkeys, *key_buff;
+    DATA_LIST *data_buff;
+    DOUBLE minx, miny, maxx, maxy;
+    BOOL first_pass = TRUE;
+    INT n_arcs = 0;
+    CHAR tmp_township[10], tmp_range[10];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[1000];
+    VARCHAR name[32];
+    int x_meridian;
+    double x_township;
+    double x_range;
+    privatedef  int arc_id;
+    privatedef  int side;
+    privatedef  int lynx_id;
+    privatedef  double min_node_x, max_node_x, min_node_y, max_node_y;
+    EXEC SQL END DECLARE SECTION;
+
+    privatedef first = TRUE;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO sqlerror;
+
+    EXEC SQL SELECT ESI.LYNX_ID_SEQ.NEXTVAL
+        INTO   :lynx_id
+        FROM   DUAL;
+
+    if (first)
+       {    
+        sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+        "SELECT MIN(NODE_X), MIN(NODE_Y), MAX(NODE_X), MAX(NODE_Y) \
+        FROM   %s.LYNX_IFV A, %s.NODES B \
+        WHERE  (A.FINAL_NODE = B.NODE_ID OR A.INIT_NODE = B.NODE_ID) \
+          AND  ARC_ID = :arc_id"
+            , project, project);
+       EXEC SQL PREPARE S_M_NODE FROM :sqlstmt;
+       EXEC SQL DECLARE SELECT_MIN_NODE CURSOR FOR S_M_NODE;
+    
+       sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+       "INSERT INTO %s.LYNX_LRFR \
+       (LYNX_ID, LYNX_PART, SIDE_DIREC) \
+       VALUES \
+       (:lynx_id, :arc_id, :side_direc)"
+            , project);
+       EXEC SQL PREPARE INSERT_LRFR FROM :sqlstmt;
+    
+   
+      sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+      "SELECT LYNX_PART, SIDE_DIREC \
+      FROM   %s.LYNX_LRFR A, %s.SECTIONS B \
+      WHERE  A.LYNX_ID  = B.LYNX_ID \
+        AND TOWNSHIP = :township \
+        AND RANGE = :range \
+        AND MERIDIAN = :meridian \
+        AND SECTION  > 0" , project, project);
+
+     EXEC SQL PREPARE S_ARC FROM :sqlstmt;
+     EXEC SQL DECLARE SELECT_LYNX_LRFR CURSOR FOR S_ARC;
+
+    sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+     "INSERT INTO %s.LYNX_CULTURE \
+    (LYNX_ID, DATA_TYPE, NAME, LAST_UPDATE, MINX, MAXX, MINY, MAXY) \
+    VALUES \
+    (:lynx_id, 'TOWNSHIP', :name, SYSDATE, \
+     :min_node_x, :max_node_x, :min_node_y, :max_node_y)" , project);
+ 
+    EXEC SQL PREPARE INSERT_LYNX_CULTURE from :sqlstmt;
+
+    first = FALSE;
+    }
+
+    x_township = township;
+    x_range = range;
+    x_meridian = meridian;
+    EXEC SQL OPEN SELECT_LYNX_LRFR 
+             using :x_township, :x_range, :x_meridian);
+    
+    ht_init_hash_table (200, 10, HT_INT_KEY, sizeof(long int), 
+                        sizeof(DATA_LIST), HT_APPLICATION_TABLE, &ht_table);
+    
+    FOREVER
+        {
+        EXEC SQL FETCH SELECT_LYNX_LRFR
+                 INTO :arc_id, :side;
+
+        if (OR_STATUS EQUALS OR_EOF)
+            break;
+        if ((status = ht_find (ht_table, (VOIDPTR)&arc_id,
+                               (VOIDPTR)&data))EQUALS SUCCESS)
+            {
+            data.count += 1;
+            status = ht_update (ht_table, (VOIDPTR)&arc_id, (VOIDPTR)&data);
+            }
+        else
+            {
+            data.side = side;
+            data.count = 1;
+            status = ht_insert (ht_table, (VOIDPTR)&arc_id, (VOIDPTR)&data);
+            }
+        }
+    status = ht_get_all (ht_table, (UINT *)&nkeys, (VOIDPTR *)&key_buff,
+                         (VOIDPTR *)&data_buff);
+    
+    if (status != SUCCESS)
+        return status;
+    
+    for (i = 0; i < nkeys; i++)
+        {
+        if (data_buff[i].count EQUALS 1)
+            {
+            n_arcs++;
+            arc_id = key_buff[i];
+            side = data_buff[i].side;
+            EXEC SQL EXECUTE INSERT_LRFR USING :lynx_id,:arc_id,:side;
+            
+            EXEC SQL OPEN SELECT_MIN_NODE 
+                     USING :arc_id;
+            EXEC SQL FETCH SELECT_MIN_NODE 
+                     INTO :min_node_x, :min_node_y, :max_node_x, :max_node_y;
+            
+            if (first_pass)
+                {
+                first_pass = FALSE;
+                }
+            else
+                {
+                if (minx > min_node_x)
+                    minx = min_node_x;
+                if (miny > min_node_y)
+                    miny = min_node_y;
+                if (maxx < max_node_x)
+                    maxx = max_node_x;
+                if (maxy < max_node_y)
+                    maxy = max_node_y;
+                }
+            }
+        }
+    if (township == (INT)township)
+        sprintf (tmp_township, "%.0f", township);
+    else
+        sprintf (tmp_township, "%.1f", township);
+    
+    if (range == (INT)range)
+        sprintf (tmp_range, "%.0f", range);
+    else
+        sprintf (tmp_range, "%.1f", range);
+    
+    name.len = sprintf ( (char *)name.arr, "%d:T%s%cR%s%c", 
+               meridian, tmp_township, td, tmp_range, rd);
+    printf ("Loading Meridian %s :", (char *)name.arr);
+    
+    
+    min_node_x = minx;
+    min_node_y = miny;
+    max_node_x = maxx;
+    max_node_y = maxy;
+    EXEC SQL EXECUTE INSERT_LYNX_CULTURE using
+        :lynx_id, :name, :min_node_x, :max_node_x, :min_node_y, :max_node_y;
+    
+    /*   free the key and data buffers     */
+    tc_free ((VOIDPTR)data_buff);
+    tc_free ((VOIDPTR)key_buff);
+    
+    printf ("%d arcs\n", n_arcs);
+    
+    return status;
+    
+sqlerror:
+    or_errmsg(&sqlca, "Error in ldz_get_township_record()");
+    return OR_STATUS;
+    }
+

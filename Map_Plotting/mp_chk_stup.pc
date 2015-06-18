@@ -1,0 +1,189 @@
+/*  DEC/CMS REPLACEMENT HISTORY, Element MP_CHK_STUP.PC*/
+/*  *5    17-AUG-1990 22:03:49 VINCE "(SPR 5644) Code Cleanup"*/
+/*  *4     7-MAR-1990 17:24:32 WALTERS "(SPR 0) Remove FLOAT types from system"*/
+/*  *3    15-FEB-1990 10:45:05 WALTERS "(SPR 0) Changes in map setup dialog"*/
+/*  *2    26-JUN-1989 10:52:35 GILLESPIE "(SPR 20) Fix castings"*/
+/*  *1    19-JUN-1989 12:34:37 SYSTEM ""*/
+/*  DEC/CMS REPLACEMENT HISTORY, Element MP_CHK_STUP.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_gl_defs.h"
+#include "esi_mp.h"
+#include "esi_am.h"
+#include "esi_qs.h"
+#include "esi_tu.h"
+#include "esi_mr.h"
+#include "esi_oracle.h"
+#include "md_mapdef.rh"
+#include "esi_md_msg.h"
+#include "esi_md_err.h"
+
+#ifndef ESI_MG_H
+
+#include "esi_mg.h"
+
+#endif
+/* EXEC ORACLE OPTION (REBIND = NO); */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Routine to check the existence and validity of the map
+    setup parameters, and if there is a problem then call the map setup
+    dialog.
+
+Prototype:
+    publicdef INT mp_check_setup();
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+    
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT mp_check_setup ()
+#else
+publicdef INT mp_check_setup ()
+#endif
+    {
+    
+    PROGNAME ("MP_CHECK_SETUP");
+    INT status;
+    RESOURCE_ID *cdlg_id;
+    MAP_STRUCTURE *mapdef;
+    PROJECT_NAME project;
+    INT id;
+    DOUBLE dummy;
+    UOM_NAME uom1, uom2;
+    CHAR text[40];
+    INT errmsg;
+    static BOOL sql_prepared = FALSE;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[200];
+    static VARCHAR in_projection[60];
+    static VARCHAR out_projection[60];
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ********************************************************************** */
+    
+    status = SUCCESS;
+    
+    /* * OPEN NEEDED WORKSPACES * */
+    /* -------------------------- */
+    
+    am_open_workspace ("CDLG", AM_APPLICATION, (VOIDPTR *) & cdlg_id);
+    am_open_workspace ("MAPDEF", AM_APPLICATION, (VOIDPTR *) & mapdef);
+    
+    /* * PUT UP THE MAP SETUP DIALOG * */
+    /* ------------------------------- */
+    
+    if (cdlg_id->map_setup_id EQUALS 0)
+        {
+        status = am_define_resource (AM_DIALOG, "MD_MAPDEF", MD_MAP_SETUP,
+                                     NULL_FUNCTION_PTR, &cdlg_id->map_setup_id, NULL);
+        if (status != SUCCESS)
+            {
+            am_message (AM_ALERT, mg_message (status));
+            status = FAIL;
+            }
+        }
+    /* * CHECK THE COORDINATE SYSTEM * */
+    /* ------------------------------- */
+    
+    if (status EQUALS SUCCESS)
+        {
+        id = cdlg_id->map_setup_id;
+        if ((strcmp (mapdef->map_coordinate_system,
+                     "USPLS") EQUALS 0) OR (strcmp (mapdef->map_coordinate_system,
+                                                 "ATS") EQUALS 0))
+            {
+            mr_get_section_corners (mapdef->lower_left_str, &mapdef->lower_left_xy.x,
+                                    &mapdef->lower_left_xy.y, &dummy, &dummy);
+            mr_get_section_corners (mapdef->upper_right_str, &dummy, &dummy,
+                                    &mapdef->upper_right_xy.x,
+                                    &mapdef->upper_right_xy.y);
+            }
+        /* * CHECK MAP WINDOW * */
+        /* -------------------- */
+        
+        if (mapdef->upper_right_xy.x >
+            mapdef->lower_left_xy.x AND mapdef->upper_right_xy.y >
+            mapdef->lower_left_xy.y)
+            {
+            
+            /* * CHECK THE MAP SCALE * */
+            /* ----------------------- */
+            
+            sprintf (text, "%f %s", mapdef->map_scale, mapdef->map_scale_uom);
+            if ((status = tu_parse_unit (text, &dummy, uom1, uom2)) EQUALS SUCCESS)
+                {
+                
+                /* * CHECK THE MAP PROJECTION * */
+                /* ---------------------------- */
+                
+                if (NOT sql_prepared)
+                    {
+                    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+                    
+                    sqlstmt.len = sprintf ((char *)sqlstmt.arr,
+                                  "SELECT PROJECTION_ID FROM %s.PROJECTIONS WHERE PROJECTION_ID = :v1"
+                                           , project);
+                    
+                    EXEC SQL PREPARE S1 FROM : sqlstmt;
+                    EXEC SQL DECLARE C1 CURSOR FOR S1;
+                    
+                    sql_prepared = TRUE;
+                    }
+                V_FROMC (in_projection, mapdef->map_projection);
+                EXEC SQL OPEN C1 USING : in_projection;
+                
+                EXEC SQL FETCH C1 INTO : out_projection;
+                if (OR_STATUS EQUALS OR_EOF)
+                    {
+                    status = FAIL;
+                    }
+                }
+            else
+                {
+                status = FAIL;
+                }
+            }
+        else
+            {
+            status = FAIL;
+            }
+        }
+    return status;
+    }
+/* END:     */

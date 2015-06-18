@@ -1,0 +1,83 @@
+*UX
+*T CDLG
+,128
+*N HELP_MESSAGE
+38 3 315 635 
+Help Message
+6
+
+*I HF_BUTTON_DONE
+BtnItem Enabled
+230 123 255 203 
+DONE
+
+*I HF_BUTTON_CONTINUE
+BtnItem Enabled
+DEFAULTBUTTON
+230 400 255 499 
+CONTINUE...
+
+*I HF_EDIT_SUBTOPIC
+EditText Enabled
+187 24 220 597 
+Subtopic
+
+SetGroup 1
+
+*I HF_SELECTOR
+EditText Enabled
+13 9 150 597 
+Help Message
+
+*I HF_SELECT_BAR
+Vscroll Enabled
+12 604 149 616 
+
+
+*I HF_STAT_SUBTOPIC
+StatText Enabled
+160 22 187 200 
+Additional Subtopic:
+
+*UM
+*T CDLG
+,128
+*N HELP_MESSAGE
+38 3 286 511 
+Help Message
+6
+
+*I HF_BUTTON_DONE
+BtnItem Enabled
+208 23 240 103 
+DONE
+
+*I HF_BUTTON_CONTINUE
+BtnItem Enabled
+DEFAULTBUTTON
+206 349 238 429 
+CONTINUE...
+
+*I HF_EDIT_SUBTOPIC
+EditText Enabled
+172 24 194 427 
+Subtopic
+
+SetGroup 1
+
+*I HF_SELECTOR
+EditText Enabled
+13 9 150 477 
+Help Message
+
+*I HF_SELECT_BAR
+Vscroll Enabled
+12 484 149 496 
+
+
+*I HF_STAT_SUBTOPIC
+StatText Enabled
+153 22 171 177 
+Additional Subtopic:
+
+

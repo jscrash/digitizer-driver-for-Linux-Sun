@@ -1,0 +1,131 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SLZ_LISTS_TCP.PC */
+/* *2    29-AUG-1990 09:17:37 PURNA "(SPR 0) fix undefined symbol error" */
+/* *1    25-JUL-1990 15:46:05 GILLESPIE "Used by sl_list_cleanup - restoring" */
+/* DEC/CMS REPLACEMENT HISTORY, Element SLZ_LISTS_TCP.PC */
+/* DEC/CMS REPLACEMENT HISTORY, Element SLZ_LISTS_TCP.PC*/
+/* *2    13-AUG-1989 00:19:53 GILLESPIE "(SPR 5) Some minor cleanup"*/
+/* *1    19-JUN-1989 12:36:53 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element SLZ_LISTS_TCP.PC*/
+#include "esi_gl_defs.h"
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_SL_H
+#include "esi_sl.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+
+/* **************************************************************************
+
+    ROUTINE:  SLZ_MAKE_LISTS_TCP
+
+    DESCRIPTION
+	To retrieve the existing lists, whose data_type is DATA_TYPE, and
+	to make a TCP of names of retrieved lists.
+
+    STATUS CODES
+	SUCCESS;
+        FAIL;
+	SQL ERROR CODES.
+
+    INPUT:
+	DATA_TYPE =(INT ) The data type of requested lists.
+	LISTS_PTR =(CHAR ***)The address of returned TCP table.
+	NUM_ITEMS =(INT *)The total number of returned lists.
+
+    OUTPUT:
+	STATUS CODES
+        
+    ************************************************************************ */
+publicdef INT slz_make_lists_tcp(data_type, lists_ptr, num_items)
+    /* ********************************************************************* */
+SL_DATA_TYPE data_type;
+CHAR ***lists_ptr;
+INT *num_items;
+{
+    INT status = SUCCESS;         /*return status.                           */
+    INT i;
+    PROJECT_NAME project;
+    CHAR **names;
+    CHAR data_type_name[21];
+
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR select[512];
+    int total_items;
+    VARCHAR name_column[64];
+    char *data_type_column;
+EXEC SQL END DECLARE SECTION;  
+/* ************************************************************************* */
+
+				 /* construct the table name.               */
+    qs_inq_c(QS_PROJECT_NAME, project, (INT *) 0);
+
+
+    EXEC SQL WHENEVER SQLERROR GOTO errpt;
+
+				/* check the existance of specified selected*/
+				/* list.				    */
+
+				/* set the data type name.		    */
+    status = sl_inq_dtype_string("DATA_TYPE_NAME",data_type,data_type_name);
+    if(status != SUCCESS) return status;
+    data_type_column = data_type_name;
+    total_items = 0;
+
+    select.len = sprintf((char *)select.arr,"SELECT COUNT(*) FROM %s.SLIST_HDR \
+	WHERE DATA_TYPE = :data_type_column AND (EXPIRATION_DATE IS NULL \
+        OR TRUNC(EXPIRATION_DATE) >= TRUNC(sysdate-1)) ", project);
+
+    EXEC SQL PREPARE S1 FROM :select;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1 USING :data_type_column;
+    EXEC SQL FETCH C1 INTO :total_items;
+	EXEC SQL CLOSE C1;
+
+					/* if there is no qalified list found,*/
+					/* returns FAIL.		      */
+    if( total_items <= 0 )
+    {
+	status = FAIL;
+	*num_items = 0;
+        return status;
+    }
+	
+   					/* otherwise, allocates the returned */
+					/* lists space.			     */
+    *lists_ptr = names = TCP_ALLOCATE(total_items);
+    
+					/* fetch the names.		    */
+
+    select.len = sprintf((char *)select.arr, "SELECT NAME FROM %s.SLIST_HDR WHERE \
+          DATA_TYPE = :data_type_column AND (EXPIRATION_DATE IS NULL OR \
+          TRUNC(EXPIRATION_DATE) >= TRUNC(sysdate-1)) ORDER BY NAME", project);
+
+    EXEC SQL PREPARE S2 FROM :select;
+    EXEC SQL DECLARE C2 CURSOR FOR S2;
+    EXEC SQL OPEN C2 USING :data_type_column;
+   
+    for( i = 0; i < total_items; i++)
+    {
+	EXEC SQL FETCH C2 INTO :name_column;
+	names[i] = (CHAR *)tc_alloc( name_column.len + 1 );
+	V_FROMV(names[i], name_column);
+    }
+	EXEC SQL CLOSE C2;
+
+    names[i] = NULL;
+    status = SUCCESS;
+    *num_items = total_items;
+    return SUCCESS;
+
+errpt:
+    status = OR_STATUS;
+    *num_items = 0; 
+    return status;
+}

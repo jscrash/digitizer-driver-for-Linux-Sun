@@ -1,0 +1,199 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_GT_FTRC.PC*/
+/* *3    16-OCT-1990 15:47:19 GILLESPIE "(SPR 1000) Merge Ernie deltas"*/
+/*  1B1  24-SEP-1990 16:12:20 GILLESPIE "Beta Deltas"*/
+/* *2    14-AUG-1990 17:53:32 GILLESPIE "(SPR 2001) Use LINE_ATTRIBUTEs"*/
+/* *1    19-JUL-1990 17:55:38 GILLESPIE "Add support for fault traces"*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_GT_FTRC.PC*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_GT_FTRC.PC                               */
+/* *2    14-SEP-1990 20:54:44 CHARLIE "(SPR -1) make faults work"                   */
+/* *1    13-AUG-1990 16:36:29 SYSTEM "Finder 6.1"                                   */
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_GT_FTRC.PC                               */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1990                      */
+/*         Unpublished -- All rights reserved                                       */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*          Finder Graphics Systems, Inc.                                           */
+/*          201 Tamal Vista Blvd                                                    */
+/*          Corte Madera, CA  USA 94925                                             */
+/*          (415) 927-0100                                                          */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/*****************************************************************************      */
+/*                                                                                  */
+/*NAME:           se_get_fault_trace                                                */
+/*                                                                                  */
+/*DESCRIPTION:    Retrieve a fault trace for the specified horizon.                 */
+/*                                                                                  */
+/*     Input:     horizon name    - The name of a seismic horizon.                  */
+/*                seq             - The sequence number of the fault trace.         */
+/*                                                                                  */
+/*     Output:    line - a pointer to a line structure.                             */
+/*                                                                                  */
+/*     Status:    SUCCESS                                                           */
+/*                Oracle errors                                                     */
+/*                                                                                  */
+/******************************************************************************     */
+
+#include "esi_c_lib.h"
+#include "esi_dr.h"
+#include "esi_oracle.h"
+
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+
+#ifndef ESI_MM_H
+#include "esi_mm.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_SE_H
+#include "esi_se.h"
+#endif
+
+#ifndef ESI_LU_H
+#include "esi_lu.h"
+#endif
+
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+
+/************************************************************************************/
+#if USE_PROTOTYPES
+publicdef INT dr_get_fault_trace (CHAR *horizon, INT seq, LINE *line)
+#else
+publicdef INT dr_get_fault_trace (horizon, seq, line)
+CHAR *horizon;
+INT seq;
+LINE *line;
+#endif
+    {
+    INT status;
+    UINT Col_List[2];
+    INT thick;
+    FILENAME full_filename;
+    NLIST_ID nlist_id;
+    FILENAME filename;
+    
+    SEIS_FAULT_TRACE ftrace;
+    FULL_LINE_NAME line_name;
+    
+    static BOOL s1_defined = FALSE;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[512];
+    VARCHAR local_horizon[32];
+    VARCHAR local_source[32];
+    VARCHAR surface_code[36];
+    VARCHAR source_s[32];
+    VARCHAR fault_name[36];
+    VARCHAR db_id[64];
+    VARCHAR db_filename[84];        /* retrieved from database                      */
+    VARCHAR line_color[16];
+    VARCHAR line_style[16];
+    VARCHAR line_thickness[16];
+    int db_seq;
+    EXEC SQL END DECLARE SECTION;
+    
+    status = SUCCESS;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO sqlerrorpt;
+    EXEC SQL WHENEVER NOT FOUND GOTO sqleofpt;
+    
+    /*                                                                              */
+    /* * Build the cursor for the SEIS_FAULT_TRACE table                            */
+    /*                                                                              */
+    if (!s1_defined)
+        {
+        PROJECT_NAME project;
+        /* get project name                                                         */
+        qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+        
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"SELECT HOR_CODE, SOURCE, FAULT_CODE, DIGITAL_REF, DIGITAL_REF_VOLUME, \
+                LINE_COLOR, LINE_STYLE, LINE_THICKNESS \
+         FROM   %s.SEIS_FAULT_TRACE \
+         WHERE  SEQ      = :v1"
+                , project);
+        
+        EXEC SQL PREPARE S1 FROM :sqlstmt;
+        EXEC SQL DECLARE LINE_CUR CURSOR FOR S1;
+        s1_defined = TRUE;
+        }
+    tc_zeroes ((VOIDPTR)&ftrace, sizeof ftrace);
+    
+    db_seq = seq;
+    strcpy (ftrace.hor_code, horizon);
+    strcpy (ftrace.fault_name, line->line_name);
+    
+    sez_fillsource (ftrace.source, (CHAR *)source_s.arr);
+    
+    V_FROMC (surface_code, horizon);
+    V_SETLEN (source_s);
+    
+    EXEC SQL OPEN LINE_CUR USING :db_seq;
+    
+    EXEC SQL FETCH LINE_CUR INTO
+       :local_horizon, :local_source, :fault_name, :db_id, :db_filename,
+       :line_color, :line_style, :line_thickness;
+    
+    /*  Read the nlist                                                              */
+    
+    V_FROMV (nlist_id, db_id);
+    V_FROMV (filename, db_filename);
+    
+    V_SETZERO (line_color);
+    V_SETZERO (line_style);
+    V_SETZERO (line_thickness);
+    
+    tc_zeroes (&line_name, sizeof line_name);
+    status = se_bld_nlist_ids (&line_name, (VOIDPTR)&ftrace, SEIS_FTRACE_DATA,
+                               nlist_id, filename, full_filename);
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+        return status;
+        }
+    Col_List[0] = 1, Col_List[1] = 2;
+    status = ct_get_nlist (&line->line_nlist, full_filename, nlist_id, Col_List, 0.0);
+    if (status != SUCCESS)
+        {
+        return(status);
+        }
+    /*                                                                              */
+    /* * assign line attributes.                                                    */
+    /*                                                                              */
+    
+    line->line_id = 0;
+    
+    V_FROMV (line->line_name, fault_name);
+    
+    lu_text_to_index ("COLOR", (INDEX *)&line->line.color, (CHAR *)line_color.arr);
+    lu_text_to_index ("LINE_STYLE", (INDEX *)&line->line.style, (CHAR *)line_style.arr);
+    lu_text_to_index ("THICKNESS", (INDEX *)&thick, (CHAR *)line_thickness.arr);
+    line->line.width = thick;
+    
+    /* return appropriate status                                                    */
+    return(status);
+    
+sqleofpt:
+    /* No such line retrieved                                                       */
+    return OR_EOF;
+    
+sqlerrorpt:
+    /* Honest to God error                                                          */
+    return OR_STATUS;
+    }

@@ -1,0 +1,107 @@
+/*  DEC/CMS REPLACEMENT HISTORY, Element MP_SZ_SCALE.PC*/
+/*  *4    17-AUG-1990 22:10:24 VINCE "(SPR 5644) Code Cleanup"*/
+/*  *3     8-MAY-1990 10:02:28 WALTERS "(SPR 5178) Set SCALE SIZES FOR PLOTTING to OFF by default"*/
+/*  *2     6-MAR-1990 10:15:41 WALTERS "(SPR 6012) Change file names to UNIX standards"*/
+/*  *1     5-MAR-1990 12:47:06 WALTERS "SPR 6012 change file name to unix standards"*/
+/*  DEC/CMS REPLACEMENT HISTORY, Element MP_SZ_SCALE.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+
+#ifndef ESI_GL_DEFS_H
+
+#include "esi_gl_defs.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_MP_H
+
+#include "esi_mp.h"
+
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+    Routine to determine the analysts default symbol and
+    text size scaling preference.  Returns true only if the
+    analyst_default "scale for plotting" for the mapping
+    application is "true" or "yes".
+
+Prototype:
+    publicdef INT mp_default_size_scale();
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+    
+Return Value/Status:
+    Function returns ON/OFF.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT mp_default_size_scale ()
+#else
+publicdef INT mp_default_size_scale ()
+#endif
+    {
+    
+    INT status = OFF;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR default_value[241];
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ********************************************************************** */
+    
+    EXEC SQL WHENEVER SQLERROR GOTO finished;
+    EXEC SQL WHENEVER NOT FOUND GOTO finished;
+    
+    EXEC SQL SELECT UPPER (DEFAULT_VALUE)INTO :
+        default_value FROM ANALYST_DEFAULTS WHERE APPLICATION_NAME =
+                                                                     'MAPPING' AND 
+                                                                     DEFAULT_NAME =
+                                                                     'SIZES SCALED FOR PLOTTING'
+                                                                     ;
+    
+    V_SETZERO (default_value);
+    if ((strcmp ((char *)default_value.arr,
+                 "TRUE") EQUALS 0) OR (strcmp ((char *)default_value.arr, "YES") EQUALS 0))
+        {
+        status = ON;
+        }
+finished:
+    return status;
+    }
+/* END:     */

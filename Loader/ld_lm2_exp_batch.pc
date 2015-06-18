@@ -1,0 +1,467 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_EXP_BATCH.PC */
+/* *2     1-MAY-1991 13:56:05 KEE "(SPR -1) Landmark export batch main" */
+/* *1     1-MAY-1991 13:55:34 KEE "Landmark export batch main" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_EXP_BATCH.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+ /* ************************************************************************
+
+   NAME: LD_LM2_EXP_BATCH.PC
+
+   AUTHOR: Rod Hanks
+   DATE:   May 3rd, 1990
+   DESCRIPTION: Batch job to extract information from a map for output to
+		landmark.
+
+   ************************************************************************ */
+
+#ifndef ESI_GL_DEFS_H
+#include "esi_gl_defs.h"
+#endif
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+#ifndef ESI_FI_H
+#include "esi_fi.h"
+#endif
+#ifndef ESI_CT_ERR_H
+#include "esi_ct_err.h"
+#endif
+#ifndef ESI_SL_METH_AH
+#include "esi_sl_meth.ah"
+#endif
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+#ifndef LD_LM2_EXP_WORK_H
+#include "ld_lm2_exp_work.h"
+#endif
+
+publicdef INT main ()
+    {
+/****************************************************************************
+
+	V a r i a b l e   D e c l a r a t i o n s .
+
+******************************************************************************/
+
+    PROJECT_NAME project;
+    PROJECT_NAME database;
+    ANALYST_NAME account;
+    ORACLE_NAME password;
+    CHAR dummy[255];
+    CHAR *pos;
+    CHAR mapName[32][80];
+    CHAR *login_list[3];
+    CHAR xyFile[81];
+    CHAR spFile[81];
+    CHAR fpFile[81];
+    CHAR fltFile[81];
+    CHAR wellFile[81];
+    CHAR cultFile[81];
+    CHAR logFile[81];
+    CHAR wcsFile[81];
+    CHAR wdsFile[81];
+    CHAR topFile[81];
+    CHAR hrzFile[32][81];
+    CHAR hrzName[32][81];
+    CHAR source[81];
+    INT maxMaps;
+    INT mapCounter;
+    INT status;
+    INT hrzFcount;
+    INT hrzNcount;
+    INT loop;
+    BOOL convertProj;
+    PROJECTION_ID	  default_projection;
+    PROJECTION_ID	  input_projection;
+    PROJECTION_ID	  map_projection;
+    PROJECTION_STRUCTURE *defaultProj;
+    PROJECTION_STRUCTURE *inputProj;
+    INT  curveCount;
+    CHAR curveName[200][12];
+/*
+				General variable declarations.
+*/
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[200];
+	VARCHAR mapProjection[16];
+        double	lower_left_x;
+        double	lower_left_y;
+        double	upper_right_x;
+        double	upper_right_y;
+    EXEC SQL END DECLARE SECTION;
+/*
+				Oracle variable declarations.
+*/
+/****************************************************************************
+
+	I n i t i a l i z a t i o n .
+
+******************************************************************************/
+
+    account[0] = 0;
+    password[0] = 0;
+    database[0] = 0;
+    project[0] = 0;
+    xyFile[0] = 0;
+    spFile[0] = 0;
+    fpFile[0] = 0;
+    fltFile[0] = 0;
+    wellFile[0] = 0;
+    cultFile[0] = 0;
+    logFile[0] = 0;
+    wcsFile[0] = 0;
+    wdsFile[0] = 0;
+    topFile[0] = 0;
+    source[0] = 0;
+    maxMaps = 0;
+    hrzFcount = hrzNcount = 0;
+    curveCount = 0;
+
+/*
+					Initialize in case any of this stuff
+					is missing from the command stream.
+*/
+    while (gets(dummy) != (CHAR *) 0)
+        {
+            pos = dummy;
+	    while (*pos != ':' && *pos != 0)
+	        {
+		pos++;
+		}
+	    if (*pos == ':')
+	        {
+		*pos = 0;
+		*pos++;
+		}
+	    if (strcmp(dummy, "ACCOUNT") == 0)
+		{
+		strcpy(account, pos);
+		}
+	    else if (strcmp(dummy, "PASSWORD") == 0)
+		{
+		strcpy(password, pos);
+		}
+	    else if (strcmp(dummy, "DATABASE") == 0)
+		{
+		strcpy(database, pos);
+		}
+	    else if (strcmp(dummy, "PROJECT") == 0)
+		{
+		strcpy(project, pos);
+		}
+	    else if (strcmp(dummy, "PROJECTION") == 0)
+		{
+		strcpy(input_projection, pos);
+		}
+	    else if (strcmp(dummy, "SEISMIC") == 0)
+		{
+		strcpy(xyFile, pos);
+		}
+	    else if (strcmp(dummy, "TRACES") == 0)
+		{
+		strcpy(spFile, pos);
+		}
+	    else if (strcmp(dummy, "HORIZON") == 0)
+		{
+		strcpy(hrzFile[hrzFcount], pos);
+		hrzFcount++;
+		}
+	    else if (strcmp(dummy, "HORIZON NAME") == 0)
+		{
+		strcpy(hrzName[hrzNcount], pos);
+		hrzNcount++;
+		}
+	    else if (strcmp(dummy, "FAULT") == 0)
+		{
+		strcpy(fltFile, pos); /* fault polygon */
+		}
+	    else if (strcmp(dummy, "FPLANE") == 0)
+		{
+		strcpy(fpFile, pos); /* fault plane */
+		}
+	    else if (strcmp(dummy, "WELL") == 0)
+		{
+		strcpy(wellFile, pos);
+		}
+	    else if (strcmp(dummy, "TOP") == 0)
+		{
+		strcpy(topFile, pos);
+		}
+	    else if (strcmp(dummy, "LOG") == 0)
+		{
+		strcpy(logFile, pos);
+		}
+	    else if (strcmp(dummy, "CHKSHOT") == 0)
+		{
+		strcpy(wcsFile, pos);
+		}
+	    else if (strcmp(dummy, "DIRSRVY") == 0)
+		{
+		strcpy(wdsFile, pos);
+		}
+	    else if (strcmp(dummy, "CULTURE") == 0)
+		{
+		strcpy(cultFile, pos);
+		}
+	    else if (strcmp(dummy, "SOURCE") == 0)
+		{
+		strcpy(source, pos);
+		}
+	    else if (strcmp(dummy, "MAPNAME") == 0)
+		{
+		strcpy(mapName[maxMaps], pos);
+		maxMaps++;
+		}
+	    else if (strcmp(dummy, "CURVNAM") == 0)
+		{
+		strcpy(curveName[curveCount], pos);
+		curveCount++;
+		}
+	}
+/*
+				Above, retrieve all the lines in the command
+				file and parse them out by label.
+*/
+    strcpy(dummy, account);
+    strcat(dummy, "/");
+    strcat(dummy, password);
+    if (strlen(database) > 0)
+	{
+	strcat(dummy, "@");
+	strcat(dummy, database);
+	} 
+    login_list[0] = dummy;
+    login_list[1] = login_list[0];
+    login_list[2] = login_list[0];
+    status = or_login(3, login_list);
+/*
+				I give up, why DO we pass it 3 times?
+*/
+    if (status != 0)
+        {
+        printf("Unable to login to Oracle, code = %d\n", status);
+        }
+/*
+				Above, pull out the initial info from the
+				command file, and log on to Oracle.
+*/
+    else
+	{
+	am_initialize();
+        qs_set_c(QS_PROJECT_NAME, project, 0);
+        if ((status = finder_config_project(FALSE)) != SUCCESS)
+            {
+    	    printf("Unable to connect to project\n");
+	    }
+	else
+	    {
+	    status = ct_get_default_project(default_projection);
+	    if (status != SUCCESS) ld_show_error(status, mg_message(status));
+	    if (strcmp(default_projection, input_projection) != 0)
+		{
+		status = ct_get_projection(default_projection, &defaultProj);
+		if (status != SUCCESS) ld_show_error(status, mg_message(status));
+		status = ct_get_projection(input_projection, &inputProj);
+		if (status != SUCCESS) ld_show_error(status, mg_message(status));
+		convertProj = TRUE;
+		}
+	    else
+		{
+		convertProj = FALSE;
+		}
+/*****************************************************************************
+
+	M a i n   L o g i c .
+
+*****************************************************************************/
+	    for (mapCounter = 0; mapCounter < maxMaps; mapCounter++)
+	        {
+/*
+				Retrieve the map name from the command file.
+*/
+    	        sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT PROJECTION,LOWER_LEFT_X,LOWER_LEFT_Y,UPPER_RIGHT_X,UPPER_RIGHT_Y \
+FROM %s.MAP_DEFINITIONS \
+WHERE MAP_NAME = '%s'", project, mapName[mapCounter]);
+
+		EXEC SQL PREPARE S1 FROM :sqlstmt;
+		EXEC SQL DECLARE OBJ_CUR CURSOR FOR S1;
+                EXEC SQL OPEN OBJ_CUR;
+		EXEC SQL FETCH OBJ_CUR INTO :mapProjection, 
+					    :lower_left_x,
+					    :lower_left_y,
+					    :upper_right_x,
+					    :upper_right_y;
+/*
+				Get the projection and the clip region.
+*/
+		if (OR_STATUS EQUALS SUCCESS)
+		    {
+		    EXEC SQL CLOSE OBJ_CUR;
+                    strncpy(map_projection, (CHAR *)mapProjection.arr, 
+                                            mapProjection.len);
+		    map_projection[mapProjection.len] = 0;
+                    qs_set_c(QS_MAP_PROJECTION, map_projection, 0);
+		    
+	            if (strlen(xyFile) > 0)
+		        {
+		        ld_lm2_exp_seismic(mapName[mapCounter], project,
+					  lower_left_x, lower_left_y,
+					  upper_right_x, upper_right_y,
+					  xyFile, spFile,
+				      	  convertProj, defaultProj, 
+				          inputProj);
+		        }
+/*
+				Above, unload seismic data.
+*/
+		    for (loop = 0; loop < hrzFcount; loop++)
+			{
+	                if (strlen(hrzFile[loop]) > 0
+			&&  strlen(hrzName[loop]) > 0)
+		            {
+		            ld_lm2_exp_hrz(mapName[mapCounter], project,
+					  lower_left_x, lower_left_y,
+					  upper_right_x, upper_right_y,
+					  hrzFile[loop], hrzName[loop],
+				      	  convertProj, defaultProj, 
+				          inputProj);
+			    }
+		        }
+/*
+				Above, unload horizon data.
+*/
+		    if (strlen(fltFile) > 0)
+			{
+		        ld_lm2_exp_fault(mapName[mapCounter], project,
+					  lower_left_x, lower_left_y,
+					  upper_right_x, upper_right_y,
+					  fltFile,
+				      	  convertProj, defaultProj, 
+				          inputProj);
+		        }
+/*
+				Fault polygon data.
+*/
+	            if (strlen(fpFile) > 0)
+		        {
+		        ld_lm2_exp_fp(mapName[mapCounter], project,
+					  lower_left_x, lower_left_y,
+					  upper_right_x, upper_right_y,
+					  fpFile, defaultProj, 
+				          inputProj);
+		        }
+/*
+				Fault plane data...
+*/
+	            if (strlen(wellFile) > 0)
+		        {
+		        ld_lm2_exp_wells(mapName[mapCounter], project,
+					  lower_left_x, lower_left_y,
+					  upper_right_x, upper_right_y,
+					  wellFile,
+				      	  convertProj, defaultProj, 
+				          inputProj);
+		        }
+/*
+				Above, unload wells data.
+*/
+	            if (strlen(logFile) > 0)
+		        {
+		        ld_lm2_exp_logs(mapName[mapCounter], project,
+					  lower_left_x, lower_left_y,
+					  upper_right_x, upper_right_y,
+					  logFile, curveName, curveCount,
+					  source);
+		        }
+/*
+				Above, unload logs data.
+*/
+	            if (strlen(wcsFile) > 0)
+		        {
+		        ld_lm2_exp_chkshots(mapName[mapCounter], project,
+					  lower_left_x, lower_left_y,
+					  upper_right_x, upper_right_y,
+					  wcsFile, source);
+		        }
+/*
+				Above, unload check shot data.
+*/
+	            if (strlen(wdsFile) > 0)
+		        {
+		        ld_lm2_exp_dirsrvys(mapName[mapCounter], project,
+					  lower_left_x, lower_left_y,
+					  upper_right_x, upper_right_y,
+					  wdsFile, convertProj, defaultProj, 
+				          inputProj);
+		        }
+/*
+				Above, unload directional survey data.
+*/
+	            if (strlen(topFile) > 0)
+		        {
+		        ld_lm2_exp_tops(mapName[mapCounter], project,
+					  lower_left_x, lower_left_y,
+					  upper_right_x, upper_right_y,
+					  topFile, source);
+		        }
+/*
+				Above, unload tops data.
+*/
+	            if (strlen(cultFile) > 0)
+		        {
+		        ld_lm2_exp_culture(mapName[mapCounter], project,
+					  lower_left_x, lower_left_y,
+					  upper_right_x, upper_right_y,
+					  cultFile,
+				      	  convertProj, defaultProj, 
+				          inputProj);
+		        }
+/*
+				Above, unload culture data.
+*/
+		    }
+	        }
+/*
+				Above, loop to unload map data.
+*/
+/****************************************************************************
+
+	C l e a n   U p   A n d   E x i t .
+
+******************************************************************************/
+	    exit(EXIT_SUCCESS);
+	    }
+	}
+    }
+
+

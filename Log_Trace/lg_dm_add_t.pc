@@ -1,0 +1,227 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LG_DM_ADD_T.PC*/
+/*  8    27-FEB-1992 09:19:42 JESSIE "(SPR 6180) add TVD display of traces and tops"*/
+/* *7    19-JUL-1991 11:59:11 JANTINA "(SPR 0) Delete nlist if ORACLE insert fails"*/
+/* *6    23-AUG-1990 17:38:59 JESSIE "(SPR 1) fix include files"*/
+/* *5    14-SEP-1989 16:16:39 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *4    13-AUG-1989 03:02:49 GILLESPIE "(SPR 5) CHANGE SHARED TO SHARED_TRACE"*/
+/* *3    13-AUG-1989 01:46:37 GILLESPIE "(SPR 5) Change WLL_LOG_TRACE_HDR to WELL_LOG_CURVE; always release cursor"*/
+/* *2     8-AUG-1989 10:45:05 VINCE "(SPR -1) added Gulf mods; static in SQL declare section"*/
+/* *1    19-JUN-1989 12:33:21 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element LG_DM_ADD_T.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_lg_defs.h"
+
+#ifndef ESI_LG_LDEFS_H
+
+#include "esi_lg_ldefs.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+
+#ifndef ESI_HO_FILES_H
+
+#include "esi_ho_files.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#include "esi_lg_err.h"
+
+EXEC ORACLE OPTION (RELEASE_CURSOR = YES);
+
+/* Function Description -----------------------------------------------------
+Description:
+    This is a module of routines of Log Trace Data Manager.  This module 
+    includes all routines which perform functions on the database, for 
+    instance retrieving the ZONE VALUE, retrieving the TOP and BASE of Log 
+    traces, to lock and unlock the record, to update the data base,...
+
+    This module will access two tables in data base, 
+    PROJECT.WELL_LOG_CURVE_HDR and PROJECT.WELL_TOPS.
+
+    This routine adds a trace.  No version number is to be specified.  Add 
+    trace will determine the current highest version number, increment it by 
+    one and write the trace exactly as received from the application program.
+
+Prototype:
+    publicdef INT lg_ltdm_add_trace(LOG_TRACE_STRUCT *traceStruct);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) traceStruct -(LOG_TRACE_STRUCT *) %P pointer of trace structure.         
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lg_ltdm_add_trace (LOG_TRACE_STRUCT *traceStruct) 
+#else
+publicdef INT lg_ltdm_add_trace (traceStruct)
+LOG_TRACE_STRUCT *traceStruct;
+#endif
+    {
+    INT status;                     /*   result status.                     */
+    PROJECT_NAME project;
+    FILENAME traceFile;
+    INT depth_type;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR select[1024];
+    int trace_id;
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ************************************************************************* */
+    
+    /*   error checking.                 */
+    
+    if (traceStruct EQUALS (LOG_TRACE_STRUCT *)NULL)
+        return LG_INVALID_POINTER;
+    
+    if (lgz_check_exist (traceStruct->uwi)OR lgz_check_exist (traceStruct->trace_name))
+        return LG_INVALID_POINTER;
+    
+    /* parsing the trace name.           */
+    
+    status = lg_ltdm_parser (traceStruct);
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        return status;
+    
+    if (traceStruct->version > 0)
+        return LG_INVALID_VERSION;
+    
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    
+    /* update the top, base, min and max.  */
+    
+    status = lgz_update_ranges (traceStruct);
+    if (status)
+        return status;
+    
+    if (traceStruct->depth_type EQUALS DEPTH_IN_TIME OR traceStruct->
+        depth_or_time[0] == 'T'OR traceStruct->depth_or_time[0] == 't')
+        {
+        depth_type = 'T';
+        }
+    else
+        {
+        depth_type = 'D';
+        }
+    status = lgz_inq_last_version (traceStruct, TRUE);
+    if (status)
+        return status;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO errrpt;
+    
+    /* adds the trace to the trace file.  */
+    
+    /* construct the nlist id.*/
+    
+    lgz_construct_trace_id (traceStruct);
+    
+    /* construct the file name */
+    
+    if ((status = ho_get_filename (traceStruct->uwi,
+                                   traceStruct->filename))OR (status =
+                                                              ho_add_path (
+                                                               "ESI$LOGS",
+                                                                        traceStruct->
+                                                                           filename,
+                                                                           sizeof(
+                                                                              FILENAME),
+                                                                            traceFile))OR 
+                  (status = nl_write_nlist (traceStruct->ptrace, traceFile,
+                                            traceStruct->nlist_id)))
+        {
+        return status;
+        }
+    /* Get the unique trace ID from the database sequence number generator */
+    
+    EXEC SQL SELECT ESI.LOG_CURVE_SEQ.NEXTVAL INTO : trace_id FROM DUAL;
+    
+    traceStruct->trace_id = trace_id;
+    
+    select.len = sprintf ((char *)select.arr, 
+"INSERT INTO %s.WELL_LOG_CURVE_HDR \
+(TRACE_ID, UWI, SOURCE, \
+TRACE_TYPE, SERVICE, VERSION, \
+SHARED_TRACE, TOP, BASE, DEPTH_INC, \
+DEPTH_UNIT, DEPTH_TYPE, \
+TRACE_MIN, TRACE_MAX, \
+TRACE_UNIT, TRACE_REMARKS, \
+LAST_UPDATE, DIGITIZED_DATE, \
+DIGITAL_REF, DIGITAL_REF_VOLUME)\
+VALUES (%8d, '%s', NVL('%s',user),\
+'%s', '%s', %3d,\
+'%c',\
+%f, %f, %f, \
+'%s', '%c', \
+%f, %f, \
+'%s', '%s',\
+sysdate, sysdate, \
+'%s', '%s')"
+            , project, trace_id, traceStruct->uwi, traceStruct->source,
+                          traceStruct->trace, traceStruct->service,
+                          traceStruct->version, traceStruct->shared ? 'Y' : 'N',
+                          traceStruct->top, traceStruct->base, traceStruct->dinc,
+                          traceStruct->depth_uom, depth_type, traceStruct->min,
+                          traceStruct->max, traceStruct->trace_uom,
+                          traceStruct->comments, traceStruct->nlist_id,
+                          traceStruct->filename);
+    EXEC SQL EXECUTE IMMEDIATE : select;
+    
+    EXEC SQL COMMIT WORK;
+    return SUCCESS;
+    
+errrpt:
+    status = nl_delete_nlist(traceFile,traceStruct->nlist_id);
+    status = OR_STATUS;
+    EXEC SQL ROLLBACK WORK;
+    return status;
+    }
+/* END:     */

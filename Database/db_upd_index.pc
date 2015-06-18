@@ -1,0 +1,195 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_UPD_INDEX.PC*/
+/* *9     4-JAN-1991 17:55:10 VINCE "(SPR 1) Don't process indexes for Account_TB_Defs, already been done."*/
+/* *8    31-DEC-1990 11:37:45 VINCE "(SPR 6205) moved actual index creation to a subroutine"*/
+/* *7    14-AUG-1990 13:11:02 VINCE "(SPR 5644) Header Standardization"*/
+/* *6    14-MAR-1990 17:54:21 GILLESPIE "(SPR 5130) Change so that index is ordered by size descending"*/
+/* *5    16-FEB-1990 17:22:57 GILLESPIE "(SPR 1) Add COMMIT; only print out indexes actually created"*/
+/* *4     1-NOV-1989 11:59:48 GILLESPIE "(SPR 1) Change error handling - abort if a FETCH fails"*/
+/* *3    14-OCT-1989 15:57:17 VINCE "(SPR -1) mods for new update schem"*/
+/* *2    11-AUG-1989 13:53:51 CONROY "(SPR 9999) Mods for ORACLE V6"*/
+/* *1    19-JUN-1989 12:30:25 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_UPD_INDEX.PC*/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_db.h"
+#include "esi_am.h"
+#include "esi_qs.h"
+#include "esi_ts.h"
+#include "esi_mg.h"
+#include "esi_oracle.h"
+#include "esi_db_msg.h"
+
+/* EXEC ORACLE OPTION (REBIND = NO); */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Routine to update indexes in ORACLE.
+
+Prototype:
+    publicdef INT dba_update_indexes(DB_ACCOUNT_STRUCT *db_account);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) db_account  -(DB_ACCOUNT_STRUCT *) Account structure.
+    
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT dba_update_indexes (DB_ACCOUNT_STRUCT *db_account) 
+#else
+publicdef INT dba_update_indexes (db_account)
+DB_ACCOUNT_STRUCT *db_account;
+#endif
+{
+  INT  ii, status;
+  BOOL cursor_opened = FALSE;
+  CHAR create_index_format[128];
+  CHAR msg[133];
+  
+  EXEC SQL BEGIN DECLARE SECTION;
+     static VARCHAR iname[31];
+     static VARCHAR scope[11];
+     static int     count;
+     static int     extent;
+  EXEC SQL END DECLARE SECTION;
+  EXEC ORACLE OPTION (RELEASE_CURSOR = YES);
+  
+  /* ----------------------- */
+  /* retrieve message format */
+  /* ----------------------- */
+
+  strcpy (create_index_format, mg_message(DB_CREATE_INDEX));
+
+  /* ---------------------- */
+  /* display header message */  
+  /* ---------------------- */
+
+  sprintf (msg, mg_message(DB_CREATING_INDEXES),
+	   db_account->scope, db_account->name);
+  am_message (AM_STATUS, msg);
+  
+  /* -------------------------------------------------------------- */
+  /* get count of indexes to be created				    */
+  /* NOTE: Don't get Account_TB_Defs, its index was already done.   */
+  /* -------------------------------------------------------------- */
+
+  V_FROMC (scope, db_account->scope);
+  
+  EXEC SQL WHENEVER SQLERROR GOTO wayout;
+  EXEC SQL
+    SELECT COUNT (DISTINCT INAME)
+    INTO   :count
+    FROM   ESI.FINDER_COLUMN_INDEXES I,
+	   ESI.FINDER_TABLES         T,
+	   ACCOUNT_TB_DEFS           A
+    WHERE  SCOPE         = :scope  AND
+	   I.TNAME       = T.TNAME AND
+	   A.TABLE_NAME	 = T.TNAME AND
+	   I.TNAME      != 'ACCOUNT_TB_DEFS';
+  
+  /* ------------------------------------------------------ */
+  /* fetch each index name and send it to update-1-index    */
+  /*							    */
+  /* NOTE: initial_extent gets ignored but we need it for   */
+  /*	   the order by.				    */
+  /* ------------------------------------------------------ */
+  
+  if (count > 0)
+    {
+      EXEC SQL WHENEVER SQLERROR GOTO wayout; 
+      EXEC SQL DECLARE INDEX_CURSOR CURSOR FOR
+	SELECT	DISTINCT I.INAME, A.INITIAL_EXTENT
+	FROM	ESI.FINDER_COLUMN_INDEXES   I,
+		ESI.FINDER_TABLES	    T,
+		ACCOUNT_TB_DEFS		    A
+	WHERE	SCOPE         = :scope  AND
+		I.TNAME       = T.TNAME AND
+		A.TABLE_NAME  = T.TNAME AND
+		I.TNAME      != 'ACCOUNT_TB_DEFS'
+	ORDER BY    A.INITIAL_EXTENT DESC;
+
+      EXEC SQL OPEN INDEX_CURSOR;
+      cursor_opened = TRUE;
+      
+      /* prime the pump */
+      EXEC SQL FETCH INDEX_CURSOR INTO :iname, :extent;
+      
+      ii = 0;
+      while (OR_STATUS EQUALS SUCCESS) 	 
+	{
+	  V_SETZERO (iname);
+	  sprintf (msg, create_index_format, iname.arr, ++ii, count);
+
+	  status = dba_update_1_index (db_account, (CHAR *)iname.arr);
+
+	  switch (status) 	 
+	    {
+	    case SUCCESS:
+	      am_message (AM_STATUS, msg);
+	      break;
+	    case -1408:	 /* Index exists		*/
+	    case -1409:	 /* Multi-column warning	*/
+	      break;
+	    default:
+	      am_message (AM_STATUS, msg);
+	      am_message (AM_STATUS, mg_message(status));
+	    }
+	  
+	  /* The following COMMIT added because Oracle seems to have	*/
+	  /* some trouble with locks and/or rollbacks (I can't tell	*/
+	  /* which)    JGG						*/
+	  
+	  EXEC SQL COMMIT WORK;
+	  EXEC SQL FETCH INDEX_CURSOR INTO :iname, :extent;
+	}
+    }
+  
+  EXEC SQL CLOSE INDEX_CURSOR;
+  return SUCCESS;
+  
+wayout:
+  if (OR_STATUS != SUCCESS)   
+    {
+      sprintf (msg, mg_message (DB_ORACLE_ERROR_FMT), OR_MESSAGE);
+      am_message (AM_STATUS, msg);
+    }
+  
+  EXEC SQL WHENEVER SQLERROR CONTINUE;
+  EXEC SQL COMMIT WORK;
+  
+  if (cursor_opened) 
+    {
+      EXEC SQL CLOSE INDEX_CURSOR;
+    }
+  
+  return SUCCESS;
+}
+/* END: */

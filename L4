@@ -1,0 +1,84 @@
+1,$ s/3D_Seismic_Functions/"3D Seismic Functions"/
+1,$ s/Analytic_Geometry/"Analytic Geometry"/
+1,$ s/Application_Manager/"Application Manager"/
+1,$ s/Application_Server/"Application Server"/
+1,$ s/BTree_Functions/"BTree Functions"/
+1,$ s/Cartographic_Transformations/"Cartographic Transformations"/
+1,$ s/Centered_Symbols/"Centered Symbols"/
+1,$ s/Command_Interpreter/"Command Interpreter"/
+1,$ s/Contour_Overlay/"Contour Overlay"/
+1,$ s/Cross_Secion_Application/"Cross Secion Application"/
+1,$ s/Cross_Section_Display/"Cross Section Display"/
+1,$ s/Data_Digitizing/"Data Digitizing"/
+1,$ s/Data_Mover/"Data Mover"/
+1,$ s/Data_Rendering/"Data Rendering"/
+1,$ s/Database/"Database"/
+1,$ s/Dynamic_Graphics/"Dynamic Graphics"/
+1,$ s/Error_Reporting/"Error Reporting"/
+1,$ s/Expression_Evaluation/"Expression Evaluation"/
+1,$ s/File_Manager/"File Manager"/
+1,$ s/Finder_Core/"Finder Core"/
+1,$ s/Fortran_Tools/"Fortran Tools"/
+1,$ s/GKS_tools/"GKS tools"/
+1,$ s/Geoquest_Interface/"Geoquest Interface"/
+1,$ s/Global_Select_Lists/"Global Select Lists"/
+1,$ s/Glue_Functions/"Glue Functions"/
+1,$ s/Graphic_Object/"Graphic Object"/
+1,$ s/Graticule/"Graticule"/
+1,$ s/Grid_Display/"Grid Display"/
+1,$ s/Hash_Table_Functions/"Hash Table Functions"/
+1,$ s/Help_Functions/"Help Functions"/
+1,$ s/Highlighting/"Highlighting"/
+1,$ s/Host_Dependent/"Host Dependent"/
+1,$ s/Jeffersonian_Land_Grid/"Jeffersonian Land Grid"/
+1,$ s/Lease_Management/"Lease Management"/
+1,$ s/Leases/"Leases"/
+1,$ s/Line_Editor/"Line Editor"/
+1,$ s/Linked_Lists/"Linked Lists"/
+1,$ s/List_Head_Functions/"List Head Functions"/
+1,$ s/Loader/"Loader"/
+1,$ s/Log_Trace/"Log Trace"/
+1,$ s/Lookup_Functions/"Lookup Functions"/
+1,$ s/Lynx_Functions/"Lynx Functions"/
+1,$ s/Map_Definition/"Map Definition"/
+1,$ s/Map_Plotting/"Map Plotting"/
+1,$ s/Map_Registration/"Map Registration"/
+1,$ s/Map_Section_Labels/"Map Section Labels"/
+1,$ s/Mapping_Functions/"Mapping Functions"/
+1,$ s/Mapping_Overlay/"Mapping Overlay"/
+1,$ s/Message_Strings/"Message Strings"/
+1,$ s/NLIST_Functions/"NLIST Functions"/
+1,$ s/Neutral_Device_Plotting/"Neutral Device Plotting"/
+1,$ s/Neutral_Interface_Plotting/"Neutral Interface Plotting"/
+1,$ s/Oracle_Tools/"Oracle Tools"/
+1,$ s/Overlay_Functions/"Overlay Functions"/
+1,$ s/Plotting/"Plotting"/
+1,$ s/Plotting_Interface/"Plotting Interface"/
+1,$ s/Plotting_Library/"Plotting Library"/
+1,$ s/Plotting_Tools/"Plotting Tools"/
+1,$ s/Pointer_Stack/"Pointer Stack"/
+1,$ s/Projections/"Projections"/
+1,$ s/Query_and_Set_Functions/"Query and Set Functions"/
+1,$ s/Raster_Tech_Functions/"Raster Tech Functions"/
+1,$ s/Resource_Compiler/"Resource Compiler"/
+1,$ s/Seismic_Display/"Seismic Display"/
+1,$ s/Seismic_Filter_Functions/"Seismic Filter Functions"/
+1,$ s/Seismic_Lines/"Seismic Lines"/
+1,$ s/Seismic_Overlay/"Seismic Overlay"/
+1,$ s/Seismic_Survey/"Seismic Survey"/
+1,$ s/Select_Lists/"Select Lists"/
+1,$ s/Shot_Labels/"Shot Labels"/
+1,$ s/String_Tools/"String Tools"/
+1,$ s/Synthetic_Waveforms/"Synthetic Waveforms"/
+1,$ s/Tablet_Graphic_Transforms/"Tablet Graphic Transforms"/
+1,$ s/Test_tools/"Test tools"/
+1,$ s/Tools_for_Overlays/"Tools for Overlays"/
+1,$ s/Tools_for_Unit_of_Measures/"Tools for Unit of Measures"/
+1,$ s/User_Interface_Toolkit/"User Interface Toolkit"/
+1,$ s/Utility_Toolbox/"Utility Toolbox"/
+1,$ s/Velocity_Interface/"Velocity Interface"/
+1,$ s/Well_Functions/"Well Functions"/
+1,$ s/Wells/"Wells"/
+1,$ s/Window_Manager/"Window Manager"/
+1,$ s/Workstation_Interface/"Workstation Interface"/
+1,$ s/XWindow_Finder_Library/"XWindow Finder Library"/

@@ -1,0 +1,426 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element VI_GET_INT_INFO.PC */
+/* *3    24-JUL-1991 16:04:57 JESSIE "(SPR 0) add Choose Horizon Source selector" */
+/* *2    11-JUN-1991 14:26:25 JESSIE "(SPR 0) get info for Interpolation lines" */
+/* *1    11-JUN-1991 14:24:53 JESSIE "VI user interface" */
+/* DEC/CMS REPLACEMENT HISTORY, Element VI_GET_INT_INFO.PC */
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_am.h"
+#include "esi_tc.h"
+#include "esi_ts.h"
+#include "esi_wi.h"
+#include "esi_oracle.h"
+#include "esi_qs.h"
+#include "esi_sl.h"
+#include "esi_sl_err.h"
+#include "esi_vi.h"
+#include "vi_int_cdlgs.rh"
+#define NullString ""
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+static CHAR VI_RESOURCE_FILE[] = "VI_INT_CDLGS";
+static CHAR grid_name[] = "GRID";
+
+#if USE_PROTOTYPES
+publicdef INT vi_ch_srch(VI_STRUCT *pvi);
+#else
+publicdef INT vi_ch_srch();
+#endif
+
+/* File Description ---------------------------------------------------------
+Overview:
+
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT vi_get_int_info (VI_STRUCT *pvi)
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT vi_get_int_info (VI_STRUCT *pvi);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    pvi		-(VI_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    CANCEL
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+#if USE_PROTOTYPES
+publicdef INT vi_get_int_info (VI_STRUCT *pvi)
+#else
+publicdef INT vi_get_int_info (pvi)
+VI_STRUCT *pvi;
+#endif
+  {
+  BOOL done = FALSE;
+  INT status; 
+  INT i,count;
+  INT id = 0;
+  INT event_id = 0;
+  INT event_class = 0;
+  INT item;
+  INT unused;
+  CHAR sample_value[50];
+  CHAR vtype[10];
+  BOOL res_mode;
+  INT  sample;
+  INT v_item;
+  INT vel_selected[20];
+  TCP  int_grid_source = (TCP) 0;
+  CHAR *grid_src_string = (CHAR *) 0;
+  PROJECT_NAME project;
+    
+  EXEC SQL BEGIN DECLARE SECTION;
+  VARCHAR vel_src_name[80];
+  VARCHAR stmt[1000];
+  EXEC SQL END DECLARE SECTION;
+    
+    
+  status = am_define_resource (AM_DIALOG, VI_RESOURCE_FILE, VI_INT_CDLG,
+                                 NULL_FUNCTION_PTR, &id, NULL);
+
+  if (status != SUCCESS)
+    {
+    wi_beep(1);
+    am_message (AM_STATUS,"Cannot open resource file");
+    return FAIL;
+    }
+
+/********************************************************/
+/*  display compute velocity grid main dialog on screen */
+/********************************************************/
+
+  fi_push();
+  
+/* backup default values */
+
+  strcpy (vtype, pvi->vtype);
+  res_mode = pvi->residual_mode;
+  sample = pvi->sample;
+
+/*******************************************************/
+/* set default value to velocity type, mode and sample */
+/*******************************************************/
+
+  if (strcmp(vtype, "STK") == SUCCESS)
+    wi_set_dialog_value(id, VI_INT_STK, ON);
+  if (strcmp(vtype, "AVG") == SUCCESS)
+    wi_set_dialog_value(id, VI_INT_AVG, ON);
+  if (strcmp(vtype, "INT") == SUCCESS)
+    wi_set_dialog_value(id, VI_INT_INT, ON);
+  if (res_mode ==FALSE)
+    wi_set_dialog_value (id, VI_INT_NOR, ON);
+  else
+    wi_set_dialog_value (id, VI_INT_RES, ON);
+
+  sprintf(sample_value,"%d",sample);
+  wi_set_dialog_text (id, VI_INT_EDITTEXT, sample_value);
+
+/*********************************************/
+/* retreive input grid source from data dase */
+/*********************************************/
+
+  qs_inq_c(QS_PROJECT_NAME, project, (INT *) 0);
+
+  stmt.len = sprintf ((CHAR *) stmt.arr,
+  "SELECT DISTINCT CREATOR_ANALYST FROM %s.FM_HDR WHERE \
+  FILE_TYPE = '%s' ORDER BY CREATOR_ANALYST",
+  project, grid_name);
+
+  EXEC SQL PREPARE S1 FROM :stmt;
+  EXEC SQL DECLARE C1 CURSOR FOR S1;
+  EXEC SQL OPEN C1 ;
+
+  EXEC SQL FETCH C1 INTO :vel_src_name;
+  for (i = 0; OR_STATUS == SUCCESS; i++)
+    {
+    V_SETZERO (vel_src_name);
+    ts_tcp_append (&int_grid_source,(CHAR *) vel_src_name.arr);
+    EXEC SQL FETCH C1 INTO :vel_src_name;
+    }
+  EXEC SQL CLOSE C1;
+  
+  grid_src_string = ts_pack_strings (i,int_grid_source);
+
+  if (i == 0)
+    {
+    wi_beep (1);
+    am_message (AM_STATUS,"No grid source was retrieved.");
+    wi_set_dialog_text (id,VI_INT_SELECTOR,NullString);
+    }
+  else
+    {
+    wi_set_dialog_text (id,VI_INT_SELECTOR,grid_src_string);
+
+    /* set default selector */
+    count = ts_tcp_len (int_grid_source);
+    done = FALSE;
+    for ( i = 0; i < count; i++)
+      {
+      if (strcmp (int_grid_source[i], pvi->grid_source[0]) == SUCCESS)
+	{
+	done = TRUE;
+	break;
+	}
+      }
+    if (done == TRUE)
+      {
+      wi_set_default_sel (id, VI_INT_SELECTOR, i+1);
+      }
+    else
+      {
+      wi_set_default_sel (id, VI_INT_SELECTOR, 1);
+      }
+    }
+
+  wi_open_dialog(id);
+  done = FALSE;
+       
+  while (done EQUALS FALSE)
+    {
+    wi_request_event(0, &event_class, &event_id, &item);
+    switch (item)
+      {
+      case VI_INT_STK:
+			wi_set_dialog_value(id, VI_INT_STK, ON);
+			strcpy (pvi->vtype, "STK");
+			break;
+      case VI_INT_INT:
+			wi_set_dialog_value(id, VI_INT_INT, ON);
+			strcpy (pvi->vtype, "INT");
+			break;
+      case VI_INT_AVG:
+			wi_set_dialog_value(id, VI_INT_AVG, ON);
+			strcpy (pvi->vtype, "AVG");
+			break;
+      case VI_INT_NOR:
+			wi_set_dialog_value(id, VI_INT_NOR, ON);
+			pvi->residual_mode = FALSE;
+			break;
+      case VI_INT_RES:
+			wi_set_dialog_value(id, VI_INT_RES, ON);
+			pvi->residual_mode = TRUE;
+			break;
+      case VI_INT_OK:
+                        wi_query_selections (id,VI_INT_SELECTOR,&v_item, vel_selected );
+        		if (v_item < 1)
+          		  {
+          		  wi_beep (1);
+          		  am_message (AM_ALERT,"Please select Grid Source.");
+          		  }
+			else
+			  {
+			  wi_query_dialog_item (id, VI_INT_EDITTEXT, &unused,
+			  sample_value);
+			  if (strlen (ts_noblanks (sample_value)) == 0)
+			    {
+			    wi_beep(1);
+			    am_message (AM_ALERT,"Please enter N value.");
+			    }
+			  else
+			    {
+			    pvi->sample = atoi(sample_value);
+			    if (pvi->sample < 1 OR pvi->sample > 1000)
+			      {
+			      wi_beep(1);
+			      am_message (AM_ALERT, "The N value should be between 1 to 1000. \
+			      please reenter again!");
+			      }
+			    else
+			      {
+	                      pvi->grid_source = (TCP) 0;
+
+	  		  /* copy whatever on selector box into stucture */
+	    		      for (i=0 ; i < v_item ; i++)
+	      		        ts_tcp_append (&pvi->grid_source,
+					     int_grid_source[vel_selected[i] -1]);
+	  
+			      if (pvi->residual_mode == TRUE)
+			         status = vi_ref_cdlg_init(pvi);
+			      status = vi_ch_srch(pvi);
+			      if (status == SUCCESS)
+			        {
+			        status = vi_get_grid_input(pvi);
+			        }
+			      done = TRUE ;
+			      }
+			    }
+			  }
+			break;
+      case VI_INT_CANCEL:
+			/* set every thing back to default status */
+			strcpy (pvi->vtype, vtype);
+			pvi->residual_mode = res_mode;
+			pvi->sample = sample;
+			done = TRUE ;
+			status = FAIL;
+			break;
+      }
+    }
+  if (grid_src_string != (CHAR *) 0)
+    tc_free (grid_src_string);
+  am_release_resource (id);
+  fi_pop();
+  return status;
+}
+
+#if USE_PROTOTYPES
+publicdef INT vi_ch_srch (VI_STRUCT *pvi)
+#else
+publicdef INT vi_ch_srch (pvi)
+VI_STRUCT *pvi;
+#endif
+  {
+  BOOL done = FALSE;
+  INT status;
+  INT i;
+  INT src_id = 0;
+  INT event_id = 0;
+  INT event_class = 0;
+  INT item, count;
+  INT h_item;
+  INT hor_selected[20];
+  INT selected_items[2];
+  CHAR data_type_name[32];
+  TCP  hor_tcp = (TCP) 0;
+  CHAR *hor_src_string = (CHAR *) 0;
+  PROJECT_NAME project;
+  CHAR temp_str[50];
+
+ EXEC SQL BEGIN DECLARE SECTION;
+  VARCHAR hor_src_name[80];
+  VARCHAR stmt[1000];
+  int num_hor;
+ EXEC SQL END DECLARE SECTION;
+
+
+  /********************************************************/
+  /* display choose sources dialog on screen              */
+  /********************************************************/
+  status = am_define_resource (AM_DIALOG, VI_RESOURCE_FILE, VI_INT_COMP_VEL,
+				NULL_FUNCTION_PTR, &src_id, NULL);
+  fi_push();
+  qs_inq_c (QS_PROJECT_NAME, project, (INT *) 0);
+
+ /*********************************************************/
+ /* retrieve velocity source from data base               */
+ /*********************************************************/
+
+ sprintf ((CHAR *) stmt.arr,
+ "SELECT DISTINCT SOURCE FROM %s.SEIS_SURFACE WHERE ", project);
+
+ count = ts_tcp_len(pvi->hor_tcp);
+ for (i = 0; i < count; i++)
+   {
+   sprintf(temp_str, " SURFACE_CODE = '%s' OR", pvi->hor_tcp[i]);
+   strcat ((CHAR *) stmt.arr, temp_str);
+   }
+ sprintf (temp_str, "DER BY SOURCE");
+ strcat ((CHAR *) stmt.arr, temp_str);
+ stmt.len = strlen(stmt.arr);
+
+ EXEC SQL PREPARE S2 FROM :stmt;
+ EXEC SQL DECLARE C2 CURSOR FOR S2;
+ EXEC SQL OPEN C2;
+
+ EXEC SQL FETCH C2 INTO :hor_src_name;
+ for (i = 0; OR_STATUS == SUCCESS; i++)
+   {
+   V_SETZERO (hor_src_name);
+   ts_tcp_append (&hor_tcp, (CHAR *)hor_src_name.arr);
+   EXEC SQL FETCH C2 INTO :hor_src_name;
+   }
+ EXEC SQL CLOSE C2;
+
+ hor_src_string = ts_pack_strings ( i, hor_tcp);
+
+ if (i == 0)
+   {
+   wi_beep(1);
+   am_message (AM_STATUS, "No horizon source was retrieved");
+   wi_set_dialog_text (src_id, VI_INT_H_SELECTOR, NullString);
+   }
+ else
+   {
+   wi_set_dialog_text (src_id, VI_INT_H_SELECTOR, hor_src_string);
+   }
+
+ /* display list on select box */
+ wiopcd (src_id);
+
+ done = FALSE;
+ while (done == FALSE)
+   {
+   wi_request_event (0, &event_class, &event_id, &item);
+   switch (item)
+     {
+     case VI_INT_COM_CANCEL:
+	done = TRUE;
+	status = FAIL;
+	break;
+
+     case VI_INT_COM_OK:
+	wi_query_selections (src_id, VI_INT_H_SELECTOR, &h_item,
+	hor_selected);
+	if (h_item < 1)
+	  {
+	  wi_beep(1);
+	  am_message (AM_ALERT, "Please select horizon source.");
+	  }
+	else
+	  {
+	  done = TRUE;
+
+	  pvi->hor_source = (TCP) 0;
+
+	  /* copy data on selector box into structure */
+	  for ( i = 0; i < h_item; i++)
+	    ts_tcp_append (&pvi->hor_source, hor_tcp[hor_selected[i] - 1]);
+
+	  break;
+	  }
+       }
+    }
+
+   if (hor_src_string != (CHAR *) 0)
+     tc_free (hor_src_string);
+   if (hor_tcp != (TCP) 0)
+     ts_tcp_free (hor_tcp);
+
+   am_release_resource (src_id);
+   fi_pop();
+   return status;
+   }

@@ -1,0 +1,522 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_SEIS_HORIZONS.PC */
+/* *2    12-JUL-1991 15:28:02 JESSIE "(SPR 0) seismic horizons loader" */
+/* *1    12-JUL-1991 15:27:39 JESSIE "seismic horizons loader" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_SEIS_HORIZONS.PC */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_SEIS_HORIZONS.PC */
+/* *1    13-NOV-1990 11:27:43 VINCE "initial release" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_SEIS_HORIZONS.PC */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_SEIS_HORIZONS.PC */
+/* *2    11-JUN-1990 11:21:21 GILLESPIE "(SPR 1) Change se_put call" */
+/* *1     6-MAR-1990 08:37:40 GILLESPIE "initial release" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_SEIS_HORIZONS.PC */
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+           Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+            Exploration Systems, Inc.
+            579 Market Street
+            San Francisco, CA  USA 94105
+            (415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+/*
+    MODULE: LD_BHP_HORIZONS.C
+
+    DESCRIPTION: to load a BHP benchmark dataset to demonstrate
+        seismic horizons may be loaded by Finder
+
+    PROGRAMMER: Charles E. Pumroy
+                John G Gillespie
+
+    SOURCE HISTORY: written in Vax C for VMS                            
+
+    MODIFICATION HISTORY:
+    06/07/89 (CEP)  Began coding  
+    06/09/89 (CEP)  Discovered seismic overlay uses Interpret
+            not Finder format for Nlist. Trashed 2 dimensional
+            nlist stuff.
+
+*/
+
+/* FUNCTION: initialize program, open data_file (argument), begin processing
+   each record and build the nlist. For each change in horizon or line_name,
+   a new nlist created, and then se_put is called to write the data and 
+   update the database. (maybe)
+
+    A discard file contains any horizon which did not load for any reason.
+    This file can be reprocesed later when the condifions which caused failure
+    are fixed.  Reasons for discarding include 1) Line was not found in
+    SEIS_LINE_HDR; 2) Line could not be written to SEIS_SURFACE table;
+    3) Any exceptional condition detected by the code.
+
+*/
+
+#include "esi_c_lib.h"            /* for strings */
+#include "esi_se.h"            /* for se typedefs and prototypes */
+
+#ifndef ESI_HO_FILES_H
+
+#include "esi_ho_files.h"
+
+#endif
+
+#ifndef ESI_NL_H
+
+#include "esi_nl.h"            /* for shot nlist */
+
+#endif
+
+#ifndef ESI_NL_ERR_H
+
+#include "esi_nl_err.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"            /* for project projection */
+
+#endif
+
+#ifndef ESI_FI_H
+
+#include "esi_fi.h"
+
+#endif
+
+#ifndef ESI_MG_H
+
+#include "esi_mg.h"
+
+#endif
+
+#ifndef ESI_OR_H
+
+#include "esi_or.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+
+#ifndef ESI_SE_H
+
+#include "esi_se.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#define NULL_VALUE -32767.0
+privatedef CHAR bad_file_name[] = 
+    {
+    "seis_loader.bad"
+    };
+
+
+
+privatedef PROJECT_NAME project;
+
+#if USE_PROTOTYPES
+privatedef INT ldz_seis_read(FILE *infile, FILE *badfile, SEIS_SURV survey);
+privatedef INT ldz_put_horizon(FULL_LINE_NAME *line, CHAR *horizon, CHAR *source,
+                               NLIST_HEADER nlist);
+#else
+privatedef INT ldz_seis_read();
+privatedef INT ldz_put_horizon();
+#endif
+publicdef INT main(argc, argv)
+INT argc;
+CHAR *argv[];
+    {
+    
+    FILENAME local_file_name;
+    FILE *fp;
+    FILE *bad_fp;
+    SEIS_SURV survey;
+    INT status;
+    
+    /* process command line arguments                                               */
+    
+    if (argc < 4)
+        {
+        printf("Usage: ld_seis_horizons <oracle_login> <survey> <project> <file_name>\n")
+        ;
+        exit(EXIT_FAILURE);
+        }
+    /* get filename to open (data file)                                             */
+    
+    strcpy(local_file_name, argv[4]);
+    fp = ho_open(local_file_name, "r", NULL);
+    if (fp == NULL_FILE_PTR)
+        {
+        printf("Unable to open file: %s. Terminating.\n", local_file_name);
+        exit(EXIT_FAILURE);
+        }
+    bad_fp = ho_open(bad_file_name, "w+", NULL);
+    if (fp == NULL_FILE_PTR)
+        {
+        printf("Unable to open file: %s. Terminating.\n", local_file_name);
+        exit(EXIT_FAILURE);
+        }
+    if ((status = or_login(argc, argv))IS_NOT_EQUAL_TO SUCCESS)
+        {
+        printf("Unable to connect to Oracle using %s: Terminating.\n", argv[1]);
+        exit(EXIT_FAILURE);
+        }
+    strcpy((char *)survey, ts_sto_upper(argv[2]));
+    
+    qs_set_c(QS_PROJECT_NAME, ts_sto_upper(argv[3]), 0);
+    strcpy(project, argv[3]);
+    if ((status = finder_config_project(TRUE)) IS_NOT_EQUAL_TO SUCCESS)
+        {
+        printf("Unable to connect to project %s: Terminating.\n", argv[3]);
+        or_logout(FALSE);
+        exit(EXIT_FAILURE);
+        }
+    /* we're ready to process                                                       */
+    
+    status = ldz_seis_read(fp, bad_fp, survey);
+    
+    fclose(fp);
+    fclose(bad_fp);
+    
+    or_logout(TRUE);
+    
+    exit(EXIT_SUCCESS);
+    }
+
+/************************************************************************************/
+#if USE_PROTOTYPES
+privatedef INT ldz_seis_read(FILE *fp, FILE *bad_fp, SEIS_SURV survey)
+#else
+privatedef INT ldz_seis_read(fp, bad_fp, survey)
+FILE *fp;
+FILE *bad_fp;
+SEIS_SURV survey;
+#endif
+    {
+    NLIST_HEADER hor_nlist;             /* FOR OUR OUTPUT FILE                      */
+    INT data_type[3], units[3], value_inc[3];
+    UINT dim_list[3];
+    size_t data_width[3];
+    UINT block_size, ndim;
+    UINT table_num;
+    VOIDPTR Value_List[3];
+    CHAR source[21];
+    INT seek_point;
+    
+    INT nrows;
+    CHAR buffer[84];                    /* FROM OUR INPUT FILE                      */
+    FULL_LINE_NAME this_line;
+    FULL_LINE_NAME previous;
+    CHAR shot_point[11];
+    CHAR horizon[31];
+    SP f_shot_point;
+    CDP cdp;
+    TINY flag;
+    FLOAT f_two_way_time;               /* 4 byte float                             */
+    CHAR prev_horizon[31];
+    INT status;
+    INT total_lines_loaded = 0;
+    INT n_bad_lines = 0;
+    BOOL first = TRUE;                  /* NOTHING TO WRITE FIRST TIME THROUGH      */
+    BOOL line_found = TRUE;
+    
+    data_type[0] = INT_TYPE;
+    data_type[1] = FLOAT_TYPE;
+    data_type[2] = INT_TYPE;
+    data_width[0] = sizeof(INT);
+    data_width[1] = sizeof(FLOAT);
+    data_width[2] = sizeof(TINY);
+    units[0] = units[1] = 0;
+    dim_list[0] = 1;
+    dim_list[1] = 2;
+    dim_list[2] = 3;
+    value_inc[0] = value_inc[1] = value_inc[2] = VALUE_LIST;
+    ndim = 3;
+    block_size = 500;
+    Value_List[0] = (VOIDPTR) & cdp;
+    Value_List[1] = (VOIDPTR) & f_two_way_time;
+    Value_List[2] = (VOIDPTR) & flag;
+    
+    strcpy(previous.line_name, "");     /* A CLEAN SLATE                            */
+    strcpy(previous.survey, "");
+    strcpy(prev_horizon, "");
+    
+    strcpy(this_line.survey, survey);
+    strcpy(source, "LOADER");
+    
+    seek_point = ftell(bad_fp);
+    
+    /* PRIME THE PUMP. PARDON MY USE OF THE 
+       'P' WORD */
+    
+    /*  this nlist will hold the cdp value (int)                                    */
+    /*  and the time value(float)                                                   */
+    
+    status = nl_init_nlist(&hor_nlist, ndim, units, data_width, data_type, value_inc,
+                           block_size);
+    
+    while (fgets(buffer, 82, fp) != NULL AND buffer[0] != 0)        /* NOT EOF      */
+        {
+        /*     extract line_name from buffer                                        */
+        
+        strncpy(this_line.line_name, &(buffer[0]), 20);
+        this_line.line_name[20] = 0;
+        ts_sto_upper(ts_snowhite(this_line.line_name));
+        
+        strncpy(horizon, &(buffer[32]), 10);
+        horizon[10] = 0;
+        ts_sto_upper(ts_snowhite(horizon));
+        
+        /*  determine if this is the same line and                                  */
+        /*  surface                                                                 */
+        
+        if (strcmp(this_line.line_name, previous.line_name)OR strcmp(horizon,
+                                                                     prev_horizon))
+            
+            /*  make sure this isn't the first time                                 */
+            /*  (nothing to do)                                                     */
+            {
+            if (!first)
+                {
+                if (NOT line_found)
+                    {
+                    /*  gets here if previous line was not found in                 */
+                    /*  line header                                                 */
+                    status = FAIL;
+                    printf(" Continuing...\n");
+                    }
+                else
+                    {
+                    previous.id = this_line.id;
+                    status = ldz_put_horizon(&previous, prev_horizon, source, hor_nlist);
+                    }
+                if (status IS_NOT_EQUAL_TO SUCCESS)
+                    {
+                    /*  keeps bad lines if 1) line was not found in
+                        SEIS_LINE_HDR, or 2) horizon failed to be
+                        loaded in SEIS_SURFACE              */
+                    
+                    seek_point = ftell(bad_fp);
+                    n_bad_lines++;
+                    }
+                else
+                    {
+                    fseek(bad_fp, seek_point, SEEK_SET);
+                    total_lines_loaded++;
+                    }
+                }
+            /*     reset some things for the next surface                           */
+            previous = this_line;
+            /*  trigger SE routines that new line has been                          */
+            /*  requested                                                           */
+            this_line.id = 0;
+            strcpy(prev_horizon, horizon);
+            status = nl_clear_nlist(hor_nlist);
+            status = nl_start_table(hor_nlist, &table_num);
+            nrows = 0;
+            first = FALSE;
+            line_found = TRUE;
+            }
+        /*  put this record in discard (bad) file                                   */
+        
+        fputs(buffer, bad_fp);
+        
+        /*  this is just another shot_point in the                                  */
+        /*  seismic of life                                                         */
+        /*  line_found is FALSE if this line not found                              */
+        /*  in SEIS_LINE_HDR table                                                  */
+        if (line_found)
+            {
+            /*     extract shot_point, horizon, point_code
+                   and two_way_time from buffer         */
+            strncpy(shot_point, &(buffer[20]), 10);
+            shot_point[10] = 0;
+            f_shot_point = atof(shot_point);
+            
+            /*  convert the shot point to CDP                                       */
+            
+            if ((status = se_cdp_from_sp(&this_line, f_shot_point,
+                                         &cdp))IS_NOT_EQUAL_TO SUCCESS)
+                {
+                /*  This means that this line has not been seen
+                    before, or other weird things are
+                    happening.                  */
+                
+                printf("ERROR while looking for Line %-20s :", this_line.line_name);
+                line_found = FALSE;
+                }
+            else
+                {
+                flag = atoi(&(buffer[43]));
+                
+                f_two_way_time = atof(&(buffer[45]));       /* -32767 == NULL       */
+                
+                /*  severe restriction (1). we are ignoring the
+                    quality code flag which identifies if it is
+                    a fault, pinchout, etc.  The Interpret
+                    system has a goofy way of dealing with this
+                    by adding some offset to the time pick
+                    which can be dealt with by the routine
+                    SO_ZVALUE and SE_ANALYZE_PICK.  I would not
+                    suggest trying this unless you are also
+                    willing to update the SEIS_FAULT_POSTS
+                    table (see SO_DISP_FAULT_POSTS.PC).
+                    cp                      */
+                
+                if (f_two_way_time != NULL_VALUE)       /* (NOT NULL)               */
+                    {
+                    status = nl_add_rows(hor_nlist, 1, ndim, dim_list, Value_List);
+                    nrows++;
+                    }
+                else
+                    {
+                    /*  This test eliminates empty tables caused                    */
+                    /*  by multiple null values                                     */
+                    if (nrows > 0)
+                        {
+                        status = nl_start_table(hor_nlist, &table_num);
+                        nrows = 0;
+                        }
+                    }
+                }
+            }
+        }
+    /* we're through (EOF), so cleanup                                              */
+    /* we call se_put one last time to write the previous line and write 
+the nlist. We free the nlist in memory and close the data file
+or just let the system do it.                                                       */
+    
+    previous.id = this_line.id;
+    status = ldz_put_horizon(&previous, prev_horizon, source, hor_nlist);
+    
+    if (status EQUALS SUCCESS)
+        {
+        fseek(bad_fp, seek_point, SEEK_SET);
+        total_lines_loaded++;
+        }
+    else
+        {
+        n_bad_lines++;
+        }
+    printf(
+"\n\n\
+LOADER COMPLETED: %d Lines successfully loaded\n\
+                  %d Line%s rejected\n\n"
+            , total_lines_loaded, n_bad_lines, n_bad_lines EQUALS 1 ? "" : "s");
+    if (n_bad_lines > 1)
+        {
+        printf("All rejected horizons have been written to '%s'\n", bad_file_name);
+        }
+    /*    reset some things for the next surface                                    */
+    status = nl_free_nlist(hor_nlist);
+    
+    return SUCCESS;
+    }
+
+/************************************************************************************/
+#if USE_PROTOTYPES
+privatedef INT ldz_put_horizon(FULL_LINE_NAME *line, CHAR *horizon,
+		CHAR *source, NLIST_HEADER nlist)
+#else
+privatedef INT ldz_put_horizon(line, horizon, source, nlist)
+FULL_LINE_NAME *line;
+CHAR *horizon;
+CHAR *source;
+NLIST_HEADER nlist;
+#endif
+    {
+    UINT ndim;
+    INT ntables;
+    UINT Dim_List[2];
+    INT Sort_Flags[2];
+    VOIDPTR Value_List[2];
+    NLIST_HEADER sorted_list;
+    CDP min_cdp, max_cdp;
+    FLOAT min_time, max_time;           /* 4 byte floats                            */
+    CDP_FLOAT min_cdp_f, max_cdp_f;
+    INT version = 0;
+    INT nrows;
+    INT status;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[256];
+    EXEC SQL END DECLARE SECTION;
+    
+    nl_inq_nlist_int(nlist, NL_NLIST_NROWS, &nrows);
+    
+    if (nrows EQUALS 0)
+        {
+        status = NL_EMPTY_NLIST;
+        }
+    else
+        {
+        ndim = 1;
+        Dim_List[0] = 1;
+        Sort_Flags[0] = NL_ASCENDING;
+        sorted_list = (NLIST_HEADER)0;
+        status = nl_sort_nlist(nlist, ndim, Dim_List, Sort_Flags, &sorted_list);
+        
+        if (status EQUALS SUCCESS)
+            {
+            ndim = 2;
+            Dim_List[0] = 1, Dim_List[1] = 2;
+            Value_List[0] = (VOIDPTR) & min_cdp;
+            Value_List[1] = (VOIDPTR) & min_time;
+            nl_inq_nlist_info(sorted_list, NL_NLIST_MIN, ndim, Dim_List, Value_List);
+            Value_List[0] = (VOIDPTR) & max_cdp;
+            Value_List[1] = (VOIDPTR) & max_time;
+            nl_inq_nlist_info(sorted_list, NL_NLIST_MAX, ndim, Dim_List, Value_List);
+            min_cdp_f = min_cdp;
+            max_cdp_f = max_cdp;
+            status = se_put(sorted_list, horizon, SE_HORIZ, SE_TIME, line, source,
+                            SE_AT_NM, SE_FINDER, version);
+            
+            if (status EQUALS SUCCESS)
+                {
+                nl_inq_nlist_int(sorted_list, NL_NLIST_NTABLES, &ntables);
+                printf(
+                "Loaded horizon %-10s for line %-10s: %4d data points in %2d table%s.\n",
+                       horizon, line->line_name, nrows, ntables,
+                       ntables EQUALS 1 ? "" : "s");
+                
+                /* Make sure this horizon is entered into the SEIS_HOR_CODES table.
+                If the current account has insert access to the table, and the horizon
+                does not exist, then the statement will succeed.  Otherwise, it will
+                bite the big one, but who cares...
+                */
+                stmt.len = sprintf((char *)stmt.arr,
+                           "INSERT INTO %s.SEIS_HOR_CODES(HOR_CODE, DISPLAY_NAME) VALUES ('%s','%s')"
+                                   , project, horizon, horizon);
+                EXEC SQL EXECUTE IMMEDIATE : stmt;
+                EXEC SQL COMMIT WORK;
+                }
+            nl_free_nlist(sorted_list);
+            }
+        }
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+        printf("Problem loading Line %-10s Horizon %-10s:\n%s\n", line->line_name,
+               horizon, mg_message(status));
+        }
+    return status;
+    }

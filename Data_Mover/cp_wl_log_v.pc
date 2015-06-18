@@ -1,0 +1,100 @@
+#ifndef ESI_GL_DEFS_H
+
+#include "esi_gl_defs.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_CP_H
+
+#include "esi_cp.h"
+
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#include "esi_ho.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+      update version number in the nlist_id
+
+Prototype:
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    OR_STATUS
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT cp_update_version_number(CHAR *rowid,CHAR *digital_ref)
+#else
+publicdef INT cp_update_version_number(rowid,digital_ref)
+CHAR *rowid;
+CHAR *digital_ref;
+#endif
+    {
+PROJECT_NAME project_name;
+CHAR *p;
+INT status;
+INT version_nl;
+CHAR temp[64];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[500];
+    static int version_db;
+    EXEC SQL END DECLARE SECTION;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO orerror;
+    
+    qs_inq_c(QS_PROJECT_NAME,project_name,(INT *)0);
+    sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+    "SELECT VERSION FROM %s.WELL_LOG_CURVE_HDR \
+WHERE ROWID = '%s'",
+    project_name,rowid);
+    EXEC SQL PREPARE VER_S FROM :sqlstmt;
+    EXEC SQL DECLARE VER_C CURSOR FOR VER_S;
+    EXEC SQL OPEN VER_C;
+    EXEC SQL FETCH VER_C INTO :version_db;
+    EXEC SQL CLOSE VER_C;
+
+    strcpy(temp,digital_ref);
+    p = strchr(temp,';');
+    p++;
+    version_nl=atoi(p);
+
+    if(version_nl EQUALS version_db)
+	return SUCCESS;
+
+    *p = 0;
+    sprintf(digital_ref,"%s%d",temp,version_db);
+
+    sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+    "UPDATE %s.WELL_LOG_CURVE_HDR SET DIGITAL_REF = '%s' \
+WHERE ROWID = '%s'",
+    project_name,digital_ref,rowid);
+    EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+    EXEC SQL COMMIT WORK;
+    
+    
+    return SUCCESS;
+orerror:
+    return OR_STATUS;
+    }
+/* END:     */

@@ -1,0 +1,109 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element CP_U_NL_PATH.PC */
+/* *3     2-AUG-1991 17:30:38 PURNA "(SPR 0) culture data update" */
+/* *2     6-MAY-1991 16:41:40 PURNA "(SPR 0) init change" */
+/* *1     6-MAY-1991 16:37:36 PURNA " data mover function" */
+/* DEC/CMS REPLACEMENT HISTORY, Element CP_U_NL_PATH.PC */
+#ifndef ESI_GL_DEFS_H
+
+#include "esi_gl_defs.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_CP_H
+
+#include "esi_cp.h"
+
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_HO_H
+#include "esi_ho.h"
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+    update seismic line extends value in seis_line_hdr table
+
+Prototype:
+publicdef INT cp_upd_graphic_object(CHAR *nlist_file,CHAR *nlist_id,
+                               DOUBLE ll_x, DOUBLE ll_y,
+                               DOUBLE ur_x, DOUBLE ur_y);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+	CHAR *nlist_file (I) - nlist_file column in seis_line_hdr table
+	CHAR *nlist_id 	 (I) - SHOT_XY_ID column in SEIS_LINE_HDR table
+        DOUBLE ll_x      (I) - LOWER_LEFT_X
+	DOUBLE ll_y      (I) - LOWER_LEFT_Y
+        DOUBLE ur_x      (I) - UPPER_RIGHT_X
+	DOUBLE ur_y 	 (I) - UPPER_RIGHT_Y
+
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    OR_STATUS
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+publicdef INT cp_update_nlist_pathname(key_column,table_flag,value)
+CHAR *key_column;
+INT table_flag;
+CHAR *value;
+    {
+PROJECT_NAME project_name;
+PATHNAME full_filename;
+INT status;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[500];
+    EXEC SQL END DECLARE SECTION;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO orerror;
+    
+    qs_inq_c(QS_PROJECT_NAME,project_name,(INT *)0);
+
+    if(table_flag EQUALS CP_GRAPHIC_OBJECT_EXTENDS)
+	{
+	status = ho_add_path("ESI$CULTURE",value,MAXPATHLENGTH,
+			     full_filename);
+	if(status != SUCCESS) return status;
+    	sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+	"UPDATE %s.LINES \
+SET NLIST_FILE = '%s' WHERE LINE_ID = %s",
+	project_name,full_filename,key_column);
+	}
+    else if(table_flag EQUALS CP_LYNX_OBJECTS_EXTENDS)
+	{
+	status = ho_add_path("ESI$CULTURE",value,MAXPATHLENGTH,
+			     full_filename);
+	if(status != SUCCESS) return status;
+    	sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+	"UPDATE %s.LYNX_OBJECTS \
+SET DIGITAL_REF_VOLUME = '%s' WHERE LYNX_ID = %s",
+	project_name,full_filename,key_column);
+	}
+
+    else
+	return SUCCESS;
+    EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+    
+    EXEC SQL COMMIT WORK;
+
+    return SUCCESS;
+orerror:
+    return OR_STATUS;
+    }
+/* END:     */

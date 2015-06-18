@@ -1,0 +1,214 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_GET_NL.PC */
+/* *7    26-OCT-1990 13:49:13 GILLESPIE "(SPR 33)  New Lynx 3d changes" */
+/* *6    14-AUG-1990 17:25:15 GILLESPIE "(SPR 2001) Use LINE_GC" */
+/* *5     1-AUG-1990 16:48:01 PURNA "(SPR 0) move init nlist" */
+/* *4    19-JUL-1990 11:22:55 JESSIE "(SPR 5628) Make LYNX functions internally consistant" */
+/* *3    19-JUL-1990 10:18:59 VINCE "(SPR 5628) Make LYNX functions internally consistant" */
+/* *2    31-MAY-1990 15:58:56 PURNA "(SPR 0) new element" */
+/* *1    31-MAY-1990 15:57:28 PURNA "get nlist of nodes of region id" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_GET_NL.PC */
+/************************************************************************************/
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1990                      */
+/*                    Unpublished -- All rights reserved                            */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY   */
+/*CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE      */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*                            Finder Graphics Systems                               */
+/*                            201 Tamal Vista Blvd.                                 */
+/*                            Corte Madera, CA  94925                               */
+/*                            (415) 927-0100                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+#include "esi_ly.h"
+
+#ifndef ESI_NL_H
+
+#include "esi_nl.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_TO_H
+
+#include "esi_to.h"
+
+#endif
+
+#ifndef ESI_TC_H
+
+#include "esi_tc.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_C_LIB_H
+
+#include "esi_c_lib.h"
+
+#endif
+
+#define MAXARRAYFETCH 500
+
+/* Function Description -----------------------------------------------------       */
+/*Description:                                                                      */
+/*                                                                                  */
+/*Prototype:                                                                        */
+/*    publicdef INT ly_get_nlist (INT region_id,NLIST_HEADER *nlist);               */
+/*                                                                                  */
+/*Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)        */
+/*    region_id       -(INT)                                                        */
+/*    nlist           -(NLIST_HEADER *)                                             */
+/*                                                                                  */
+/*Return Value/Status:                                                              */
+/*    SUCCESS - Successful completion.                                              */
+/*    OR_STATUS - Status returned by Oracle.                                        */
+/*                                                                                  */
+/*Scope:                                                                            */
+/*    PUBLIC                                                                        */
+/*                                                                                  */
+/*Limitations/Assumptions:                                                          */
+/*                                                                                  */
+/*-----------------------------------------------------------------------------     */
+
+/* BEGIN:                                                                           */
+#if USE_PROTOTYPES
+publicdef INT ly_get_nlist (INT region_id, NLIST_HEADER *nlist)
+#else
+publicdef INT ly_get_nlist (region_id, nlist)
+INT region_id;
+NLIST_HEADER *nlist;
+#endif
+    {
+    INT status;
+    INT total_count, n_visited, n_addr, this_fetch;
+    INT n_rows, n_tables;
+    INT *temp_array;
+    INT bundle_id;
+    LINE_GC line;
+    INT n_arcs;
+    INT *final_node_array = (INT *)0;
+    INT *init_node_array = (INT *)0;
+    INT *visited = (INT *)0;
+    PROJECT_NAME project;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    static  int n_fetch;
+    static  int arc_id_ptr[500];
+    static  int init_node_ptr[500];
+    static  int final_node_ptr[500];
+    VARCHAR sqlstmt[1000];
+    EXEC SQL END DECLARE SECTION;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO :sqlerr;
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+
+#ifdef DEBUG
+    lib$show_timer ();
+    printf ("in OPEN GET_ARCS\n");
+#endif
+    sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+"SELECT DISTINCT L.ARC_ID, I.INIT_NODE, I.FINAL_NODE \
+FROM     %s.LYNX_IFV I,%s.LYNX_LRFR L \
+WHERE   L.LYNX_ID=%d AND I.ARC_ID=L.LYNX_PART"
+            , project, project, region_id);
+    EXEC SQL PREPARE S12 FROM : sqlstmt;
+    EXEC SQL DECLARE C12 CURSOR FOR S12;
+    EXEC SQL OPEN C12;
+
+#ifdef DEBUG
+    lib$show_timer ();
+    printf ("in FETCH, no of arcs:%d\n", n_arcs);
+#endif
+    total_count = 0;
+    n_fetch = MAXARRAYFETCH;
+    n_visited = 2 * n_fetch;
+    visited = (INT *) tc_alloc (n_visited * sizeof(INT));
+    init_node_array = (INT *) tc_alloc (n_visited * sizeof(INT));
+    final_node_array = (INT *) tc_alloc (n_visited * sizeof(INT));
+    FOREVER
+        {
+        EXEC SQL FETCH C12 INTO : arc_id_ptr,  : init_node_ptr,  : final_node_ptr;
+        n_rows = OR_ROWCOUNT - total_count;
+        if (n_rows > 0)
+            {
+            temp_array = visited + total_count;
+            hoblockmove (arc_id_ptr, temp_array, n_rows * sizeof(INT));
+            temp_array = init_node_array + total_count;
+            hoblockmove (init_node_ptr, temp_array, n_rows * sizeof(INT));
+            temp_array = final_node_array + total_count;
+            hoblockmove (final_node_ptr, temp_array, n_rows * sizeof(INT));
+            }
+        total_count = OR_ROWCOUNT;
+        if (n_rows < MAXARRAYFETCH)
+            break;
+        else if (OR_ROWCOUNT + MAXARRAYFETCH > n_visited)
+            {
+            n_visited *= 2;
+            visited = (INT *) tc_realloc (visited, n_visited * sizeof(INT));
+            init_node_array = (INT *) tc_realloc (init_node_array,
+                                                  n_visited * sizeof(INT));
+            final_node_array = (INT *) tc_realloc (final_node_array,
+                                                   n_visited * sizeof(INT));
+            }
+        }
+    n_arcs = total_count;
+    if (n_arcs <= 0)
+        return SUCCESS;
+
+#ifdef DEBUG
+    lib$show_timer ();
+    printf ("in threading logic.\n");
+#endif
+    EXEC SQL CLOSE C12;
+    
+    status = to_assemble_nlist (nlist, n_arcs, final_node_array, init_node_array,
+                                visited);
+    
+    status = ly_get_arc_bundle (NULL, 0, 0, &line);
+    status = nl_set_nlist_method (*nlist, NL_DRAW_METHOD, "TO_DRAW_LINE_METHOD",
+                                  to_draw_line_method);
+    status = nl_set_nlist_user_struct (*nlist, (VOIDPTR)&line.line_bundle_id,
+                                       sizeof(INT));
+    
+
+#ifdef DEBUG
+    status = nl_inq_nlist_int (*nlist, NL_NLIST_NROWS, &n_rows);
+    status = nl_inq_nlist_int (*nlist, NL_NLIST_NTABLES, &n_tables);
+    printf ("\nnList consists of %d rows in %d tables.\n", n_rows, n_tables);
+#endif
+    /* FREE THE SEARCH ARRAYS                                                       */
+    tc_free (init_node_array);
+    tc_free (final_node_array);
+    tc_free (visited);
+    
+    return status;
+sqlerr:
+    if (init_node_array != (INT *)0)
+        tc_free (init_node_array);
+    if (final_node_array != (INT *)0)
+        tc_free (final_node_array);
+    if (visited != (INT *)0)
+        tc_free (visited);
+    
+    return OR_STATUS;
+    }
+/* END:                                                                             */

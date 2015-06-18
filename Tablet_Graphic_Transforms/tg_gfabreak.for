@@ -1,0 +1,84 @@
+C  DEC/CMS REPLACEMENT HISTORY, Element TG_GFABREAK.FOR
+C  *2    19-SEP-1989 10:20:03 GORDON "(PURNA) GULF MODS UNDER SPR 100"
+C  *1    10-AUG-1989 18:54:23 VINCE "Fortran code after UNIX mods"
+C  DEC/CMS REPLACEMENT HISTORY, Element TG_GFABREAK.FOR
+C
+C ****************************************************************************
+C
+      SUBROUTINE GFABREAK(N,X,Y)
+C
+C THIS SUBROUTINE FILLS A POLYGON WITH A STRAIGHT LINE EDGE
+C
+C N = NUMBER OF POINTS
+C X = X ARRAY
+C Y = Y ARRAY
+C
+      PARAMETER ( LIMIT = 100 )
+      DIMENSION X(1),Y(1),XBUF(LIMIT+3),YBUF(LIMIT+3)
+      IF(N.EQ.0)RETURN
+C
+C
+C HORIZONTAL OR VERTICAL
+C
+      IF(X(N).EQ.X(1))THEN
+C VERTICAL
+            IHORI=0
+      ELSE
+C HORIZONTAL
+            IHORI=1
+      ENDIF
+C
+C COUNT LOOPS
+C
+      NLOOP=N/LIMIT
+      IREM = MOD(N,LIMIT)
+      IF(IREM.NE.0)NLOOP=NLOOP+1
+      IF(IREM.EQ.0)IREM=LIMIT
+      XLAST=X(1)
+      YLAST=Y(1)
+      XFIRST=X(1)
+      YFIRST=Y(1)
+      DO 2 I=1,NLOOP
+C
+C FOR EACH SEGMENT
+C MAKE SURE WE DO NOT GO PAST N POINTS
+C
+         IF(I.LT.NLOOP)THEN
+            IEND=LIMIT
+         ELSE
+            IEND=IREM
+         ENDIF
+         XBUF(1)=XFIRST
+         YBUF(1)=YFIRST
+         DO 3 J =2,IEND+1
+         XBUF(J)=X( (I-1)*LIMIT + J - 1 )
+3        YBUF(J)=Y( (I-1)*LIMIT + J - 1 )
+C
+C SET LAST POINT
+C
+         IF(IHORI.EQ.0)THEN
+           XLAST=X(1)
+           YLAST=YBUF(IEND+1)
+           XLAST2=X(1)
+           YLAST2=Y(1)
+         ELSE
+           XLAST=XBUF(IEND+1)
+           YLAST=Y(1)
+           XLAST2=XBUF(1)
+           YLAST2=Y(1)
+         ENDIF
+         XBUF(IEND+2)=XLAST
+         YBUF(IEND+2)=YLAST
+         XBUF(IEND+3)=XLAST2
+         YBUF(IEND+3)=YLAST2
+C
+C PLOT IT
+C
+      XFIRST=XBUF(IEND+1)
+      YFIRST=YBUF(IEND+1)
+2     CALL GFA(IEND+3,XBUF,YBUF)
+C
+C ALL DONE
+C
+      RETURN
+      END

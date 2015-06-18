@@ -1,0 +1,3993 @@
+*UX
+*T CDLG
+,10
+*N XS_HDR
+*S PR 0 PU 1
+47 25 319 481
+Log Header Items
+5
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/LOG_HEADR_ITEM
+
+*I XS_HDR_ACCEPT
+BtnItem Enabled
+DefaultButton
+225 315 250 425
+Accept Changes
+
+*I XS_HDR_IGNORE
+BtnItem Enabled
+225 20 250 130
+Ignore Changes
+
+*I XS_HDR_CHOOSE
+StatText Enabled
+70 250 137 445
+Header items are displayed in the order they are chosen.
+
+SETGROUP 1
+*I XS_HDR_SELECT_LIST
+Selector Enabled
+10 23 207 204
+OPERATOR
+LEASE NAME
+WELL NUMBER
+<Item_4>
+<Item_5>
+<Item_6>
+<Item_7>
+<Item_8>
+<Item_9>
+<Item_10>
+
+*I XS_HDR_VSCROLL 
+VScroll Enabled
+10 210 207 227 
+
+
+*T CDLG 
+,30
+*N XS_DEL_LAYOUT
+*S PR 0 PU 1 
+42 54 296 449
+Delete Layout
+5
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/CROSSSECTION/DELETE_LAYOUT
+
+*I XS_DEL_LAYOUT_CANCEL
+BtnItem Enabled
+210 35 235 120 
+Cancel
+
+*I XS_DEL_LAYOUT_DELETE
+BtnItem Enabled
+210 280 235 365
+Delete
+
+*I XS_DEL_LAYOUT_PROMPT
+StatText Enabled
+0 30 30 365 
+Select the layout(s) and press "Delete".
+
+SETGROUP 3
+*I XS_DEL_LAYOUT_LIST
+Selector Enabled
+40 32 186 338
+RAW DATA QA
+EDITED DATA PLOT
+INTERPRETIVE SECTION
+<Layout_4>
+<Layout_5>
+<Layout_6>
+<Layout_7>
+<Layout_8>
+
+*I XS_DEL_LAYOUT_VSCROLL 
+VScroll Enabled
+40 345 186 362 
+
+
+*T CDLG 
+,40
+*N XS_DEPTH_CONST 
+*S PR 0 PU 1 
+55 70 310 450
+Specify Depth Constants
+10
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/DEPTH_INTERVAL
+
+*I XS_DEPCONST_UNIT_PROMPT
+StatText Enabled
+15 205 45 375
+
+
+*I XS_DEPCONST_TOP_VAL 
+EditText Enabled
+VerifyFloat
+15 87 47 193
+123.45
+
+*I XS_DEPCONST_TOP_PROMPT
+StatText Enabled
+15 35 45 75
+Top: 
+
+*I XS_DEPCONST_BASE_VAL
+EditText Enabled
+VerifyFloat
+50 87 82 193
+543.21
+
+*I XS_DEPCONST_BASE_PROMPT
+StatText Enabled
+50 35 80 83
+Base:
+
+*I XS_DEPCONST_IGNORE
+BtnItem Enabled
+205 30 230 140 
+Ignore Changes 
+
+*I XS_DEPCONST_ACCEPT
+BtnItem Enabled
+DefaultButton
+205 235 230 345
+Accept Changes 
+
+SETGROUP 4
+*I XS_DEPCONST_MD_BTN
+RadioItem Enabled 
+95 35 115 195
+Measured Depth 
+
+*I XS_DEPCONST_TVD_BTN 
+RadioItem Enabled 
+115 35 135 200 
+True Vertical Depth 
+
+*I XS_DEPCONST_SUBSEA_BTN
+RadioItem Enabled 
+135 35 155 200 
+Subsea Elevation
+
+*T CDLG 
+,50
+*N XS_DPTHGRID 
+*S PR 0 PU 1 
+39 22 380 565
+LogPlot Depth Grid
+30
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/DEPTH_SCALE
+
+*I XS_DPTHGRID_RECT1
+Rectitem Enabled
+95 20 200 140 
+
+*I XS_DPTHGRID_RECT2
+Rectitem Enabled
+95 210 200 325
+
+*I XS_DPTHGRID_RECT3
+Rectitem Enabled
+95 400 200 515
+
+*I XS_DPTHGRID_IGNORE
+BtnItem Enabled
+295 19 320 146 
+Ignore Changes 
+
+*I XS_DPTHGRID_ACCEPT
+BtnItem Enabled
+DefaultButton
+295 380 320 510
+Accept Changes 
+
+*I XS_DPTHGRID_BOLD_PROMPT
+StatText Enabled
+45 35 70 135 
+Bold Marks &
+
+*I XS_DPTHGRID_BOLD_PROMPT2
+StatText Enabled
+70 52 95 115
+Labels
+
+*I XS_DPTHGRID_MED_PROMPT
+StatText Enabled
+45 215 90 340
+Medium Marks 
+
+*I XS_DPTHGRID_FINE_PROMPT
+StatText Enabled
+45 415 90 520
+Fine Marks
+
+*I XS_DPTHGRID_BOLDINT_PROMPT 
+StatText Enabled
+210 20 240 85
+Interval: 
+
+*I XS_DPTHGRID_MEDINT_PROMPT
+StatText Enabled
+210 205 240 270
+Interval: 
+
+*I XS_DPTHGRID_FINEINT_PROMPT 
+StatText Enabled
+210 400 240 465
+Interval: 
+
+*I XS_DPTHGRID_BOLD_INTVL
+EditText Enabled
+VerifyFloat
+210 87 240 152
+50 
+
+*I XS_DPTHGRID_MED_INTVL 
+EditText Enabled
+VerifyFloat
+210 272 240 337
+10 
+
+*I XS_DPTHGRID_FINE_INTVL
+EditText Enabled
+VerifyFloat
+210 467 240 532
+2
+
+SETGROUP 5
+*I XS_DPTHGRID_BOLDLINES_BTN
+RadioItem Enabled 
+100 40 125 100 
+Lines
+
+*I XS_DPTHGRID_BOLDTICS_BTN 
+RadioItem Enabled 
+125 40 150 100 
+Tics 
+
+*I XS_DPTHGRID_BOLDNONE_BTN 
+RadioItem Enabled 
+150 40 185 137
+No Marks 
+
+SETGROUP 6
+*I XS_DPTHGRID_MEDLINES_BTN 
+RadioItem Enabled 
+100 235 125 295
+Lines
+
+*I XS_DPTHGRID_MEDTICS_BTN
+RadioItem Enabled 
+125 235 150 295
+Tics 
+
+*I XS_DPTHGRID_MEDNONE_BTN
+RadioItem Enabled 
+150 235 185 295
+None 
+
+SETGROUP 7
+*I XS_DPTHGRID_FINELINES_BTN
+RadioItem Enabled 
+100 425 125 485
+Lines
+
+*I XS_DPTHGRID_FINETICS_BTN 
+RadioItem Enabled 
+125 425 150 485
+Tics 
+
+*I XS_DPTHGRID_FINENONE_BTN 
+RadioItem Enabled 
+150 425 185 485
+None 
+
+SETGROUP 8
+*I XS_DPTHGRID_MD_BTN
+RadioItem Enabled 
+15 5 40 120
+Measured Depth 
+
+*I XS_DPTHGRID_TVD_BTN 
+RadioItem Enabled 
+15 120 40 240
+True Vertical Depth 
+
+*I XS_DPTHGRID_SUBSEA_BTN
+RadioItem Enabled 
+15 240 40 340
+Subsea Elevation
+
+*I XS_DPTHGRID_TIME_BTN
+RadioItem Enabled 
+15 340 40 440
+Time 
+
+SETGROUP 9
+*I XS_DPTHGRID_INCH_UNIT_BTN 
+RadioItem Enabled 
+250 210 270 350 
+Interval in feet
+
+*I XS_DPTHGRID_CM_UNIT_BTN 
+RadioItem Enabled 
+270 210 290 350
+Interval in meters
+
+*T CDLG 
+,80
+*N XS_DATA_INTVL
+*S PR 0 PU 1 
+50 45 375 450
+Data Interval
+14
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/DEPTH_INTERVAL
+
+*I XS_DATAINT_IGNORE
+BtnItem Enabled
+280 20 305 130 
+Ignore Changes
+
+*I XS_DATAINT_PROCEED
+BtnItem Enabled
+DefaultButton
+280 275 305 385
+Accept Changes
+
+*I XS_DATAINT_TEXT1 
+StatText Enabled
+0 20 30 385 
+Select a method for specification of the data interval.
+
+*I XS_DATAINT_TEXT2 
+StatText Enabled
+155 20 183 385 
+Select a method for display data thinning.
+
+*I XS_DATAINT_DELPNTS
+EditText Enabled
+VerifyInteger
+190 290 220 360
+
+
+*I XS_DATAINT_DELSLOPE
+EditText Enabled
+VerifyFloat
+225 290 255 360
+
+
+*I XS_DATAINT_PERCENT
+StatText Enabled
+227 360 255 390
+%
+
+SETGROUP 11
+*I XS_DATAINT_SURF2TD
+RadioItem Enabled 
+35 90 60 315 
+Surface to T.D.
+
+*I XS_DATAINT_DPTHCONST
+RadioItem Enabled 
+60 90 85 310 
+Depth Constants
+
+*I XS_DATAINT_GEOMARK
+RadioItem Enabled 
+85 90 110 315 
+Geologic Markers and Offsets
+
+*I XS_DATAINT_ZONEOFF
+RadioItem Enabled 
+110 90 145 310
+Zone and Offsets
+
+SETGROUP 12
+*I XS_DATAINT_NO_THIN
+RadioItem Enabled 
+180 90 205 275 
+No Data Thinning
+
+*I XS_DATAINT_LINEAR
+RadioItem Enabled 
+205 90 230 275 
+Display 1 point for every
+
+*I XS_DATAINT_SLOPE 
+RadioItem Enabled 
+230 90 265 275
+Eliminate slope changes <
+
+*T CDLG 
+,90
+*N XS_PATFILL
+*S PR 0 PU 1 
+44 1 345 615 
+Pattern Fill 
+24 
+
+*I XS_PATFILL_TEXT1 
+StatText Disabled 
+1 10 30 60
+Track
+
+*I XS_PAFILL_TEXT2
+StatText Disabled 
+1 80 30 180
+Left Fill Limit
+
+*I XS_PATFILL_TEXT3 
+StatText Disabled 
+1 230 30 330 
+Right Fill Limit
+
+*I XS_PATFILL_TEXT4 
+StatText Disabled 
+1 390 30 440 
+Color
+
+*I XS_PATFILL_TEXT5 
+StatText Disabled 
+1 490 30 550 
+Pattern 
+
+*I XS_PATFILL_RIGHTEDIT
+EditText Enabled
+165 200 197 364
+
+
+*I XS_PATFILL_LEFTEDIT 
+EditText Enabled
+165 54 197 198
+
+
+*I XS_PATFILL_TRACKEDIT
+EditText Enabled
+165 9 197 50
+
+
+*I XS_PATFILL_SELECT
+BtnItem Enabled
+205 15 230 85
+Select
+
+*I XS_PATFILL_REPLACE
+BtnItem Enabled
+205 183 230 253
+Replace 
+
+*I XS_PATFILL_ADD 
+BtnItem Enabled
+205 346 230 416
+Add
+
+*I XS_PATFILL_DELETE
+BtnItem Enabled
+205 499 230 569
+Delete
+
+*I XS_PATFILL_IGNORE
+BtnItem Enabled
+255 15 280 130 
+Ignore Changes 
+
+*I XS_PATFILL_ACCEPT
+BtnItem Enabled
+DefaultButton
+255 455 280 570
+Accept Changes 
+
+SETGROUP 13
+*I XS_PATFILL_TRACKNUM 
+Selector Enabled
+35 2 164 48
+1
+2
+3
+4
+5
+6
+7
+
+*I XS_PATFILL_LEFTFILL 
+Selector Enabled
+35 51 164 193
+0.0
+VSHALE.GR 
+VSAND
+
+*I XS_PATFILL_RIGHTFILL
+Selector Enabled
+35 196 164 358
+VSHALE.GR 
+VSAND
+OIL_VOL 
+
+*I XS_PATFILL_COLOR 
+Selector Enabled
+35 361 164 467
+BROWN
+YELLOW
+GREEN
+
+*I XS_PATFILL_PATTERN
+Selector Enabled
+35 470 164 571
+SHALE
+SAND 
+SOLID
+
+*I XS_PATFILL_VSCROLL
+VScroll Enabled
+35 575 164 585 
+
+
+SETGROUP 14
+*I XS_PATFILL_SCRCOLOR 
+StatText Enabled
+162 397 192 411
+
+
+*I XS_PATFILE_SELCOLOR 
+OptionMenu Enabled
+167 331 192 395
+
+
+SETGROUP 15
+*I XS_PATFILL_SCRPTRN
+StatText Enabled
+162 474 192 488
+
+
+*I XS_PATFILL_SELPTRN
+OptionMenu Enabled
+162 419 192 473
+
+
+*T CDLG 
+,100 
+*N XS_RETLAYOUT
+*S PR 0 PU 1 
+42 54 375 490
+Retrieve Layout
+17 
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/CROSSSECTION/RETRIEVE_LAYOUT
+
+*I XS_RETLAYOUT_CANCEL 
+BtnItem Enabled
+300 20 325 105 
+Cancel
+
+*I XS_RETLAYOUT_RETRIEVE 
+BtnItem Enabled
+300 335 325 420
+Retrieve
+
+*I XS_RETLAYOUT_SELECT 
+BtnItem Enabled
+60 335 85 410
+Build List
+
+*I XS_RETLAYOUT_CHOOSE 
+StatText Enabled
+5 17 35 400
+Choose a Layout Name and press "Retrieve". 
+
+*I XS_RETLAYOUT_TEXT1
+StatText Disabled 
+115 20 140 100 
+Project 
+
+*I XS_RETLAYOUT_TEXT2
+StatText Disabled 
+115 105 140 185
+Account 
+
+*I XS_RETLAYOUT_TEXT3
+StatText Disabled 
+115 195 140 350
+Layout Name
+
+*I XS_RETLAYOUT_RECT1
+Rectitem Enabled
+40 25 105 175 
+
+*I XS_RETLAYOUT_RECT2
+Rectitem Enabled
+40 175 105 315
+
+SETGROUP 16
+*I XS_RETLAYOUT_PROJECT
+Selector Enabled
+140 17 287 98
+EXAMPLES
+HCREEK
+HCREEK
+4
+5
+6
+7
+8
+
+*I XS_RETLAYOUT_ACCOUNT
+Selector Enabled
+140 102 287 188
+DOUG
+DOUG
+DOUG 
+
+*I XS_RETLAYOUT_NAME
+Selector Enabled
+140 192 287 388
+RAW DATA QA
+EDITED DATA PLOT
+INTERPRETIVE SECTION
+
+*I XS_RETLAYOUT_VSCROLL
+Vscroll Enabled
+140 395 287 407
+
+
+SETGROUP 17
+*I XS_RETLAYOUT_ALLPROJ
+RadioItem Enabled 
+45 30 70 170 
+All Projects 
+
+*I XS_RETLAYOUT_CURRPROJ 
+RadioItem Enabled 
+70 30 100 170 
+Current Project
+
+SETGROUP 18
+*I XS_RETLAYOUT_ALLACNTS 
+RadioItem Enabled 
+45 180 70 310
+All Accounts 
+
+*I XS_RETLAYOUT_CURRACNT 
+RadioItem Enabled 
+70 180 100 310
+Current Account
+
+
+*T CDLG 
+,110 
+*N XS_TITLE_BLOCK 
+*S PR 0 PU 1 
+47 16 330 498
+Title Block
+8
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/TITLE_BLOCK
+
+*I XS_TITLE1 
+EditText Enabled
+12 107 44 368
+EXPLORATION SYSTEMS INC. 
+
+*I XS_TITLE2 
+EditText Enabled
+75 102 107 373
+HOUSE CREEK FIELD STUDY
+
+*I XS_TITLE3 
+EditText Enabled
+110 102 142 373
+CAMPBELL COUNTY, WYOMING 
+
+*I XS_TITLE4 
+EditText Enabled
+145 102 177 373
+CROSS SECTION B-B'
+
+*I XS_TITLE5 
+EditText Enabled
+180 17 212 233
+DATUM:SUSSEX SAND 
+
+*I XS_TITLE6 
+EditText Enabled
+180 242 212 458
+GEOLOGIST:G.H.FARTZ
+
+*I XS_TITLE_IGNORE
+BtnItem Enabled
+235 20 260 130 
+Ignore Changes 
+
+*I XS_TITLE_ACCEPT
+BtnItem Enabled
+DefaultButton
+235 345 260 455
+Accept Changes 
+
+*T CDLG 
+,120 
+*N XS_TOP2TOP
+*S PR 0 PU 1 
+40 35 337 465
+Top to Top Interval 
+11 
+
+*I XS_TOP2TOP_TEXT1 
+StatText Enabled
+10 10 35 400 
+Upper Geologic Top:
+
+*I XS_TOP2TOP_TEXT2 
+StatText Enabled
+75 5 105 65
+Offset: 
+
+*I XS_TOP2TOP_TEXT3 
+StatText Enabled
+175 5 205 65
+Offset: 
+
+*I XS_TOP2TOP_SELECTUPPER
+EditText Enabled
+40 5 72 403
+<Upper_Top>
+
+*I XS_TOP2TOP_OFFSETUPPER
+EditText Enabled
+VerifyFloat
+75 67 107 158
+123.45
+
+*I XS_TOP2TOP_SELECTLOWER
+EditText Enabled
+140 5 172 403
+<Lower_Top>
+
+*I XS_TOP2TOP_OFFSETLOWER
+EditText Enabled
+VerifyFloat
+175 67 207 158
+54.321
+
+*I XS_TOP2TOP_TEXT4 
+StatText Enabled
+210 110 240 315
+(Positive offset is down hole.)
+
+*I XS_TOP2TOP_IGNORE
+BtnItem Enabled
+250 15 275 125 
+Ignore Changes 
+
+*I XS_TOP2TOP_ACCEPT
+BtnItem Enabled
+DefaultButton
+250 295 275 405
+Accept Changes 
+
+*I XS_TOP2TOP_TEXT5 
+StatText Enabled
+110 10 135 405 
+Lower Geologic Top:
+
+*T CDLG 
+,130 
+*N XS_TRACEATTR
+*S PR 0 PU 1 
+40 5 332 635 
+Trace Attributes
+14 
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/TRACE_ATRRIBUTE
+
+*I XS_TRACEATTR_TEXT0
+StatText Enabled
+10 90 40 200
+Trace
+
+*I XS_TRACEATTR_TEXT1
+StatText Enabled
+10 242 40 290
+Track
+
+*I XS_TRACEATTR_TEXT2
+StatText Enabled
+10 295 40 400
+Line Type 
+
+*I XS_TRACEATTR_TEXT3
+StatText Disabled 
+10 500 40 550
+Color
+
+*I XS_TRACEATTR_TEXT4
+StatText Disabled 
+10 380 40 460
+Thickness 
+
+*I XS_TRACEATTR_CHANGE
+BtnItem Enabled
+190 25 215 90
+Change
+
+*I XS_TRACEATTR_IGNORE 
+BtnItem Enabled
+245 25 270 140 
+Ignore Changes 
+
+*I XS_TRACEATTR_ACCEPT 
+BtnItem Enabled
+DefaultButton
+245 445 270 560
+Accept Changes 
+
+SETGROUP 19
+*I XS_TRACEATTR_TRACE
+Selector Enabled
+40 2 169 243
+GR.FDC;4
+SP.IES
+RT 
+
+*I XS_TRACEATTR_TRACK
+Selector Enabled
+40 246 169 282
+1
+2
+3
+4
+5
+6
+7
+
+*I XS_TRACEATTR_LINETYPE 
+Selector Enabled
+40 285 169 378
+SOLID
+DOT-DASH
+DASHED
+
+*I XS_TRACEATTR_LINETHICK
+Selector Enabled
+40 381 169 457
+THIN 
+MEDIUM
+THICK
+
+*I XS_TRACEATTR_COLOR
+Selector Enabled
+40 460 169 584
+ORANGE
+RED
+GREEN
+
+*I XS_TRACEATTR_VSC 
+VScroll Enabled
+40 587 169 597 
+
+
+*T CDLG 
+,140 
+*N XS_TRACESEL 
+*S PR 0 PU 1 
+40 5 370 580 
+Trace Selection
+26 
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/TRACE_SELECTION
+
+*I XS_TRACESEL_TEXT1
+StatText Enabled
+35 185 65 240
+Track
+
+*I XS_TRACESEL_TEXT2
+StatText Enabled
+35 260 65 320
+Left 
+
+*I XS_TRACESEL_TEXT3
+StatText Disabled 
+35 483 65 553
+Type 
+
+*I XS_TRACESEL_TEXT4
+StatText Disabled 
+35 335 65 390
+Right
+
+*I XS_TRACESEL_TEXT5
+StatText Enabled
+35 75 65 135
+Trace
+
+*I XS_TRACESEL_TEXT6
+StatText Enabled
+35 410 65 476
+Units
+
+*I XS_TRACESEL_TEXT7
+StatText Enabled
+0 410 30 476
+(T/M)
+
+*I XS_TRACESEL_SELECT
+BtnItem Enabled
+230 25 255 90
+Select
+
+*I XS_TRACESEL_REPLACE 
+BtnItem Enabled
+230 145 255 210
+Replace 
+
+*I XS_TRACESEL_IGNORE
+BtnItem Enabled
+285 25 310 140 
+Ignore Changes 
+
+*I XS_TRACESEL_ACCEPT
+BtnItem Enabled
+DefaultButton
+285 420 310 535
+Accept Changes 
+
+*I XS_TRACESEL_TRACEEDT
+EditText Enabled
+195 6 227 184
+
+
+*I XS_TRACESEL_TRACKEDT
+EditText Enabled
+VerifyInteger
+195 191 227 229
+
+
+*I XS_TRACESEL_LEFTEDT
+EditText Enabled
+VerifyFloat
+195 229 227 323
+
+
+*I XS_TRACESEL_RIGHTEDT
+EditText Enabled
+VerifyFloat
+195 323 227 402
+
+
+*I XS_TRACESEL_UNITEDT
+EditText Enabled
+195 403 227 467
+
+
+*I XS_TRACESEL_ADD
+BtnItem Enabled
+230 360 255 425
+Add
+
+*I XS_TRACESEL_DELETE 
+BtnItem Enabled 
+230 470 255 535 
+Delete
+
+*I XS_TRACESEL_DEFAULTS 
+BtnItem Enabled 
+230 255 255 320 
+Defaults
+
+SETGROUP 20
+*I XS_TRACESEL_TRACE
+Selector Enabled
+65 2 194 233
+GR.FDC;4
+SP.IES
+RT
+
+*I XS_TRACESEL_TRACK
+Selector Enabled
+65 188 194 223
+1 
+2 
+3 
+4
+5
+6
+7
+8
+
+*I XS_TRACESEL_LEFT 
+Selector Enabled
+65 226 194 317
+0 
+-100
+.2
+
+*I XS_TRACESEL_RIGHT
+Selector Enabled
+65 320 194 396
+120.0 
+0.0 
+2000
+
+*I XS_TRACESEL_UNIT
+Selector Enabled
+65 399 194 461
+API
+MV
+US/M
+
+*I XS_TRACESEL_TYPE 
+Selector Enabled
+65 464 194 535
+LIN 
+LIN 
+LOG 
+
+*I XS_TRACESEL_VSC
+VScroll Enabled 
+65 538 194 548
+
+
+*T CDLG 
+,150
+*N XS_TRACKDEF
+*S PR 0 PU 1
+40 5 420 503
+LogPlot Track Definition
+29
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/TRACK_DEFINITION
+
+*I XS_TRACKDEF_TEXT1
+StatText Enabled
+5 0 35 55
+Track 
+
+*I XS_TRACKDEF_TEXT2
+StatText Disabled 
+5 85 35 130
+Type
+
+*I XS_TRACKDEF_TEXT3
+StatText Disabled 
+5 267 35 325 
+# Div.
+
+*I XS_TRACKDEF_TEXT4
+StatText Enabled
+5 205 35 260 
+Marks 
+
+*I XS_TRACKDEF_TEXT5
+StatText Disabled 
+5 395 35 460 
+Width 
+
+*I XS_TRACKDEF_TEXT6
+StatText Disabled 
+5 316 35 387 
+Start Loc
+
+*I XS_TRACKDEF_SELECT 
+BtnItem Enabled 
+255 25 280 90 
+Select
+
+*I XS_TRACKDEF_REPLACE
+BtnItem Enabled 
+255 145 280 210 
+Replace 
+
+*I XS_TRACKDEF_ADD
+BtnItem Enabled 
+255 280 280 345 
+Add 
+
+*I XS_TRACKDEF_DELETE 
+BtnItem Enabled 
+255 400 280 465 
+Delete
+
+*I XS_TRACKDEF_IGNORE 
+BtnItem Enabled 
+325 25 360 140
+Ignore Changes
+
+*I XS_TRACKDEF_ACCEPT 
+BtnItem Enabled 
+DefaultButton
+325 355 360 470 
+Accept Changes
+
+*I XS_TRACKDEF_TRACKEDT
+EditText Enabled
+VerifyInteger
+205 12 237 38
+
+
+*I XS_TRACKDEF_DIVISNEDT
+EditText Enabled
+VerifyInteger
+205 273 237 316
+
+
+*I XS_TRACKDEF_STARTEDT
+EditText Enabled
+VerifyFloat
+205 317 237 385
+
+
+*I XS_TRACKDEF_WIDTHEDT
+EditText Enabled
+VerifyFloat
+205 386 237 455
+
+
+SETGROUP 27
+*I XS_TRACKDEF_TYPEVAL
+StatText Enabled
+165 37 166 38
+
+
+*I XS_TRACKDEF_TYPESEL
+OptionMenu Enabled
+205 45 250 240
+
+
+SETGROUP 28
+*I XS_TRACKDEF_MARKVAL
+StatText Enabled
+165 196 166 197 
+
+
+*I XS_TRACKDEF_MARKSEL
+OptionMenu Enabled
+205 196 250 267
+
+
+SETGROUP 29
+*I XS_TRACKDEF_TRACK
+Selector Enabled
+35 5 164 34
+1 
+2 
+3 
+4 
+5 
+6 
+7
+
+*I XS_TRACKDEF_TYPE 
+Selector Enabled
+35 37 164 193
+LIN 
+LIN 
+LOG 
+TEXT
+DEPTH (MEAS,FT) 
+DEPTH (MEAS,M) 
+
+*I XS_TRACKDEF_MARKS
+Selector Enabled
+35 196 164 267
+LINES 
+LINES 
+TICS
+NONE
+NONE
+NONE
+
+*I XS_TRACKDEF_NUMBER 
+Selector Enabled
+35 270 164 311
+5 
+5 
+2 
+0 
+0 
+0 
+
+*I XS_TRACKDEF_LOCATION 
+Selector Enabled
+35 314 164 380
+0.0 
+3.5 
+6.0 
+3.5 
+2.5 
+8.5 
+
+*I XS_TRACKDEF_WIDTH
+Selector Enabled
+35 383 164 444
+2.5 
+2.5 
+2.5 
+5.0 
+1.0 
+1.0 
+
+*I XS_TRACKDEF_VSC
+VScroll Enabled 
+35 452 164 467
+
+SETGROUP 30
+*I XS_TRACKDEF_INCH_UNIT_BTN 
+RadioItem Enabled 
+305 175 330 335 
+Width in Inches 
+
+*I XS_TRACKDEF_CM_UNIT_BTN 
+RadioItem Enabled 
+330 175 360 335 
+Width in Centimeters
+
+
+*T CDLG 
+,170
+*N XS_TYPE
+*S PR 0 PU 1
+40 5 360 405
+Cross Section Type
+11
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/CROSS_SECTION_PARAMETERS
+
+*I XS_TYPE_SELECT 
+EditText Enabled
+108 62 140 370
+_CRCN_
+
+*I XS_TYPE_TEXT1
+StatText Enabled
+108 15 138 60
+Top:
+
+*I XS_TYPE_IGNORE 
+BtnItem Enabled 
+280 20 305 130
+Ignore Changes
+
+*I XS_TYPE_ACCEPT 
+BtnItem Enabled 
+DefaultButton
+280 255 305 365 
+Accept Changes
+
+*I XS_TYPE_SUPPRESS_VBAR
+ChkItem Disabled
+251 30 271 465
+Suppress Vertical Scale Bar
+
+SETGROUP 24
+*I XS_TYPE_CENTERS
+RadioItem Enabled 
+150 25 166 465
+Scale log centers to well spacing.
+
+*I XS_TYPE_GAPS 
+RadioItem Enabled 
+170 25 186 465
+Scale gaps between logs to well spacing.
+
+*I XS_TYPE_CONSTANT 
+RadioItem Enabled 
+190 25 206 465
+Constant Log Spacing. 
+
+SETGROUP 25
+*I XS_TYPE_STRUCT 
+RadioItem Enabled 
+5 25 30 470
+Structural Cross Section (Wells Referenced to Sea Level)
+
+*I XS_TYPE_MDEPTH 
+RadioItem Enabled 
+30 25 55 470
+Measured Depth Cross Section (Wells Referenced to Nothing)
+
+*I XS_TYPE_STRAT
+RadioItem Enabled 
+55 25 80 470
+Stratigraphic Cross Section (Wells Referenced to a Top) 
+
+
+
+*T CDLG 
+,180
+*N XS_ZONESEL 
+*S PR 0 PU 1
+45 80 350 425 
+Select a Zone 
+9 
+
+*I XS_ZONESEL_TEXT1 
+StatText Enabled
+190 60 220 170
+Base Offset:
+
+*I XS_ZONESEL_TEXT2 
+StatText Enabled
+155 60 185 170
+Top Offset: 
+
+*I XS_ZONESEL_TOPOFFSET 
+EditText Enabled
+VerifyFloat
+153 172 185 263
+123.45
+
+*I XS_ZONESEL_BOTOFFSET 
+EditText Enabled
+VerifyFloat
+190 172 222 263
+54.321
+
+*I XS_ZONESEL_TEXT3 
+StatText Enabled
+230 70 250 275
+(Positive offset is down hole.) 
+
+*I XS_ZONESEL_IGNORE
+BtnItem Enabled 
+260 25 285 135
+Ignore Changes
+
+*I XS_ZONESEL_ACCEPT
+BtnItem Enabled 
+DefaultButton
+260 205 285 315 
+Accept Changes
+
+SETGROUP 26
+*I XS_ZONESEL_LIST
+Selector Enabled
+15 47 144 269
+1
+2
+3
+4
+5
+6
+7
+8
+
+
+*I XS_ZONESEL_VSC 
+VScroll Enabled 
+15 280 144 290
+
+
+*T CDLG 
+,190
+*N XS_USELAST 
+*S PR 0 PU 1
+77 39 222 473 
+Use Last Displayed Layout 
+6 
+
+*I XS_USELAST_TEXT1 
+StatText Enabled
+5 20 35 166
+Current Layout Is 
+
+*I XS_USELAST_TEXT2 
+StatText Enabled
+50 20 80 211
+Layout Will Be Replaced By
+
+*I XS_USELAST_CURR_LAYOUT 
+StatText Enabled
+5 215 35 421 
+Stinky_Arroyo_Layout
+
+*I XS_USELAST_TEXT3 
+StatText Enabled
+50 215 80 421 
+Last_Displayed_Layout 
+
+*I XS_USELAST_CANCEL
+BtnItem Enabled 
+105 35 130 120
+CANCEL
+
+*I XS_USELAST_OK
+BtnItem Enabled 
+105 320 130 405 
+OK
+
+*T CDLG 
+,200
+*N XS_FILEEXIST 
+*S PR 0 PU 1
+54 30 190 482 
+Existing File Name
+4 
+
+*I XS_FILEEXIST_TEXT1 
+StatText Enabled
+34 22 64 204
+Replace Existing File Name: 
+
+*I XS_FILEEXIST_FILENAME
+StatText Enabled
+34 221 64 431 
+HARTZOG_DRAW.LA 
+
+*I XS_FILEEXIST_CANCEL
+BtnItem Disabled
+100 25 125 128
+CANCEL
+
+*I XS_FILEEXIST_OK
+BtnItem Disabled
+100 328 125 431 
+OK
+
+*T CDLG 
+,220
+*N XS_NEWLAYOUT 
+*S PR 0 PU 1
+76 41 200 482 
+New Layout
+3 
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/CROSSSECTION/NEW_LAYOUT
+
+*I XS_NEWLAYOUT_TEXT1 
+StatText Enabled
+30 19 60 411
+WARNING:  New Layout will replace current preferences.
+
+*I XS_NEWLAYOUT_PROCEED 
+BtnItem Enabled 
+DefaultButton
+75 320 100 400 
+Proceed 
+
+*I XS_NEWLAYOUT_CANCEL
+BtnItem Enabled 
+75 22 100 102
+Cancel
+
+*T CDLG 
+,230
+*N XS_ANNOTAT 
+*S PR 0 PU 1
+55 31 305 481 
+Annotation Selection
+17
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/ANNOTATION
+
+*I XS_ANNOTAT_TEXT1 
+StatText Enabled
+7 19 51 103 
+Annotation Type
+
+*I XS_ANNOTAT_TEXT2 
+StatText Enabled
+7 140 51 241
+Symbol Track Number 
+
+*I XS_ANNOTAT_TEXT3 
+StatText Enabled
+7 305 51 406
+Text Plotted Below Well 
+
+*I XS_ANNOTAT_CHKSHOWS
+ChkItem Disabled
+70 330 90 350 
+1
+
+*I XS_ANNOTAT_CHKCORES
+ChkItem Disabled
+105 330 125 353
+2
+
+*I XS_ANNOTAT_CHKTESTS
+ChkItem Disabled
+140 330 160 349 
+3
+
+*I XS_ANNOTAT_TEXT4 
+StatText Enabled
+65 30 95 130
+Shows 
+
+*I XS_ANNOTAT_TEXT5 
+StatText Enabled
+100 29 130 129 
+Cores 
+
+*I XS_ANNOTAT_TEXT6 
+StatText Enabled
+135 30 165 130
+Tests 
+
+*I XS_ANNOTAT_TEXT7 
+StatText Disabled 
+170 29 200 129
+Perfs 
+
+*I XS_ANNOTAT_CHKPERFS
+ChkItem Disabled
+175 330 195 351 
+4
+
+*I XS_ANNOTAT_TRACKSHOWS
+EditText Enabled
+65 154 97 194
+10
+
+*I XS_ANNOTAT_TRACKCORES
+EditText Enabled
+100 154 132 194
+3 
+
+*I XS_ANNOTAT_TRACKTESTS
+EditText Enabled
+135 154 167 194
+10
+
+*I XS_ANNOTAT_TRACKPERFS
+EditText Enabled
+170 154 202 194
+
+
+*I XS_ANNOTAT_CANCEL
+BtnItem Enabled 
+210 17 235 117
+CANCEL
+
+*I XS_ANNOTAT_OK
+BtnItem Enabled 
+210 329 235 429 
+OK
+
+*T CDLG 
+,240
+*N XS_MESSAGE 
+*S PR 0 PU 1
+52 53 211 464 
+Cross Section
+3 
+
+*I XS_MESSAGE1
+StatText Enabled
+0 27 30 383 
+Please pick a menu item
+
+*I XS_MESSAGE2
+StatText Enabled
+35 27 65 383
+Current layout:  
+
+*I XS_MESSAGE3
+StatText Enabled
+70 27 100 383
+
+
+
+*T CDLG
+,260
+*N XS_DEPTH_SCALE
+*S PR 0 PU 1
+49 31 263 478 
+LogPlot Depth Scale
+5
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/DEPTH_SCALE
+
+*I XS_DEPTH_SCALE_IGNORE
+BtnItem Enabled
+165 14 190 141 
+Ignore Changes
+
+*I XS_DEPTH_SCALE_ACCEPT
+BtnItem Enabled
+DefaultButton
+165 290 190 420 
+Accept Changes
+
+*I XS_DEPTH_SCALE_T1
+StatText Enabled
+30 16 60 430
+Enter the depth scale as paper units per depth units.
+
+*I XS_DEPTH_SCALE_T2
+StatText Enabled
+65 16 95 280 
+For Example:  5 INCHES = 100 FEET
+
+*I XS_DEPTH_SCALE_STR
+EditText Enabled
+110 76 142 370
+5 INCHES : 100 FEET
+
+*T CDLG
+,270
+*N XS_HORIZONTAL
+*S PR 0 PU 1
+49 31 263 478 
+Horizontal Scale
+7
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/HORIZONTAL_SCALE
+
+*I XS_HORIZ_IGNORE
+BtnItem Enabled
+165 14 190 141 
+Ignore Changes
+
+*I XS_HORIZ_ACCEPT
+BtnItem Enabled
+DefaultButton
+165 290 190 420 
+Accept Changes
+
+*I XS_HORIZ_T1
+StatText Enabled
+5 16 35 450 
+Enter the horizontal scale as paper units per ground units,
+
+*I XS_HORIZ_T2
+StatText Enabled
+35 16 65 242 
+For Example:  1 INCH = 1000 FEET
+
+*I XS_HORIZ_T4
+StatText Disabled
+70 16 100 385 
+or as a ratio scale.
+
+*I XS_HORIZ_T5
+StatText Enabled
+70 258 100 389 
+Or:      1 : 12000
+
+*I XS_HORIZ_STR
+EditText Enabled
+115 76 147 370
+1 INCH = 10560 FEET
+
+*T CDLG
+,280
+*N XS_DIGITIZE_TOPS
+*S PR 0 PU 1
+44 104 325 406 
+Digitize Tops
+7
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/TOPS/DIGITIZE_TOPS
+
+*I XS_DGZ_SELECT_LIST
+Selector Enabled
+7 17 153 251
+1
+2
+3
+4
+5
+6
+7
+8
+
+
+*I XS_DGZ_SELECT_BAR
+Vscroll Enabled
+15 264 145 282 
+
+
+*I XS_DGZ_BTN_CANCEL
+BtnItem Enabled
+240 20 265 100 
+Done
+
+*I XS_DGZ_BTN_DGZ
+BtnItem Enabled
+240 199 265 279 
+Digitize
+
+*I XS_DGZ_SELECT_TOP
+EditText Enabled
+190 20 222 256
+
+
+*I XS_DGZ_TEXT_TITLE
+StatText Enabled
+160 20 188 120 
+Selected Top:
+
+*I XS_DGZ_BTN_SELECT
+BtnItem Enabled
+240 110 265 190 
+Select
+
+,290
+*N XS_DISPLAY_TOPS
+*S PR 0 PU 1
+44 104 325 406 
+Display Tops
+4
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/TOPS/DISPLAY_TOPS
+
+*I XS_DSP_SELECT_LIST
+Selector Enabled
+7 17 205 255
+tops...
+2
+3
+4
+5
+6
+7
+8
+9
+10
+
+*I XS_DSP_SELECT_BAR
+Vscroll Enabled
+7 264 205 284 
+
+
+*I XS_DSP_BTN_CANCEL
+BtnItem Enabled
+240 20 265 100 
+Cancel
+
+*I XS_DSP_BTN_DISPLAY
+BtnItem Enabled
+240 199 265 279 
+Display
+
+,300
+*N XS_RETRIEVE_TOPS
+*S PR 0 PU 1
+44 104 325 406 
+Retrieve Tops
+4
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/TOPS/RETRIEVE_TOPS
+
+*I XS_RTR_SELECT_LIST
+Selector Enabled
+7 17 205 255
+tops...
+2
+3
+4
+5
+6
+7
+8
+9
+10
+
+*I XS_RTR_SELECT_BAR
+Vscroll Enabled
+7 263 205 283 
+
+
+*I XS_RTR_BTN_CANCEL
+BtnItem Enabled
+240 20 265 100 
+Cancel
+
+*I XS_RTR_BTN_RETRIEVE
+BtnItem Enabled
+240 199 265 279 
+Retrieve
+
+
+,310
+*N XS_SAVE_TOPS
+44 104 325 406 
+Save Tops
+5
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/TOPS/SAVE_TOPS
+
+*I XS_SAV_SELECT_LIST
+Selector Enabled
+57 17 220 255
+tops...
+2
+3
+4
+5
+6
+7
+8
+9
+10
+
+*I XS_SAV_SELECT_BAR
+Vscroll Enabled
+57 263 220 284 
+
+
+*I XS_SAV_BTN_CANCEL
+BtnItem Enabled
+240 20 265 100 
+Cancel
+
+*I XS_SAV_BTN_SAVE
+BtnItem Enabled
+240 199 265 279 
+Save
+
+*I XS_SAV_MESSAGE
+StatText Enabled
+7 17 47 284
+Select one or more tops to save and click 'Save'
+
+
+*T CDLG
+,320
+*N XS_TDGZ_TOP_INFO
+*S PR 0 PU 1
+40 43 405 445 
+Top Digitizer
+20
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/TOPS/DIGITIZE_TOPS/DIGITIZE
+
+*I XS_TDGZ_MSG_BOX
+StatText Enabled
+5 6 45 395 
+
+*I XS_TDGZ_PUCK_1
+StatText Enabled
+50 105 80 170 
+(1) Pick
+
+*I XS_TDGZ_PUCK_2
+StatText Enabled
+50 200 80 270 
+(2) Color
+
+*I XS_TDGZ_PUCK_3
+StatText Enabled
+50 298 80 360 
+(3) Info
+
+*I XS_TDGZ_PUCK_4
+StatText Enabled
+80 15 110 90 
+(4) Delete
+
+*I XS_TDGZ_PUCK_A
+StatText Enabled
+110 200 140 300 
+(A) ZoomIn
+
+*I XS_TDGZ_PUCK_B
+StatText Enabled
+110 298 140 390 
+(B) Pan
+
+*I XS_TDGZ_PUCK_C
+StatText Enabled
+140 15 170 100 
+(C) Cancel
+
+
+*I XS_TDGZ_PUCK_D
+StatText Enabled
+140 105 170 170 
+(D) Exit
+
+*I XS_TDGZ_PUCK_F
+StatText Enabled
+140 298 170 385 
+(F) Refresh
+
+*I XS_TDGZ_PUCK_8
+StatText Enabled
+110 15 140 140
+(8)                  (9)
+
+*I XS_TDGZ_PUCK_5
+StatText Enabled
+80 105 110 360
+(5)                   (6)                    (7)
+
+*I XS_TDGZ_SELECT_TOP
+EditText Enabled
+277 17 309 197 
+
+
+*I XS_TDGZ_BTN_SELECT
+BtnItem Disabled
+320 145 345 220 
+Select
+
+*I XS_TDGZ_BTN_DGZ
+BtnItem Disabled
+DefaultButton
+320 280 345 375 
+Digitize
+
+*I XS_TDGZ_BTN_CANCEL
+BtnItem Disabled
+320 15 345 90 
+Done
+
+*I XS_TDGZ_CHK_COLORS
+ChkItem Disabled
+215 243 235 355 
+Auto Colors
+
+*I XS_TDGZ_PUCK_0
+StatText Enabled
+50 15 80 90 
+(0)
+
+SETGROUP 27
+*I XS_TDGZ_SELECT_LIST
+Selector Enabled
+180 15 276 190 
+1
+2
+3
+4
+5
+6
+7
+
+
+*I XS_TDGZ_SELECT_BAR
+Vscroll Enabled
+180 195 276 210 
+
+
+
+,330
+*N XS_TDRAG_INFO
+*S PR 0 PU 1
+57 39 300 466
+Trace Correlation
+20
+
+*I XS_TDRAG_MSG1
+StatText Enabled
+0 12 30 416
+
+*I XS_TDRAG_MSG2
+StatText Enabled
+30 12 60 416
+
+*I XS_TDRAG_MSG3
+StatText Enabled
+60 12 90 416
+
+*I XS_TDRAG_KEYMAP
+StatText Enabled
+90 136 120 276
+
+*I XS_TDRAG_0
+StatText Enabled
+120 8 150 110
+
+*I XS_TDRAG_1
+StatText Enabled
+120 112 150 214
+
+*I XS_TDRAG_2
+StatText Enabled
+120 216 150 318
+
+*I XS_TDRAG_3
+StatText Enabled
+120 320 150 422
+
+*I XS_TDRAG_4
+StatText Enabled
+150 8 180 110
+
+*I XS_TDRAG_5
+StatText Enabled
+150 112 180 214
+
+*I XS_TDRAG_6
+StatText Enabled
+150 216 180 318
+
+*I XS_TDRAG_7
+StatText Enabled
+150 320 180 422
+
+*I XS_TDRAG_8
+StatText Enabled
+180 8 210 110
+
+*I XS_TDRAG_9
+StatText Enabled
+180 112 210 214
+
+*I XS_TDRAG_A
+StatText Enabled
+180 216 210 318
+
+*I XS_TDRAG_B
+StatText Enabled
+180 320 210 422
+
+*I XS_TDRAG_C
+StatText Enabled
+210 8 240 110
+
+*I XS_TDRAG_D
+StatText Enabled
+210 112 240 214
+
+*I XS_TDRAG_E
+StatText Enabled
+210 216 240 318
+
+*I XS_TDRAG_F
+StatText Enabled
+210 320 240 422
+Hi
+
+
+*UM
+*T CDLG
+,10
+*N XS_HDR
+*S PR 0 PU 1
+47 25 319 481
+Log Header Items
+5
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/LOG_HEADR_ITEM
+
+*I XS_HDR_ACCEPT
+BtnItem Enabled
+DefaultButton
+215 326 255 436
+Accept Changes
+
+*I XS_HDR_IGNORE
+BtnItem Enabled
+215 20 255 130
+Ignore Changes
+
+*I XS_HDR_CHOOSE
+StatText Enabled
+70 250 137 435
+Header items are displayed in the order they are chosen.
+
+SETGROUP 1
+*I XS_HDR_SELECT_LIST
+Selector Enabled
+13 23 207 204
+OPERATOR
+LEASE NAME
+WELL NUMBER
+
+*I XS_HDR_VSCROLL 
+VScroll Enabled
+19 210 200 227 
+
+
+*T CDLG 
+,30
+*N XS_DEL_LAYOUT
+*S PR 0 PU 1 
+42 54 296 449
+Delete Layout
+5
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/CROSSSECTION/DELETE_LAYOUT
+
+*I XS_DEL_LAYOUT_CANCEL
+BtnItem Enabled
+195 35 230 120 
+Cancel
+
+*I XS_DEL_LAYOUT_DELETE
+BtnItem Enabled
+195 280 230 365
+Delete
+
+*I XS_DEL_LAYOUT_PROMPT
+StatText Enabled
+10 30 27 365 
+Select the layout(s) and press "Delete".
+
+SETGROUP 3
+*I XS_DEL_LAYOUT_LIST
+Selector Enabled
+38 32 182 338
+RAW DATA QA
+EDITED DATA PLOT
+INTERPRETIVE SECTION
+
+*I XS_DEL_LAYOUT_VSCROLL 
+VScroll Enabled
+44 345 175 362 
+
+
+*T CDLG 
+,40
+*N XS_DEPTH_CONST 
+*S PR 0 PU 1 
+55 70 277 450
+Specify Depth Constants
+10
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/DEPTH_INTERVAL
+
+*I XS_DEPCONST_UNIT_PROMPT
+StatText Enabled
+15 205 45 375
+
+
+*I XS_DEPCONST_TOP_VAL 
+EditText Enabled
+VerifyFloat
+32 87 54 193
+
+
+*I XS_DEPCONST_TOP_PROMPT
+StatText Enabled
+35 35 51 75
+Top: 
+
+*I XS_DEPCONST_BASE_VAL
+EditText Enabled
+VerifyFloat
+57 87 79 193
+
+
+*I XS_DEPCONST_BASE_PROMPT
+StatText Enabled
+60 35 76 75
+Base:
+
+*I XS_DEPCONST_IGNORE
+BtnItem Enabled
+165 30 196 140 
+Ignore Changes 
+
+*I XS_DEPCONST_ACCEPT
+BtnItem Enabled
+DefaultButton
+165 235 196 345
+Accept Changes 
+
+SETGROUP 4
+*I XS_DEPCONST_MD_BTN
+RadioItem Enabled 
+90 35 106 195
+Measured Depth 
+
+*I XS_DEPCONST_TVD_BTN 
+RadioItem Enabled 
+105 35 121 200 
+True Vertical Depth 
+
+*I XS_DEPCONST_SUBSEA_BTN
+RadioItem Enabled 
+120 35 136 200 
+Subsea Elevation
+
+*T CDLG 
+,50
+*N XS_DPTHGRID 
+*S PR 0 PU 1 
+39 22 337 484
+LogPlot Depth Grid
+30
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/DEPTH_SCALE
+
+*I XS_DPTHGRID_RECT1
+Rectitem Enabled
+100 15 220 150 
+
+*I XS_DPTHGRID_RECT2
+Rectitem Enabled
+100 155 220 300
+
+*I XS_DPTHGRID_RECT3
+Rectitem Enabled
+100 305 220 440
+
+*I XS_DPTHGRID_IGNORE
+BtnItem Enabled
+246 19 282 146 
+Ignore Changes 
+
+*I XS_DPTHGRID_ACCEPT
+BtnItem Enabled
+DefaultButton
+246 308 282 435
+Accept Changes 
+
+*I XS_DPTHGRID_BOLD_PROMPT
+StatText Enabled
+105 30 126 130 
+Bold Marks &
+
+*I XS_DPTHGRID_BOLD_PROMPT2
+StatText Enabled
+118 47 134 110
+Labels
+
+*I XS_DPTHGRID_MED_PROMPT
+StatText Enabled
+105 170 126 295
+Medium Marks 
+
+*I XS_DPTHGRID_FINE_PROMPT
+StatText Enabled
+105 335 126 445
+Fine Marks
+
+*I XS_DPTHGRID_BOLDINT_PROMPT 
+StatText Enabled
+185 20 202 85
+Interval: 
+
+*I XS_DPTHGRID_MEDINT_PROMPT
+StatText Enabled
+185 165 202 230
+Interval: 
+
+*I XS_DPTHGRID_FINEINT_PROMPT 
+StatText Enabled
+185 320 202 385
+Interval: 
+
+*I XS_DPTHGRID_BOLD_INTVL
+EditText Enabled
+VerifyFloat
+182 87 206 126
+50 
+
+*I XS_DPTHGRID_MED_INTVL 
+EditText Enabled
+VerifyFloat
+182 232 206 271
+10 
+
+*I XS_DPTHGRID_FINE_INTVL
+EditText Enabled
+VerifyFloat
+182 387 206 426
+2
+
+SETGROUP 5
+*I XS_DPTHGRID_BOLDLINES_BTN
+RadioItem Enabled 
+135 40 151 100 
+Lines
+
+*I XS_DPTHGRID_BOLDTICS_BTN 
+RadioItem Enabled 
+150 40 166 100 
+Tics 
+
+*I XS_DPTHGRID_BOLDNONE_BTN 
+RadioItem Enabled 
+165 40 186 137
+No Marks 
+
+SETGROUP 6
+*I XS_DPTHGRID_MEDLINES_BTN 
+RadioItem Enabled 
+135 195 151 255
+Lines
+
+*I XS_DPTHGRID_MEDTICS_BTN
+RadioItem Enabled 
+150 195 166 255
+Tics 
+
+*I XS_DPTHGRID_MEDNONE_BTN
+RadioItem Enabled 
+165 195 186 255
+None 
+
+SETGROUP 7
+*I XS_DPTHGRID_FINELINES_BTN
+RadioItem Enabled 
+135 345 151 405
+Lines
+
+*I XS_DPTHGRID_FINETICS_BTN 
+RadioItem Enabled 
+150 345 166 405
+Tics 
+
+*I XS_DPTHGRID_FINENONE_BTN 
+RadioItem Enabled 
+165 345 186 405
+None 
+
+SETGROUP 8
+*I XS_DPTHGRID_MD_BTN
+RadioItem Enabled 
+45 20 61 250 
+Measured Depth 
+
+*I XS_DPTHGRID_TVD_BTN 
+RadioItem Enabled 
+45 260 61 490
+True Vertical Depth 
+
+*I XS_DPTHGRID_SUBSEA_BTN
+RadioItem Enabled 
+60 260 76 490
+Subsea Elevation
+
+*I XS_DPTHGRID_TIME_BTN
+RadioItem Enabled 
+60 20 76 250 
+Time 
+
+SETGROUP 9
+*I XS_DPTHGRID_INCH_UNIT_BTN 
+RadioItem Enabled 
+246 155 262 280 
+Interval in feet
+
+*I XS_DPTHGRID_CM_UNIT_BTN 
+RadioItem Enabled 
+265 155 281 292
+Interval in meters
+
+*T CDLG 
+,80
+*N XS_DATA_INTVL
+*S PR 0 PU 1 
+50 45 325 450
+Data Interval
+14
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/DEPTH_INTERVAL
+
+*I XS_DATAINT_IGNORE
+BtnItem Enabled
+225 20 256 130 
+Ignore Changes
+
+*I XS_DATAINT_PROCEED
+BtnItem Enabled
+DefaultButton
+225 275 256 385
+Accept Changes
+
+*I XS_DATAINT_TEXT1 
+StatText Enabled
+15 20 32 385 
+Select a method for specification of the data interval.
+
+*I XS_DATAINT_TEXT2 
+StatText Enabled
+125 20 141 385 
+Select a method for display data thinning.
+
+*I XS_DATAINT_DELPNTS
+EditText Enabled
+VerifyInteger
+167 277 191 318
+
+
+*I XS_DATAINT_DELSLOPE
+EditText Enabled
+VerifyFloat
+195 277 217 318
+
+
+*I XS_DATAINT_PERCENT
+StatText Enabled
+197 325 213 345
+%
+
+SETGROUP 11
+*I XS_DATAINT_SURF2TD
+RadioItem Enabled 
+35 90 51 315 
+Surface to T.D.
+
+*I XS_DATAINT_DPTHCONST
+RadioItem Enabled 
+55 90 71 310 
+Depth Constants
+
+*I XS_DATAINT_GEOMARK
+RadioItem Enabled 
+75 90 91 315 
+Geologic Markers and Offsets
+
+*I XS_DATAINT_ZONEOFF
+RadioItem Enabled 
+95 90 111 310
+Zone and Offsets
+
+SETGROUP 12
+*I XS_DATAINT_NO_THIN
+RadioItem Enabled 
+145 90 161 300 
+No Data Thinning
+
+*I XS_DATAINT_LINEAR
+RadioItem Enabled 
+170 90 186 275 
+Display 1 point for every
+
+*I XS_DATAINT_SLOPE 
+RadioItem Enabled 
+195 90 211 275
+Eliminate slope changes <
+
+*T CDLG 
+,90
+*N XS_PATFILL
+*S PR 0 PU 1 
+44 1 322 511 
+Pattern Fill 
+24 
+
+*I XS_PATFILL_TEXT1 
+StatText Disabled 
+5 10 21 55
+Track
+
+*I XS_PAFILL_TEXT2
+StatText Disabled 
+5 70 21 170
+Left Fill Limit
+
+*I XS_PATFILL_TEXT3 
+StatText Disabled 
+5 215 21 315 
+Right Fill Limit
+
+*I XS_PATFILL_TEXT4 
+StatText Disabled 
+5 350 21 400 
+Color
+
+*I XS_PATFILL_TEXT5 
+StatText Disabled 
+5 405 21 465 
+Pattern 
+
+*I XS_PATFILL_RIGHTEDIT
+EditText Enabled
+137 179 159 327
+
+
+*I XS_PATFILL_LEFTEDIT 
+EditText Enabled
+137 31 159 176
+
+
+*I XS_PATFILL_TRACKEDIT
+EditText Enabled
+137 2 159 28
+
+
+*I XS_PATFILL_SELECT
+BtnItem Enabled
+180 15 211 85
+Select
+
+*I XS_PATFILL_REPLACE
+BtnItem Enabled
+180 145 211 215
+Replace 
+
+*I XS_PATFILL_ADD 
+BtnItem Enabled
+180 285 211 355
+Add
+
+*I XS_PATFILL_DELETE
+BtnItem Enabled
+180 415 211 485
+Delete
+
+*I XS_PATFILL_IGNORE
+BtnItem Enabled
+225 15 266 130 
+Ignore Changes 
+
+*I XS_PATFILL_ACCEPT
+BtnItem Enabled
+DefaultButton
+225 375 266 490
+Accept Changes 
+
+SETGROUP 13
+*I XS_PATFILL_TRACKNUM 
+Selector Enabled
+22 2 129 28
+4
+4
+4
+
+*I XS_PATFILL_LEFTFILL 
+Selector Enabled
+22 31 129 176
+0.0
+VSHALE.GR 
+VSAND
+
+*I XS_PATFILL_RIGHTFILL
+Selector Enabled
+22 179 129 328
+VSHALE.GR 
+VSAND
+OIL_VOL 
+
+*I XS_PATFILL_COLOR 
+Selector Enabled
+22 331 129 407
+BROWN
+YELLOW
+GREEN
+
+*I XS_PATFILL_PATTERN
+Selector Enabled
+22 410 129 481
+SHALE
+SAND 
+SOLID
+
+*I XS_PATFILL_VSCROLL
+VScroll Enabled
+30 485 121 495 
+
+
+SETGROUP 14
+*I XS_PATFILL_SCRCOLOR 
+Valuator Enabled
+132 397 180 405
+
+
+*I XS_PATFILE_SELCOLOR 
+StatText Enabled
+137 331 159 395
+
+
+SETGROUP 15
+*I XS_PATFILL_SCRPTRN
+Valuator Enabled
+132 474 180 482
+
+
+*I XS_PATFILL_SELPTRN
+StatText Enabled
+137 415 159 473
+
+
+*T CDLG 
+,100 
+*N XS_RETLAYOUT
+*S PR 0 PU 1 
+42 54 331 474
+Retrieve Layout
+17 
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/CROSSSECTION/RETRIEVE_LAYOUT
+
+*I XS_RETLAYOUT_CANCEL 
+BtnItem Enabled
+245 20 280 105 
+Cancel
+
+*I XS_RETLAYOUT_RETRIEVE 
+BtnItem Enabled
+245 315 280 400
+Retrieve
+
+*I XS_RETLAYOUT_SELECT 
+BtnItem Enabled
+40 320 61 395
+Build List
+
+*I XS_RETLAYOUT_CHOOSE 
+StatText Enabled
+5 17 22 400
+Choose a Layout Name and press "Retrieve". 
+
+*I XS_RETLAYOUT_TEXT1
+StatText Disabled 
+80 20 96 100 
+Project 
+
+*I XS_RETLAYOUT_TEXT2
+StatText Disabled 
+80 105 96 185
+Account 
+
+*I XS_RETLAYOUT_TEXT3
+StatText Disabled 
+80 195 96 350
+Layout Name
+
+*I XS_RETLAYOUT_RECT1
+Rectitem Enabled
+30 25 70 175 
+
+*I XS_RETLAYOUT_RECT2
+Rectitem Enabled
+30 175 70 315
+
+SETGROUP 16
+*I XS_RETLAYOUT_PROJECT
+Selector Enabled
+97 17 234 98
+EXAMPLES
+HCREEK
+HCREEK
+
+*I XS_RETLAYOUT_ACCOUNT
+Selector Enabled
+97 102 234 188
+DOUG
+DOUG
+DOUG 
+
+*I XS_RETLAYOUT_NAME
+Selector Enabled
+97 192 234 388
+RAW DATA QA
+EDITED DATA PLOT
+INTERPRETIVE SECTION
+
+*I XS_RETLAYOUT_VSCROLL
+Vscroll Enabled
+105 395 226 407
+
+
+SETGROUP 17
+*I XS_RETLAYOUT_ALLPROJ
+RadioItem Enabled 
+35 30 51 170 
+All Projects 
+
+*I XS_RETLAYOUT_CURRPROJ 
+RadioItem Enabled 
+50 30 66 170 
+Current Project
+
+SETGROUP 18
+*I XS_RETLAYOUT_ALLACNTS 
+RadioItem Enabled 
+35 180 51 310
+All Accounts 
+
+*I XS_RETLAYOUT_CURRACNT 
+RadioItem Enabled 
+50 180 66 310
+Current Account
+
+
+*T CDLG 
+,110 
+*N XS_TITLE_BLOCK 
+*S PR 0 PU 1 
+47 16 327 498
+Title Block
+8
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/TITLE_BLOCK
+
+*I XS_TITLE1 
+EditText Enabled
+22 107 44 368
+EXPLORATION SYSTEMS INC. 
+
+*I XS_TITLE2 
+EditText Enabled
+67 102 89 373
+HOUSE CREEK FIELD STUDY
+
+*I XS_TITLE3 
+EditText Enabled
+92 102 114 373
+CAMPBELL COUNTY, WYOMING 
+
+*I XS_TITLE4 
+EditText Enabled
+117 102 139 373
+CROSS SECTION B-B'
+
+*I XS_TITLE5 
+EditText Enabled
+157 17 179 233
+DATUM:SUSSEX SAND 
+
+*I XS_TITLE6 
+EditText Enabled
+157 242 179 458
+GEOLOGIST:G.H.FARTZ
+
+*I XS_TITLE_IGNORE
+BtnItem Enabled
+225 20 261 130 
+Ignore Changes 
+
+*I XS_TITLE_ACCEPT
+BtnItem Enabled
+DefaultButton
+225 345 261 455
+Accept Changes 
+
+*T CDLG 
+,120 
+*N XS_TOP2TOP
+*S PR 0 PU 1 
+40 35 337 465
+Top to Top Interval 
+11 
+
+*I XS_TOP2TOP_TEXT1 
+StatText Enabled
+30 10 46 400 
+Upper Geologic Top:
+
+*I XS_TOP2TOP_TEXT2 
+StatText Enabled
+80 10 96 65
+Offset: 
+
+*I XS_TOP2TOP_TEXT3 
+StatText Enabled
+175 10 191 65
+Offset: 
+
+*I XS_TOP2TOP_SELECTUPPER
+EditText Enabled
+47 7 69 403
+
+
+*I XS_TOP2TOP_OFFSETUPPER
+EditText Enabled
+VerifyFloat
+77 67 99 158
+
+
+*I XS_TOP2TOP_SELECTLOWER
+EditText Enabled
+142 7 164 403
+
+
+*I XS_TOP2TOP_OFFSETLOWER
+EditText Enabled
+VerifyFloat
+172 67 194 158
+
+
+*I XS_TOP2TOP_TEXT4 
+StatText Enabled
+210 110 226 315
+(Positive offset is down hole.)
+
+*I XS_TOP2TOP_IGNORE
+BtnItem Enabled
+250 15 281 125 
+Ignore Changes 
+
+*I XS_TOP2TOP_ACCEPT
+BtnItem Enabled
+DefaultButton
+250 295 281 405
+Accept Changes 
+
+*I XS_TOP2TOP_TEXT5 
+StatText Enabled
+125 10 141 405 
+Lower Geologic Top:
+
+*T CDLG 
+,130 
+*N XS_TRACEATTR
+*S PR 0 PU 1 
+40 5 329 509 
+Trace Attributes
+14 
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/TRACE_ATRRIBUTE
+
+*I XS_TRACEATTR_TEXT0
+StatText Enabled
+20 25 36 65
+Trace
+
+*I XS_TRACEATTR_TEXT1
+StatText Enabled
+20 235 36 275
+Track
+
+*I XS_TRACEATTR_TEXT2
+StatText Enabled
+20 276 36 351
+Line Type 
+
+*I XS_TRACEATTR_TEXT3
+StatText Disabled 
+20 415 36 465
+Color
+
+*I XS_TRACEATTR_TEXT4
+StatText Disabled 
+20 340 36 415
+Thickness 
+
+*I XS_TRACEATTR_CHANGE
+BtnItem Enabled
+170 25 206 90
+Change
+
+*I XS_TRACEATTR_IGNORE 
+BtnItem Enabled
+235 25 277 140 
+Ignore Changes 
+
+*I XS_TRACEATTR_ACCEPT 
+BtnItem Enabled
+DefaultButton
+235 355 277 470
+Accept Changes 
+
+SETGROUP 19
+*I XS_TRACEATTR_TRACE
+Selector Enabled
+37 2 139 233
+GR.FDC;4
+SP.IES
+RT 
+
+*I XS_TRACEATTR_TRACK
+Selector Enabled
+37 236 139 262
+1
+2
+3
+
+*I XS_TRACEATTR_LINETYPE 
+Selector Enabled
+37 265 139 333
+SOLID
+DOT-DASH
+DASHED
+
+*I XS_TRACEATTR_LINETHICK
+Selector Enabled
+37 336 139 402
+THIN 
+MEDIUM
+THICK
+
+*I XS_TRACEATTR_COLOR
+Selector Enabled
+37 405 139 468
+ORANGE
+RED
+GREEN
+
+*I XS_TRACEATTR_VSC 
+VScroll Enabled
+44 482 132 492 
+
+
+*T CDLG 
+,140 
+*N XS_TRACESEL 
+*S PR 0 PU 1 
+40 5 329 509 
+Trace Selection
+26 
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/TRACE_SELECTION
+
+*I XS_TRACESEL_TEXT1
+StatText Enabled
+15 180 31 220
+Track
+
+*I XS_TRACESEL_TEXT2
+StatText Enabled
+15 224 31 287
+Left 
+
+*I XS_TRACESEL_TEXT3
+StatText Disabled 
+15 409 31 456
+Type 
+
+*I XS_TRACESEL_TEXT4
+StatText Disabled 
+15 290 31 356
+Right
+
+*I XS_TRACESEL_TEXT5
+StatText Enabled
+15 30 31 70
+Trace
+
+*I XS_TRACESEL_TEXT6
+StatText Enabled
+1 359 14 406
+Units
+
+*I XS_TRACESEL_TEXT7
+StatText Enabled
+15 359 31 406
+(T/M)
+
+*I XS_TRACESEL_SELECT
+BtnItem Enabled
+170 25 206 90
+Select
+
+*I XS_TRACESEL_REPLACE 
+BtnItem Enabled
+170 115 206 180
+Replace 
+
+*I XS_TRACESEL_IGNORE
+BtnItem Enabled
+235 25 277 140 
+Ignore Changes 
+
+*I XS_TRACESEL_ACCEPT
+BtnItem Enabled
+DefaultButton
+235 365 277 480
+Accept Changes 
+
+*I XS_TRACESEL_TRACEEDT
+EditText Enabled
+139 2 162 185
+
+
+*I XS_TRACESEL_TRACKEDT
+EditText Enabled
+VerifyInteger
+139 188 162 213
+
+
+*I XS_TRACESEL_LEFTEDT
+EditText Enabled
+VerifyFloat
+139 216 162 287
+
+
+*I XS_TRACESEL_RIGHTEDT
+EditText Enabled
+VerifyFloat
+139 290 162 356
+
+
+*I XS_TRACESEL_UNITEDT
+EditText Enabled
+139 359 162 406
+
+
+*I XS_TRACESEL_ADD
+BtnItem Enabled
+170 295 206 360
+Add
+
+*I XS_TRACESEL_DELETE 
+BtnItem Enabled 
+170 385 206 450 
+Delete
+
+*I XS_TRACESEL_DEFAULTS 
+BtnItem Enabled 
+170 205 206 270 
+Defaults
+
+SETGROUP 20
+*I XS_TRACESEL_TRACE
+Selector Enabled
+32 2 134 185
+GR.FDC;4
+SP.IES
+RT
+
+*I XS_TRACESEL_TRACK
+Selector Enabled
+32 188 134 213
+1 
+2 
+3 
+
+*I XS_TRACESEL_LEFT 
+Selector Enabled
+32 216 134 287
+0 
+-100
+.2
+
+*I XS_TRACESEL_RIGHT
+Selector Enabled
+32 290 134 356
+120.0 
+0.0 
+2000
+
+*I XS_TRACESEL_UNIT
+Selector Enabled
+32 359 134 406
+API
+MV
+US/M
+
+*I XS_TRACESEL_TYPE 
+Selector Enabled
+32 409 134 456
+LIN 
+LIN 
+LOG 
+
+*I XS_TRACESEL_VSC
+VScroll Enabled 
+40 473 126 483
+
+
+*T CDLG 
+,150
+*N XS_TRACKDEF
+*S PR 0 PU 1
+40 5 331 503
+LogPlot Track Definition
+29
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/TRACK_DEFINITION
+
+*I XS_TRACKDEF_TEXT1
+StatText Enabled
+10 3 26 43
+Track 
+
+*I XS_TRACKDEF_TEXT2
+StatText Disabled 
+10 80 26 125
+Type
+
+*I XS_TRACKDEF_TEXT3
+StatText Disabled 
+10 267 26 314 
+# Div.
+
+*I XS_TRACKDEF_TEXT4
+StatText Enabled
+10 201 26 246 
+Marks 
+
+*I XS_TRACKDEF_TEXT5
+StatText Disabled 
+10 388 26 433 
+Width 
+
+*I XS_TRACKDEF_TEXT6
+StatText Disabled 
+10 316 26 378 
+Start Loc
+
+*I XS_TRACKDEF_SELECT 
+BtnItem Enabled 
+188 25 224 90 
+Select
+
+*I XS_TRACKDEF_REPLACE
+BtnItem Enabled 
+188 145 224 210 
+Replace 
+
+*I XS_TRACKDEF_ADD
+BtnItem Enabled 
+188 280 224 345 
+Add 
+
+*I XS_TRACKDEF_DELETE 
+BtnItem Enabled 
+188 400 224 465 
+Delete
+
+*I XS_TRACKDEF_IGNORE 
+BtnItem Enabled 
+235 25 277 140
+Ignore Changes
+
+*I XS_TRACKDEF_ACCEPT 
+BtnItem Enabled 
+DefaultButton
+235 355 277 470 
+Accept Changes
+
+*I XS_TRACKDEF_TRACKEDT
+EditText Enabled
+VerifyInteger
+142 5 165 34
+
+
+*I XS_TRACKDEF_DIVISNEDT
+EditText Enabled
+VerifyInteger
+142 270 165 311
+
+
+*I XS_TRACKDEF_STARTEDT
+EditText Enabled
+VerifyFloat
+142 314 165 380
+
+
+*I XS_TRACKDEF_WIDTHEDT
+EditText Enabled
+VerifyFloat
+142 383 165 444
+
+
+SETGROUP 27
+*I XS_TRACKDEF_TYPEVAL
+Valuator Enabled
+132 175 182 190
+
+
+*I XS_TRACKDEF_TYPESEL
+StatText Enabled
+142 37 165 171
+
+
+SETGROUP 28
+*I XS_TRACKDEF_MARKVAL
+Valuator Enabled
+132 251 182 264 
+
+
+*I XS_TRACKDEF_MARKSEL
+StatText Enabled
+142 196 165 245
+
+
+SETGROUP 29
+*I XS_TRACKDEF_TRACK
+Selector Enabled
+28 5 130 34
+1 
+2 
+3 
+4 
+5 
+6 
+
+*I XS_TRACKDEF_TYPE 
+Selector Enabled
+28 37 130 193
+LIN 
+LIN 
+LOG 
+TEXT
+DEPTH (MEAS,FT) 
+DEPTH (MEAS,M) 
+
+*I XS_TRACKDEF_MARKS
+Selector Enabled
+28 196 130 267
+LINES 
+LINES 
+TICS
+NONE
+NONE
+NONE
+
+*I XS_TRACKDEF_NUMBER 
+Selector Enabled
+28 270 130 311
+5 
+5 
+2 
+0 
+0 
+0 
+
+*I XS_TRACKDEF_LOCATION 
+Selector Enabled
+28 314 130 380
+0.0 
+3.5 
+6.0 
+3.5 
+2.5 
+8.5 
+
+*I XS_TRACKDEF_WIDTH
+Selector Enabled
+28 383 130 444
+2.5 
+2.5 
+2.5 
+5.0 
+1.0 
+1.0 
+
+*I XS_TRACKDEF_VSC
+VScroll Enabled 
+31 452 127 467
+
+SETGROUP 30
+*I XS_TRACKDEF_INCH_UNIT_BTN 
+RadioItem Enabled 
+235 160 251 320 
+Width in Inches 
+
+*I XS_TRACKDEF_CM_UNIT_BTN 
+RadioItem Enabled 
+255 160 271 320 
+Width in Centimeters
+
+*T CDLG 
+,170
+*N XS_TYPE
+*S PR 0 PU 1
+40 5 335 507
+Cross Section Type
+10
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/CROSS_SECTION_PARAMETERS
+
+*I XS_TYPE_SELECT 
+EditText Enabled
+89 162 111 468
+CRCN 
+
+*I XS_TYPE_TEXT1
+StatText Enabled
+92 110 109 155
+Top:
+
+*I XS_TYPE_IGNORE 
+BtnItem Enabled 
+245 20 281 130
+Ignore Changes
+
+*I XS_TYPE_ACCEPT 
+BtnItem Enabled 
+DefaultButton
+245 375 281 485 
+Accept Changes
+
+*I XS_TYPE_SUPPRESS_VBAR
+ChkItem Disabled
+231 30 251 465
+Suppress Vertical Scale Bar
+
+SETGROUP 24
+*I XS_TYPE_CENTERS
+RadioItem Enabled 
+150 25 166 465
+Scale log centers to well spacing.
+
+*I XS_TYPE_GAPS 
+RadioItem Enabled 
+170 25 186 465
+Scale gaps between logs to well spacing.
+
+*I XS_TYPE_CONSTANT 
+RadioItem Enabled 
+190 25 206 465
+Constant Log Spacing. 
+
+SETGROUP 25
+*I XS_TYPE_STRUCT 
+RadioItem Enabled 
+52 25 68 470
+Structural Cross Section (Wells Referenced to Sea Level)
+
+*I XS_TYPE_MDEPTH 
+RadioItem Enabled 
+32 25 48 470
+Measured Depth Cross Section (Wells Referenced to Nothing)
+
+*I XS_TYPE_STRAT
+RadioItem Enabled 
+72 25 88 470
+Stratigraphic Cross Section (Wells Referenced to a Top) 
+
+*T CDLG 
+,180
+*N XS_ZONESEL 
+*S PR 0 PU 1
+45 80 337 425 
+Select a Zone 
+9 
+
+*I XS_ZONESEL_TEXT1 
+StatText Enabled
+190 80 206 170
+Base Offset:
+
+*I XS_ZONESEL_TEXT2 
+StatText Enabled
+165 80 181 170
+Top Offset: 
+
+*I XS_ZONESEL_TOPOFFSET 
+EditText Enabled
+VerifyFloat
+162 172 184 263
+
+
+*I XS_ZONESEL_BOTOFFSET 
+EditText Enabled
+VerifyFloat
+187 172 209 263
+
+
+*I XS_ZONESEL_TEXT3 
+StatText Enabled
+215 70 231 275
+(Positive offset is down hole.) 
+
+*I XS_ZONESEL_IGNORE
+BtnItem Enabled 
+245 25 276 135
+Ignore Changes
+
+*I XS_ZONESEL_ACCEPT
+BtnItem Enabled 
+DefaultButton
+245 205 276 315 
+Accept Changes
+
+SETGROUP 26
+*I XS_ZONESEL_LIST
+Selector Enabled
+15 77 147 239
+
+
+*I XS_ZONESEL_VSC 
+VScroll Enabled 
+20 250 141 260
+
+
+*T CDLG 
+,190
+*N XS_USELAST 
+*S PR 0 PU 1
+77 39 222 473 
+Use Last Displayed Layout 
+6 
+
+*I XS_USELAST_TEXT1 
+StatText Enabled
+15 20 35 166
+Current Layout Is 
+
+*I XS_USELAST_TEXT2 
+StatText Enabled
+50 20 70 211
+Layout Will Be Replaced By
+
+*I XS_USELAST_CURR_LAYOUT 
+StatText Enabled
+15 215 35 421 
+Stinky_Arroyo_Layout
+
+*I XS_USELAST_TEXT3 
+StatText Enabled
+50 215 70 421 
+Last_Displayed_Layout 
+
+*I XS_USELAST_CANCEL
+BtnItem Enabled 
+105 35 132 120
+CANCEL
+
+*I XS_USELAST_OK
+BtnItem Enabled 
+105 320 132 405 
+OK
+
+*T CDLG 
+,200
+*N XS_FILEEXIST 
+*S PR 0 PU 1
+54 30 214 482 
+Existing File Name
+4 
+
+*I XS_FILEEXIST_TEXT1 
+StatText Enabled
+34 22 56 204
+Replace Existing File Name: 
+
+*I XS_FILEEXIST_FILENAME
+StatText Enabled
+34 221 52 431 
+HARTZOG_DRAW.LA 
+
+*I XS_FILEEXIST_CANCEL
+BtnItem Disabled
+125 25 154 128
+CANCEL
+
+*I XS_FILEEXIST_OK
+BtnItem Disabled
+125 328 154 431 
+OK
+
+*T CDLG 
+,220
+*N XS_NEWLAYOUT 
+*S PR 0 PU 1
+76 41 253 482 
+New Layout
+3 
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/CROSSSECTION/NEW_LAYOUT
+
+*I XS_NEWLAYOUT_TEXT1 
+StatText Enabled
+30 19 52 411
+WARNING:  New Layout will replace current preferences.
+
+*I XS_NEWLAYOUT_PROCEED 
+BtnItem Enabled 
+DefaultButton
+136 340 168 420 
+Proceed 
+
+*I XS_NEWLAYOUT_CANCEL
+BtnItem Enabled 
+137 22 169 102
+Cancel
+
+*T CDLG 
+,230
+*N XS_ANNOTAT 
+*S PR 0 PU 1
+59 31 305 481 
+Annotation Selection
+17
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/ANNOTATION
+
+*I XS_ANNOTAT_TEXT1 
+StatText Enabled
+7 19 41 103 
+AnnotationType
+
+*I XS_ANNOTAT_TEXT2 
+StatText Enabled
+7 140 42 241
+Symbol Track Number 
+
+*I XS_ANNOTAT_TEXT3 
+StatText Enabled
+8 305 43 406
+Text Plotted Below Well 
+
+*I XS_ANNOTAT_CHKSHOWS
+ChkItem Disabled
+60 330 83 350 
+
+
+*I XS_ANNOTAT_CHKCORES
+ChkItem Disabled
+88 330 111 353
+
+
+*I XS_ANNOTAT_CHKTESTS
+ChkItem Disabled
+121 330 143 349 
+
+
+*I XS_ANNOTAT_TEXT4 
+StatText Enabled
+60 30 76 130
+Shows 
+
+*I XS_ANNOTAT_TEXT5 
+StatText Enabled
+88 29 104 129 
+Cores 
+
+*I XS_ANNOTAT_TEXT6 
+StatText Enabled
+121 30 137 130
+Tests 
+
+*I XS_ANNOTAT_TEXT7 
+StatText Disabled 
+153 29 169 129
+Perfs 
+
+*I XS_ANNOTAT_CHKPERFS
+ChkItem Disabled
+153 330 173 351 
+
+
+*I XS_ANNOTAT_TRACKSHOWS
+EditText Enabled
+57 154 81 194
+10
+
+*I XS_ANNOTAT_TRACKCORES
+EditText Enabled
+85 154 109 194
+3 
+
+*I XS_ANNOTAT_TRACKTESTS
+EditText Enabled
+118 154 142 194
+10
+
+*I XS_ANNOTAT_TRACKPERFS
+EditText Enabled
+149 154 173 194
+
+
+*I XS_ANNOTAT_CANCEL
+BtnItem Enabled 
+208 17 238 117
+CANCEL
+
+*I XS_ANNOTAT_OK
+BtnItem Enabled 
+207 329 237 429 
+OK
+
+*T CDLG 
+,240
+*N XS_MESSAGE 
+*S PR 0 PU 1
+52 53 211 464 
+Messages
+3 
+
+*I XS_MESSAGE1
+StatText Enabled
+9 27 30 383 
+Please pick a menu item
+
+*I XS_MESSAGE2
+StatText Enabled
+36 27 57 383
+Current layout:  
+
+*I XS_MESSAGE3
+StatText Enabled
+65 27 86 383
+
+
+
+*T CDLG
+,260
+*N XS_DEPTH_SCALE
+*S PR 0 PU 1
+49 31 263 478 
+LogPlot Depth Scale
+5
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/DEPTH_SCALE
+
+*I XS_DEPTH_SCALE_IGNORE
+BtnItem Enabled
+160 14 196 141 
+Ignore Changes
+
+*I XS_DEPTH_SCALE_ACCEPT
+BtnItem Enabled
+DefaultButton
+160 303 196 430 
+Accept Changes
+
+*I XS_DEPTH_SCALE_T1
+StatText Enabled
+31 16 48 430
+Enter the depth scale as paper units per depth units.
+
+*I XS_DEPTH_SCALE_T2
+StatText Enabled
+51 16 69 242 
+For Example:  5 INCHES = 100 FEET
+
+*I XS_DEPTH_SCALE_STR
+EditText Enabled
+85 76 110 370
+5 INCHES : 100 FEET
+
+*T CDLG
+,270
+*N XS_HORIZONTAL
+*S PR 0 PU 1
+49 31 263 478 
+Horizontal Scale
+7
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/PREFERENCE/HORIZONTAL_SCALE
+
+*I XS_HORIZ_IGNORE
+BtnItem Enabled
+160 14 196 141 
+Ignore Changes
+
+*I XS_HORIZ_ACCEPT
+BtnItem Enabled
+DefaultButton
+160 303 196 430 
+Accept Changes
+
+*I XS_HORIZ_T1
+StatText Enabled
+26 16 44 450 
+Enter the horizontal scale as paper units per ground units,
+
+*I XS_HORIZ_T2
+StatText Enabled
+60 16 78 242 
+For Example:  1 INCH = 1000 FEET
+
+*I XS_HORIZ_T4
+StatText Disabled
+44 16 60 385 
+or as a ratio scale.
+
+*I XS_HORIZ_T5
+StatText Enabled
+59 258 75 389 
+Or:      1 : 12000
+
+*I XS_HORIZ_STR
+EditText Enabled
+85 76 110 370
+1 INCH = 10560 FEET
+
+*T CDLG
+,280
+*N XS_DIGITIZE_TOPS
+*S PR 0 PU 1
+44 104 325 406 
+Digitize Tops
+7
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/TOPS/DIGITIZE_TOPS
+
+*I XS_DGZ_SELECT_LIST
+Selector Enabled
+7 17 153 251
+
+
+*I XS_DGZ_SELECT_BAR
+Vscroll Enabled
+15 264 145 282 
+
+
+*I XS_DGZ_BTN_CANCEL
+BtnItem Enabled
+230 20 262 100 
+Done
+
+*I XS_DGZ_BTN_DGZ
+BtnItem Enabled
+230 199 262 279 
+Digitize
+
+*I XS_DGZ_SELECT_TOP
+EditText Enabled
+186 17 213 251
+
+
+*I XS_DGZ_TEXT_TITLE
+StatText Enabled
+166 20 182 120 
+Selected Top:
+
+*I XS_DGZ_BTN_SELECT
+BtnItem Enabled
+230 110 262 190 
+Select
+
+,290
+*N XS_DISPLAY_TOPS
+*S PR 0 PU 1
+44 104 325 406 
+Display Tops
+4
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/TOPS/DISPLAY_TOPS
+
+*I XS_DSP_SELECT_LIST
+Selector Enabled
+7 17 203 255
+tops...
+
+*I XS_DSP_SELECT_BAR
+Vscroll Enabled
+15 264 195 284 
+
+
+*I XS_DSP_BTN_CANCEL
+BtnItem Enabled
+230 20 262 100 
+Cancel
+
+*I XS_DSP_BTN_DISPLAY
+BtnItem Enabled
+230 199 262 279 
+Display
+
+,300
+*N XS_RETRIEVE_TOPS
+*S PR 0 PU 1
+44 104 325 406 
+Retrieve Tops
+4
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/TOPS/RETRIEVE_TOPS
+
+*I XS_RTR_SELECT_LIST
+Selector Enabled
+7 17 203 255
+tops...
+
+*I XS_RTR_SELECT_BAR
+Vscroll Enabled
+15 263 195 283 
+
+
+*I XS_RTR_BTN_CANCEL
+BtnItem Enabled
+230 20 262 100 
+Cancel
+
+*I XS_RTR_BTN_RETRIEVE
+BtnItem Enabled
+230 199 262 279 
+Retrieve
+
+
+,310
+*N XS_SAVE_TOPS
+44 104 325 406 
+Save Tops
+5
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/TOPS/SAVE_TOPS
+
+*I XS_SAV_SELECT_LIST
+Selector Enabled
+7 17 203 255
+tops...
+
+*I XS_SAV_SELECT_BAR
+Vscroll Enabled
+15 263 195 284 
+
+
+*I XS_SAV_BTN_CANCEL
+BtnItem Enabled
+230 20 262 100 
+Cancel
+
+*I XS_SAV_BTN_SAVE
+BtnItem Enabled
+230 199 262 279 
+Save
+
+*I XS_SAV_MESSAGE
+StatText Enabled
+7 17 75 284
+Select one or more tops to save and click 'Save'
+
+
+*T CDLG
+,320
+*N XS_TDGZ_TOP_INFO
+*S PR 0 PU 1
+40 43 334 445 
+Top Digitizer
+20
+
+Helpkey FINDER/GEOLOGIC_INTERPRETATION/TOPS/DIGITIZE_TOPS/DIGITIZE
+
+*I XS_TDGZ_MSG_BOX
+StatText Enabled
+5 6 37 395 
+
+*I XS_TDGZ_PUCK_1
+StatText Enabled
+50 105 66 170 
+(1) Pick
+
+*I XS_TDGZ_PUCK_2
+StatText Enabled
+50 200 66 265 
+(2) Color
+
+*I XS_TDGZ_PUCK_3
+StatText Enabled
+50 298 66 360 
+(3) Info
+
+*I XS_TDGZ_PUCK_4
+StatText Enabled
+70 15 86 90 
+(4) Delete
+
+*I XS_TDGZ_PUCK_A
+StatText Enabled
+90 200 106 280 
+(A) ZoomIn
+
+*I XS_TDGZ_PUCK_B
+StatText Enabled
+90 298 106 390 
+(B) Pan
+
+*I XS_TDGZ_PUCK_C
+StatText Enabled
+110 15 126 85 
+(C) Cancel
+
+
+*I XS_TDGZ_PUCK_D
+StatText Enabled
+110 105 126 165 
+(D) Exit
+
+*I XS_TDGZ_PUCK_F
+StatText Enabled
+110 298 126 385 
+(F) Refresh
+
+*I XS_TDGZ_PUCK_8
+StatText Enabled
+90 15 106 190 
+(8)                  (9)
+
+*I XS_TDGZ_PUCK_5
+StatText Enabled
+70 105 86 380 
+(5)                   (6)                    (7)
+
+*I XS_TDGZ_SELECT_TOP
+EditText Enabled
+224 15 246 190 
+
+
+*I XS_TDGZ_BTN_SELECT
+BtnItem Disabled
+255 145 286 220 
+Select
+
+*I XS_TDGZ_BTN_DGZ
+BtnItem Disabled
+DefaultButton
+255 280 286 385 
+Digitize
+
+*I XS_TDGZ_BTN_CANCEL
+BtnItem Disabled
+255 15 286 90 
+Done
+
+*I XS_TDGZ_CHK_COLORS
+ChkItem Disabled
+145 243 161 355 
+Auto Colors
+
+*I XS_TDGZ_PUCK_0
+StatText Enabled
+50 15 66 50 
+(0)
+
+SETGROUP 27
+*I XS_TDGZ_SELECT_LIST
+Selector Enabled
+141 15 222 190 
+
+
+*I XS_TDGZ_SELECT_BAR
+Vscroll Enabled
+141 195 222 210 
+
+
+
+,330
+*N XS_TDRAG_INFO
+*S PR 0 PU 1
+57 39 223 466
+Trace Correlation
+20
+
+*I XS_TDRAG_MSG1
+StatText Enabled
+4 12 20 416
+
+*I XS_TDRAG_MSG2
+StatText Enabled
+21 12 37 416
+
+*I XS_TDRAG_MSG3
+StatText Enabled
+38 12 54 416
+
+*I XS_TDRAG_KEYMAP
+StatText Enabled
+55 136 71 276
+
+*I XS_TDRAG_0
+StatText Enabled
+72 8 88 110
+
+*I XS_TDRAG_1
+StatText Enabled
+72 112 88 214
+
+*I XS_TDRAG_2
+StatText Enabled
+72 216 88 318
+
+*I XS_TDRAG_3
+StatText Enabled
+72 320 88 422
+
+*I XS_TDRAG_4
+StatText Enabled
+92 8 108 110
+
+*I XS_TDRAG_5
+StatText Enabled
+92 112 108 214
+
+*I XS_TDRAG_6
+StatText Enabled
+92 216 108 318
+
+*I XS_TDRAG_7
+StatText Enabled
+92 320 108 422
+
+*I XS_TDRAG_8
+StatText Enabled
+112 8 128 110
+
+*I XS_TDRAG_9
+StatText Enabled
+112 112 128 214
+
+*I XS_TDRAG_A
+StatText Enabled
+112 216 128 318
+
+*I XS_TDRAG_B
+StatText Enabled
+112 320 128 422
+
+*I XS_TDRAG_C
+StatText Enabled
+132 8 148 110
+
+*I XS_TDRAG_D
+StatText Enabled
+132 112 148 214
+
+*I XS_TDRAG_E
+StatText Enabled
+132 216 148 318
+
+*I XS_TDRAG_F
+StatText Enabled
+132 320 148 422
+
+

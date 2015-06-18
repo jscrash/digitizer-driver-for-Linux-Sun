@@ -1,0 +1,152 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_PUT_LINE.PC*/
+/*  8    13-FEB-1992 17:08:52 PURNA "(SPR 1347) added ho_parse_pathname"*/
+/* *7    16-OCT-1990 15:47:25 GILLESPIE "(SPR 1000) Merge Ernie deltas"*/
+/*  3B2  15-OCT-1990 16:58:05 GILLESPIE "Merge Ernie deltas"*/
+/* *6    30-SEP-1990 12:01:15 GILLESPIE "(SPR 1) Fix merge"*/
+/* *5    28-SEP-1990 15:04:24 GILLESPIE "(SPR 1) Merge beta deltas"*/
+/*  3B1  24-SEP-1990 16:14:25 GILLESPIE "Beta Deltas"*/
+/* *4    23-AUG-1990 15:29:29 PURNA "(SPR 0) fix compiling error"*/
+/* *3    18-JUL-1990 09:55:22 GILLESPIE "(SPR 1) Cleanup"*/
+/* *2    21-MAR-1990 19:25:36 GILLESPIE "(SPR 1) Add n-List file name to LINES table"*/
+/* *1    19-JUN-1989 12:31:14 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_PUT_LINE.PC*/
+/******************************************************************************     */
+/*                                                                                  */
+/*        Copyright Exploration Systems, Inc. 1989                                  */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY   */
+/*CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE      */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*                            Exploration Systems                                   */
+/*                            c/o Finder Graphics Systems                           */
+/*                            201 Tamal Vista Blvd.                                 */
+/*                            Corte Madera, CA  94925                               */
+/*                            (415) 927-0100                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/*                                                                                  */
+/******************************************************************************     */
+
+#include "esi_c_lib.h"
+#include "esi_dr.h"
+#include "esi_oracle.h"
+#include "esi_qs.h"
+
+/* Function Description -----------------------------------------------------       */
+/*Description:                                                                      */
+/*    This routine Puts a line structure into the LINES table                       */
+/*    of the current project.                                                       */
+/*                                                                                  */
+/*Prototype:                                                                        */
+/*    publicdef INT dr_put_line (LINE *line, FILENAME nlist_file,                   */
+/*                               DR_DATA *dr_data, BOOL isfault, CHAR *horizon);    */
+/*                                                                                  */
+/*Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)        */
+/*    (I) line        -(LINE *)    A pointer to a line structure.                   */
+/*    (I) nlist_file  -(FILENAME)  A file where the nlist will be written.          */
+/*    (I) dr_data     -(DR_DATA *) A pointer to a DR_DATA structure.                */
+/*    (I) isfault     -(BOOL)      Is this a Fault trace                            */
+/*    (I) horizon     -(CHAR *)    name of a horizon when the trace is a fault      */
+/*                                                                                  */
+/*Return Value/Status:                                                              */
+/*    SUCCESS - Successful completion                                               */
+/*    CT_ORACLE_ERROR - Error with Oracle.                                          */
+/*                                                                                  */
+/*Scope:                                                                            */
+/*    PUBLIC                                                                        */
+/*                                                                                  */
+/*Limitations/Assumptions:                                                          */
+/*                                                                                  */
+/*-----------------------------------------------------------------------------     */
+
+/* BEGIN:                                                                           */
+#if USE_PROTOTYPES
+publicdef INT dr_put_line (LINE *line, FILENAME nlist_file, DR_DATA *dr_data,
+                           BOOL isfault, CHAR *horizon)
+#else
+publicdef INT dr_put_line (line, nlist_file, dr_data, isfault, horizon)
+LINE *line;
+FILENAME nlist_file;
+DR_DATA *dr_data;
+BOOL isfault;
+CHAR *horizon;
+#endif
+    {
+    INT status, nlen;
+    PROJECT_NAME project;
+    ANALYST_NAME analyst;
+    UINT dim_list[2];
+    NLIST_ID nlist_name;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[1024];
+    EXEC SQL END DECLARE SECTION;
+    
+    if (isfault)
+        {
+        qs_inq_c (QS_FINDER_ACCOUNT, analyst, &nlen);
+        
+        status = dr_put_fault_trace (dr_data, horizon, line->line_id, line);
+        
+        /* ------------------------------------------                               */
+        /* We create an informational nlist_file name                               */
+        /* for the lines table, but NOTE this is not                                */
+        /* used by anybody.                                                         */
+        /* ------------------------------------------                               */
+        sprintf (nlist_file, "--FAULT-- Name: %s Marker: %s Seq: %d", line->line_name,
+                 horizon, line->line_id);
+        
+        /* -----------------------------------------                                */
+        /* The line_id in the lines table is used by                                */
+        /* dr_get_line, and is the join column to                                   */
+        /* the seis_fault_trace SEQ column.                                         */
+        /* -----------------------------------------                                */
+        sprintf (nlist_name, "%d", line->line_id);
+        }
+    else
+        {
+        /* Create nlist id string from line_id                                      */
+        sprintf (nlist_name, "%d", line->line_id);
+        
+        dim_list[0] = 1, dim_list[1] = 2;
+        status = dr_write_nlist (line->line_nlist, nlist_file, nlist_name, dim_list,
+                                 0.0, dr_data);
+        }
+    if (status != SUCCESS)
+        {
+        return status;
+        }
+    EXEC SQL WHENEVER SQLERROR GOTO sqlerrorpt;
+    
+    /*                                                                              */
+    /* * Make an entry in the LINES table.                                          */
+    /*                                                                              */
+    /* get project name                                                             */
+    qs_inq_c (QS_PROJECT_NAME, project, &nlen);
+    
+    sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"INSERT INTO %s.LINES \
+         (LINE_ID, NLIST_ID, LINE_COLOR, LINE_STYLE, LINE_THICKNESS,\
+          LINE_NAME, POLYGON_FLAG, POLYGON_HATCH_STYLE, POLYGON_FILL_COLOR,\
+          NLIST_FILE) \
+     VALUES (%d,'%s',%d,%d,%f,'%s','%s',%d,%d,'%s')"
+            , project, line->line_id, nlist_name, line->line.color, line->line.style,
+                           line->line.width, line->line_name,
+                           (line->polygon_flag ? "YES" : "NO"),
+                           line->polygon_fill_style, line->polygon_fill_color,
+                           nlist_file);
+    
+    EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+    
+    /* return appropriate status                                                    */
+    return SUCCESS;
+    
+sqlerrorpt:
+    return OR_STATUS;
+    }
+/* END:                                                                             */

@@ -1,0 +1,28 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element WELL_VELOCITY.SQL */
+/* *3    26-NOV-1990 16:34:05 ERIC "(SPR 1) no changes - no longer used? see well_vel.sql instead." */
+/* *2    26-MAR-1990 11:43:27 DOROTHY "(SPR -1) Schema fix." */
+/* *1    19-JUN-1989 14:54:02 SYSTEM "" */
+/* DEC/CMS REPLACEMENT HISTORY, Element WELL_VELOCITY.SQL */
+DOC
+	ESI Well Velocity Report
+	p1 = Project Name
+	p2 = name of control list table
+        p3 = name of original select list
+#
+
+CLEAR 	BREAKS;
+
+BREAK ON WELLNAME SKIP 1
+
+COLUMN UWI FORMAT A17
+COLUMN WELLNAME FORMAT A30
+COLUMN SOURCE FORMAT A10
+COLUMN BEST_PICK HEADING '*' FORMAT A1
+TTITLE 	CENTER ' -->  --> &1 Well Velocities Using Control List "&3" <--  <--' SKIP CENTER 'Sorted by Well Name';
+
+SELECT  A.WELL_NAME||' #'||A.WELL_NUMBER WELLNAME,A.UWI,
+B.TOP_CODE, B.BASE_CODE, B.VELOCITY, B.VELOCITY_TYPE, B.SOURCE,
+B.METHOD, B.DATUM, B.BEST_PICK, B.LAST_UPDATE
+FROM 	&1..WELL_HDR A, &1..WELL_VELOCITY B, &2 C
+WHERE	A.UWI = B.UWI AND A.UWI = C.UWI
+ORDER BY A.WELL_NAME, A.WELL_NUMBER, VELOCITY;

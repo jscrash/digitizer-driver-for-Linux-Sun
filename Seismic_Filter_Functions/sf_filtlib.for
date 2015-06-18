@@ -1,0 +1,911 @@
+C  DEC/CMS REPLACEMENT HISTORY, Element SF_FILTLIB.FOR
+C  *4     1-MAR-1990 16:43:34 WALTERS "(SPR 0) Fix errors and warnings as flagged by SUN Fortran compiler"
+C  *3    19-SEP-1989 10:16:17 GORDON "(PURNA) GULF MODS UNDER SPR 100"
+C  *2    11-AUG-1989 17:06:23 VINCE "(SPR -1) last fixes from UNIX port."
+C  *1    10-AUG-1989 18:51:42 VINCE "Fortran code after UNIX mods"
+C  DEC/CMS REPLACEMENT HISTORY, Element SF_FILTLIB.FOR
+
+      SUBROUTINE SF_ORMSBY( LENGTH, SRATE, FREQ1, FREQ2, FREQ3, FREQ4,
+     X                      ITYPE, FILTER, INORM_FLAG, IERR)
+C *********************************************************************
+C
+C   ROUTINE:   ORMSBY
+C 
+C   FUNCTION:  COMPUTES AN ORMSBY BANDPASS FILTER WAVELET. 
+C
+C
+C   VARIABLES: LENGTH (INPUT) - LENGTH OF THE WAVELET IN MSEC.
+C              SRATE  (INPUT) - SAMPLE RATE OF WAVELET IN MSEC.
+C              FREQ1  (INPUT) - LOWER FREQ. AT WHICH 100% AMPLITUDE
+C                               ATTENUATION IS OBTAINED
+C              FREQ2  (INPUT) - LOWER FREQ. AT WHICH 100% AMPLITUDE
+C                               IS PASSED
+C              FREQ3  (INPUT) - UPPER FREQ. AT WHICH 100% AMPLITUDE 
+C                               IS PASSED
+C              FREQ4  (INPUT) - UPPER FREQ. AT WHICH 100% AMPLITUDE
+C                               ATTENUATION IS OBTAINED
+C              ITYPE  (INPUT) - DEFINES FILTER TYPE:
+C                                 = 0   BANDPASS
+C                                 = 1   NOTCH
+C                                 = 2   HIGHPASS
+C                                 = 3   LOWPASS
+C
+C              FILTER (OUTPUT)- THE OUTPUT BUFFER CONTAINING WAVELET
+C              INORM_FLAG     - = 1 IF WAVELET SHOULD BE NORMALIZED
+C              IERR           - < 0 IF FILTER DEFINITION ERROR
+C              SCALAR         - SCALAR TO MULTIPLY RESULTING WAVELET
+C                               VALUES BY (DEFINE THE VALUE RANGE)
+C             
+C   EXAMPLE:   BANDPASS FILTER  FREQ1 = 5,  FREQ2 = 15,
+C                               FREQ3 = 50, FREQ4 = 65
+C
+C              NOTCH            FREQ1 = 55  FREQ2 = 60
+C                               FREQ3 = 65  FREQ4 = 0
+C
+C              HIGHPASS         FREQ1 = 5   FREQ2 = 20
+C                               FREQ3 = 0   FREQ4 = 0
+C
+C              LOWPASS          FREQ1 = 0   FREQ2 = 0
+C                               FREQ3 = 45  FREQ4 = 55
+C
+C              NOTE THAT MINIMUM FILTER LENGTHS CAN BE ROUGHLY GIVEN
+C              AS  LENGTH = 4000 / (DFMIN) WHERE DFMIN IS THE DIFFERENCE
+C              BETWEEN FREQ1,FREQ2 OR FREQ3,FREQ4 WHICHEVER IS SMALLEST.
+C              IN PRACTICE 3/4 OF THE ABOVE VALUE IS STILL ACCEPTABLE.
+C
+C
+C **********************************************************************
+
+      INCLUDE      'sf_defs.i'
+
+      INTEGER      FREQ1, FREQ2, FREQ3, FREQ4
+      INTEGER      F1, F2, F3, F4
+      REAL         LDIF, LAVG, HDIF, HAVG
+      DIMENSION    FILTER(1)
+      INTEGER      LENGTH, SRATE, ITYPE
+
+C
+C	USE F1,F2... INSTEAD OF FREQ1, FREQ2,....NOT TO MODIFY THEM
+C
+	F1 = FREQ1
+	F2 = FREQ2
+	F3 = FREQ3
+	F4 = FREQ4
+
+C
+C  PERFORM SOME ERROR CHECKS (ON BANDPASS FILTER, SINCE MAIN FUNCTION)-
+C   CHECK FREQUENCIES IN RIGHT ORDER AND LENGTH IS SUFFICIENT
+C
+      IERR = 0
+      IF (ITYPE.EQ.ORMSBY_BPASS) THEN
+         IF (F1.GT.F2.OR.F3.GT.F4.OR.F2.GT.F3) THEN
+           IERR = -1
+           RETURN
+         ENDIF
+
+         DFMIN = AMIN0(F2 - F1, F4 - F3)
+
+         IF ( LENGTH.LT.( 3000 / DFMIN)) THEN
+           IERR = -2
+           RETURN
+         ENDIF
+      ENDIF
+
+
+      SCALAR = 10.0 
+      NUMSAMP2 = LENGTH / (2 * SRATE)
+      NUMSAMPTOT = NUMSAMP2 * 2 + 1
+      PI = 3.141593
+      TER = 2 * PI * SRATE * .001
+C
+C  IF NOTCH SET FREQUENCIES ACCORDINGLY
+C
+      IF (ITYPE.EQ.ORMSBY_NOTCH) THEN
+         F4 = F3
+         F3 = F2
+      ENDIF
+
+C
+C  IF HIGHPASS  RESET FREQUENCIES ACCORDINGLY
+C
+      IF (ITYPE.EQ.ORMSBY_HPASS) THEN
+	 FREQ3 = 0
+	 FREQ4 = 0
+         F3 = F1
+         F4 = F2
+         F1 = 0
+         F2 = 0
+      ENDIF
+
+C
+C  IF LOWPASS  RESET FREQUENCIES ACCORDINGLY
+C
+      IF (ITYPE.EQ.ORMSBY_LPASS) THEN
+	 FREQ1 = 0
+	 FREQ2 = 0
+      ENDIF
+
+C
+C  CALCULATE AVERAGE FREQUENCIES ON LOWER AND UPPER SIDES
+C
+
+      LDIF = (F2 - F1) / 2.0
+      LAVG = (F2 + F1) / 2.0
+      HDIF = (F4 - F3) / 2.0
+      HAVG = (F4 + F3) / 2.0
+
+C
+C  COMPUTE WAVELET COEFFS ACCORDING TO FILTER TYPE (BANDPASS OR NOTCH 
+C    WE COMPUTE 2 SIDES, HIGHPASS OR LOWPASS WE NEED ONE ONLY)
+C
+
+      IF (ITYPE.EQ.ORMSBY_BPASS.OR.ITYPE.EQ.ORMSBY_NOTCH) THEN
+
+         CALL SF_ORMSBY_COEFFS( NUMSAMP2, SCALAR, TER, HDIF, HAVG, 
+     X                          NUMSAMP2 + 2, FILTER)
+         CALL SF_ORMSBY_COEFFS( NUMSAMP2, SCALAR, TER, LDIF, LAVG,
+     X                          1, FILTER)
+
+         
+      ELSE
+
+         CALL SF_ORMSBY_COEFFS( NUMSAMP2, SCALAR, TER, HDIF, HAVG, 
+     X                          NUMSAMP2 + 2, FILTER)
+
+      ENDIF
+
+C
+C  SET CENTRAL FILTER POINT VALUE TO MAXIMUM
+C
+      FILTER(NUMSAMP2 + 1) = TER * HAVG * SCALAR / PI
+
+C
+C  IF BANDPASS OR NOTCH FILTER, WE GET THE RESULT BY SUBTRACTING ONE 
+C   LOW PASS FILTER FROM ANOTHER (STORE RESULT IN UPPER HALF)
+C
+      IF (ITYPE.EQ.ORMSBY_BPASS.OR.ITYPE.EQ.ORMSBY_NOTCH) THEN
+
+         FILTER(NUMSAMP2 + 1) = FILTER(NUMSAMP2 + 1) -  
+     X                          TER * LAVG * SCALAR / PI                        
+
+         DO 80 I = 1, NUMSAMP2
+            ISAMP = NUMSAMP2 + I + 1
+   80    FILTER(ISAMP) = FILTER(ISAMP) - FILTER(I)
+
+      ENDIF
+
+C
+C  NOW MAKE FILTER SYMETRIC BY COPYING UPPER HALF TO LOWER HALF
+C
+      DO 90 J = 1, NUMSAMP2
+         II = NUMSAMP2 + J + 1
+         JJ = NUMSAMP2 - J + 1
+         FILTER(JJ) = FILTER(II) 
+   90 CONTINUE
+
+C
+C IF HIGHPASS OR NOTCH FILTER, SUBTRACT WAVELET FROM A UNIT IMPULSE
+C ( MAX. VALUE AT CENTRAL POINT, ZERO EVERYWHERE ELSE)
+C
+      IF (ITYPE.EQ.ORMSBY_NOTCH.OR.ITYPE.EQ.ORMSBY_HPASS) THEN
+
+         FILTER(NUMSAMP2 + 1) = FILTER(NUMSAMP2 + 1) - SCALAR
+
+         DO 100 K = 1, NUMSAMPTOT       
+100      FILTER(K) = -1.0 * FILTER(K)
+
+      ENDIF
+
+C
+C  IF REQUESTED, NORMALIZE THE WAVELET TO 1
+C
+
+      IF (INORM_FLAG.EQ.1) THEN
+         CALL SF_NORM( FILTER, NUMSAMPTOT)
+      ENDIF
+
+
+      RETURN
+      END
+
+
+
+
+
+
+
+
+      SUBROUTINE SF_ORMSBY_COEFFS( NUMSAMP2, SCALAR, TER, FREQDIF,
+     X                             FREQAVG, ISAMP, FILTER)
+C *********************************************************************
+C
+C   THIS ROUTINE COMPUTES THE VALUES FOR THE FRONT OR BACK HALF OF THE
+C   THE ORMSBY WAVELET.
+C
+C
+C *********************************************************************
+
+      DIMENSION FILTER(1)
+      REAL*8    DIV, ALPHA, BETA, SINA, SINB
+
+      PI = 3.141593
+      ALPHA = TER * FREQAVG
+      BETA = TER * FREQDIF
+      K = ISAMP
+
+C
+C  COMPUTE FILTER COEFFS 
+C
+      DO 100 I = 1, NUMSAMP2
+
+         SINA = SIN( ALPHA * I)
+         SINB = (SIN( BETA * I / 2.0))**2
+
+         DIV = BETA * BETA * I * I * I / 4.0 * PI
+         FILTER (K) = SINA * SINB * SCALAR / DIV
+
+         K = K + 1 
+
+  100 CONTINUE
+
+      RETURN
+      END
+
+
+
+
+
+
+
+      SUBROUTINE SF_RICKER( LENGTH, SRATE, PRED_FREQ, WAVELET, IERR)
+C **********************************************************************
+C 
+C     ROUTINE:       RICKER
+C   
+C     FUNCTION:      TO CREATE A RICKER WAVELET, GIVEN A SAMPLE RATE 
+C                    AND A PREDOMINANT FREQUENCY.  THE RESULTING WAVELET
+C                    WILL HAVE A MAXIMUM VALUE = +1.0.  NOTE THAT THE
+C                    PREDOMINANT FREQUENCY IS THE INVERSE OF THE PSUEDO
+C                    PERIOD.  THE FREQUENCY AT MAXIMUM AMPLITUDE RESP-
+C                    ONSE = (0.78) * PREDOMINANT FREQUENCY.
+C
+C     PARAMETERS:    LENGTH     (INPUT)    LENGTH OF WAVELET IN MSEC  
+C                    SRATE      (INPUT)    SAMPLE INTERVAL IN MSEC
+C                    PRED_FREQ  (INPUT)    FREQ. IN HZ
+C                    WAVELET    (OUTPUT)   BUFFER CONTAINING WAVELET
+C                    IERR       (OUTPUT)   < 0 IF ERROR ENCOUNTERED
+C     
+C **********************************************************************
+
+      DIMENSION WAVELET( 1)
+      INTEGER   LENGTH, PRED_FREQ, SRATE
+
+      IERR = 0 
+
+C
+C  GET A ROUNDED OFF NUMBER OF SAMPLES FOR THE WAVELET
+C
+
+      NUM_SAMPLES = LENGTH / ( 2 * SRATE)
+      NUM_SAMPLES = NUM_SAMPLES * 2 + 1
+      NUM_SMP2 = ( NUM_SAMPLES / 2) + 1
+      PERIOD = 1000.0 / PRED_FREQ 
+      COEFF = 6.0 / (PERIOD * PERIOD)
+C
+C  FIRST CREATE THE SECOND HALF OF THE WAVELET
+C
+      SAMP = 0
+      DO 100 I = 1, NUM_SMP2
+         T2 =  COEFF * SAMP * SAMP
+         INDEX = NUM_SMP2 + I - 1
+         WAVELET( INDEX) = 2 * ( T2 - 0.5) * (EXP( -T2))
+  100 SAMP = SAMP + SRATE
+
+C
+C  CHECK THAT THE LAST SAMPLE HAS A VALUE < .001 OF MAX VALUE, IE
+C   THE LENGTH IS SUFFICIENT AND THE WAVELET HAS STABILIZED
+C 
+      IF ( ABS(WAVELET(NUM_SAMPLES)).GT.0.001)  IERR = -1
+
+C
+C  NOW WE MIRROR THE SECOND HALF TO THE FIRST HALF
+C
+      DO 200 J = 2, NUM_SMP2
+  200 WAVELET( NUM_SMP2 - J + 1) = WAVELET( NUM_SMP2 + J - 1)
+
+C
+C  NOW WE INVERT THE WAVELET BUFFER
+C
+      DO 300 K = 1, NUM_SAMPLES
+  300 WAVELET( K) = -1.0 * WAVELET( K)
+
+
+      RETURN
+      END
+
+
+
+
+
+
+
+      SUBROUTINE SF_BUTTWORTH( LENGTH, SRATE, FREQ1, SLOPE1, FREQ2,
+     X                         SLOPE2, INORM_FLAG, WAVELET)
+C **********************************************************************
+C 
+C     ROUTINE:       BUTTWORTH
+C   
+C     FUNCTION:      TO CREATE A BUTTERWORTH BANDPASS FILTER, GIVEN UPP
+C                    -ER AND LOWER CUT OFF FREQUENCIES AND THE CORRESP- 
+C                    ONDING SLOPES IN DB/OCTAVE. THIS FILTER IS A DIGIT
+C                    -AL COPY OF THE ANALOG FILTERS USED IN FIELD
+C                    RECORDING INSTRUMENTS.  
+C
+C                    EXAMPLE:  FR1 = 16, SL1 = 90, FR2 = 80, SL2 = 90
+C                              THIS MEANS THAT AT FREQUENCIES OF 8 ON
+C                              THE LOW SIDE AND 160 ON THE HIGH SIDE
+C                              THE AMPLITUDE WILL BE 90 DB DOWN. AT 
+C                              FREQUENCIES = 4 AND 320 THE RESPONSE
+C                              WOULD BE DOWN 180 DB. (MOVING UP 1 OCTAVE
+C                              MEANS DOUBLING THE FREQUENCY).
+C
+C     PARAMETERS:    LENGTH     (INPUT)    PSEUDO PERIOD IN MSEC  
+C                    SRATE      (INPUT)    SAMPLE INTERVAL IN MSEC
+C                    FREQ1      (INPUT)    LOW SIDE CUT OFF FREQ. (HZ)
+C                    SLOPE1     (INPUT)    LOW SIDE SLOPE (DB/OCTAVE)
+C                    FREQ2      (INPUT)    HIGH SIDE CUT OFF FREQ. (HZ)
+C                    SLOPE2     (INPUT)    HIGH SIDE SLOPE (DB/OCTAVE) 
+C                    INORM_FLAG (INPUT)    IF = 1 NORMALIZE THE OUTPUT
+C                    WAVELET    (OUTPUT)   THE OUTPUT WAVELET BUFFER
+C     
+C **********************************************************************
+
+      DIMENSION WAVELET( 1), SCRBUFF( 501)
+      INTEGER   LENGTH, SRATE, NYQUIST_FRQ
+      INTEGER   FREQ1, SLOPE1, FREQ2, SLOPE2
+      REAL*8    SCRBUFF
+c     REAL*16   FL, FH
+      REAL*8    FL, FH
+
+C
+C  GET A ROUNDED OFF NUMBER OF SAMPLES FOR THE WAVELET AND CALCULATE
+C  THE ALIAS FREQUENCY
+C
+
+      NUM_SAMPLES = LENGTH / ( 2 * SRATE)
+      NUM_SAMPLES = NUM_SAMPLES * 2 + 1
+      MULT = -( NUM_SAMPLES / 2 + 1)
+      NYQUIST_FRQ = 1000.0 / ( 2 * SRATE)
+      PIE_SR = 6.283165 * SRATE / 1000.0
+      MAX_AMP1 = 2.0
+      IF (SLOPE1.LT.10) MAX_AMP1 = 5.0
+      MAX_AMP2 = 2.0
+      IF (SLOPE2.LT.10) MAX_AMP2 = 5.0
+
+C
+C  BUILD THE DESIRED SPECTRUM IN THE FREQUENCY DOMAIN ( FROM FREQ = 1
+C    TO THE NYQUIST FREQUENCY). THE AMPLITUDE = UNITY IN THE PASS ZONE
+C
+
+      DO 100 I = 0, NYQUIST_FRQ
+         X1= I 
+         FLTEMP = X1 / FREQ1
+
+C   AS RATIO OF FREQUENCY/LOW PASS FREQ GETS TO 3 WE DON'T LET IT 
+C   GET ANY HIGHER OR FLOATING OVERFLOWS WILL OCCUR (SAME FOR HIGH CUT)
+
+         IF (FLTEMP.LT.MAX_AMP1)   FL = FLTEMP ** SLOPE1
+         
+         FHTEMP = X1 / FREQ2
+
+         IF (FHTEMP.LT.MAX_AMP2)   FH = FHTEMP ** SLOPE2 
+
+
+  100 SCRBUFF( I + 1) = FL / (( 1 + FL) * ( 1 + FH))
+
+
+C
+C  NOW CONVERT TO THE TIME DOMAIN USING A COSINE TRANSFORM- WHICH IS
+C   ESSENTIALLY AN INVERSE FOURIER TRANSFORM OF THE REAL ELEMENTS OF
+C   THE SPECTRUM ONLY. THE COMPLEX ELEMENTS (WHICH WE DON'T CARE ABOUT) 
+C   ARE HANDLED BY THE SINE PORTION OF THE TRANSFORM.
+C
+      DO 300 K = 1, NUM_SAMPLES
+ 
+         MULT = MULT + 1
+         FAC = PIE_SR * MULT          
+         WAVELET( K) = 0.0
+         INDEX = 0
+
+         DO 250 L = 0, NYQUIST_FRQ
+            INDEX = INDEX + 1
+  250    WAVELET(K) = WAVELET(K) + SCRBUFF(INDEX) * COS(L * FAC)
+
+ 300  CONTINUE
+
+
+C
+C  IF REQUESTED, NORMALIZE THE WAVELET TO 1
+C
+
+      IF (INORM_FLAG.EQ.1) THEN
+         CALL SF_NORM( WAVELET, NUM_SAMPLES)
+      ENDIF
+
+      RETURN
+      END
+
+
+
+
+
+
+
+      
+
+      SUBROUTINE SF_NORM( FILTER, NUMSAMPTOT)
+C *********************************************************************
+C
+C   THIS ROUTINE NORMALIZES A BUFFER TO 1 OR -1
+C
+C *********************************************************************
+
+      DIMENSION FILTER(1)
+
+      XMAX = ABS( FILTER(1) )
+
+      DO 50 I = 1, NUMSAMPTOT
+         IF ( XMAX.LT.ABS(FILTER(I))) XMAX = ABS( FILTER(I))
+   50 CONTINUE
+
+      DO 60 J = 1, NUMSAMPTOT
+   60 FILTER(J) = FILTER(J) / XMAX
+
+
+      RETURN
+      END
+
+
+
+
+
+
+
+      SUBROUTINE SF_POWER_SPEC( WAVELET, NUM_SAMPLES, ISAMP, 
+     X                          FREQ_SAMP, SPECTRUM)
+C *********************************************************************
+C
+C   ROUTINE:   SF_POWER_SPEC
+C 
+C   FUNCTION:  THIS ROUTINE CALCULATES A POWER SPECTRUM FOR AN INPUT
+C              WAVELET, BY PERFORMING A FOURIER TRANSFORM AND THEN
+C              TAKING THE ROOT OF THE SUM OF THE SQUARES OF THE REAL
+C              AND IMAGINARY COMPONENTS.  THE COMPUTED SPECTRUM IS
+C              SAMPLED IN INCREMENTS OF FREQ_SAMP, WHICH IS EQUAL TO
+C              1 / LENGTH OF THE INPUT WAVELET (IN SECONDS).  THUS BY
+C              PADDING THE WAVELET BEFORE INPUT TO THE FFT WE OBTAIN
+C              A FINER FREQUENCY SAMPLING RATE.
+C
+C   VARIABLES: WAVELET    (INPUT) - THE INPUT WAVELET
+C              NUM_SAMPLES(INPUT) - NUM OF SAMPLES IN THE INPUT WAVELET
+C              ISAMP      (INPUT) - THE INPUT SAMPLING RATE (MSEC)
+C              FREQ_SAMP  (OUTPUT)- THE OUTPUT FREQ. SAMPLING RATE (HZ)
+C              SPECTRUM   (OUTPUT)- THE COMPUTED SPECTRUM
+C
+C *********************************************************************
+
+      DIMENSION WAVELET(1), COMPLX_BUFF(1026), SPECTRUM(1)
+      COMPLEX  COMPLX_BUFF
+
+C
+C  ZERO OUT THE COMPLEX ARRAY
+C
+      DO 5 I = 1, 1026
+5     COMPLX_BUFF(I) = (0.0, 0.0)
+
+C
+C  NOW GET THE BINARY EXPONENT FOR THE NUMBER OF SAMPLES, SINCE 
+C  POWER **2 INPUT VALUES ARE REQUIRED BY THE FFT ROUTINE. WE ADD ONE
+C  EXTRA TO THE EXPONENT TO PAD THE INPUT WAVELET, GIVING US A FINER  
+C  SAMPLING RATE ON THE SPECTRUM
+C
+      CALL BINEXP( NUM_SAMPLES, NBIN)
+      NBIN = NBIN + 1
+      NN = 2 ** NBIN
+
+C
+C  NOW COPY THE WAVELET VALUES INTO THE REAL HALF OF THE COMPLEX ARRAY
+C  AND INPUT THE COMPLEX ARRAY TO THE FFT
+C 
+      DO 10  I1 = 1, NUM_SAMPLES
+10    COMPLX_BUFF(I1) = WAVELET(I1)
+
+      CALL FFT( NBIN, COMPLX_BUFF, 1.)
+
+C
+C  COMPUTE THE SAMPLE INTERVAL OF THE SPECTRUM IN HZ
+C
+      FREQ_SAMP = 1000.0 / (NN * ISAMP)
+
+C
+C  NOW COMPUTE THE POWER SPECTRUM FROM THE FORWARD TRANSFORMED VALUES
+C   THE FIRST VALUE WILL BE THE AMPLITUDE AT FREQ = 0
+C
+
+      IF (NN.GT.1024) NN = 1024
+
+      DO 20 I2 = 1, NN
+        AA = REAL(COMPLX_BUFF(I2))
+        BB = AIMAG(COMPLX_BUFF(I2))
+20    SPECTRUM(I2) = SQRT( AA * AA + BB * BB)          
+
+
+      RETURN
+      END
+
+
+
+
+
+
+
+
+
+      SUBROUTINE SF_PARSE_STRING( INPSTR, OUTBUFF, NUM_VALUES, IERR)
+C *********************************************************************
+C
+C   ROUTINE:   SF_PARSE_STRING
+C
+C   FUNCTION:  TO PARSE A CHARACTER STRING OF VALUES SEPARATED BY
+C              COMMAS.  THE RESULTING VALUES ARE RETURNED IN A REAL 
+C              BUFFER ALONG WITH THE NUMBER OF VALUES. USED WHEN USER
+C              WISHES TO ENTER INTEGER WAVELET VALUES.
+C
+C   VARIABLES: INPSTR     (INPUT)  - THE STRING OF VALUES TO BE PARSED
+C              OUTBUFF    (OUTPUT) - THE OUTPUT READ BUFFER OF VALUES
+C              NUM_VALUES (OUTPUT) - NUM OF SAMPLES IN OUTPUT BUFFER
+C
+C *********************************************************************
+
+      REAL          OUTBUFF(1)
+      CHARACTER     INPSTR*(*)
+      CHARACTER     TEMPSTR*8
+      CHARACTER     SEP*1
+      INTEGER*4     IVAL
+
+      SEP = ','
+      INDEX  = 0
+      ICOUNT = 0
+      TEMPSTR = ' '
+      IERR = 0
+C
+C  GET THE NON BLANK LENGTH OF THE CHARACTER STRING
+C
+
+      LENINP = ISTRLEN(INPSTR)
+
+C
+C  LOOP ON THE CHARACTERS IN THE INPUT STRING
+C
+
+      DO 500 I = 1, LENINP
+
+C
+C  CHECK IF CHARACTER IS NUMERIC,BLANK OR COMMA, ELSE RETURN AN ERROR
+C
+
+          IF (INPSTR(I: I).GT.'9'.OR.(INPSTR(I: I).LT.'0'.AND.
+     X        INPSTR(I: I).NE.SEP.AND.INPSTR(I: I).NE.' '.AND.
+     X        INPSTR(I: I).NE.'-')) THEN
+            IERR = -1
+            RETURN
+          ENDIF
+C
+C  IF CHARACTER IS NOT A COMMA THEN ADD TO END OF STRING (IF NOT TOO
+C   LONG ALREADY)
+C
+
+          IF (INPSTR(I: I).NE.SEP.AND.INPSTR(I: I).NE.' ') THEN
+             INDEX = INDEX + 1
+             IF (INPSTR(I: I).EQ.'-'.AND.INDEX.GT.1) THEN
+                IERR = -1
+                RETURN
+             ENDIF
+             IF (INDEX.GT.8) THEN
+                IERR = -2
+                RETURN
+             ENDIF
+             TEMPSTR(INDEX: INDEX) = INPSTR(I: I)      
+          ENDIF
+
+C
+C  WE HAVE REACHED A SEPARATOR, CONVERT THE STRING TO AN INTEGER
+C  AND STORE IN THE REAL BUFFER
+C
+
+          IF (INPSTR(I: I).EQ.SEP.OR.I.EQ.LENINP) THEN
+             CALL ISTRJUS(TEMPSTR)
+             READ ( TEMPSTR, 100) IVAL
+100          FORMAT(I8)
+ 
+             INDEX = 0
+             TEMPSTR = ' '
+             ICOUNT = ICOUNT + 1
+             OUTBUFF(ICOUNT) = IVAL
+          ENDIF
+
+
+500   CONTINUE
+
+
+      NUM_VALUES = ICOUNT
+
+
+      RETURN
+      END
+
+
+
+
+
+
+
+
+
+      SUBROUTINE SF_FLIP_BUFF( WAVELET, NUM_SAMPLES)
+C *********************************************************************
+C
+C   ROUTINE:   SF_FLIP_BUFF
+C 
+C   FUNCTION:  THIS ROUTINE FLIPS A FILTER WAVELET BUFFER.  THIS IS 
+C              REQUIRED FOR CONVOLUTION PURPOSES.
+C
+C   VARIABLES: WAVELET    (INPUT) - THE INPUT WAVELET
+C              NUM_SAMPLES(INPUT) - NUM OF SAMPLES IN THE INPUT WAVELET
+C
+C *********************************************************************
+
+      DIMENSION    WAVELET(1)
+
+      NUM_SAMP2 = NUM_SAMPLES / 2
+
+      DO 100 I = 1, NUM_SAMP2
+        TEMP = WAVELET(I)
+        WAVELET(I) = WAVELET( NUM_SAMPLES + 1 - I)
+100   WAVELET( NUM_SAMPLES + 1 - I) = TEMP      
+
+
+      RETURN
+      END
+
+
+
+
+
+
+      SUBROUTINE SF_GET_HILBERT( WAVELET, ISAMP, NUM_SAMPLES)
+C *********************************************************************
+C
+C   ROUTINE:   SF_GET_HILBERT
+C 
+C   FUNCTION:  THIS ROUTINE GETS A HILBERT TRANSFORM OPERATOR (ACC-
+C              ORDING TO THE REQUESTED SAMPLE RATE.  THE OPERATOR IS
+C              A 90 DEGREE PHASE ROTATION OPERATOR FILTERED WITH THE
+C              APPROPRIATE ANTI-ALIAS FILTER.
+C
+C   VARIABLES: WAVELET    (OUTPUT) - THE WAVELET STORAGE BUFFER
+C              ISAMP      (INPUT)  - THE REQUESTED SAMPLE RATE
+C              NUM_SAMPLES(OUTPUT) - NUM OF SAMPLES IN OUTPUT WAVELET
+C
+C  !!!!!!!!!!!!!!!!!!THIS ROUTINE NOT CURRENTLY USED!!!!!!!!!!!!!!!!!!!!
+C
+C *********************************************************************
+
+      DIMENSION    WAVELET(1), HILTRAN1(175), HILTRAN2(91)
+      DIMENSION    HILTRAN4( 65)
+
+
+      NUM_SAMPLES = 175
+      IF (ISAMP.EQ.2) NUM_SAMPLES = 91
+      IF (ISAMP.EQ.4) NUM_SAMPLES = 75
+
+
+C
+C  VALUES FOR ISAMP = 1 MSEC.
+C
+      DATA (HILTRAN1(I), I = 1, 88) /
+     X   1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,3,3,3,3,3,3,
+     X   4,4,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,10,10,11,11,12,12,
+     X   13,13,14,15,16,17,17,18,19,20,21,23,24,25,27,28,30,32,36,
+     X   37,41,45,48,52,58,65,73,87,99,98,212,111,299,1000,0   /
+      DATA (HILTRAN1(I), I = 89, 175)  /
+     X   -1000,-299,-111,-212,-98,-99,-87,-73,-65,-58,-52,-48,-45,
+     X   -41,-37,-36,-32,-30,-28,-27,-25,-24,-23,-21,-20,-19,-18,
+     X   -17,-17,-16,-15,-14,-13,-13,-12,-12,-11,-11,-10,-10,-9,-9,
+     X   -8,-8,-8,-7,-7,-7,-6,-6,-6,-5,-5,-5,-4,-4,-4,-4,-4,-3,-3,
+     X   -3,-3,-3,-3,-2,-2,-2,-2,-2,-2,-2,-2,-1,-1,-1,-1,-1,-1,-1,
+     X   -1,-1,-1,-1,-1,-1,-1   /
+
+C
+C  VALUES FOR ISAMP = 2 MSEC.
+C
+      DATA (HILTRAN2(I), I = 1, 91) /
+     X   1,1,1,2,1,2,2,2,3,3,4,4,5,6,6,8,7,9,10,10,13,13,14,17,17,
+     X   19,22,23,26,27,33,33,39,45,46,54,61,72,81,98,96,213,104,
+     X   308,1000,0,-1000,-308,-104,-213,-96,-98,-81,-72,-61,-54,
+     X   -46,-45,-39,-33,-33,-27,-26,-23,-22,-19,-17,-17,-14,-13,
+     X   -13,-10,-10,-9,-7,-8,-6,-6,-5,-4,-4,-3,-3,-2,-2,-2,-1,-2,
+     X   -1,-1,-1     /
+C
+C  VALUES FOR ISAMP = 1 MSEC.
+C
+      DATA (HILTRAN4(I), I = 1, 65)   /
+     X   -7,-8,-8,-9,-10,-11,-11,-11,-11,-11,-11,-10,-8,-8,-6,-4,
+     X   -1,2,6,9,18,20,29,39,49,64,80,84,197,102,293,1000,0,
+     X   -1000,-293,-102,-197,-84,-80,-64,-49,-39,-29,-20,-18,-9,-6,
+     X   -2,1,4,6,8,8,10,11,11,11,11,11,11,10,9,8,8,7    /
+
+
+C
+C  NOW LOAD THE CORRECT WAVELET INTO THE BUFFER (ACCORDING TO ISAMP)
+C
+
+      DO 200  I  = 1, NUM_SAMPLES
+
+        IF (ISAMP.EQ.1) WAVELET(I) = HILTRAN1(I) 
+        IF (ISAMP.EQ.2) WAVELET(I) = HILTRAN2(I)
+        IF (ISAMP.EQ.4) WAVELET(I) = HILTRAN4(I)
+
+200   CONTINUE
+  
+
+      RETURN
+      END
+
+
+
+
+
+      SUBROUTINE SF_ROTATE_WAVELET( WAVELET, ISAMP, NUM_SAMPLES,
+     X                              ROTATION)
+C *********************************************************************
+C
+C   ROUTINE:   SF_ROTATE_WAVELET
+C 
+C   FUNCTION:  THIS ROUTINE ROTATES A WAVELET BY THE SPECIFIED NUMBER
+C              OF DEGREES.  THIS IS PERFORMED BY:  1) CONVOLVING THE 
+C              WAVELET WITH A HILBERT TRANSFORM OPERATOR. THIS PRODUCES  
+C              THE IMAGINARY PORTION OF THE WAVELET.  2) COMPUTING THE
+C              AMPLITUDE AND PHASE SPECTRA.  3)  APPLYING THE ROTATION
+C              TO THE AMPLITUDE SPECTRUM TO OBTAIN THE NEW ROTATED 
+C              WAVELET.
+C
+C		ROTATION PROCEDURE MODIFIED BY PIERO!!!!!
+C		ROTATED=COS*WAVELET+SIN*QUAD_WAVELET !!!!!
+C
+C
+C   VARIABLES: WAVELET    (OUTPUT) - THE WAVELET STORAGE BUFFER
+C              NUM_SAMPLES(OUTPUT) - NUM OF SAMPLES IN OUTPUT WAVELET
+C              ROTATION   (INPUT)  - THE REQUESTED ROTATION IN DEGREES
+C
+C *********************************************************************
+
+      DIMENSION    WAVELET(1)
+      DIMENSION    QUAD_WAVELET(2801),HILB_WAVELET(301)
+    
+      DATA HILB_WAVELET /
+     X             0.0, .00971, 0.0, .0099, 0.0, .0101, 0.0, .01031,   
+     X             0.0, .01053, 0.0, .01075, 0.0, .01099, 0.0, .01124,
+     X             0.0, .01149, 0.0, .01176, 0.0, .01205, 0.0, 
+     X             .01235, 0.0, .01266, 0.0, .01299, 0.0, .01333, 0.0,
+     X             .0137, 0.0, .01408, 0.0, .01449, 0.0, .01492, 0.0,
+     X              .01538, 0.0, .01587, 0.0, .01639, 0.0, .01695,
+     X              0.0, .01754, 0.0, .01818, 0.0, .01887, 0.0,
+     X             .01961, 0.0, .02041, 0.0, .021277, 0.0, .02222,
+     X             0.0, .02326, 0.0, .02439, 0.0, .02564, 0.0,
+     X             .027027, 0.0, .02857, 0.0, .030303, 0.0, .032258,
+     X             0.0, .034483, 0.0, .03704, 0.0, .04, 0.0,
+     X              .043478, 0.0, .04762, 0.0, .052632, 
+     X             0.0, .058823, 0.0, .066666, 0.0,
+     X             .076923, 0.0, .0909091, 0.0, 0.1111111, 0.0
+     X             ,.1428571, 0.0, 0.2, 0.0, .333333, 0.0, 1.0, 0.0,
+     X             -1.0, 0.0,
+     X             -.333333,0.0,-0.2,0.0,-.1428571,0.0,-.1111111,0.0,
+     X             -.0909091, 0.0, -.076923, 0.0, -.066666, 0.0, 
+     X             -.058823, 0.0, -.052632, 0.0, -.04762, 0.0, 
+     X             -.043478, 0.0, -.04, 0.0, -.03704, 0.0, -.034483, 
+     X             0.0, -.032258, 0.0, -.030303, 0.0, -.02857, 0.0,
+     X             -.027027, 0.0, -.02564, 0.0, -.02439, 0.0, -.02326,
+     X             0.0, -.02222, 0.0, -.021277, 0.0, -.02041, 0.0, 
+     X             -.01961, 0.0, -.01887, 0.0, -.01818, 0.0, -.01754, 
+     X             0.0, -.01695, 0.0, -.01639, 0.0, -.01587, 0.0, 
+     X             -.01538, 0.0, -.01492, 0.0, -.01449, 0.0, -.01408,
+     X             0.0, -.0137, 0.0, -.01333, 0.0, -.01299, 0.0, -.01266
+     X             , 0.0, -.01235, 0.0, -.01205, 0.0, -.01176, 0.0, 
+     X             -.01149, 0.0, -.01124, 0.0, -.01099, 0.0, -.01075,
+     X             0.0, -.01053, 0.0, -.01031, 0.0, -.0101, 0.0, -.0099, 
+     X             0.0, -.00971, 0.0,         92 * 0.0   /
+
+      INTEGER      NUM_HSAMPLES, NUM_HSAMPLES2, NUM_SAMPLES
+      
+      NUM_HSAMPLES = 209
+      NUM_HSAMPLES2 = 104
+      PIE = 3.1415926
+      PIE2 = 2.0 / PIE
+      IFLAG = 0
+C
+C  CONVERT ROTATION FROM DEGREES TO PI
+C
+      PH_ROTATION = ROTATION * PIE / 180.0
+
+
+C
+C  SHIFT THE WAVELET UP 13 SAMPLES TO MAKE SURE IS CENTRED AFTER 
+C   CORRELATION
+C
+       DO 7 L = NUM_SAMPLES + NUM_HSAMPLES2, NUM_HSAMPLES2 + 1, -1
+7      WAVELET(L) = WAVELET(L - NUM_HSAMPLES2)
+
+       DO 6 K = 1, NUM_HSAMPLES2
+6      WAVELET(K) = 0.0
+
+       
+C
+C  CONVOLVE THE HILBERT WAVELET WITH THE FILTER WAVELET TO OBTAIN
+C   THE QUADRATURE TRACE (NOTE WE DON'T FLIP HILB_WAVELET AS WE 
+C   NORMALLY WOULD BEFORE CONVOLUTION - IT IS ALREADY FLIPPED)
+C
+
+
+      CALL CORR( HILB_WAVELET, WAVELET, QUAD_WAVELET, NUM_HSAMPLES,
+     X           NUM_SAMPLES + NUM_HSAMPLES2, NUM_QSAMPLES)
+
+
+CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+C	THAT IS THE OLD PROCEDURE .....NOT USED ANYMORE ...
+C
+C  NOW WE COMPUTE THE AMPLITUDE:   sqrt(f(t)**2 + f'(t)**2)
+C  AND THE PHASE SPECTRA:          atan(f'(t) / f(t))
+C  AND THEN APPLY THE ROTATION AND STORE THE RESULT BACK IN THE
+C  ORIGINAL INPUT WAVELET BUFFER
+C
+C
+C       DO 200  I  = 1, NUM_QSAMPLES
+C
+C  MULTIPLY QUAD SPECTRA BY 2 / PIE
+C
+C         QUAD_WAVELET(I) = QUAD_WAVELET(I) * PIE2
+C
+C         AMPLITUDE = WAVELET(I + NUM_HSAMPLES2) ** 2 +
+C     X               QUAD_WAVELET(I) ** 2
+C         AMPLITUDE = DSQRT(AMPLITUDE)
+C
+C         IF (WAVELET(I + NUM_HSAMPLES2).NE.0.0.AND.
+C     X                      QUAD_WAVELET(I).NE.0.0) THEN
+C            PHASE = ATAN2( QUAD_WAVELET(I) , WAVELET(I + NUM_HSAMPLES2))
+C         ELSE
+C            PHASE = 0.0
+C         ENDIF
+C   
+C         WAVELET(I) = AMPLITUDE * COS( PHASE + ROTATION)
+C
+C200   CONTINUE
+C
+CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+C	    HERE IS THE NEW ROTATION.....
+C
+	VCOS=COS(PH_ROTATION)
+	VSIN=SIN(PH_ROTATION)
+C
+C  MULTIPLY QUAD SPECTRA BY 2 / PIE   BY CHANGING THE SIN COEFFICIENT
+C
+         VSIN = VSIN * PIE2
+  
+       DO 200  I  = 1, NUM_SAMPLES
+200    WAVELET(I) = VCOS * WAVELET( I + NUM_HSAMPLES2 ) +
+     X        VSIN * QUAD_WAVELET(I)
+C
+C	DONE ....
+C
+      RETURN
+      END

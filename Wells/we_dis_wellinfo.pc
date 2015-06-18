@@ -1,0 +1,245 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element WE_DIS_WELLINFO.PC */
+/* *4     7-AUG-1991 14:42:53 KEE "(SPR 8686) Fix well posting inconsistent bug (case 3388)" */
+/* *3    21-MAR-1991 14:19:21 KEE "(SPR -1) Edit Well bug fixes for vms version" */
+/* *2    11-MAR-1991 11:05:12 KEE "(SPR -1) Totally modify Charlie Purmoy's Edit Well Depth Application base on QA new */
+/*specifications" */
+/* *1    11-MAR-1991 11:01:13 KEE "Display Well Depth information for well depth editing application" */
+/* DEC/CMS REPLACEMENT HISTORY, Element WE_DIS_WELLINFO.PC */
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Finder Graphics Systems, Inc.
+			201 Tamal Vista Blvd
+			Corte Madera, CA  USA 94925
+			(415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+#ifndef ESI_GL_DEFS_H
+#include "esi_gl_defs.h"
+#endif
+
+#ifndef ESI_WE_MSG_H 
+#include "esi_we_msg.h" 
+#endif
+
+#ifndef ESI_WE_EDIT_H
+#include "esi_we_edit.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_WI_H
+#include "esi_wi.h"
+#endif
+
+#ifndef ESI_WI_MAC_H
+#include "esi_wi_mac.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h" 
+#endif
+
+#include "we_edit_well.rh"
+
+/* **********************************************************************
+
+    ROUTINE: WE_DIS_WELL_INFO
+
+    DESCRIPTION:
+	Display edit well information
+
+    STATUS CODES:
+	SUCCESS;
+	WE_NO_ELEVATION
+	SQL ERROR CODES;
+
+    INPUT:
+	PWE = (WELL_EDIT *) pointer to well edit structure.
+    OUTPUT:
+	STATUS CODES.
+
+	******************************************************************** */
+
+publicdef INT we_display_well_info(pwe)
+       /* ****************************************************************** */
+WELL_EDIT *pwe;
+{	
+  INT status = SUCCESS;	
+  INT len;
+  FLOAT cur_depth; 
+  CHAR cur_depth_string[31];
+  ANALYST_NAME account;			
+  PROJECT_NAME project_name;
+
+  EXEC SQL BEGIN DECLARE SECTION;
+  float elevation;
+  float drillers_td;
+  float md;
+  short elevationi;
+  short drillers_tdi;
+  short mdi;
+  VARCHAR sqlstmt[512];
+  VARCHAR short_name[21];
+  VARCHAR default_value[241];
+  EXEC SQL END DECLARE SECTION;
+	
+  qs_inq_c (QS_FINDER_ACCOUNT , account, &len);
+  qs_inq_c(QS_PROJECT_NAME, project_name,(INT *) 0);
+
+  sqlstmt.len = sprintf((char *)sqlstmt.arr, 
+"SELECT SHORT_NAME, ELEVATION, DRILLERS_TD FROM %s.WELL_HDR \
+WHERE UWI = '%s'", project_name, 
+pwe->well_picks->list[pwe->well_pick_ndx].pWell->uwi);
+  EXEC SQL PREPARE S1 FROM :sqlstmt;
+  EXEC SQL DECLARE C1 CURSOR FOR S1;
+  EXEC SQL OPEN C1;
+  EXEC SQL FETCH C1 INTO :short_name, :elevation:elevationi, 
+                              :drillers_td:drillers_tdi;
+  if (OR_STATUS != SUCCESS AND OR_STATUS != EOF)
+    {
+      return(OR_STATUS);
+    }
+  if (OR_STATUS != EOF AND drillers_tdi != -1) /* test for NULL value, 
+						   -1 = NULL */
+    {
+      pwe->has_drillers_td = TRUE;
+      pwe->cur_drillers_td = drillers_td;
+    }
+  else
+    {
+      pwe->has_drillers_td = FALSE;
+    }
+  if (OR_STATUS != EOF AND elevationi == -1) /* no elevation data */
+    {
+      return(WE_NO_ELEVATION);
+    }
+  V_SETZERO(short_name);
+  EXEC SQL CLOSE C1;
+
+  sqlstmt.len = sprintf((char *)sqlstmt.arr, 
+"SELECT DEFAULT_VALUE FROM %s.PROJECT_DEFAULTS \
+WHERE DEFAULT_NAME = 'VERTICAL_UOM'", project_name);
+  EXEC SQL PREPARE S2 FROM :sqlstmt;
+  EXEC SQL DECLARE C2 CURSOR FOR S2;
+  EXEC SQL OPEN C2;
+  EXEC SQL FETCH C2 INTO :default_value;
+  EXEC SQL CLOSE C2;
+  if (OR_STATUS != SUCCESS)
+    {
+      return(OR_STATUS);
+    }
+  V_SETZERO(default_value);
+
+  sqlstmt.len = sprintf((char *)sqlstmt.arr, 
+"SELECT MD FROM %s.WELL_TOPS \
+WHERE UWI = '%s' AND FORM_CODE = '%s' AND SOURCE = '%s'",
+project_name, pwe->well_picks->list[pwe->well_pick_ndx].pWell->uwi, 
+pwe->horizon_name, pwe->source);
+  EXEC SQL PREPARE S3 FROM :sqlstmt;
+  EXEC SQL DECLARE C3 CURSOR FOR S3;
+  EXEC SQL OPEN C3;
+  EXEC SQL FETCH C3 INTO :md:mdi;
+  if (OR_STATUS != SUCCESS AND OR_STATUS != OR_EOF)
+    {
+      return(OR_STATUS);
+    }
+  cur_depth_string[0] = 0;
+  if (OR_STATUS != OR_EOF AND mdi != -1) /* no md data */
+    {
+       cur_depth = elevation - md;
+       sprintf(cur_depth_string, "%.1f", cur_depth);
+       if (IS_EMPTY_STRING(cur_depth_string) == FALSE && 
+           strlen(cur_depth_string) > 2 &&
+           cur_depth_string[strlen(cur_depth_string) - 1] == '0' &&
+           cur_depth_string[strlen(cur_depth_string) - 2] == '.')
+ 	 {
+	   cur_depth_string[strlen(cur_depth_string) - 2] = 0;
+         }
+    }
+  EXEC SQL CLOSE C3;
+
+  sqlstmt.len = sprintf((char *)sqlstmt.arr, 
+"SELECT MD FROM %s.WELL_TOPS \
+WHERE UWI = '%s' AND FORM_CODE = '%s' AND SOURCE = '%s'",
+project_name, pwe->well_picks->list[pwe->well_pick_ndx].pWell->uwi, 
+pwe->horizon_name, account);
+  EXEC SQL PREPARE S4 FROM :sqlstmt;
+  EXEC SQL DECLARE C4 CURSOR FOR S4;
+  EXEC SQL OPEN C4;
+  EXEC SQL FETCH C4 INTO :md:mdi;
+  pwe->orig_new_depth_str[0] = 0;
+  if (OR_STATUS != SUCCESS AND OR_STATUS != OR_EOF)
+    {	
+      return(OR_STATUS);
+    }	
+  else 
+    {
+      if (OR_STATUS != OR_EOF AND mdi != -1) /* no md data */
+        {
+	  pwe->new_depth = elevation - md;
+          sprintf(pwe->orig_new_depth_str, "%.1f", pwe->new_depth);
+
+          if (IS_EMPTY_STRING(pwe->orig_new_depth_str) == FALSE && 
+              strlen(pwe->orig_new_depth_str) > 2 &&
+              pwe->orig_new_depth_str[strlen(pwe->orig_new_depth_str) - 1] == '0' &&
+              pwe->orig_new_depth_str[strlen(pwe->orig_new_depth_str) - 2] == '.')
+ 	    {
+	      pwe->orig_new_depth_str[strlen(pwe->orig_new_depth_str) - 2] = 0;
+            }
+        }
+    }
+  EXEC SQL CLOSE C4;
+
+  wi_set_dialog_text(pwe->cdlgid, WE_WELL_UWI_STEXT, 
+                     pwe->well_picks->list[pwe->well_pick_ndx].pWell->uwi);
+  wi_set_dialog_text(pwe->cdlgid, WE_WELL_FORMATION_STEXT, pwe->horizon_name);
+  wi_set_dialog_text(pwe->cdlgid, WE_WELL_CSOURCE_STEXT, pwe->source);
+  wi_set_dialog_text(pwe->cdlgid, WE_WELL_NSOURCE_STEXT, account);
+  wi_set_dialog_text(pwe->cdlgid, WE_WELL_SNAME_STEXT, (CHAR *)short_name.arr);
+  wi_set_dialog_text(pwe->cdlgid, WE_WELL_SUBSEADEPTH_STEXT, (CHAR *)default_value.arr);
+  wi_set_dialog_text(pwe->cdlgid, WE_WELL_CDEPTH_STEXT, cur_depth_string);
+  wi_set_dialog_text(pwe->cdlgid, WE_WELL_NDEPTH_ETEXT, pwe->orig_new_depth_str);
+
+  return(SUCCESS);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

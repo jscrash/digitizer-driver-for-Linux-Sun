@@ -1,0 +1,168 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_CULTURE_CHECK.PC */
+/* *2     1-MAY-1991 21:52:58 KEE "(SPR -1) Landmark Import" */
+/* *1     1-MAY-1991 21:13:37 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_CULTURE_CHECK.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* ************************************************************************
+
+   NAME: LD_LM2_IMP_CULTURE_CHECK.PC
+
+   AUTHOR: Rod Hanks
+   DATE:   June 21st, 1990
+   DESCRIPTION: Check an object to see if it is new or can be overwritten.
+
+		returns are 	1) new culture object.
+				2) continuation of one we have seen before
+				   during this run and are loading.
+				3) one which currently exists, but which
+				   we will overwrite.
+				4) one which exists and which we will not
+				   overwrite.
+   ************************************************************************ */
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_HT_H
+#include "esi_ht.h"
+#endif
+#ifndef ESI_HT_ERR_H
+#include "esi_ht_err.h"
+#endif
+
+#if USE_PROTOTYPES
+publicdef INT ld_lm2_imp_culture_check (CHAR *objectName, CHAR *project, 
+			CHAR *source, INT overwrite, HASH_TABLE_P hash_table, 
+			INT *currentObject)
+#else
+publicdef INT ld_lm2_imp_culture_check (objectName, project, source, overwrite, 
+			   hash_table, currentObject)
+CHAR		*objectName;
+CHAR		*project;
+CHAR		*source;
+INT		 overwrite;
+INT		*currentObject;
+HASH_TABLE_P	 hash_table;
+#endif
+    {
+/****************************************************************************
+
+	V a r i a b l e   D e c l a r a t i o n s .
+
+******************************************************************************/
+
+    INT 	   status;
+    INT		   result;
+/*
+				General variable declarations.
+*/
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[200];
+	int	objectID;
+    EXEC SQL END DECLARE SECTION;
+/*
+				Oracle variable declarations.
+*/
+/****************************************************************************
+
+	I n i t i a l i z a t i o n .
+
+******************************************************************************/
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT OBJECT_ID FROM %s.GRAPHIC_OBJECTS \
+WHERE OBJECT_NAME = '%s' AND SOURCE = '%s'", project, objectName, source);
+
+    EXEC SQL PREPARE s10 FROM :sqlstmt;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s10");
+    EXEC SQL DECLARE ID_LOOK CURSOR FOR S10;
+    EXEC SQL OPEN ID_LOOK;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "OPEN ID_LOOK");
+    EXEC SQL FETCH ID_LOOK INTO :objectID;
+    *currentObject = objectID;
+    if (OR_STATUS < SUCCESS)
+	{
+	ld_show_error(OR_STATUS, "FETCH ID_LOOK");
+	}
+    else if (OR_STATUS > SUCCESS)
+	{
+	status = ht_insert(hash_table, objectName, (VOIDPTR) 0);
+/*
+				Remember that we have already worked on
+				this entry, in case we run into
+				another piece of it later.
+*/
+	result = 1;
+	}
+    else
+	{
+	status = ht_find(hash_table, objectName, (VOIDPTR) 0);
+	switch (status)
+	    {
+	    case SUCCESS:
+		result = 2;
+	        break;
+/*
+				    We have previously entered information for
+				    this object.  Therefore, we are just going
+				    to be adding a new line to this object.
+*/
+	    case HT_KEY_NOT_FOUND:
+		if (overwrite != 0)
+		    {
+		    status = ht_insert(hash_table, objectName, (VOIDPTR) 0);
+/*
+				Remember that we have already inserted this
+				entry into the table, in case we run into
+				another piece of it later.
+*/
+		    result = 3;
+		    }
+		else
+	  	    {
+		    result = 4;
+		    }
+		break;
+/*
+				    If the key was not found, it means that we
+				    have not dealt with this object on
+				    this run.  Therefore this is not a 
+				    continuation of an existing object but one
+				    new to this run.  If they don't specify
+				    overwrite, we don't want to do anything
+				    with this object.
+*/
+	    default:
+		printf("Error on ht_find, %s\n", mg_message(status));
+		return FAIL;
+		break;
+	    }
+	}
+    EXEC SQL CLOSE ID_LOOK;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "CLOSE ID_LOOK");
+/*
+					Above, decide if we have visited
+					this object before and what we should
+					do about it.
+*/
+    return result;
+    }

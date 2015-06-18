@@ -1,0 +1,177 @@
+#!/bin/csh -f
+# 
+# $Header: /nfs/grover/finder062/install/RCS/template.finder,v 1.5 90/12/02 14:12:19 julian Exp Locker: julian $ .finder 
+# 
+# ------------------------------------------------------
+#      FINDER Environment Initialization Script.
+#
+# This procedure assumes that the environment variable
+# FINDER_HOME has been previously defined by the user
+# and is active within this scope.  FINDER_HOME points
+# to the top level directory in which Finder has been
+# installed.
+#
+# Usage:
+#		setenv FINDER_HOME /finder
+#		source $FINDER_HOME/.finder
+#
+# Julian 
+# ------------------------------------------------------
+set default_home=/finder
+if (! $?FINDER_HOME ) then
+if ( ! $?prompt ) exit 0
+	echo " "
+	echo "Error: (.finder) FINDER_HOME environment variable not set." 
+	echo "You should define FINDER_HOME in your .login or .profile"
+	echo " "
+	echo "*** FINDER_HOME is undefined. *** "
+	set done="FALSE"
+	set cntr=0
+	while ( "$done" == "FALSE" ) 
+		@ cntr++
+		if ( $cntr > 2 ) then
+			echo " "
+			echo "Please read the Finder System Administrators manual"
+			echo "for more information regarding the location of the"
+			echo "Finder home directory....  This environment variable"
+			echo "must be defined in order to continue...."
+			echo " "
+			echo -n "...Aborting Finder environment setup at "
+			date
+			break
+		endif
+	 
+		echo -n "What is the Finder home directory? [$default_home]"
+		set instr=($<) 
+		if ( "$instr" == "" ) then
+			set instr="$default_home"
+		endif
+	 
+		if ( -e "$instr" ) then 
+			set done="TRUE"
+			continue
+		else
+			echo " "
+			echo "The directory $instr does not exist or is inaccessible."
+			echo " "
+			exit 1
+		endif
+	end
+endif
+if (! $?HOST ) then
+	setenv HOST `hostname`
+endif
+if (! $?ARCH ) then
+#	setenv ARCH `arch`
+	setenv ARCH sun4
+endif
+	setenv ARCH sun4
+if (! $?FINDERSRC) then
+	setenv FINDERSRC /j/finder/src
+#	setenv FINDERSRC NOSOURCE
+endif
+if (! $?FINDER_DATA ) then
+	setenv FINDER_DATA    NODATA
+endif
+setenv FH              $FINDER_HOME
+setenv FD              $FINDER_DATA
+setenv FINDER_SRCDISK  $FINDERSRC
+setenv SRCDISK         $FINDERSRC
+setenv FINDER_BINARY   $FINDER_HOME/bin/$ARCH;   setenv FB    $FINDER_BINARY
+setenv FINDER_SOURCE   $FINDERSRC/src;	         setenv FS    $FINDER_SOURCE
+setenv FINDER_INCLUDE  $FINDERSRC/inc;	         setenv FI    $FINDER_INCLUDE
+setenv FINDER_GEN      $FINDERSRC/gen;	         setenv FGEN  $FINDER_GEN
+setenv FINDER_GLUE     $FINDERSRC/glue;	         setenv FG    $FINDER_GLUE
+setenv FINDER_MAIN     $FINDERSRC/main;	         setenv FM    $FINDER_MAIN
+setenv FINDER_ULIB     $FINDERSRC/ulib;	         setenv FU    $FINDER_ULIB
+setenv FINDER_LIB      $FINDER_HOME/lib
+setenv FLIB            $FINDER_HOME/lib/lib_finder_debug_$ARCH.a
+setenv DGLIB           $FINDER_HOME/lib/lib_dg_debug_$ARCH.a
+setenv FINDER_ENV      "`echo $ARCH | tr a-z A-Z`"
+setenv FINDER_PRINTER  lp
+setenv FINDER_DEBMODE  debug
+setenv FINDER_VERSION  NOVERSION
+if ( -e $FINDERSRC/debug_$ARCH ) then
+	setenv FINDER_OBJECTS $FINDERSRC/debug_$ARCH
+else if ( -e $FINDERSRC/prod_$ARCH ) then
+	setenv FINDER_OBJECTS $FINDERSRC/prod_$ARCH
+else
+	setenv FINDER_OBJECTS /tmp
+endif
+setenv gksdir   /usr/local/cgmv/cgmv200
+#
+if (-e $FH/tmp ) setenv TMPDIR $FH/tmp
+#
+# Setup the Oracle environment 
+# by calling .oracle if it exists.
+if ( -e $FH/.oracle )  source $FH/.oracle
+#
+#
+setenv FINDER_INCPATHS "-I. -I$FINDER_ULIB -I$FI -I$FGEN"
+# add $FINDER_HOME/bin and $FINDER_HOME/bin/$ARCH to path if necessary
+#
+set _needbin _needbinarch _needcgmv
+foreach _i ( $path )
+	if ( "$_i" == "/usr/local/cgmv/cgmv200" ) unset _needcgmv
+	if ( "$_i" == "$FH/bin" ) unset _needbin
+	if ( "$_i" == "$FH/bin/$ARCH" ) unset _needbinarch
+end
+if ($?_needcgmv ) set path= ($path /usr/local/cgmv/cgmv200 )
+if ($?_needbinarch) set path = ( $path $FH/bin/$ARCH )
+if ($?_needbin) set path = ( $path $FH/bin )
+unset _needbin _needbinarch _i _needcgmv
+#
+switch ($ARCH)
+case mips:
+	if (! $?ORACLE_SID ) setenv ORACLE_SID FGS
+	if ( $?GNUM ) then
+		if ("$GNUM" == "" ) setenv GNUM "6" 
+		if (! {(echo $GNUM | grep '\-G' >& /dev/null)}) setenv GNUM "-G $GNUM"
+	else
+		setenv GNUM "-G 6"
+	endif
+	setenv  FPCC "proc include=$ORACLE_HOME/c/lib ireclen=132 oreclen=132 rebind=yes iname="
+	setenv FINDER_ENV SUN4				# This is the HOST define.
+	setenv TARGET_ARCH -DSYSTEM_FIVE		# Use system five style cc. 
+	setenv PROG_ENV SYSTEM_FIVE				# Same as above but for ld. 
+	set cdpath=(~ $FINDER_HOME $FINDERSRC /usr/local /dba0)
+	setenv LCFLAGS	"-DUSE_X"
+	if ( -e /usr/lib/cmplrs/cc2.1 )	 then
+		setenv FCC_CMD "/bin/cc -L/usr/lib/cmplrs/cc2.1 $GNUM -O"
+		setenv F77_CMD "/usr/bin/f77 -L/usr/lib/cmplrs/f772.1 $GNUM -O0 -Nl200"
+		setenv FCC "$FCC_CMD $FINDER_INCPATHS"
+		setenv F77 "$F77_CMD $FINDER_INCPATHS"
+	else
+		setenv FCC_CMD '/bin/cc'
+		setenv F77_CMD '/usr/bin/f77'
+		setenv FCC "$FCC_CMD  $FINDER_INCPATHS"
+		setenv F77 "$F77_CMD  $FINDER_INCPATHS"
+	endif
+	breaksw
+
+case sun4:
+case sun4c:
+#	if (! $?ORACLE_SID ) setenv ORACLE_SID FGS
+	setenv ARCH `arch`
+	setenv TARGET_ARCH -sun4
+	set cdpath=(~ $FINDER_HOME $FINDERSRC )
+	setenv  FPCC "proc include=$ORACLE_HOME/c/lib ireclen=132 oreclen=132 rebind=yes iname="
+# Use system five compil
+	setenv FCC_CMD "cc -I/usr/include/Xm"
+	setenv F77_CMD "f77"
+	setenv FCC "$FCC_CMD $FINDER_INCPATHS"
+	setenv F77 "$F77_CMD -Nl200 $FINDER_INCPATHS"
+	setenv FINDER_ENV -DSUN
+	setenv LCFLAGS "-I/usr/local/include -DSUN4 -DMOTIF -DPRIOR_GKS -DUSE_X"
+	breaksw
+
+default:
+	echo 'ARCH not defined... Environment for compiling not setup!!!'
+endsw
+#
+#if  (! $?COMP_WARNINGS)	 setenv COMP_WARNINGS -w
+#
+#setenv USERDISK       $FINDER_HOME 
+#setenv USERS          $USERDISK/users
+#setenv FBL            /usr/finder/bin/$ARCH
+#setenv FINDER_BASE    2.0

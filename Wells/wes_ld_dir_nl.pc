@@ -1,0 +1,273 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element WES_LD_DIR_NL.PC*/
+/* *13   26-AUG-1991 10:12:28 CHARLIE "(SPR 0) revert to previous generation, enhance code"*/
+/* *12    1-MAY-1991 22:51:31 KEE "(SPR -1) Landmark Import & Export"*/
+/* *11   14-AUG-1990 13:39:06 VINCE "(SPR 5644) Header Standardization"*/
+/* *10   18-JAN-1990 00:09:24 GILLESPIE "(SPR 6001) Remove filename from deviation structure"*/
+/* *9    17-NOV-1989 16:09:37 CONROY "(SPR 5059) Change dev flag to Y/N"*/
+/* *8     3-NOV-1989 16:20:58 GILLESPIE "(SPR 5054) Change TRUE_VERTICAL_DEPTH to TVD"*/
+/* *7    20-SEP-1989 07:53:45 GORDON "(SPR 100) undo last checkin"*/
+/* *6    19-SEP-1989 13:39:39 GILLESPIE "(SPR 100) GULF MODS"*/
+/* *5    18-SEP-1989 12:44:28 PURNA "Gulf mods under SPR 100"*/
+/* *4    14-SEP-1989 18:43:35 GORDON "(SPR -1) checkin from gulf"*/
+/* *3    14-SEP-1989 16:21:04 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *2    13-AUG-1989 02:07:53 GILLESPIE "(SPR 5) Fixes for Gulf Schema changes"*/
+/* *1    19-JUN-1989 12:41:53 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element WES_LD_DIR_NL.PC*/
+
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_we_wells.h"
+
+#ifndef ESI_NL_H
+
+#include "esi_nl.h"
+
+#endif
+
+#include "esi_qs.h"
+#include "esi_oracle.h"
+#include "esi_we_err.h"
+#include "esi_we_msg.h"
+
+#define NRECS 50
+#define NDIM 4
+
+/* Function Description -----------------------------------------------------
+Description:
+    Load a directional survey n-List by retrieving the information from the
+    n-List file, or from the directional survey table in the project
+    if we can't read the n-List directly.
+
+Prototype:
+    publicdef INT wes_load_dir_nlist(UWI uwi, NLIST_HEADER *out_nlist);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    uwi             -(UWI)
+    out_nlist       -(NLIST_HEADER *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    OR_STATUS - Status returned by Oracle.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT wes_load_dir_nlist (UWI uwi, NLIST_HEADER *out_nlist) 
+#else
+publicdef INT wes_load_dir_nlist (uwi, out_nlist)
+UWI uwi;
+NLIST_HEADER *out_nlist;
+#endif
+    {
+    INT status;
+    WELL_STRUCT *pWell;
+    PROJECT_NAME project;
+    FILENAME filename;
+    NLIST_HEADER nlist;
+    UINT Dim_List[NDIM];
+    VOIDPTR Value_List[NDIM];
+    UINT ndim;
+    INT Units[NDIM];
+    size_t Data_Sizes[NDIM];
+    INT Data_Types[NDIM];
+    INT Value_Inc[NDIM];
+    INT i;
+    INT hdr_rowcount = 0;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    
+    float md[50];
+    float dx[50];
+    float dy[50];
+    float tvd[50];
+    VARCHAR digital_ref[81];
+    VARCHAR stmt[1024];
+    
+    EXEC SQL END DECLARE SECTION;
+    
+    *out_nlist = nlist = (NLIST_HEADER)0;
+    
+    status = we_get_well_header (uwi, WE_LOCATION_ONLY, &pWell);
+    
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+        return status;
+        }
+    digital_ref.len = 0;
+    
+    if (pWell->deviation.nlist IS_NOT_EQUAL_TO (NLIST_HEADER)0)
+        {
+        *out_nlist = pWell->deviation.nlist;
+        return SUCCESS;
+        }
+    EXEC SQL WHENEVER SQLERROR GOTO endup;
+    
+    qs_inq_c (QS_PROJECT_NAME, project, &i);
+    stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT SURVEY_DIGITAL_REF \
+FROM %s.WELL_DIR_SRVY_HDR \
+WHERE UWI = '%s' AND SURVEY_DIGITAL_REF IS NOT NULL"
+            , project, uwi);
+    
+    EXEC SQL WHENEVER SQLERROR GOTO endup;
+    EXEC SQL PREPARE S1 FROM : stmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    
+    EXEC SQL OPEN C1;
+    EXEC SQL FETCH C1 INTO : digital_ref;
+    EXEC SQL CLOSE C1;
+    
+    V_FROMV (filename, digital_ref);
+    
+    if (filename[0] IS_NOT_EQUAL_TO 0)
+        {
+        /*     the file name exists, so try reading it     */
+        
+        status = ho_add_path ("ESI$SURVEYS", filename, sizeof filename, filename);
+        
+        status = nl_read_nlist (out_nlist, filename, uwi);
+        if (status EQUALS SUCCESS)
+            {
+            pWell->deviation.nlist = *out_nlist;
+            return status;
+            }
+        }
+    /* well, either the read failed, or an n-List
+    file doesn't exist.  In either case, try
+    reading from the well_directional_survey
+    table                                       */
+    
+    /*  NOTE: THIS CODE ASSUMES THAT THERE IS ONLY
+        ONE DIRECTIONAL SURVEY PER WELL.  THE GULF
+        MODIFIED SCHEMA ALLOWS FOR THE POSSIBILITY
+        OF MORE THAN ONE - IT WILL MERGE SURVEY
+        STATIONS.  BEWARE.  JGG             */
+    
+    stmt.len = sprintf ((char *)stmt.arr, "SELECT MD, DX, DY, TVD \
+FROM %s.WELL_DIR_SRVY_PTS \
+WHERE UWI = '%s' \
+ORDER BY MD"
+                        , project, uwi);
+    
+    EXEC SQL PREPARE S2 FROM : stmt;
+    EXEC SQL DECLARE C2 CURSOR FOR S2;
+    
+    EXEC SQL OPEN C2;
+    
+    /* initialize a new n-List */
+    
+    for (i = 0, ndim = NDIM; i < ndim; i++)
+        {
+        Dim_List[i] = i + 1;
+        Units[i] = 0;
+        Data_Sizes[i] = sizeof(float);
+        Data_Types[i] = FLOAT_TYPE;
+        Value_Inc[i] = VALUE_LIST;
+        }
+    i = NRECS;
+    status = nl_init_nlist (&nlist, ndim, Units, Data_Sizes, Data_Types, Value_Inc, i);
+    
+    status = nl_start_stroke (nlist, (UINT *) & i);
+    
+    Value_List[0] = (VOIDPTR)md;
+    Value_List[1] = (VOIDPTR)dx;
+    Value_List[2] = (VOIDPTR)dy;
+    Value_List[3] = (VOIDPTR)tvd;
+    
+    /* no matter if well_dir_srvy_pts has data or not; insert surface record */
+    md[0] = dx[0] = dy[0] = tvd[0] = 0.0;
+    nl_add_points (nlist, 1, ndim, Dim_List, Value_List);
+        
+    for (i = 0; OR_STATUS IS_NOT_EQUAL_TO OR_EOF; i += NRECS)
+        {
+        EXEC SQL FETCH C2 INTO : md,  : dx,  : dy,  : tvd;
+        status = nl_add_points (nlist, OR_ROWCOUNT - i, ndim, Dim_List, Value_List);
+        }
+    hdr_rowcount = OR_ROWCOUNT;
+    if (OR_ROWCOUNT > 0)
+        {
+        /* if there is an n-List already existing,     */
+        /* then free it                                */
+        
+        if (pWell->deviation.nlist IS_NOT_EQUAL_TO (NLIST_HEADER)0)
+            {
+            status = nl_free_nlist (pWell->deviation.nlist);
+            }
+        }
+        
+	/* pass through this code whether or not data is in WELL_DIR_SRVY_PTS */
+        stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT DRILLERS_TD,\
+BASE_DELTA_X + NVL(TOP_DELTA_X,0.0),\
+BASE_DELTA_Y + NVL(TOP_DELTA_Y,0.0),\
+NVL(TVD, DRILLERS_TD) \
+FROM %s.WELL_HDR \
+WHERE UWI = '%s' AND NVL(BASE_DELTA_X,0.0) != 0.0 \
+AND NVL(BASE_DELTA_Y,0.0) != 0.0 \
+AND NVL(DRILLERS_TD,0.0) != 0.0"
+                , project, uwi);
+        EXEC SQL PREPARE S3 FROM : stmt;
+        EXEC SQL DECLARE C3 CURSOR FOR S3;
+        EXEC SQL OPEN C3;
+        EXEC SQL FETCH C3 INTO : md,  : dx,  : dy,  : tvd;
+        
+	/* now it takes BOTH rowcounts == 0 to return well is not deviated */
+        if (OR_ROWCOUNT + hdr_rowcount > 0)
+            {
+            nl_add_points (nlist, 1, ndim, Dim_List, Value_List);
+            }
+        else
+            {
+            status = nl_free_nlist (nlist);
+            nlist = (NLIST_HEADER)0;
+            }
+        EXEC SQL CLOSE C3;
+endup:
+    if (OR_STATUS < 0)
+        {
+        status = OR_STATUS;
+        }
+    else
+        {
+        if (OR_ROWCOUNT + hdr_rowcount EQUALS 0)
+            {
+            status = WE_NOT_DEVIATED;
+            }
+        else
+            {
+            status = SUCCESS;
+            *out_nlist = nlist;
+            pWell->deviation.nlist = nlist;
+            }
+        EXEC SQL WHENEVER SQLERROR CONTINUE;
+        EXEC SQL CLOSE C2;
+        
+        }
+    return status;
+    }
+/* END:     */

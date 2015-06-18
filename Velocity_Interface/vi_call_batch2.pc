@@ -1,0 +1,316 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element VI_CALL_BATCH2.PC */
+/* *3    14-AUG-1991 12:01:42 KEE "(SPR -1) Put in File Lock/Unlock logic" */
+/* *2    11-JUN-1991 14:07:15 JESSIE "(SPR 0) batch job for calling VI functions" */
+/* *1    11-JUN-1991 14:03:32 JESSIE "call VI function 2" */
+/* DEC/CMS REPLACEMENT HISTORY, Element VI_CALL_BATCH2.PC */
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_VI_H
+#include "esi_vi.h"
+#endif
+#ifndef ESI_HO_H
+#include "esi_ho.h"
+#endif
+#ifndef ESI_HO__FILES_H
+#include "esi_ho_files.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+#ifndef ESI_MP_H
+#include "esi_mp.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+/****************************************************************************/
+/*									    */
+/*  VI_CALL_BATCH2							    */
+/*									    */
+/*  Batch job for constructing vi_main2 parameters and setting process 	    */
+/*									    */
+/*  into background							    */
+/*									    */
+/*  Returns:  SUCCESS							    */
+/*									    */
+/****************************************************************************/
+
+publicdef INT vi_call_batch2(pvi)
+VI_STRUCT *pvi;
+{	
+    	FILENAME fi_account, fi_password, fi_database;
+	PROJECT_NAME project;
+	CHAR 	 arg_list[512];
+	CHAR 	 proc_file[256];
+	CHAR	 directory[200];
+	FILENAME tmp_com_file;
+	FILE	 *comi_fp;
+	INT 	 i,num, status;
+	INT	 batch_process_id;
+	PROJECTION_ID projection;
+	CHAR	 smooth[10];
+	CHAR	 *ref = (CHAR *)0;
+	CHAR	 *horizon = (CHAR *)0;
+
+        EXEC SQL BEGIN DECLARE SECTION;
+	    long proc_id;
+        EXEC SQL END DECLARE SECTION;
+
+        EXEC SQL SELECT USERENV('SESSIONID') INTO :proc_id FROM DUAL;
+
+    qs_inq_c (QS_FINDER_ACCOUNT, fi_account, (INT *)0);
+    qs_inq_c (QS_FINDER_PASSWORD, fi_password, (INT *)0);
+    qs_inq_c (QS_DATABASE, fi_database, (INT *)0);
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    qs_inq_c (QS_PROJECT_PROJECTION, projection, (INT *)0);
+
+
+#if UNIX
+    ho_add_path("ESI$BIN","vi_main2",sizeof(FILENAME),proc_file);
+    /* create tmp command file */
+    sprintf (tmp_com_file, "run_tmp_file2");
+#endif
+#ifdef vms
+    ho_add_path("ESI$BIN","vi_main2",sizeof(FILENAME),proc_file);
+    /* create tmp command file */
+    sprintf (tmp_com_file, "run_tmp_file2.com");
+#endif
+
+    if (pvi->smu_type == 1)
+      {
+      strcpy (smooth, "NONE");
+      }
+    else if (pvi->smu_type == 2)
+      {
+      strcpy (smooth, "MEDIAN");
+      }
+    else if (pvi->smu_wt == 1)
+      {
+      strcpy (smooth, "1");
+      }
+    else 
+      {
+      strcpy (smooth, "2");
+      }
+
+    num = ts_tcp_len(pvi->hor_tcp);
+    horizon = (CHAR *)tc_zalloc(( num * 30) + 1);
+    for ( i = 0; i< num; i++)
+      {
+      sprintf (horizon,"%s %s",horizon,pvi->hor_tcp[i]);
+      /*strcat (horizon,pvi->hor_tcp[i]);
+      strcat (horizon, " ");*/
+      }
+    num = strlen (horizon);
+    horizon[num+1] = 0;
+
+    if ((pvi->num_ref != 0) AND (pvi->residual_mode == TRUE))
+      {
+      /* allocate memeory */
+      ref = (CHAR *)tc_zalloc((pvi->num_ref * 30) + 1);
+      for (i = 0; i< pvi->num_ref; i++)
+        {
+	sprintf (ref, "%s %s %s", ref, pvi->ref_time[i], pvi->ref_vel[i]);
+        /*strcat (ref, pvi->ref_time[i]);
+        strcat (ref, " ");
+        strcat (ref, pvi->ref_vel[i]);
+        strcat (ref, " ");*/
+        }
+      num = strlen (ref);
+      ref[num+1] = 0;
+      }
+
+    if (strlen (fi_database) != 0)
+      {
+      if (pvi->num_ref == 0)
+	{
+	if (pvi->smu_type == 1)
+	  {
+          sprintf ((char *)arg_list, "-oid %s/%s@%s -proj %s \
+		-projection %s -line \"%s\" -hor %s -srch %s -vtyp %s \
+		-src %s -gout %s",
+                fi_account,fi_password, fi_database, project, 
+		projection, pvi->list_name, horizon,
+                pvi->hor_source[0], pvi->vtype, pvi->source[0],
+		pvi->grid_oname);
+	  }
+	else
+	  {
+          sprintf ((char *)arg_list, "-oid %s/%s@%s -proj %s \
+		-projection %s -line \"%s\" -hor %s -srch %s -vtyp %s \
+		-src %s -gout %s -smooth %s",
+                fi_account,fi_password, fi_database, project, 
+		projection, pvi->list_name, horizon,
+                pvi->hor_source[0], pvi->vtype, pvi->source[0],
+		pvi->grid_oname, smooth);
+	  }
+	}
+      else
+	{
+	if (pvi->residual_mode == TRUE)
+	  {
+	  if (pvi->smu_type == 1)
+	    {
+            sprintf ((char *)arg_list, "-oid %s/%s@%s -proj %s \
+		-projection %s -line \"%s\" -hor %s -srch %s -vtyp %s \
+		-src %s -gout %s -ref %s",
+                fi_account,fi_password, fi_database, project, 
+		projection, pvi->list_name, horizon,
+                pvi->hor_source[0], pvi->vtype, pvi->source[0],
+		pvi->grid_oname, ref);
+            }
+  	  else
+	    {
+            sprintf ((char *)arg_list, "-oid %s/%s@%s -proj %s \
+		-projection %s -line \"%s\" -hor %s -srch %s -vtyp %s \
+		-src %s -gout %s -smooth %s -ref %s",
+                fi_account,fi_password, fi_database, project, 
+		projection, pvi->list_name, horizon,
+                pvi->hor_source[0], pvi->vtype, pvi->source[0],
+		pvi->grid_oname, smooth, ref);
+	    }
+	  }
+	else
+	  {
+	  if (pvi->smu_type == 1)
+	    {
+            sprintf ((char *)arg_list, "-oid %s/%s@%s -proj %s \
+		-projection %s -line \"%s\" -hor %s -srch %s -vtyp %s \
+		-src %s -gout %s",
+                fi_account,fi_password, fi_database, project, 
+		projection, pvi->list_name, horizon,
+                pvi->hor_source[0], pvi->vtype, pvi->source[0],
+		pvi->grid_oname);
+            }
+	  else
+	    {
+            sprintf ((char *)arg_list, "-oid %s/%s@%s -proj %s \
+		-projection %s -line \"%s\" -hor %s -srch %s -vtyp %s \
+		-src %s -gout %s -smooth %s",
+                fi_account,fi_password, fi_database, project, 
+		projection, pvi->list_name, horizon,
+                pvi->hor_source[0], pvi->vtype, pvi->source[0],
+		pvi->grid_oname, smooth);
+	    }
+	  }
+	}
+      }
+    else
+      {
+      if (pvi->num_ref == 0)
+	{
+	if (pvi->smu_type == 1)
+	  {
+          sprintf ((char *)arg_list, "-oid %s/%s -proj %s \
+		-projection %s -line \"%s\" -hor %s -srch %s -vtyp %s \
+		-src %s -gout %s",
+                fi_account,fi_password,project, 
+		projection, pvi->list_name, horizon,
+                pvi->hor_source[0], pvi->vtype, pvi->source[0],
+		pvi->grid_oname);
+	  }
+	else
+	  {
+          sprintf ((char *)arg_list, "-oid %s/%s -proj %s \
+		-projection %s -line \"%s\" -hor %s -srch %s -vtyp %s \
+		-src %s -gout %s -smooth %s",
+                fi_account,fi_password, project, 
+		projection, pvi->list_name, horizon,
+                pvi->hor_source[0], pvi->vtype, pvi->source[0],
+		pvi->grid_oname, smooth);
+	  }
+	}
+      else
+	{
+	if (pvi->residual_mode == TRUE)
+	  {
+	  if (pvi->smu_type == 1)
+	    {
+            sprintf ((char *)arg_list, "-oid %s/%s -proj %s \
+		-projection %s -line \"%s\" -hor %s -srch %s -vtyp %s \
+		-src %s -gout %s -ref %s",
+                fi_account,fi_password, project, 
+		projection, pvi->list_name, horizon,
+                pvi->hor_source[0], pvi->vtype, pvi->source[0],
+		pvi->grid_oname, ref);
+            }
+	  else
+	    {
+            sprintf ((char *)arg_list, "-oid %s/%s -proj %s \
+		-projection %s -line \"%s\" -hor %s -srch %s -vtyp %s \
+		-src %s -gout %s -smooth %s -ref %s",
+                fi_account,fi_password, project, 
+		projection, pvi->list_name, horizon,
+                pvi->hor_source[0], pvi->vtype, pvi->source[0],
+		pvi->grid_oname, smooth, ref);
+	    }
+	  }
+	else
+	  {
+	  if (pvi->smu_type == 1)
+	    {
+            sprintf ((char *)arg_list, "-oid %s/%s -proj %s \
+		-projection %s -line \"%s\" -hor %s -srch %s -vtyp %s \
+		-src %s -gout %s",
+                fi_account,fi_password, project, 
+		projection, pvi->list_name, horizon,
+                pvi->hor_source[0], pvi->vtype, pvi->source[0],
+		pvi->grid_oname);
+            }
+	  else
+	    {
+            sprintf ((char *)arg_list, "-oid %s/%s -proj %s \
+		-projection %s -line \"%s\" -hor %s -srch %s -vtyp %s \
+		-src %s -gout %s -smooth %s",
+                fi_account,fi_password, project, 
+		projection, pvi->list_name, horizon,
+                pvi->hor_source[0], pvi->vtype, pvi->source[0],
+		pvi->grid_oname, smooth);
+	    }
+	  }
+        }
+      }
+ 
+    comi_fp = ho_open (tmp_com_file, "w", NULL);
+    status = ho_lock (comi_fp, ON);
+    if (comi_fp EQUALS NULL_FILE_PTR || status != SUCCESS)
+      {
+      am_message (AM_ALERT, "Can't open command file in current directory!");
+      return FAIL;
+      }
+    else
+      {
+    ho_get_current_path (directory);
+
+#if UNIX
+    fprintf (comi_fp, "cd %s\n", directory);
+    fprintf (comi_fp, "%s %s\n", proc_file, arg_list);
+    fprintf (comi_fp, "rm %s\n", tmp_com_file);
+#endif
+
+#if vms 
+    fprintf (comi_fp, "$SET DEFAULT %s\n", directory);
+    fprintf (comi_fp, "$VI_MAIN2 := $ESI$BIN:VI_MAIN2.EXE\n");
+    fprintf (comi_fp, "$VI_MAIN2 %s\n", arg_list);
+    fprintf (comi_fp, "$DELETE %s;*\n", tmp_com_file);
+    fprintf (comi_fp, "$EXIT\n");
+#endif
+
+    status = ho_lock (comi_fp, OFF);
+    fclose(comi_fp);
+
+    status = ho_spawn(SPAWN_BATCH, tmp_com_file, "", &batch_process_id);
+      }
+    if (horizon != (CHAR *) 0)
+      tc_free (horizon);
+    if (ref != (CHAR *) 0)
+      tc_free (ref);
+    return status;
+}
+
+

@@ -1,0 +1,148 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element MD_VERIFY_TCP.PC */
+/* *5    26-JUL-1991 11:06:08 PURNA "(SPR 3423) fixed crashes when add annotation option" */
+/* *4    12-JUN-1991 14:59:01 PURNA "(SPR 0) create new table for lease attributes" */
+/* *3     7-MAY-1991 17:49:30 PURNA "(SPR 1622) init change" */
+/* *2    18-MAR-1991 18:09:23 PURNA "(SPR 0) Lease Mapping Init Checkin" */
+/* *1    18-MAR-1991 17:56:57 PURNA "Lease Mapping" */
+/* DEC/CMS REPLACEMENT HISTORY, Element MD_VERIFY_TCP.PC */
+
+/* DEC/CMS REPLACEMENT HISTORY, Element MD_VERIFY_TLU.C*/
+/* *3    20-OCT-1989 11:32:28 CONROY "(SPR 5030) remove include file esi_md_tlu, make use of lu routines"*/
+/* *2    10-OCT-1989 14:18:53 GORDON "(SPR 4999) Mods for new lookup method"*/
+/* *1    19-JUN-1989 13:07:49 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element MD_VERIFY_TLU.C*/
+
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+
+/* * FILE DESCRIPTION * */
+/* -------------------- */
+/* ************************************************************************
+
+   NAME: MD_VERIFY_TCP.C
+
+   DESCRIPTION: Function to validate a TCP parameter value.
+
+   ************************************************************************ */
+
+/* * INCLUDE FILES * */
+/* ----------------- */
+
+#ifndef ESI_GL_DEFS_H
+#include "esi_gl_defs.h"
+#endif
+#ifndef ESI_MD_DEFS_H
+#include "esi_md_defs.h"
+#endif
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#include "esi_oracle.h"
+#include "esi_lm.h"
+#include "esi_qs.h"
+
+/* * FUNCTION TITLE * */
+/* ------------------ */
+
+INT md_verify_tcp(key_info,parm_string,parmstruc)
+
+/* * ARGUMENT LIST * */
+/* ------------------ */
+
+MD_KEY_INFO *key_info;
+CHAR parm_string[MD_MAX_PARM_STRING];
+MD_PARM_STRUCT **parmstruc;		/* MAP DEF PARAMETER STRUCTURE */
+
+
+/* * VARIABLE LIST * */
+/* ----------------- */
+
+{
+
+MD_PARM_STRUCT *temp_parm;
+INT status;				/* RETURN STATUS */
+INT i,count;
+TCP ptcp;
+LM_DIALOG_STRUCT *lm_dialog;
+PROJECT_NAME project;
+
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[256];
+    static VARCHAR attribute_name[32];
+    static VARCHAR temp_name[32];
+EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO orcerr;
+
+    qs_inq_c(QS_PROJECT_NAME,project,(INT *)0);
+
+    ptcp = ts_token(parm_string,";");
+    count = ts_tcp_len(ptcp);
+    
+    status = am_open_workspace(LM_DIALOG_WORKSPACE,AM_GLOBAL,(VOIDPTR *)&lm_dialog);
+    if (status != SUCCESS)
+                             /*  and initialize it                          */
+      {  
+      status = am_define_workspace(LM_DIALOG_WORKSPACE,AM_GLOBAL,
+                          sizeof(LM_DIALOG_STRUCT),(VOIDPTR *)&lm_dialog);
+      } 
+    lm_dialog->annot_select_tcp = (TCP)0;
+    
+    sqlstmt.len = sprintf((CHAR *)sqlstmt.arr,
+    "SELECT NULL FROM %s.LEASE_ATTRIBUTES \
+WHERE ATTRIBUTE_NAME = :attribute_name",project);
+     EXEC SQL PREPARE S1 FROM :sqlstmt;
+     EXEC SQL DECLARE C1 CURSOR FOR S1;
+
+    for(i=0;i<count;i++)
+	{
+	V_FROMC(attribute_name,ptcp[i]);
+	EXEC SQL OPEN C1 USING :attribute_name;
+	EXEC SQL FETCH C1 INTO :temp_name;
+	if(OR_STATUS == OR_EOF) return OR_STATUS;
+	}
+
+    EXEC SQL CLOSE C1;
+
+    ts_tcp_copy(&lm_dialog->annot_select_tcp,ptcp);
+    temp_parm = (MD_PARM_STRUCT *)am_allocate(AM_GLOBAL,sizeof(MD_PARM_STRUCT));
+    if (key_info->translate)
+	{
+	temp_parm->parmtype = 2;
+	}
+    else
+	{
+	temp_parm->parmtype = 1;
+	temp_parm->parmval.cval = 
+		(CHAR *)am_allocate(AM_GLOBAL,strlen(parm_string)+1 );
+	strcpy(temp_parm->parmval.cval,parm_string);
+	}
+    temp_parm->nxtparm = NULL_PARM;
+    *parmstruc = temp_parm;
+
+    ts_tcp_free(ptcp);
+return SUCCESS;
+orcerr:
+    return OR_STATUS;  
+}

@@ -1,0 +1,299 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_CR_DIRS.PC*/
+/*  11   19-NOV-1991 15:46:16 LOEBL "(SPR 0) Convert to sqlforms30"*/
+/* *10    2-AUG-1991 17:38:44 LOEBL "(SPR 2238) Standardize hold/release cursor handling"*/
+/* *9     4-JAN-1991 17:12:13 PURNA "(SPR 6091) add the -L option to add new logical names and create new directories"*/
+/* *8     3-DEC-1990 14:56:38 VINCE "(SPR 1) Cleaned up the sql statements for coping analyst logicals"*/
+/* *7    26-OCT-1990 10:16:16 VINCE "(SPR 6080) fixed error in SQL statement introduced during last fix, removed #ifdef vms;*/
+/*always convert DP string"*/
+/* *6    26-AUG-1990 14:19:03 GILLESPIE "(SPR 1) Substitute ifdef vms for #if USE_OS_LOGICALS"*/
+/* *5    14-AUG-1990 13:08:34 VINCE "(SPR 5644) Header Standardization"*/
+/* *4    18-DEC-1989 16:40:07 PURNA "(SPR 5069) export facility mods"*/
+/* *3    25-SEP-1989 11:11:33 GORDON "(SPR 201) Add castings"*/
+/* *2    19-SEP-1989 13:35:35 GILLESPIE "(SPR 100) GULF MODS"*/
+/* *1    19-JUN-1989 12:30:01 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_CR_DIRS.PC*/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#ifndef ESI_DB_H
+#include "esi_db.h"
+#endif
+
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+
+#ifndef ESI_DB_MSG_H
+#include "esi_db_msg.h"
+#endif
+
+#ifndef ESI_DB_ERR_H
+#include "esi_db_err.h"
+#endif
+
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+#ifndef ESI_HO_H
+#include "esi_ho.h"
+#endif
+
+#ifndef ESI_OR_H
+#include "esi_or.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+    Routine to create a new account directory structure.
+
+Prototype:
+    publicdef INT dba_create_directories (DB_ACCOUNT_STRUCT *db_account,
+		BOOL interactive);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) db_account  -(DB_ACCOUNT_STRUCT *) Account structure.
+    (I) interactive -(BOOL) flag for interactive process or not.
+
+Return Value/Status:
+    SUCCESS - Successful completion
+
+    Function also returns status of ho_set_logical_name, ho_create_directory,
+    or_run_oracle_form.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT dba_create_directories (DB_ACCOUNT_STRUCT *db_account,
+				      BOOL interactive) 
+#else
+publicdef INT dba_create_directories (db_account,interactive)
+DB_ACCOUNT_STRUCT *db_account;
+BOOL interactive;
+#endif
+    {
+    PROGNAME ("DBA_CREATE_DIRECTORIES");
+    INT      ii, status = SUCCESS;
+    CHAR     *pbracket;
+    PATHNAME dir;
+    CHAR     create_format[132];
+    CHAR     error_format[132];
+    CHAR     message[255];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+	VARCHAR modify[1024];
+	VARCHAR account_scope[8];
+	VARCHAR directory[81];
+	VARCHAR logical_name[81];
+	VARCHAR environment[10];
+	int	conceal;
+	int	ndirs;
+    EXEC SQL END DECLARE SECTION;
+    
+    EXEC ORACLE OPTION (RELEASE_CURSOR = YES);
+    EXEC ORACLE OPTION (HOLD_CURSOR = NO);
+    EXEC SQL WHENEVER SQLERROR GOTO bad_insert;
+    
+    qs_inq_c (QS_ENVIRONMENT, (CHAR *)environment.arr, (INT *)0);
+    V_SETLEN (environment);
+    
+    V_FROMC (account_scope, db_account->scope);
+    strcpy (create_format, mg_message (DB_CREATE_DIRECTORY));
+    strcpy (error_format,  mg_message (DB_BAD_DIRECTORY_CREATE));
+    
+    if (strcmp (db_account->scope, "PROJECT") EQUALS 0)
+        {
+	/* ---------------------------------------------------------- */
+        /* Handle project logicals - only insert if not already there */
+	/* ---------------------------------------------------------- */
+
+        EXEC SQL
+	    INSERT INTO LOGICAL_NAMES
+		(LOGICAL_NAME, SCOPE, TRANSLATION, ENVIRONMENT,
+		 SEQ, CONCEAL, SHARED)
+		SELECT	LOGICAL_NAME, SCOPE, TRANSLATION, ENVIRONMENT,
+			SEQ, CONCEAL, SHARED
+		FROM	DEFAULT_PROJECT.LOGICAL_NAMES
+		WHERE	ENVIRONMENT =  :environment AND
+			LOGICAL_NAME NOT IN
+			    (SELECT LOGICAL_NAME
+			     FROM   LOGICAL_NAMES
+			     WHERE  ENVIRONMENT = :environment);
+
+	/* -------------------------------------------------------------- */
+        /* Change DEFAULT_PROJECT to the new PROJECT name in each logical */
+	/* name translation.                                              */
+	/* -------------------------------------------------------------- */
+        
+	/* -------------------------------------------------------------- */
+	/* In the following update statement the first substr function    */
+	/* will return the part of the translation before the string      */
+	/* DEFAULT_PROJECT, that is concatenated with the new project	  */
+	/* name followed by the part of the translation following the     */
+	/* DEFAULT_PROJECT string.  The 15 in the second substr statement */
+	/* is the length of the string DEFAULT_PROJECT.                   */
+	/* -------------------------------------------------------------- */
+
+        modify.len = sprintf ((char *)modify.arr, 
+	"UPDATE LOGICAL_NAMES \
+	 SET	TRANSLATION = \
+		    SUBSTR (TRANSLATION, \
+			    1, \
+			    INSTR(UPPER(TRANSLATION), 'DEFAULT_PROJECT') - 1)\
+		    || '%s' || \
+		    SUBSTR (TRANSLATION, \
+			    INSTR(UPPER(TRANSLATION), 'DEFAULT_PROJECT') + 15)\
+         WHERE	ENVIRONMENT = '%s' AND \
+		UPPER(TRANSLATION) LIKE '%%DEFAULT_PROJECT%%'",
+        db_account->name, environment.arr);
+
+        EXEC SQL EXECUTE IMMEDIATE :modify;
+        }
+    else
+        {
+	/* -------------------------- */
+        /* Handle other account types */
+	/* -------------------------- */
+
+        EXEC SQL
+	    INSERT INTO LOGICAL_NAMES
+		(LOGICAL_NAME,
+		 SCOPE,
+		 TRANSLATION,
+		 ENVIRONMENT,
+		 SEQ,
+		 CONCEAL,
+		 SHARED)
+		SELECT  NAME,
+			SCOPE,
+			NVL(DEFAULT_DIRECTORY, 'CHANGE_ON_INIT'),
+			ENVIRONMENT,
+			NULL,
+			NULL,
+			NULL
+		FROM	CODES.FINDER_LOGICAL_NAMES
+		WHERE	SCOPE       = :account_scope AND 
+			ENVIRONMENT = :environment   AND 
+			NAME NOT IN
+			    (SELECT LOGICAL_NAME
+			     FROM   LOGICAL_NAMES 
+			     WHERE  ENVIRONMENT = :environment);
+        }
+
+    EXEC SQL COMMIT WORK;
+
+bad_insert:
+    /* run ORACLE form to let DBA make any changes desired */
+
+    if(interactive)
+	{
+        status = or_run_oracle_form ("LOGICAL_NAMES");
+	}
+    
+    EXEC SQL WHENEVER SQLERROR GOTO bad_fetch;
+    
+    if (status EQUALS SUCCESS)
+        {
+        EXEC SQL
+	    SELECT  COUNT(*)
+	    INTO    :ndirs
+	    FROM    LOGICAL_NAMES
+	    WHERE   SCOPE       =  :account_scope AND
+		    ENVIRONMENT =  :environment	 AND
+		    SHARED	IS NULL;
+        
+        /* create new directories */
+        EXEC SQL DECLARE C1 CURSOR FOR
+	    SELECT  LOGICAL_NAME,
+		    TRANSLATION,
+		    DECODE(CONCEAL, 'Y', 1, 0)
+	    FROM    LOGICAL_NAMES
+	    WHERE   SCOPE       =  :account_scope AND
+		    ENVIRONMENT =  :environment	 AND
+		    SHARED	IS NULL
+	    ORDER BY NVL(CONCEAL, 'ZZ'), LOGICAL_NAME;
+        
+        EXEC SQL OPEN C1;
+        EXEC SQL FETCH C1 INTO :logical_name, :directory, :conceal;
+        
+        for (ii = 1; OR_STATUS == SUCCESS; ii++)
+            {
+            V_FROMV (dir, directory);
+            
+            ho_absolute_path (dir);
+            
+            sprintf (message, create_format, dir, ii, ndirs);
+	    if(interactive)
+                am_message (AM_DIALOG, message);
+
+            am_message (AM_STATUS, message);
+
+            status = ho_create_directory (dir);
+            
+            /* now create this logical name */
+            if (status EQUALS SUCCESS)
+                {
+                V_SETZERO (logical_name);
+                status = ho_set_logical_name (NULL, (char *)logical_name.arr,
+                                              (char *)directory.arr,
+					      conceal, FALSE);
+                }
+            else
+                {
+                /* problem creating directory */
+                sprintf (message, error_format);
+		if(interactive)
+	            am_message (AM_DIALOG, message);
+
+                am_message (AM_STATUS, message);
+                }
+
+            EXEC SQL FETCH C1 INTO :logical_name,  :directory,  :conceal;
+            }
+
+        EXEC SQL CLOSE C1;
+        }
+
+bad_fetch:
+    if(interactive)
+       am_message (AM_DIALOG, NULL);
+
+    return status;
+    }
+/* END:     */

@@ -1,0 +1,461 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_LD_OBJ.PC*/
+/*  8     2-MAR-1992 14:34:03 JILL "(SPR 0) msg clipped object cannot be picked"*/
+/* *7    15-OCT-1990 23:18:02 GILLESPIE "(SPR 1000) Merge Ernie deltas"*/
+/*  4B2  15-OCT-1990 16:54:47 GILLESPIE "Merge Ernie deltas"*/
+/* *6     4-OCT-1990 18:04:15 GILLESPIE "(SPR 100) Merge beta deltas"*/
+/*  4B1  24-SEP-1990 15:33:13 GILLESPIE "Beta Deltas"*/
+/* *5    23-AUG-1990 15:29:24 PURNA "(SPR 0) fix compiling error"*/
+/* *4    18-JUL-1990 09:53:40 GILLESPIE "(SPR 1) Cleanup"*/
+/* *3    22-DEC-1989 14:33:59 GORDON "(SPR 0) make corner coordinates doubles, for ct_map_xy"*/
+/* *2    10-OCT-1989 09:48:37 PURNA "(SPR 5020) Mods for CT parameter change"*/
+/* *1    19-JUN-1989 12:31:08 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_LD_OBJ.PC*/
+/******************************************************************************
+
+        Copyright Exploration Systems, Inc. 1989
+           Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/******************************************************************************
+
+NAME:         dr_load_object
+
+DESCRIPTION:  Load a graphics object from the database
+
+
+     Input:   dr_data - Standard data structure
+    
+     Output:  dr_data - updated
+
+     Status:  SUCCESS;
+              DR_READ_ERROR
+              
+     TODO:    1)    Put LINE_TYPE, etc. defines into include.   
+              2)    Should correlations cursor also be opened for update??
+              3)    Clean up Oracle error recovery processing.
+              4)    Fetch loop status logic not solid.
+
+******************************************************************************/
+#include    "esi_c_lib.h"
+#include    "esi_gks.h"
+#include    "esi_dr.h"
+#include    "esi_mp.h"
+#include    "esi_am.h"
+#include    "esi_qs.h"
+#include    "esi_ts.h"
+#include    "esi_wm.h"
+#include    "esi_wm_cls.h"
+#include    "esi_oracle.h"
+
+#ifndef ESI_MG_H
+#include    "esi_mg.h"
+#endif
+
+#include "esi_dr_err.h"
+#include "esi_dr_msg.h"
+
+#define OR_LOCKED -54
+
+/* Function Description -----------------------------------------------------
+Description:
+    Load a graphics object from the database.
+
+Prototype:
+    publicdef INT dr_load_object(DR_DATA *dr_data);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (M) dr_data     -(DR_DATA *) Standard data structure, updated.
+
+Return Value/Status:
+    SUCCESS - Successful completion
+    DR_READ_ERROR - Error accessing data structure.
+
+Scope:
+    PUBLIC
+
+Limitations/Assumptions:
+     TODO:    1)    Put LINE_TYPE, etc. defines into include.
+              2)    Should correlations cursor also be opened for update??
+              3)    Clean up Oracle error recovery processing.
+              4)    Fetch loop status logic not solid.
+
+-----------------------------------------------------------------------------*/
+
+#if USE_PROTOTYPES
+publicdef INT dr_load_object (DR_DATA *dr_data)
+#else
+publicdef INT dr_load_object (dr_data)
+DR_DATA *dr_data;
+#endif
+    {
+    INT status = 0;
+    INT goc_status;
+    OBJECT_STRUCTURE *this_object;
+    PROJECT_NAME project;
+    ANALYST_NAME analyst;
+    CHAR current_marker[16];
+    CHAR msg[80], db_key[41];
+    ANALYST_NAME user_name;
+    INT class;
+    DR_OBJECT_TYPE_T type_code;
+    BOOL poly_pref, fill_pref;
+    BOOL exists;
+    BOOL reset;
+    static BOOL s1_defined = FALSE;
+    static BOOL s2_defined = FALSE;
+
+    /*   SQL Definitions                                                            */
+
+        
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR object_name[24];
+    int object_id;
+    VARCHAR object_uom[25];
+    VARCHAR attribute_1[25];
+    VARCHAR attribute_2[25];
+    double lower_left_x;
+    double lower_left_y;
+    double upper_right_x;
+    double upper_right_y;
+    int item_id;
+    VARCHAR item_class[10];
+    VARCHAR owner[33];
+    VARCHAR sqlstmt[1024];
+    EXEC SQL END DECLARE SECTION;
+
+    /*  Commit to ensure all locks released                                         */
+
+        
+    dr_commit (TRUE);
+
+    /*  Get the project and current analyst name  */
+
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    qs_inq_c (QS_FINDER_ACCOUNT, analyst, (INT *)0);
+
+    /*  Get the object                                                              */
+
+        
+    if (!s1_defined)
+        {
+        s1_defined = TRUE;
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+        "SELECT OBJECT_NAME, OBJECT_ID, SOURCE, \
+         OBJECT_UNIT, ATTRIBUTE_1, ATTRIBUTE_2, \
+         LOWER_LEFT_X, LOWER_LEFT_Y, UPPER_RIGHT_X, UPPER_RIGHT_Y \
+         FROM   %s.GRAPHIC_OBJECTS \
+         WHERE  OBJECT_ID = :OBJECT_ID \
+         FOR UPDATE OF OBJECT_NAME"
+                , project);
+
+        EXEC SQL PREPARE S1 FROM : sqlstmt;
+
+        if (OR_STATUS < 0)
+            goto sqlerrorpt;
+
+        EXEC SQL DECLARE GOT_CUR CURSOR FOR S1;
+        }
+
+    object_id = dr_data->current_object_key;
+    exists = FALSE;
+
+    EXEC SQL OPEN GOT_CUR USING : object_id;
+
+    if (OR_STATUS == OR_LOCKED)
+        {
+        sprintf (msg, mg_message (DR_OBJECT_LOCKED),
+                 dr_data->current_object_key);
+        am_message (AM_ALERT, msg);
+        dr_data->current_object_key = 0;
+        am_message (AM_STATUS, mg_message (DR_OBJECT_LOCKED));
+        return DR_OBJECT_LOCKED;
+        }
+
+    if (OR_STATUS == SUCCESS)
+        {
+        /* preset owner in case the column is null */
+        owner.len = 0;
+
+        EXEC SQL FETCH GOT_CUR INTO : object_name,  : object_id,  : owner,
+            : object_uom,  : attribute_1,  : attribute_2,  : lower_left_x,
+            : lower_left_y,  : upper_right_x,  : upper_right_y;
+#if 0
+        /* if owner is null make it PUBLIC */
+        if (owner.len == 0)
+            V_FROMC (owner, "PUBLIC");
+#endif
+
+        if (OR_STATUS < 0)
+            goto sqlerrorpt;
+
+        /*  Move db values to dr_data ONLY if object exists (5/25/87 SCD)           */
+
+            
+        if (OR_STATUS != OR_EOF)
+            {
+
+            /* ------------------------------------------ */
+            /* if the object is owned by the current user */
+            /*  or by NULL (i.e. "public") leave          */
+            /* the owner id alone, otherwise set it to    */
+            /* the current analyst                        */
+            /* ------------------------------------------ */
+
+
+            V_SETZERO (owner);
+            if (ARE_SAME ((char *)owner.arr, analyst) ||
+                IS_EMPTY_STRING ((char *)owner.arr))
+                {
+                exists = TRUE;
+                strcpy (dr_data->source, (char *)owner.arr);
+                }
+            else
+                {
+                /* ------------------------------------------------------ */
+                /* NOTE: The ID's for the object, lines, text, text nodes */
+                /* and ftrace must all be given new unique sequences.     */
+                /* Also, as written this code does not actually load the  */
+                /* the line & text elements for the object when called by */
+                /* the "delete object type" code path.                    */
+                /*                                                        */
+                /* QUICK FIX: Allow user to edit another source!!         */
+                /* ------------------------------------------------------ */
+#if 0
+                exists = FALSE;
+                strcpy (dr_data->source, analyst);
+#else
+                exists = TRUE;
+                strcpy (dr_data->source, (char *)owner.arr);
+                if ( IS_EMPTY_STRING ( dr_data->source ) )
+                    {
+                    strcpy (msg, "NOTE: You are changing a public object (source is NULL)" );
+                    }
+                else
+                    {
+                    sprintf (msg, "NOTE: You are changing an object owned by %s",
+                            dr_data->source);
+                    }
+                am_message (AM_ALERT, msg);
+#endif
+
+                }
+
+            V_FROMV (dr_data->current_object_type, object_name);
+            V_FROMV (dr_data->current_top, attribute_1);
+            V_FROMV (dr_data->current_base, attribute_2);
+            strcpy (dr_data->current_marker, dr_data->current_top);
+
+            ct_map_xy (lower_left_x, lower_left_y, &lower_left_x,
+                       &lower_left_y);
+            dr_data->lower_left_extent.x = lower_left_x;
+            dr_data->lower_left_extent.y = lower_left_y;
+
+            ct_map_xy (upper_right_x, upper_right_y, &upper_right_x,
+                       &upper_right_y);
+            dr_data->upper_right_extent.x = upper_right_x;
+            dr_data->upper_right_extent.y = upper_right_y;
+            }
+        }
+
+    dr_data->new_object = !exists;
+
+    /*  Fetch the associated lines/text/... only if object exists  */
+    if (!dr_data->new_object)
+        {
+        /*  Build the correlations cursor                          */
+
+            
+        if (!s2_defined)
+            {
+            s2_defined = TRUE;
+            sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+            "SELECT ITEM_ID,ITEM_CLASS \
+             FROM %s.GRAPHIC_OBJECT_CORRELATIONS \
+             WHERE OBJECT_ID = :OBJECT_ID"
+                    , project);
+
+            V_SETLEN (sqlstmt);
+            EXEC SQL PREPARE S2 FROM : sqlstmt;
+
+            if (OR_STATUS < 0)
+                goto sqlerrorpt;
+
+            EXEC SQL DECLARE GOC_CUR CURSOR FOR S2;
+            }
+        /*  Open the cursor                                                         */
+
+            
+        EXEC SQL OPEN GOC_CUR USING : object_id;
+
+        if (OR_STATUS < 0)
+            goto sqlerrorpt;
+
+        /*  Fetch the objects                                                       */
+
+            
+        reset = TRUE;
+        goc_status = SUCCESS;
+        status = SUCCESS;
+
+        while (goc_status == SUCCESS && status == SUCCESS)
+            {
+            EXEC SQL FETCH GOC_CUR INTO : item_id,  : item_class;
+
+            if (OR_STATUS == OR_EOF)
+                break;
+
+            V_SETZERO (item_class);
+
+            /* load the element */
+            if (ARE_SAME ((char *)item_class.arr, LINE_TYPE))
+                {
+                status = dr_load_line (item_id, dr_data);
+                }
+            else if (ARE_SAME ((char *)item_class.arr, TEXT_TYPE))
+                {
+                status = dr_load_text (item_id, dr_data);
+                }
+            }
+
+        if (status != SUCCESS)
+            {
+            am_message (AM_STATUS, mg_message (status));
+            return status;
+            }
+
+        /*  Indicate no current line or text selected.  Graphic pick logic below
+            will set the approriate line or text.  */
+
+        dr_data->current_line = (LINE *)0;
+        dr_data->current_text = (TEXT *)0;
+
+        /*  If object was selected by graphic pick, lookup the associated element
+            of text,line... and make it the current element */
+
+        if (dr_data->pick_object > 0)
+            {
+            wmoinq (dr_data->pick_object, &class, db_key, user_name);
+
+            switch (class)
+                {
+            case WM_CLASS_LINE:
+            case WM_CLASS_POLYGON:
+                type_code = DR_LINE_OBJECT;
+                break;
+            case WM_CLASS_TEXT:
+                type_code = DR_TEXT_OBJECT;
+                break;
+            default:
+                type_code = DR_UNKNOWN_OBJECT;
+                break;
+                }
+
+            if (type_code != DR_UNKNOWN_OBJECT)
+                {
+                status = dr_find_element (dr_data, atoi (db_key),
+                                          dr_data->pick_object, type_code);
+
+                /*       Set the polygon preferences menu items      */
+                /*       to match the current line                   */
+
+                if (type_code == DR_LINE_OBJECT && dr_data->current_line)
+                    {
+                    poly_pref = dr_data->current_line->polygon_flag;
+                    fill_pref = (dr_data->current_line->polygon_fill_style ==
+                                 SOLID);
+                    dr_set_poly_pref (dr_data, poly_pref, fill_pref);
+                    }
+                }
+            }
+
+        if (status != SUCCESS)
+            {
+            am_message (AM_STATUS, mg_message (status));
+            return status;
+            }
+        }
+    /* End of existing database object processing                                   */
+    /*  Set markers for new objects                                                 */
+
+        
+    if (dr_data->new_object)
+        {
+        /* set the owner of a new object to the current analyst */
+        strcpy (dr_data->source, analyst);
+
+        /* set the other stuff based on data type */
+        if (ARE_SAME (dr_data->current_object_type, FAULTS_TYPE))
+            {
+            strcpy (msg, mg_message (DR_FAULT_MARKER));
+            status = dr_query_marker_name (msg, current_marker);
+            strcpy (dr_data->current_marker, current_marker);
+            strcpy (dr_data->current_top, current_marker);
+            if (status == DR_CANCEL)
+                {
+                dr_release_object (dr_data);
+                dr_data->current_object_key = 0;
+                return SUCCESS;
+                }
+            }
+        else if (ARE_SAME (dr_data->current_object_type, AVERAGE_VELOCITY))
+            {
+            strcpy (msg, mg_message (DR_MARKER));
+            status = dr_query_marker_name (msg, current_marker);
+            strcpy (dr_data->current_marker, current_marker);
+            strcpy (dr_data->current_top, current_marker);
+            if (status == DR_CANCEL)
+                {
+                dr_release_object (dr_data);
+                dr_data->current_object_key = 0;
+                return SUCCESS;
+                }
+            }
+        else if (ARE_SAME (dr_data->current_object_type, INTERVAL_VELOCITY))
+            {
+            strcpy (msg, mg_message (DR_TOP_MARKER));
+            status = dr_query_marker_name (msg, current_marker);
+            strcpy (dr_data->current_top, current_marker);
+            if (status == DR_CANCEL)
+                {
+                dr_release_object (dr_data);
+                dr_data->current_object_key = 0;
+                return SUCCESS;
+                }
+            strcpy (msg, mg_message (DR_BOTTOM_MARKER));
+            status = dr_query_marker_name (msg, current_marker);
+            strcpy (dr_data->current_base, current_marker);
+            if (status == DR_CANCEL)
+                {
+                dr_release_object (dr_data);
+                dr_data->current_object_key = 0;
+                return SUCCESS;
+                }
+            }
+        }
+
+    return SUCCESS;
+
+sqlerrorpt:
+    strncpy (msg, OR_MESSAGE, 70);
+    msg[70] = 0;
+    am_message (AM_STATUS, msg);
+    status = FAIL;
+    return(status);
+    }
+/* END:     */

@@ -1,0 +1,6 @@
+$! DEC/CMS REPLACEMENT HISTORY, Element DB_VER_TABS.COM
+$! *2    11-AUG-1989 13:56:29 CONROY "(SPR 9999) Initial checkin"
+$! *1    11-AUG-1989 13:32:39 CONROY "com file to invoke program db_ver_tabs"
+$! DEC/CMS REPLACEMENT HISTORY, Element DB_VER_TABS.COM
+$ DB_VER_TABS := $ESI$BIN:DB_VER_TABS
+$ DB_VER_TABS 'P1' 'P2'

@@ -1,0 +1,364 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_MIMIC_FAULT.PC */
+/* *3    14-AUG-1991 11:59:29 KEE "(SPR -1) Put in File Lock/Unlock logic" */
+/* *2     1-MAY-1991 22:10:14 KEE "(SPR -1) Mimic Export" */
+/* *1     1-MAY-1991 21:28:15 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_MIMIC_FAULT.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* ************************************************************************
+
+   NAME: LD_MIMIC_FAULT.PC
+
+   AUTHOR: Rod Hanks (BHP - Consultant)
+   DATE:   May 18th, 1990
+   DESCRIPTION: Unload fault data from a particular map in Finder.
+
+   MODIFY: Jim Green (Unocal)
+   DATE:   November, 1990
+
+   ************************************************************************ */
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+#ifndef LD_MIMIC_WORK_H
+#include "ld_mimic_work.h"
+#endif
+
+#if USE_PROTOTYPES
+publicdef VOID ld_mimic_fault (CHAR *mapName, PROJECT_NAME projectName,
+				ANALYST_NAME account, FILENAME fileName1)
+
+#else
+publicdef VOID ld_mimic_fault (mapName, projectName, account, fileName1)
+CHAR    	*mapName;
+PROJECT_NAME	projectName;
+ANALYST_NAME    account;
+FILENAME	fileName1;
+#endif
+    {
+/****************************************************************************
+
+	V a r i a b l e   D e c l a r a t i o n s .
+
+******************************************************************************/
+
+    INT  	   status;
+    NLIST_HEADER   nlist;
+    FILE           *myfile;
+    INT            ndim = 2;
+    UINT           dim_list[2];
+    INT            units[2];
+    size_t         data_sizes[2];
+    INT            data_types[2];
+    INT            value_inc[2];
+    VOIDPTR        value_list[2];
+    UINT           total_ids;
+    UINT           nstrokes;
+    UINT           npts;
+    UINT           i;
+    UINT           j;
+    UINT           k;
+    FLOAT          *x_out,*y_out;
+    FILENAME       faults_file;
+    TCP            ids = (TCP)0;
+    INT            nlistCntr;
+    INT            segID;
+    INT            ii;
+    INT            faults = 0;
+    INT            total_pts = 0;
+    INT            d1;
+    FLOAT          f1,f2;
+    TCP            real_ids = (TCP)0;
+    CHAR           infile[83];
+    CHAR           theText[83];
+    UINT           real_total_ids;
+    FILE           *tempfile;
+    FILENAME       tempFilename;
+/*
+				General variable declarations.
+*/
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[400];
+	VARCHAR	param[1000];	/* Variable in the table is LONG! */
+	int kcode;
+	int fault_cnt;
+	VARCHAR hor_code[31];
+	VARCHAR	source[13];
+        VARCHAR digital_ref[64];
+        VARCHAR digital_ref_volume[83];
+    EXEC SQL END DECLARE SECTION;
+/*
+				Oracle variable declarations.
+*/
+/****************************************************************************
+
+	I n i t i a l i z a t i o n .
+
+******************************************************************************/
+
+    hor_code.len = 0;
+    source.len = 0;
+
+/*****************************************************************************
+
+	M a i n   L o g i c .
+
+        rewritten by Jim Green, UNOCAL 11/27/90 for NET Demo
+
+        capable of only 1 graphic object of type FAULT, this is
+	consistent with the fact that only one output file is passed to
+	this function.
+
+*****************************************************************************/
+
+    /* retrieve the graphics object parameters */
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+    "SELECT PARAMETER, KEY_CODE \
+    FROM %s.MAP_OVERLAYS \
+    WHERE MAP_NAME = '%s' AND VERB_CODE = 2",
+    projectName, mapName);
+
+    EXEC SQL PREPARE S1 FROM :sqlstmt;
+    if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "preparing s1");
+    EXEC SQL DECLARE OBJ_CUR CURSOR FOR S1;
+    EXEC SQL OPEN OBJ_CUR;
+    if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "opening s1");
+
+    EXEC SQL FETCH OBJ_CUR INTO :param, :kcode;
+    while (OR_STATUS EQUALS SUCCESS)
+    {
+      V_V_TO_C(theText, param);
+	switch (kcode) {
+	  case 6 :  /* horizon name retrieved */
+		   V_FROMC(hor_code, theText);
+		   break;
+	  case 20: faults = 1; /* fault identified */
+		   break;
+	  case 22: /* source name retrieved */ 
+		   ts_sto_upper(theText);
+		   V_FROMC(source, theText);
+		   break;
+	  default:
+		   break;
+        }
+
+	/* null the input for the next fetch */
+	V_FROMC(param, "");
+        kcode = -1;
+        EXEC SQL FETCH OBJ_CUR INTO :param, :kcode;
+    };
+    /* if faults were present, process them */
+    if (faults)
+    {
+    /* Initialize arrays we will use for dealing with the nlist array.  */
+      for (i = 0; i < ndim; i++)
+      {
+        dim_list[i] = i + 1;
+        units[i] = 0;
+        data_sizes[i] = sizeof (FLOAT);
+        data_types[i] = FLOAT_TYPE;
+      }
+
+      myfile = ho_open(fileName1, "w", NULL);
+      status = ho_lock(myfile, ON);
+      if (myfile == (FILE *)NULL || status != SUCCESS)
+      {
+        printf("Unable to open an output file named %s\n", fileName1);
+      } 
+      else
+      {
+        printf("Creating Mimic format fault file named %s\n", fileName1);
+
+	strcpy(tempFilename,"FAULTS.TMP");
+        tempfile = ho_open(tempFilename,"w",NULL);
+	status = ho_lock(tempfile, ON);
+	if (IS_EMPTY_STRING((CHAR *)source.arr) == TRUE)
+	  {
+	    V_FROMC(source, account);
+          }
+
+	/* determine how many records meet the criteria and allocate
+	   the necessary memory for the digital reference header list */
+	sqlstmt.len = sprintf( (char *) sqlstmt.arr,
+        "SELECT COUNT (*) \
+	FROM %s.SEIS_FAULT_TRACE \
+	WHERE HOR_CODE='%s' AND SOURCE='%s'",
+	projectName, hor_code.arr, source.arr);
+        EXEC SQL PREPARE S2 FROM :sqlstmt;
+	if (OR_STATUS != SUCCESS)
+		ld_show_error(OR_STATUS,"preparing s2 in ld_mimic_faults");
+	EXEC SQL DECLARE S2_CUR CURSOR FOR S2;
+	EXEC SQL OPEN S2_CUR;
+        if (OR_STATUS != SUCCESS)
+		ld_show_error(OR_STATUS, "opening s2");
+	EXEC SQL FETCH S2_CUR INTO :fault_cnt;
+        if (OR_STATUS != SUCCESS)
+	   ld_show_error(OR_STATUS, "fetching count");
+        else if (fault_cnt > 0)
+	{ /* allocate the memory, fetch the records and process */
+	  real_total_ids = fault_cnt; 
+	  real_ids = TCP_ALLOCATE(real_total_ids);
+          /* retrieve the fault records */
+	  sqlstmt.len = sprintf( (char *) sqlstmt.arr,
+          "SELECT DIGITAL_REF, DIGITAL_REF_VOLUME \
+	   FROM %s.SEIS_FAULT_TRACE \
+           WHERE HOR_CODE='%s' AND SOURCE='%s'",
+	   projectName,hor_code.arr,source.arr);
+           EXEC SQL PREPARE S3 FROM :sqlstmt;
+	   if (OR_STATUS != SUCCESS)
+	     ld_show_error(OR_STATUS,"preparing s3 in ld_mimic_faults");
+	   EXEC SQL DECLARE S3_CUR CURSOR FOR S3;
+	   EXEC SQL OPEN S3_CUR;
+           if (OR_STATUS != SUCCESS)
+	     ld_show_error(OR_STATUS, "opening s3");
+
+	   V_FROMC(digital_ref_volume,"");
+	   V_FROMC(digital_ref,"");
+
+	   EXEC SQL FETCH S3_CUR INTO :digital_ref, :digital_ref_volume;
+	   ii = 0;
+	   while (OR_STATUS == SUCCESS)
+	   {
+	      real_ids[ii] = (CHAR *) ALLOCATE(NLIST_ID);
+	      V_V_TO_C(theText, digital_ref);
+	      strcpy(real_ids[ii++], theText);
+	      V_V_TO_C(infile, digital_ref_volume);
+
+	      V_FROMC(digital_ref_volume,"");
+	      V_FROMC(digital_ref,"");
+
+	      EXEC SQL FETCH S3_CUR INTO :digital_ref, digital_ref_volume;
+	   };
+
+	   ho_add_path("ESI$FAULT_TRACE",infile, 
+			sizeof(FILENAME), faults_file);
+	   status = nl_inq_nlist_names(faults_file,&total_ids, &ids);
+	   if (status != SUCCESS)
+	   {
+	     printf("error reading fault nlist ids %d \n",status);
+           }
+	   else
+	   {
+	   printf("Total n-Lists in this fault file: %ld\n", total_ids);
+	   segID = 0;
+	   /* print the format header */
+	   fprintf(myfile, "(2(F20.6),I3)\n", faults_file);
+
+	   ts_tcp_sort (ids);
+	   
+	   for (nlistCntr = 0; nlistCntr < total_ids; nlistCntr++)
+	   {
+             status = nl_read_nlist (&nlist, faults_file, ids[nlistCntr]);
+             if (status < 0)
+	     {
+	        printf("Error reading NLIST %d\n", status);
+	     }
+	     else
+	     {
+	     /* filter it against the real list */
+	     for (ii=0; ii<real_total_ids; ii++)
+             {
+		if (!strcmp(real_ids[ii],ids[nlistCntr]))
+	        {
+	        nl_inq_nlist_int(nlist, NL_NLIST_NTABLES, (INT *)&nstrokes);
+	        for(i=1;i<=nstrokes;i++)
+	        {
+	          status = nl_inq_table_int(nlist,i,NL_TABLE_NROWS,
+					    (INT *)&npts);
+                  if (status IS_NOT_EQUAL_TO SUCCESS )
+                  {
+                     printf("Error initializing table.\n");
+                     goto clean_up;
+                  }
+		  total_pts += npts;
+	          x_out = (FLOAT *)tc_zalloc(npts*sizeof(FLOAT));
+	          y_out = (FLOAT *)tc_zalloc(npts*sizeof(FLOAT));
+	          value_list[0] = (VOIDPTR)x_out;
+	          value_list[1] = (VOIDPTR)y_out;
+		  status = nl_set_current_row(nlist,1,i);
+	          status = nl_get_rows_convert(nlist,npts,ndim,
+					  	dim_list,
+	                                       	value_list,units,
+						data_sizes,
+	                                       	data_types,&j);
+		   for (k=0;k<j;k++)
+		   {
+		     fprintf(tempfile, "%20.6f%20.6f%3d\n", x_out[k], y_out[k],
+		     segID);
+		   }
+	           tc_free(x_out);
+	           tc_free(y_out);
+		} /* for all the nstrokes */
+	        nl_free_nlist(nlist);
+		segID++;
+		break;
+		}
+	     } 
+                
+	       }  /* else read a valid nlist */
+	     
+	     }  /* for all the ids */
+
+	     /* close and reopen the temporary file for read */
+
+	     status = ho_lock(tempfile, OFF);
+	     fclose(tempfile);
+             tempfile = ho_open(tempFilename, "r", NULL);
+
+	     /* write in the point count and transfer the points */
+	     fprintf(myfile,"  %d \n",total_pts);
+	     while (fscanf(tempfile,"%f%f%d\n",&f1,&f2,&d1) != EOF)
+	        fprintf(myfile, "%20.6f%20.6f%3d\n",f1,f2,d1);
+	   }
+	}  /* fetch and process */
+        status = ho_lock(myfile, OFF);
+	/* close the files and erase the temporary file */
+	fclose(myfile);
+	fclose(tempfile);	
+	ho_delete_file(tempFilename, &status);
+      } /* else output file opened */
+
+    } /* if faults were present */
+
+/*****************************************************************************
+
+	C l e a n   U p   A n d   E x i t .
+
+******************************************************************************/
+clean_up:
+    if (OR_STATUS < SUCCESS) ld_show_error(OR_STATUS, "fetching s1");
+    EXEC SQL CLOSE OBJ_CUR;
+    if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "closing s1");
+    return;
+    }
+
+
+

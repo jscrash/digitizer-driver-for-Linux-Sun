@@ -1,0 +1,69 @@
+*T MENU
+,1
+*N MAPPING_MENU
+*S PR 0 PU 1
+Mapping
+6 D M FINDER/MAPPING
+*I MP_MAKE_MAP
+Make a Map
+*I MP_REGISTER_MAP
+Register a Map
+*I MP_EDIT_SEISMIC
+Edit Seismic Lines
+*I MP_EDIT_WELLS
+Edit Well Depths
+*I MP_GRAPHICS_EDITOR
+Electronic Drafting
+*I MP_QUIT_MAP_APPLICATION
+Quit Mapping
+*T MENU
+,2
+*N MAKE_MAP
+*S PR 0 PU 1
+Make
+7 D M FINDER/MAPPING/MAKE_A_MAP/MAKE
+*I MP_NEW_MAP
+Create a New Map
+*I MP_OPEN_MAP
+Open a Map
+*I MP_CLOSE_MAP
+Close the Current Map
+*I MP_SAVE_MAP
+Save the Current Map
+*I MP_ACTIVATE_MAP
+Activate a Map
+*I MP_DELETE_MAP
+Delete Maps
+*I MP_QUIT_MAPPING
+Quit Making Maps
+*T MENU
+,3
+*N MAP_DISPLAY_OPTIONS
+*S PR 0 PU 1
+Options
+7 D M FINDER/MAPPING/MAKE_A_MAP/OPTIONS
+*I MP_DISPLAY_MAP
+Display Map
+*I MP_DISPLAY_OVERLAY
+Display Overlay
+*I MP_PLOT_MAP
+Plot Map
+*I MP_PLOT_OVERLAY
+Plot Overlay
+*I MP_ERASE_MAP
+Erase Map
+*I MP_ERASE_OVERLAY
+Erase Overlay
+*I MP_MAP_SETUP
+Map Setup
+*T MENU
+,4
+*N MAP_LAYOUT
+*S PR 0 PU 1
+Layout
+2 D M FINDER/MAPPING/MAKE_A_MAP/LAYOUT
+*I MP_PLOT_LAYOUT
+Plot Layout
+*I MP_TITLE_BLOCK
+Title Block
+

@@ -1,0 +1,264 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element VI_GET_SM_INFO.PC */
+/* *2    11-JUN-1991 14:14:59 JESSIE "(SPR 0) get info for smooth veloctiy grid " */
+/* *1    11-JUN-1991 14:13:25 JESSIE "VI user interface" */
+/* DEC/CMS REPLACEMENT HISTORY, Element VI_GET_SM_INFO.PC */
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_am.h"
+#include "esi_tc.h"
+#include "esi_ts.h"
+#include "esi_wi.h"
+#include "esi_oracle.h"
+#include "esi_qs.h"
+#include "esi_sl.h"
+#include "esi_sl_err.h"
+#include "esi_vi.h"
+#include "vi_sm_cdlgs.rh"
+#define NullString ""
+static CHAR VI_RESOURCE_FILE[] = "VI_SM_CDLGS";
+static CHAR grid_name[] = "GRID";
+
+/* File Description ---------------------------------------------------------
+Overview:
+
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT vi_get_sm_info (VI_STRUCT *pvi)
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT vi_get_sm_info (VI_STRUCT *pvi);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    pvi		-(VI_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    CANCEL
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+#if USE_PROTOTYPES
+publicdef INT vi_get_sm_info (VI_STRUCT *pvi)
+#else
+publicdef INT vi_get_sm_info (pvi)
+VI_STRUCT *pvi;
+#endif
+  {
+  BOOL done = FALSE;
+  INT status; 
+  INT i,count;
+  INT id = 0;
+  INT event_id = 0;
+  INT event_class = 0;
+  INT item;
+  CHAR vtype[10];
+  INT  s_type;
+  INT  s_wt;
+  BOOL res_mode;
+  INT v_item;
+  INT vel_selected[20];
+  TCP  int_grid_source = (TCP) 0;
+  CHAR *grid_src_string = (CHAR *) 0;
+  PROJECT_NAME project;
+  ANALYST_NAME username;
+    
+  EXEC SQL BEGIN DECLARE SECTION;
+  VARCHAR vel_src_name[80];
+  VARCHAR stmt[1000];
+  EXEC SQL END DECLARE SECTION;
+    
+    
+  status = am_define_resource (AM_DIALOG, VI_RESOURCE_FILE, VI_SM_GRID,
+                                 NULL_FUNCTION_PTR, &id, NULL);
+
+  if (status != SUCCESS)
+    {
+    wi_beep(1);
+    am_message (AM_STATUS,"Cannot open resource file");
+    return FAIL;
+    }
+
+/********************************************************/
+/*  display compute velocity grid main dialog on screen */
+/********************************************************/
+
+  fi_push();
+  
+/* backup default values */
+
+  s_type = pvi->smu_type;
+  s_wt   = pvi->smu_wt;
+
+/***********************************/
+/* set default value to weighted 1 */
+/***********************************/
+  if (s_type == 1)
+    {
+    wi_set_dialog_value(id, VI_SM_W1, ON);
+    pvi->smu_type = 3;
+    pvi->smu_wt   = 1;
+    }
+  if (s_type == 2)
+    wi_set_dialog_value(id, VI_SM_MEDIAN, ON);
+  if (s_type == 3)
+    {
+    if (s_wt == 1)
+      wi_set_dialog_value(id, VI_SM_W1, ON);
+    if (s_wt == 2)
+      wi_set_dialog_value(id, VI_SM_W2, ON);
+    }
+
+/*********************************************/
+/* retreive input grid source from data dase */
+/*********************************************/
+
+  qs_inq_c(QS_PROJECT_NAME, project, (INT *) 0);
+
+  stmt.len = sprintf ((CHAR *) stmt.arr,
+  "SELECT DISTINCT CREATOR_ANALYST FROM %s.FM_HDR WHERE \
+  FILE_TYPE = '%s' ORDER BY CREATOR_ANALYST",
+  project, grid_name);
+
+  EXEC SQL PREPARE S1 FROM :stmt;
+  EXEC SQL DECLARE C1 CURSOR FOR S1;
+  EXEC SQL OPEN C1 ;
+
+  EXEC SQL FETCH C1 INTO :vel_src_name;
+  for (i = 0; OR_STATUS == SUCCESS; i++)
+    {
+    V_SETZERO (vel_src_name);
+    ts_tcp_append (&int_grid_source,(CHAR *) vel_src_name.arr);
+    EXEC SQL FETCH C1 INTO :vel_src_name;
+    }
+  EXEC SQL CLOSE C1;
+  
+  grid_src_string = ts_pack_strings (i,int_grid_source);
+
+  if (i == 0)
+    {
+    wi_beep(1);
+    am_message (AM_STATUS,"No grid source was retrieved");
+    wi_set_dialog_text (id,VI_SM_SELECTOR,NullString);
+    }
+  else
+    {
+    wi_set_dialog_text (id,VI_SM_SELECTOR,grid_src_string);
+    
+    /* set default selector */
+    count = ts_tcp_len (int_grid_source);
+    done = FALSE;
+    for (i = 0; i< count; i++ )
+      {
+      if (strcmp(int_grid_source[i],pvi->grid_source[0]) == SUCCESS)
+	{
+	done = TRUE;
+	break;
+	}
+      }
+    if (done == TRUE)
+      {
+      wi_set_default_sel (id, VI_SM_SELECTOR, i+1);
+      }
+    else
+      {
+      wi_set_default_sel (id, VI_SM_SELECTOR, 1);
+      }
+    }
+
+  wi_open_dialog(id);
+  done = FALSE;
+       
+  while (done EQUALS FALSE)
+    {
+    wi_request_event(0, &event_class, &event_id, &item);
+    switch (item)
+      {
+      case VI_SM_W1:
+			wi_set_dialog_value(id, VI_SM_W1, ON);
+			pvi->smu_type = 3;
+			pvi->smu_wt = 1;
+			break;
+      case VI_SM_W2:
+			wi_set_dialog_value(id, VI_SM_W2, ON);
+			pvi->smu_type = 3;
+			pvi->smu_wt = 2;
+			break;
+      case VI_SM_MEDIAN:
+			wi_set_dialog_value(id, VI_SM_MEDIAN, ON);
+			pvi->smu_type = 2;
+			pvi->smu_wt = 0;
+			break;
+      case VI_SM_OK:
+                        wi_query_selections (id,VI_SM_SELECTOR,&v_item, vel_selected );
+        		if (v_item < 1)
+          		  {
+          		  wi_beep (1);
+          		  am_message (AM_ALERT,"Please select Grid Source.");
+          		  }
+			else
+			  {
+	                  pvi->grid_source = (TCP) 0;
+
+	  		  /* copy whatever on selector box into stucture */
+	    		  for (i=0 ; i < v_item ; i++)
+	      		    ts_tcp_append (&pvi->grid_source, int_grid_source[vel_selected[i] -1]);
+	  
+			  status = vi_get_grid_input(pvi);
+			  if (status == SUCCESS)
+			    {
+			    qs_inq_c (QS_FINDER_ACCOUNT, username, (INT *) 0);
+			    pvi->grid_source = (TCP) 0;
+			    ts_tcp_append (&pvi->grid_source, username);
+			    status = vi_get_grid_output(pvi);
+			    }
+			  done = TRUE ;
+			  }
+			break;
+      case VI_SM_CANCEL:
+			/* set every thing back to default status */
+  			pvi->smu_type = s_type;
+  			pvi->smu_wt = s_wt;
+			done = TRUE ;
+			status = FAIL;
+			break;
+      }
+    }
+  if (grid_src_string != (CHAR *) 0)
+    tc_free (grid_src_string);
+  if (int_grid_source != (TCP) 0)
+    ts_tcp_free(int_grid_source);
+  am_release_resource (id);
+  fi_pop();
+  return status;
+}
+

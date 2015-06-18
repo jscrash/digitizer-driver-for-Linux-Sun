@@ -1,0 +1,240 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_RET_TRACE.PC */
+/* *3    17-AUG-1990 22:17:55 VINCE "(SPR 5644) Code Cleanup" */
+/* *2     1-NOV-1989 14:09:23 PURNA "(SPR 30) splitting seism_tools.pc" */
+/* *1     1-NOV-1989 13:52:57 PURNA "seism_tools" */
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_RET_TRACE.PC */
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#include "esi_c_lib.h"
+#include "esi_se.h"
+
+#if USE_PROTOTYPES
+static INT sez_fill_trace_hdr_str (TRACE_ATTRIBUTE *trace_file,
+                                       TRACE_HDR *p_trace);
+#else
+static INT sez_fill_trace_hdr_str ();
+#endif
+/* EXEC ORACLE OPTION (REBIND = NO); */
+static TRACE_HDR trace_header;
+static TRACE_HDR *POINT_TRACE = &trace_header;
+static BOOL first_trace_ret = TRUE;
+/* first_trace_ret
+   boolean set to TRUE at the beginning of the
+   program and then set to FALSE after the
+   first prepare of SQL statements             */
+
+/* File Description ---------------------------------------------------------
+Overview:
+
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT se_retrieve_trace (TRACE_ATTRIBUTE *line_str, TRACE_HDR **p_trace);
+
+Private_Functions:
+    static INT sez_fill_trace_hdr_str (TRACE_ATTRIBUTE *trace_file,
+                                       TRACE_HDR *p_trace);
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT se_retrieve_trace (TRACE_ATTRIBUTE *line_str, TRACE_HDR **p_trace);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    line_str        -(TRACE_ATTRIBUTE *)
+    p_trace         -(TRACE_HDR **)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT se_retrieve_trace (TRACE_ATTRIBUTE *line_str, TRACE_HDR **p_trace)
+#else
+publicdef INT se_retrieve_trace (line_str, p_trace)
+TRACE_ATTRIBUTE *line_str;
+TRACE_HDR **p_trace;
+#endif
+    {
+    
+    INT status = SUCCESS;
+    /* verify that all data is present in the
+       structure *p_trace if not we need to load
+       the structure                               */
+    
+    /* compare the definitions of the two trace
+       files if they are different we need to load
+       the structure TRACE_ATTRIBUTE with the
+       right information                           */
+    
+    if (strcmp (POINT_TRACE->trace_attri.line.line_name,
+                line_str->line.line_name) OR strcmp (POINT_TRACE->trace_attri.attribute,
+                                                    line_str->
+                                                    attribute) OR (POINT_TRACE->
+                                                                  trace_attri.
+                                                               process IS_NOT_EQUAL_TO 
+                                                                  line_str->process))
+        {
+        /* load the line information from              */
+        /* SEIS_TRACE_HDR table                        */
+        status = sez_fill_trace_hdr_str (line_str, POINT_TRACE);
+        }
+    *p_trace = POINT_TRACE;
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT sez_fill_trace_hdr_str (TRACE_ATTRIBUTE *trace_file , TRACE_HDR *p_trace );
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    trace_file      -(TRACE_ATTRIBUTE *)
+    p_trace         -(TRACE_HDR *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    OR_STATUS
+    
+Scope:
+    PRIVATE to <se_ret_trace.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT sez_fill_trace_hdr_str (TRACE_ATTRIBUTE *trace_file, TRACE_HDR *p_trace)
+#else
+static INT sez_fill_trace_hdr_str (trace_file, p_trace)
+TRACE_ATTRIBUTE *trace_file;
+TRACE_HDR *p_trace;
+#endif
+    {
+    /* routine used to fill the structure
+       containing information about the trace
+       header - trace_file is the structure
+       describing the trace file                   */
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR select[400];
+    static VARCHAR line_name[21];
+    static VARCHAR survey[31];
+    static VARCHAR attribute[5];
+    static int process;
+    static int first_trace;
+    static int last_trace;
+    static int first_cdp;
+    static int last_cdp;
+    static int cdp_per_trace;
+    static int trace_inc;
+    
+    EXEC SQL END DECLARE SECTION;
+    
+    /* prepare the SQL select clause               */
+    
+    if (first_trace_ret)
+        {
+        PROJECT_NAME project;
+        
+        /* inquire for the project in which we are     */
+        
+        qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+        
+        select.len = sprintf ((char *)select.arr, 
+"SELECT FIRST_CDP,LAST_CDP ,FIRST_TRACE, LAST_TRACE , TRACE_INC, \
+        CDP_PER_TRACE, SURVEY \
+        FROM %s.SEIS_TRACE_HDR \
+        WHERE LINE_NAME = :line_name AND ATTRIBUTE =:attribute \
+        AND PROCESS_CODE =: process"
+                , project);
+        
+        EXEC SQL PREPARE S20 FROM : select;
+        
+        EXEC SQL DECLARE C20 CURSOR FOR S20;
+        
+        first_trace_ret = FALSE;
+        }
+    EXEC SQL WHENEVER SQLERROR GOTO errsql;
+    EXEC SQL WHENEVER NOT FOUND GOTO errnofd;
+    
+    V_FROMC (line_name, trace_file->line.line_name);
+    V_FROMC (attribute, trace_file->attribute);
+    process = trace_file->process;
+    
+    EXEC SQL OPEN C20 USING : line_name,  : attribute,  : process;
+    
+    EXEC SQL FETCH C20 INTO : first_cdp,  : last_cdp,  : first_trace,  : last_trace,
+        : trace_inc,  : cdp_per_trace,  : survey;
+    
+    /* store the data in static structure p_trace */
+    
+    strcpy (p_trace->trace_attri.line.line_name, trace_file->line.line_name);
+    strcpy (p_trace->trace_attri.attribute, trace_file->attribute);
+    p_trace->trace_attri.process = trace_file->process;
+    V_FROMV (p_trace->trace_attri.line.survey, survey);
+    p_trace->init_cdp = first_cdp;
+    p_trace->init_trace = first_trace;
+    p_trace->final_cdp = last_cdp;
+    p_trace->final_trace = last_trace;
+    p_trace->cdp_per_trace = cdp_per_trace;
+    p_trace->trace_inc = trace_inc;
+    
+    return SUCCESS;
+    errnofd : 
+    
+    /* we didn't found the information for the line */
+    
+    return SUCCESS;
+    
+    errsql : 
+    
+    /* error in the SQL statement - the retrieved failed */
+    
+    return OR_STATUS;
+    }
+/* END:     */

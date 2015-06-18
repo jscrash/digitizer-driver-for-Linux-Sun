@@ -1,0 +1,62 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_NEW_PRJ_ID.PC */
+/* *2    20-SEP-1989 15:48:39 GORDON "(SPR 200) Renamed version" */
+/* *1    20-SEP-1989 15:16:34 GORDON "It's really a pc file" */
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_NEW_PRJ_ID.PC */
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_NEW_PRJ_ID.C*/
+/* *1    19-JUN-1989 12:47:11 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_NEW_PRJ_ID.C*/
+
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+/******************************************************************************
+
+NAME:               dr_new_project_id
+
+DESCRIPTION:        Compute an ID number which is unique to all of FINDER
+
+
+     Input:         None
+
+     Output:        id - The new id
+
+     Status:        SUCCESS
+
+******************************************************************************/
+
+#include "esi_gl_defs.h"
+#include "esi_ts.h"
+#include "esi_oracle.h"
+
+INT dr_new_project_id(id)
+INT *id;
+{
+    EXEC SQL BEGIN DECLARE SECTION;
+	int value;
+    EXEC SQL END DECLARE SECTION;
+    
+    EXEC SQL
+	SELECT ESI.GRAPHIC_OBJECT_SEQ.NEXTVAL
+	INTO   :value
+	FROM   DUAL;
+	
+    *id = (INT)value;
+    return SUCCESS;
+}

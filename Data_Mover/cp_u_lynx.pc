@@ -1,0 +1,146 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element CP_U_LYNX.PC */
+/*  4    13-FEB-1992 16:36:02 PURNA "(SPR 1347) removed ho_add_path" */
+/* *3     2-AUG-1991 17:30:32 PURNA "(SPR 0) culture data update" */
+/* *2     6-MAY-1991 16:41:36 PURNA "(SPR 0) init change" */
+/* *1     6-MAY-1991 16:36:52 PURNA "data mover function" */
+/* DEC/CMS REPLACEMENT HISTORY, Element CP_U_LYNX.PC */
+#ifndef ESI_GL_DEFS_H
+
+#include "esi_gl_defs.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_CP_H
+
+#include "esi_cp.h"
+
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#include "esi_ho.h"
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT cp_upd_lynx_arc(CHAR *nlist_file,CHAR *nlist_id,
+                               DOUBLE ll_x, DOUBLE ll_y,
+                               DOUBLE ur_x, DOUBLE ur_y)
+#else
+publicdef INT cp_upd_lynx_arc(nlist_file,nlist_id,
+                                 ll_x, ll_y, ur_x,ur_y)
+CHAR *nlist_file;
+CHAR *nlist_id;
+DOUBLE ll_x;
+DOUBLE ll_y;
+DOUBLE ur_x;
+DOUBLE ur_y;
+#endif
+    {
+PROJECT_NAME project_name;
+INT status;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[500];
+    EXEC SQL END DECLARE SECTION;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO orerror;
+    
+    qs_inq_c(QS_PROJECT_NAME,project_name,(INT *)0);
+
+    sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+	"UPDATE %s.LYNX_ARCS \
+	SET MINX = %lf, \
+	    MINY = %lf, \
+	    MAXX = %lf, \
+	    MAXY = %lf \
+	WHERE DIGITAL_REF = '%s' AND DIGITAL_REF_VOLUME = '%s'",
+	project_name,
+	ll_x,ll_y,ur_x,ur_y,
+	nlist_id,nlist_file);
+
+    EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+
+    EXEC SQL COMMIT WORK;
+    
+    return SUCCESS;
+orerror:
+    return OR_STATUS;
+    }
+/* END:     */
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT cp_upd_lynx_cult(CHAR *nlist_file,CHAR *nlist_id,
+                               DOUBLE ll_x, DOUBLE ll_y,
+                               DOUBLE ur_x, DOUBLE ur_y)
+#else
+publicdef INT cp_upd_lynx_cult(nlist_file,nlist_id,
+                                 ll_x, ll_y, ur_x,ur_y)
+CHAR *nlist_file;
+CHAR *nlist_id;
+DOUBLE ll_x;
+DOUBLE ll_y;
+DOUBLE ur_x;
+DOUBLE ur_y;
+#endif
+    {
+PROJECT_NAME project_name;
+PATHNAME full_filename;
+INT status;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[500];
+    static VARCHAR data_type[32];
+    EXEC SQL END DECLARE SECTION;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO orerror;
+
+    qs_inq_c(QS_PROJECT_NAME,project_name,(INT *)0);
+
+    status = ho_add_path("ESI$CULTURE",nlist_file,MAXPATHLENGTH,
+                                full_filename);
+    sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+    "SELECT NULL FROM %.LYNX_CULTURE A, %.LYNX_OBJECTS B \
+WHERE A.LYNX_ID = B.LYNX_ID AND DIGITAL_REF = '%s' AND \
+DIGITAL_REF_VOLUME = '%s' AND DATA_TYPE LIKE '\%LABEL'",
+    project_name,project_name,nlist_id,full_filename);
+    EXEC SQL PREPARE S1 FROM :sqlstmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1;
+    EXEC SQL FETCH C1 INTO :data_type;
+    if(OR_STATUS != OR_EOF) return SUCCESS;
+    EXEC SQL CLOSE C1;
+
+    sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr, 
+	"UPDATE %s.LYNX_CULTURE \
+SET MINX = %lf, \
+    MINY = %lf, \
+    MAXX = %lf, \
+    MAXY = %lf \
+WHERE LYNX_ID IN (SELECT LYNX_ID FROM %s.LYNX_OBJECTS \
+WHERE DIGITAL_REF = '%s' AND DIGITAL_REF_VOLUME = '%s')",
+	project_name,
+	ll_x,ll_y,ur_x,ur_y,
+	project_name,
+	nlist_id,full_filename);
+
+    EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+
+    EXEC SQL COMMIT WORK;
+    
+    return SUCCESS;
+orerror:
+    return OR_STATUS;
+    }
+/* END:     */
+

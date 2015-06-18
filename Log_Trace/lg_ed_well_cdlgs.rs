@@ -1,0 +1,30 @@
+*T CDLG
+
+,100
+*N LG_ED_WELL_GET_UWI
+*S PR 0 PU 1
+44 26 330 374
+Retrieve UWI
+4
+
+*I LG_ED_WELL_SELECT_LIST
+Selector Enabled
+5 17 220 310
+tops...
+
+*I LG_ED_WELL_SELECT_BAR
+Vscroll Enabled
+5 326 220 346 
+
+
+*I LG_ED_WELL_BTN_CANCEL
+BtnItem Enabled
+245 47 270 127
+Cancel
+
+*I LG_ED_WELL_BTN_RETRIEVE
+BtnItem Enabled
+245 220 270 300
+Retrieve
+
+

@@ -1,0 +1,197 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LG_Z_PUTVAL.PC*/
+/* *5    14-SEP-1989 16:17:47 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *4    13-AUG-1989 01:48:11 GILLESPIE "(SPR 5) Change WLL_LOG_TRACE_HDR to WELL_LOG_CURVE; always release cursor"*/
+/* *3     4-AUG-1989 17:35:47 VINCE "(SPR -1) added Gulf mods; static in sql declare section"*/
+/* *2    20-JUL-1989 07:34:46 GORDON "(SPR 100) Add Sun port mods"*/
+/* *1    19-JUN-1989 12:33:53 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element LG_Z_PUTVAL.PC*/
+
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+
+/* **********************************************************************
+                             INCLUDE FILES
+   ********************************************************************** */
+
+#include "esi_c_lib.h"
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_LG_ZDEFS_H
+#include "esi_lg_zdefs.h"
+#endif
+
+#ifndef ESI_LG_MSG_H
+#include "esi_lg_msg.h"
+#endif
+
+extern INT    lg_zone_open_zonedb();
+extern INT    lg_zone_close_zonedb();
+
+extern INT    lg_zone_get_definition();
+extern INT    lg_zone_get_variable_desc();
+extern INT    lg_zone_get_value();
+
+extern INT    lg_zone_add_definition();
+extern INT    lg_zone_update_definition();
+extern INT    lg_zone_put_variable_desc();
+extern INT    lg_zone_put_value();
+
+/* ********************************************************************** */
+/*                                                                        */
+/* LG_ZONE_PUT_VALUE                                                      */
+/* receives a pointer to the zone database cursors, uwi, zone name,       */
+/* top depth, base depth, variable name, value, units of measure,         */
+/* and the name of the function (subroutine) which computed the value.    */
+/*                                                                        */
+/* It places (or replaces) the value in the correct location returning    */
+/* SUCCESS.  FAIL is returned if there is a problem with the database.    */
+/*                                                                        */
+/* ********************************************************************** */
+
+
+publicdef INT lg_zone_put_value(uwi,zone,top,base,vname,value,units,fn)
+
+  CHAR             *uwi;
+  CHAR             *zone;
+  DOUBLE           top;
+  DOUBLE           base;
+  CHAR             *vname;
+  DOUBLE			value;
+  CHAR             *units;
+  CHAR             *fn;
+  {
+    INT	    status = SUCCESS;
+    PROJECT_NAME project;
+    CHAR    text[32];
+
+    PROJECT_NAME last_project;
+
+EXEC SQL BEGIN DECLARE SECTION;
+    char	*sel_uwi;
+    char	*sel_zone;
+    char	*sel_vname;
+    VARCHAR	uwi_db[17];
+    VARCHAR	zone_db[22];
+    double	top_db;
+    double	base_db;
+    VARCHAR	vname_db[22];
+    VARCHAR	value_db[20];
+    VARCHAR	units_db[17];
+    VARCHAR	fn_db[121];
+
+    VARCHAR	select[1024];
+EXEC SQL END DECLARE SECTION;
+
+
+qs_inq_c(QS_PROJECT_NAME, project,(INT *) 0);
+
+EXEC SQL WHENEVER SQLERROR GOTO errvec;
+EXEC SQL WHENEVER NOT FOUND GOTO NOT_FOUND;
+sel_uwi = uwi;
+sel_zone = zone;
+sel_vname = vname;
+select.len = sprintf((char *)select.arr,"SELECT UWI, ZONE, TOP, \
+BASE_DEPTH, VARIABLE, UNIT, FUNCTION, ZONE_VALUE \
+FROM %s.ZONE_VALUES \
+WHERE UWI = :sel_uwi AND ZONE = :sel_zone AND VARIABLE = :sel_vname",
+        project);
+
+	EXEC SQL PREPARE S1 FROM :select;
+	EXEC SQL DECLARE C1 CURSOR FOR S1;
+
+EXEC SQL OPEN C1 USING :sel_uwi, :sel_zone, :sel_vname;
+EXEC SQL FETCH C1 INTO  :uwi_db, :zone_db, :top_db, :base_db, :vname_db,
+			:units_db, :fn_db, :value_db;
+EXEC SQL CLOSE C1;
+
+/* if the values selected were found, we update them here */
+/* if the values were not found we go to NOT_FOUND and insert them */
+
+V_FROMC(uwi_db, uwi); 
+V_FROMC(zone_db, zone); 
+V_FROMC(vname_db, vname); 
+V_FROMC(units_db, units); 
+V_FROMC(fn_db, fn);
+top_db = top;
+base_db = base;
+sprintf(text, "%-15.5f",value);
+V_FROMC(value_db, text);
+
+select.len = sprintf((char *)select.arr, "UPDATE %s.ZONE_VALUES SET \
+TOP = :top_db, BASE_DEPTH = :base_db, \
+UNIT = :units_db, TIME = SYSDATE, ANALYST = USER, \
+FUNCTION = :fn_db, ZONE_VALUE = :value_db \
+WHERE UWI = :sel_uwi AND ZONE = :sel_zone \
+AND VARIABLE = :sel_vname", project);
+
+EXEC SQL PREPARE UPDATE_S1 FROM :select;
+EXEC SQL DECLARE UPDATE_C1 CURSOR FOR UPDATE_S1;
+
+EXEC SQL EXECUTE UPDATE_S1 USING :top_db, :base_db, :units_db, :fn_db,
+				 :value_db,:sel_uwi, :sel_zone, :sel_vname;
+EXEC SQL CLOSE UPDATE_C1;
+
+EXEC SQL COMMIT WORK;
+return SUCCESS;
+
+
+NOT_FOUND:
+
+
+V_FROMC(uwi_db, uwi); 
+V_FROMC(zone_db, zone); 
+V_FROMC(vname_db, vname); 
+V_FROMC(units_db, units); 
+V_FROMC(fn_db, fn);
+top_db = top;
+base_db = base;
+sprintf(text, "%-15.5f",value);
+V_FROMC(value_db, text);
+
+    select.len = sprintf((char *)select.arr, "INSERT INTO %s.ZONE_VALUES \
+        (UWI, ZONE, TOP, \
+	BASE_DEPTH, VARIABLE, UNIT, TIME, ANALYST, FUNCTION, ZONE_VALUE) \
+	VALUES (:uwi_db, :zone_db, :top_db, :base_db, :vname_db, \
+	        :units_db, SYSDATE, USER, :fn_db, :value_db)",
+        project);
+
+	EXEC SQL PREPARE S2 FROM :select;
+	EXEC SQL DECLARE C2 CURSOR FOR S2;
+	EXEC SQL EXECUTE S2 USING :uwi_db, :zone_db, :top_db, :base_db, 
+				:vname_db, :units_db, :fn_db, :value_db;
+	EXEC SQL CLOSE C2;
+	EXEC SQL COMMIT WORK;
+	return SUCCESS;
+
+errvec:
+	status = OR_STATUS;
+	EXEC SQL ROLLBACK WORK;
+	return status;
+
+  }

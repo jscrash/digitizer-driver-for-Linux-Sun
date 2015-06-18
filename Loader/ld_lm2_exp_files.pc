@@ -1,0 +1,614 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_EXP_FILES.PC */
+/* *2     1-MAY-1991 22:04:19 KEE "(SPR -1) Landmark Export" */
+/* *1     1-MAY-1991 22:03:45 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_EXP_FILES.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* ************************************************************************
+
+   NAME: LD_LM2_EXP_FILES.C
+
+   AUTHOR: Rod Hanks
+   DATE:   June 8th, 1990
+   DESCRIPTION: Black pipe application to get a list of file names
+		from the user.
+
+   ************************************************************************ */
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_FI_H
+#include "esi_fi.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+#ifndef ESI_WI_H
+#include "esi_wi.h"
+#endif
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+#ifndef LD_LM2_EXP_WORK_H
+#include "ld_lm2_exp_work.h"
+#endif
+
+#include "ld_lm2_exp_files.rh"
+#include "ld_lm2_exp_edit_files.rh"
+#include "ld_lm2_exp_hrz.rh"	
+
+#if USE_PROTOTYPES
+static INT setSelectorBox(LANDMARK_WORKSPACE *workspace, 
+			      TCP *temp_tcp, VOIDPTR *temp_workspace, 
+			      INT dialogID);
+#else
+static INT setSelectorBox();
+#endif
+
+
+#if USE_PROTOTYPES
+publicdef INT ld_lm2_exp_files (LANDMARK_WORKSPACE *workspace, INT mapOrdinal, 
+	                        INT xyVal, INT spVal, INT fpVal, INT fltVal, 
+				INT wellVal, INT cultVal, INT logVal,
+				INT topVal, INT hrzVal, BOOL *goFlag)
+#else
+publicdef INT ld_lm2_exp_files (workspace, mapOrdinal, xyVal,
+				spVal, fpVal, fltVal, 
+				wellVal, cultVal, logVal,
+				topVal, hrzVal, goFlag)
+LANDMARK_WORKSPACE *workspace;
+INT	 	 mapOrdinal;
+INT	 	 xyVal;
+INT      	 spVal;
+INT	 	 fpVal;
+INT	 	 fltVal;
+INT	 	 wellVal;
+INT	 	 cultVal;
+INT	 	 logVal;
+INT	 	 topVal;
+INT	 	 hrzVal;
+BOOL		*goFlag;
+#endif
+{
+/****************************************************************************
+
+	V a r i a b l e   D e c l a r a t i o n s .
+
+******************************************************************************/
+
+    INT status;
+    INT	    dialogID;
+    INT	    editID;
+    INT	    theID;
+    INT	    theItem;
+    INT	    theValue;
+    CHAR    theText[255];
+    CHAR    tempString[255];
+    CHAR    *surface_code_string;
+    INT	    loop;
+    BOOL    continuation;
+    BOOL    subcontinuation;
+    BOOL    processFlag;
+    TCP     temp_tcp = (TCP) 0;
+    PROJECT_NAME project;
+    VOIDPTR temp_workspace = (VOIDPTR) 0;
+    CHAR    horizonName[81];
+    INT     chosenCount;
+    INT     item[2];
+    INT     lineLoop;
+
+    TCP     temp_horizon = (TCP) 0;
+    TCP     temp_horizon_select = (TCP) 0;    
+    CHAR    selectList[80];
+    CHAR    selectPhrase[1000];
+    CHAR    line_id[80];
+    CHAR    all_line_id[1000];
+    CHAR    source_surface_code[30];
+    INT	    lineCount;
+    INT     select_line_id;
+    INT     hfiles_cdlgid;
+    INT     i, j;
+    INT     n_horizon_select, n_horizon;
+    INT     *select_items;
+    NLIST_HEADER   lineList = (NLIST_HEADER) 0;
+    UINT    ndim;
+    UINT    dim_list[1];
+    VOIDPTR value_list[1];
+
+
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[2000];
+	int	key_code;
+	VARCHAR	param[1000];	/* Variable in the table is LONG! */
+	VARCHAR	verb[41];
+	VARCHAR source[13];
+	VARCHAR surface_code[13];
+        double	lower_left_x;
+        double	lower_left_y;
+        double	upper_right_x;
+        double	upper_right_y;
+    EXEC SQL END DECLARE SECTION;
+/*
+				Oracle variable declarations.
+*/
+/****************************************************************************
+
+	I n i t i a l i z a t i o n .
+
+******************************************************************************/
+
+    fi_push();
+/*
+					Disable all other windows and menus.
+*/
+    status = am_define_resource(AM_DIALOG, "LD_LM2_EXP_EDIT_FILES", 
+				HORIZON_EDITLIST, NULL_FUNCTION_PTR, 
+				&dialogID, NULL);    
+/*
+					Display the dialog box without
+					bringing up a server for it.
+*/
+    if (strcmp(workspace->mapName, workspace->tcp_of_maps[mapOrdinal-1]) != 0)
+	{
+	strcpy(workspace->mapName, workspace->tcp_of_maps[mapOrdinal-1]);
+	strcpy(theText, workspace->mapName);
+	if (strlen(theText) > 30)
+	    {
+	    theText[30] = 0;
+	    }
+	for (loop = 0; loop < strlen(theText); loop++)
+	    {
+	    if (theText[loop] < '0'
+	    || (theText[loop] > '9' && theText[loop] < 'A')
+	    || (theText[loop] > 'Z' && theText[loop] < 'a')
+	    ||  theText[loop] > 'z')
+		{
+		theText[loop] = '_';
+		}
+	    }
+	workspace->fileCount = 0;
+	sprintf(workspace->file_names[workspace->fileCount], "%s.xy", theText);
+	strcpy(workspace->titles[workspace->fileCount], "Seismic Lines");
+	workspace->fileCount++;
+	sprintf(workspace->file_names[workspace->fileCount], "%s.sp", theText);
+	strcpy(workspace->titles[workspace->fileCount], "Shot/Trace");
+	workspace->fileCount++;
+	sprintf(workspace->file_names[workspace->fileCount], "%s.flt", theText);
+	strcpy(workspace->titles[workspace->fileCount], "Fault Polygons");
+	workspace->fileCount++;
+	sprintf(workspace->file_names[workspace->fileCount], "%s.fp", theText);
+	strcpy(workspace->titles[workspace->fileCount], "Fault Planes");
+	workspace->fileCount++;
+	sprintf(workspace->file_names[workspace->fileCount], "%s.well", 
+								theText);
+	strcpy(workspace->titles[workspace->fileCount], "Well Info");
+	workspace->fileCount++;
+	sprintf(workspace->file_names[workspace->fileCount], "%s.wcs", theText);
+	strcpy(workspace->titles[workspace->fileCount], "Well Check Shots");
+	workspace->fileCount++;
+	sprintf(workspace->file_names[workspace->fileCount], "%s.wds", theText);
+	strcpy(workspace->titles[workspace->fileCount], "Well Directional Surveys");
+	workspace->fileCount++;
+	sprintf(workspace->file_names[workspace->fileCount], "%s.log", theText);
+	strcpy(workspace->titles[workspace->fileCount], "Well Logs");
+	workspace->fileCount++;
+	sprintf(workspace->file_names[workspace->fileCount], "%s.top", theText);
+	strcpy(workspace->titles[workspace->fileCount], "Well Tops");
+	workspace->fileCount++;
+	sprintf(workspace->file_names[workspace->fileCount], "%s.cult", 
+								theText);
+	strcpy(workspace->titles[workspace->fileCount], "Culture");
+	workspace->fileCount++;
+/*
+					Above, put in all the non-repeating
+					names.
+*/
+        selectPhrase[0]=0;
+        selectList[0]=0;
+
+	qs_inq_c(QS_PROJECT_NAME,project,(INT *) 0);
+	sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT KEY_CODE, PARAMETER, VERB \
+FROM %s.MAP_OVERLAYS \
+WHERE MAP_NAME = '%s' \
+AND VERB_CODE = 12 ORDER BY SEQ_NO", project, workspace->mapName);
+
+	EXEC SQL PREPARE S1 FROM :sqlstmt;
+	EXEC SQL DECLARE OBJ_CUR CURSOR FOR S1;
+	EXEC SQL OPEN OBJ_CUR;
+	EXEC SQL FETCH OBJ_CUR INTO :key_code, :param, :verb;
+	processFlag = FALSE;
+	while (OR_STATUS EQUALS SUCCESS)
+	{
+
+	    V_V_TO_C(tempString, verb);
+	    for (loop = verb.len - 1; 
+		 loop >= 0 && tempString[loop] == 32; loop--)
+	        {
+	        tempString[loop] = 0;
+	        }
+	    if (strlen(tempString) > 0)
+	        {
+	        if (processFlag)
+		    {
+		    if (workspace->fileCount < maxExpFiles)
+			{
+			if (strlen(horizonName) > 50)
+			    {
+			    horizonName[50] = 0;
+			    }
+		        sprintf(workspace->file_names[workspace->fileCount], 
+						"%s.%s", theText, horizonName);
+		        strcpy(workspace->titles[workspace->fileCount], 
+						horizonName);
+	                workspace->fileCount++;
+			}
+		    }
+	        horizonName[0] = 0;
+	        processFlag = TRUE;
+	        }
+
+	    switch (key_code)
+	        {
+	      case 5:
+		if (hrzVal == TRUE)
+ 	          {
+		    V_V_TO_C(horizonName, param);
+	            ts_tcp_append(&temp_horizon,horizonName);
+                  }
+	        break;
+	      case 14:
+  	        V_V_TO_C(selectPhrase, param);
+	        break;
+	      case 15:
+	        V_V_TO_C(selectList, param);
+	        break;
+	        }
+	    EXEC SQL FETCH OBJ_CUR INTO :key_code, :param, :verb;
+	    }
+        EXEC SQL CLOSE OBJ_CUR;
+	}
+
+    	        sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT LOWER_LEFT_X,LOWER_LEFT_Y,UPPER_RIGHT_X,UPPER_RIGHT_Y \
+FROM %s.MAP_DEFINITIONS \
+WHERE MAP_NAME = '%s'", project, workspace->mapName);
+
+		EXEC SQL PREPARE S2 FROM :sqlstmt;
+		EXEC SQL DECLARE C2 CURSOR FOR S2;
+                EXEC SQL OPEN C2;
+		EXEC SQL FETCH C2 INTO :lower_left_x,
+					    :lower_left_y,
+					    :upper_right_x,
+					    :upper_right_y;
+		if (OR_STATUS EQUALS SUCCESS)
+		    {
+		    EXEC SQL CLOSE C2;
+                    }
+
+	lineCount = 0;
+	strcpy(all_line_id,"WHERE SURFACE_TYPE = 1");
+	ld_lm2_seis_list(selectPhrase, selectList, 
+		            lower_left_x, lower_left_y, 
+			    upper_right_x, upper_right_y,
+			    &lineCount, &lineList);
+	
+	if (lineCount <= 0)
+	    {
+	    printf("Null seismic information found for map %s\n", workspace->mapName);
+	    }
+	else
+	    {
+	    strcat(all_line_id," AND LINE_ID IN (");
+	    select_line_id = 0;
+	    ndim = 1;
+	    dim_list[0] = 1;
+	    value_list[0] = (VOIDPTR) &select_line_id;
+            nl_first_row(lineList,ndim,dim_list,value_list);
+	    sprintf(line_id,"%d",select_line_id);
+	    strcat(all_line_id,line_id); 
+
+/*
+				Initialize to take a trip thru the NLIST
+				of lines for this map.
+*/
+	    for (lineLoop = 2; lineLoop <= lineCount; lineLoop++)
+		{
+                nl_next_row(lineList,ndim,dim_list,value_list);
+	        sprintf(line_id,", %d",select_line_id);
+	        strcat(all_line_id,line_id); 
+                }
+	    strcat(all_line_id,")");
+	    nl_free_nlist(lineList);
+            }
+
+	if (hrzVal == TRUE)
+          {
+	sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT DISTINCT SOURCE, SURFACE_CODE \
+FROM %s.SEIS_SURFACE %s ORDER BY SOURCE",project,all_line_id);
+	EXEC SQL PREPARE S3 FROM :sqlstmt;
+	EXEC SQL DECLARE C3 CURSOR FOR S3;
+        EXEC SQL OPEN C3;
+	if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "open s3");
+        EXEC SQL FETCH C3 INTO :source, :surface_code;
+        while (OR_STATUS == SUCCESS)
+          {
+	    V_SETZERO(source);
+	    V_SETZERO(surface_code);
+	    strcpy(source_surface_code,(CHAR *)source.arr);
+	    strcat(source_surface_code,":");
+	    strcat(source_surface_code,(CHAR *)surface_code.arr);
+	    ts_tcp_append(&temp_horizon_select,source_surface_code);
+            EXEC SQL FETCH C3 INTO :source, :surface_code;
+          }
+	if (OR_STATUS != SUCCESS && OR_STATUS != OR_EOF) ld_show_error(OR_STATUS, "fetch s3");
+        EXEC SQL CLOSE C3;
+
+	/* choose horizon dialogs */
+	n_horizon_select = ts_tcp_len(temp_horizon_select);
+	n_horizon = ts_tcp_len(temp_horizon);
+	select_items = TI_ALLOCATE (n_horizon_select);
+        if (status = am_define_resource( AM_DIALOG, "LD_LM2_EXP_HRZ", LANDMARK_EXPHRZFILE,
+                                         NULL_FUNCTION_PTR, &hfiles_cdlgid, (VOIDPTR) 0))
+   	  wi_alert(0, "", "am_define_resource", mg_message(status));
+	
+        if (status = wi_set_selections(hfiles_cdlgid, EXPHFL_NAMES,
+				EXPHFL_SCROLL, n_horizon_select,
+	                        n_horizon_select, temp_horizon_select))
+  	  wi_alert(0, "", "wi_set_selections", mg_message(status));
+
+	for (i = 0; i < n_horizon_select; i++)
+	  {
+	    for (j = 0; j < n_horizon; j++)
+	      {
+	        if (strcmp(temp_horizon_select[i],temp_horizon[j]) == 0)
+	          {
+	            wi_set_default_sel(hfiles_cdlgid, EXPHFL_NAMES, i+1);
+	            break;
+                  }
+              }
+          }
+	ts_tcp_free(temp_horizon);
+
+	fi_push();
+	wi_open_dialog(hfiles_cdlgid);
+        continuation = TRUE;
+        while (continuation)
+	 {
+           wi_request_dialog_item(&theID, &theItem, &theValue, tempString);
+	   if (theItem == EXPHFL_OKAY)
+	     {
+	       wi_query_selections(hfiles_cdlgid, EXPHFL_NAMES, 
+	                           &n_horizon_select, select_items);
+	       if (n_horizon_select == 0)
+	         {
+	           am_message(AM_ALERT, "Please make a selection");
+                 }
+	       else
+                 {
+   	           continuation = FALSE;
+                 }
+             }
+          else if (theItem == EXPHFL_ALL)
+            {
+	      for (i = 0; i < n_horizon_select; i++)
+	        {
+	          select_items[i] = i + 1;
+	        }
+              continuation = FALSE;
+            }
+         }
+       am_release_resource(hfiles_cdlgid);
+       fi_pop();
+	
+       if (processFlag && n_horizon_select > 0)
+	    {
+	    for (i = 0; 
+	         i < n_horizon_select && workspace->fileCount < maxExpFiles; 
+	         i++)
+		{
+	        strcpy(tempString,temp_horizon_select[select_items[i]-1]);
+	        surface_code_string = strchr(tempString,':');
+	        surface_code_string++;
+		if (strlen(surface_code_string) > 50)
+		    {
+		    *(surface_code_string + 50) = 0;
+		    }
+	        sprintf(workspace->file_names[workspace->fileCount], 
+					"%s.%s", theText, surface_code_string);
+	        strcpy(workspace->titles[workspace->fileCount], 
+					surface_code_string);
+                workspace->fileCount++;
+		}
+	    }
+          } /* hrzVal == TRUE */
+/*
+					Initialize file names if it is the 
+					first time thru or they have changed
+					the map name.
+*/
+    if (status = wi_set_default_button(dialogID, HEL_EDIT, 1))
+	wi_alert(0, "", "wi_set_default_button", mg_message(status));
+
+    setSelectorBox(workspace, &temp_tcp, &temp_workspace, dialogID);
+
+    if (status = wi_open_dialog(dialogID))
+	wi_alert(0, "", "wi_open_dialog", mg_message(status));
+
+    continuation = TRUE;
+    while (continuation)
+	{
+        wi_request_dialog_item(&theID, &theItem, &theValue, theText);
+        switch (theItem)
+	    {
+	    case HEL_EDIT:
+                status = wi_query_selections(dialogID, HEL_NAMES, 
+					     &chosenCount, item);
+		if (chosenCount == 0)
+		    {
+		    wi_alert(0, "", "",
+				"Chose a file name or press 'DONE'");
+		    }
+		else
+		    {
+                    fi_push();
+                    status = am_define_resource(AM_DIALOG, "LD_LM2_EXP_FILES", 
+				ENTER_HRZNAME, NULL_FUNCTION_PTR, 
+				&editID, NULL);    
+		    status = wi_set_dialog_text(editID, HNM_FILE,
+					workspace->titles[item[0] - 1]);
+		    status = wi_enable_dialog_item(editID, HNM_FILE, FALSE);
+		    status = wi_set_dialog_text(editID, HNM_NAME,
+					workspace->file_names[item[0] - 1]);
+		    status = wi_set_default_button(editID, HNM_OKAY, 1);
+
+		    status = wi_open_dialog(editID);
+
+/*
+					Display the dialog box without
+					bringing up a server for it.
+*/
+		    subcontinuation = TRUE;
+		    while (subcontinuation)
+			{
+	                status = wi_request_dialog_item(&theID, &theItem, 
+							&theValue, theText);
+			switch (theItem)
+			  {
+			  case HNM_OKAY:
+			    status = wi_query_dialog_item(editID, HNM_NAME, 
+					&theValue, theText);
+			    if (strlen(theText) == 0)
+			        {
+				wi_alert(0, "", "", 
+					"File names cannot be blank");
+			        }
+			    else
+			        {
+				strncpy(workspace->file_names[item[0]-1],
+					theText, 80);
+				workspace->file_names[item[0]-1][80] = 0;
+				setSelectorBox(workspace, &temp_tcp, 
+					       &temp_workspace, dialogID);
+				subcontinuation = FALSE;
+			        }
+			    break;
+			  case HNM_CANCEL:
+			    subcontinuation = FALSE;
+			  }
+			}
+/*
+					If they press okay and their results
+					are okay, squirrel them away.
+*/
+                    am_release_resource(editID);
+                    fi_pop();
+		    }
+		break;
+	    case HEL_DONE:
+		continuation = FALSE;
+		break;
+	    case HEL_CANCEL:
+		continuation = FALSE;
+		*goFlag      = FALSE;
+		break;
+	    }
+	}
+    am_release_resource(dialogID);
+    ts_tcp_free(temp_tcp);
+    am_free(temp_workspace);
+    fi_pop();
+/*
+					Return the workstation back to normal
+					mode.
+*/
+    return SUCCESS;
+}
+
+static INT setSelectorBox(workspace, temp_tcp, temp_workspace, dialogID)
+LANDMARK_WORKSPACE *workspace;
+TCP		   *temp_tcp;
+VOIDPTR		    *temp_workspace;
+INT	             dialogID;
+{
+    INT     bufspace;
+    INT     len1;
+    INT	    loop;
+    INT     status;
+    CHAR   *tempPtr;
+    CHAR   *ptr1;
+
+    if (temp_tcp != (TCP *) 0)
+	{
+    	ts_tcp_free(*temp_tcp);
+	}
+    if (*temp_workspace != (VOIDPTR) 0)
+	{
+	am_free(*temp_workspace);
+	}
+    bufspace = workspace->fileCount*131;
+    *temp_workspace = am_allocate(AM_APPLICATION, bufspace);
+    tempPtr = (CHAR*) *temp_workspace;
+    for (loop = 0; loop < workspace->fileCount; loop++)
+	{
+	ptr1 = (CHAR*)workspace->titles[loop];
+	len1 = strlen(workspace->titles[loop]);
+	while (len1>0)
+	    {
+	    *tempPtr++ = *ptr1++;
+	    len1--;
+	    }
+	*tempPtr++ = ' ';
+	*tempPtr++ = '-';
+	*tempPtr++ = ' ';
+	ptr1 = (CHAR*)workspace->file_names[loop];
+	len1 = strlen(workspace->file_names[loop]);
+	while (len1>0)
+	    {
+	    *tempPtr++ = *ptr1++;
+	    len1--;
+	    }
+	*tempPtr++ = 0;
+	}
+    *temp_tcp = ts_make_tcp(*temp_workspace, workspace->fileCount);
+    if (status = wi_set_selections(dialogID, HEL_NAMES,
+				HEL_SCROLL, workspace->fileCount,
+				1, *temp_tcp))
+	wi_alert(0, "", "wi_set_selections", mg_message(status));
+    return;
+    }

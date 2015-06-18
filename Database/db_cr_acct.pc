@@ -1,0 +1,269 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_CR_ACCT.PC*/
+/*  15   19-NOV-1991 15:45:32 LOEBL "(SPR 0) Convert to sqlforms30"*/
+/* *14    9-JAN-1991 09:01:41 VINCE "(SPR 1) modified calling sequence of dba_create_dir"*/
+/* *13   14-AUG-1990 13:08:21 VINCE "(SPR 5644) Header Standardization"*/
+/* *12   30-MAR-1990 17:00:57 GILLESPIE "(SPR 1) Change to run forms locally rather than in db_table_storage"*/
+/* *11    2-MAR-1990 11:43:06 PURNA "(SPR 6012) fix ifdef USE_X == 0"*/
+/* *10    2-MAR-1990 11:12:50 PURNA "(SPR 6012) fix up USE_X logic to be IFDEF only"*/
+/* *9     6-FEB-1990 00:17:04 JULIAN "(SPR -1) X Version "*/
+/* *8    18-DEC-1989 16:40:02 PURNA "(SPR 5069) export facility mods"*/
+/* *7    25-SEP-1989 10:55:45 GORDON "(SPR 201) add include of esi_mg.h"*/
+/* *6    22-SEP-1989 17:04:04 VINCE "(SPR -1) modified calling sequence of db_table_storage"*/
+/* *5    19-SEP-1989 13:35:26 GILLESPIE "(SPR 100) GULF MODS"*/
+/* *4    25-AUG-1989 17:03:03 CONROY "(SPR 9999) Move form create to batch process"*/
+/* *3    11-AUG-1989 13:47:54 CONROY "(SPR 9999) Mods for ORACLE V6"*/
+/* *2    26-JUN-1989 10:39:49 GILLESPIE "(SPR 20) Fix castings"*/
+/* *1    19-JUN-1989 12:29:59 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_CR_ACCT.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_am.h"
+#include "esi_db.h"
+#include "esi_qs.h"
+#include "esi_oracle.h"
+#include "esi_ts.h"
+#include "esi_or.h"
+#include "esi_ho.h"
+#include "esi_ho_files.h"
+#include "esi_wi.h"
+#include "esi_mg.h"
+#include "esi_db_msg.h"
+#include "esi_db_cr_acct.rh"
+
+#define resource_file "esi_db_cr_acct"
+
+/* Function Description -----------------------------------------------------
+Description:
+    Routine to create a new account:
+    
+    1) A record is entered in the table ESI.FINDER_ACCOUNTS
+        which contains the account name and scope
+    2) If this is an analyst account, an entry is made in the table
+        ESI.ANALYST_CONFIGURATION
+    3) Create account bootstrap tables LOGICAL_NAMES,ACCOUNT_TB_DEFS,and
+        TEMP_TCSPACE_DEFS.
+    4) Default logical names are inserted into the table LOGICAL_NAMES
+    5) Any directories at the OS level needed are created
+    6) Default table storage parameters are inserted into ACCOUNT_TB_DEFS.
+    7) Any new tablespaces are created.
+    8) Bootstrap tables are moved to correct tablespaces.
+    9) If this is a new PROJECT:
+    10a) Project defaults are copied from the account called DEFAULT_PROJECT
+    10b) ORACLE forms are configured to the new account and compiled
+    11) START BATCH JOB.
+
+Prototype:
+    publicdef INT dba_create_account(DB_ACCOUNT_STRUCT *db_account);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) db_account  -(DB_ACCOUNT_STRUCT) Account structure.
+    
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+    THE FOLLOWING STEPS, WHICH USED TO BE DONE HERE, ARE IN THE BATCH JOB!
+    3) All table definitions and indexes for the account are created
+    7) If this is a new ANALYST:
+    7a) Load the WELL_SOURCE_SEARCH_LIST table with a single row
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT dba_create_account (DB_ACCOUNT_STRUCT *db_account) 
+#else
+publicdef INT dba_create_account (db_account)
+DB_ACCOUNT_STRUCT *db_account;
+#endif
+    {
+    INT status = SUCCESS;
+    int file_desc;
+    INT zero = 0;
+    INT *id;
+    INT i;
+    INT main_dialog;
+    INT nsteps;
+    INT batch_process_id;
+    BOOL load_table = TRUE;
+    FILENAME cmnd_file;
+    CHAR msg[200];
+    CHAR arg_list[120];
+    
+    /*  This is a list of all of the steps
+        performed by this utility.          */
+    
+    static CHAR *status_list[] = 
+        {
+        "Install Account",
+        "Create Directories",
+        "Create Tablespaces",
+        "Copy Defaults",
+        "Create Projections",
+        "Modify Defaults",
+        NULL
+        };
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    static VARCHAR account_name[62];
+    static VARCHAR account_password[31];
+    static VARCHAR account_scope[8];
+    EXEC SQL END DECLARE SECTION;
+    
+    wi_query_front_dialog (&main_dialog);
+    /*  put up account creation status box      */
+    
+    am_define_workspace ("DB_STATUS_ID", AM_APPLICATION, (INT)sizeof(INT),
+                         (VOIDPTR *) & id);
+    am_define_resource (AM_DIALOG, resource_file, DB_CREATE_ACCOUNT_STATUS,
+                        NULL_FUNCTION_PTR, id, NULL);
+    
+    /*  Create PROJECT performs all steps; Create
+        ANALYST does only the first 3.          */
+    
+    nsteps = strcmp (db_account->scope, "PROJECT") ? 3 : ts_tcp_len (status_list);
+    
+    wi_set_selections (*id, DB_STATUS_LIST, DB_STATUS_VSCROLL, nsteps, 1, status_list);
+    wi_set_dialog_text (*id, DB_ACCOUNT_NAME, db_account->name);
+    wi_open_dialog (*id);
+    
+    V_FROMC (account_name, db_account->name);
+    V_FROMC (account_scope, db_account->scope);
+    V_FROMC (account_password, db_account->password);
+    
+    EXEC SQL INSERT INTO ESI.FINDER_ACCOUNTS (ACCOUNT_NAME, TYPE,
+                                              DATE_CREATED)VALUES ( : account_name,
+                                                                   : account_scope,
+                                                                   SYSDATE);
+    
+    /*  if this is a new analyst, put their entry
+        into the analyst_configuration table.  Note
+        that the default project, test menu and
+        experience level fields are NOT filled in   */
+    
+    if (ARE_SAME (db_account->scope, "ANALYST"))
+        {
+        EXEC SQL INSERT INTO ESI.ANALYST_CONFIGURATION (ACCOUNT_NAME,
+                                                        DATE_LAST_RUN)VALUES (
+                                                                       : 
+                                                                 account_name,
+                                                                            SYSDATE);
+        }
+    /*  disconnect from ORACLE WARNING - ALL
+        CURSORS ARE DISCONNECTED ANY PENDING WORK
+        IS COMMITTED BE CAREFUL             */
+    
+    EXEC SQL COMMIT WORK RELEASE;
+    
+    if (strlen (db_account->database) IS_NOT_EQUAL_TO 0)
+        {
+        sprintf ((char *)account_name.arr, "%s@%s", account_name.arr,
+                 db_account->database);
+        V_SETLEN (account_name);
+        }
+    /*  connect to this new account         */
+    EXEC SQL CONNECT : account_name IDENTIFIED BY : account_password;
+    
+    qs_set_c (QS_FINDER_ACCOUNT, db_account->name, strlen (db_account->name));
+    qs_set_c (QS_FINDER_PASSWORD, db_account->password, strlen (db_account->password));
+    qs_set_c (QS_DATABASE, db_account->database, strlen (db_account->database));
+    
+    /* create bootstrap tables */
+    if ((status = db_create_bootstrap_tables (db_account)) EQUALS SUCCESS)
+        {
+        
+        /*  create directories              */
+        wi_set_default_sel (*id, DB_STATUS_LIST, 2);
+        status = dba_create_directories (db_account, TRUE);
+        wi_open_dialog (*id);
+        
+        /*  assign logical names                */
+        status = ho_set_logical_names (db_account, FALSE);
+        
+        /* define table storage and create tablespaces */
+        wi_set_default_sel (*id, DB_STATUS_LIST, 3);
+        status = FAIL;
+        while (status != SUCCESS)
+            {
+            db_table_storage (db_account, load_table);
+            or_run_oracle_form ("ACCOUNT_TB_DEFS");
+            load_table = FALSE;
+            status = db_create_tablespaces (db_account);
+            }
+        db_move_bootstraps (db_account);
+        wi_open_dialog (*id);
+        
+        /*  copy the default project info       */
+        if (ARE_SAME (db_account->scope, "PROJECT"))
+            {
+            wi_set_default_sel (*id, DB_STATUS_LIST, 4);
+            if (db_create_table (db_account, "PROJECT_DEFAULTS") EQUALS SUCCESS)
+                {
+                EXEC SQL INSERT INTO PROJECT_DEFAULTS SELECT *FROM DEFAULT_PROJECT.
+                    PROJECT_DEFAULTS;
+                }
+            if (db_create_table (db_account, "PROJECTIONS") EQUALS SUCCESS)
+                {
+                EXEC SQL INSERT INTO PROJECTIONS SELECT *FROM DEFAULT_PROJECT.
+                    PROJECTIONS;
+                }
+            EXEC SQL COMMIT WORK;
+            
+            wi_set_default_sel (*id, DB_STATUS_LIST, 5);
+            status = or_run_oracle_form ("PROJECTIONS");
+            
+            wi_set_default_sel (*id, DB_STATUS_LIST, 6);
+            status = or_run_oracle_form ("PROJECT_DEFAULTS");
+            }
+        }
+    /*  release the status dialog           */
+    wi_close_dialog (*id);
+    am_release_resource (*id);
+    am_release_workspace ("DB_STATUS_ID", AM_APPLICATION);
+    
+    /* submit batch job                 */
+    if (strlen (db_account->database) != 0)
+        {
+        sprintf ((char *)arg_list, "\"%s/%s@%s\",-a", db_account->name,
+                 db_account->password, db_account->database);
+        }
+    else
+        {
+        sprintf ((char *)arg_list, "\"%s/%s\",-a", db_account->name,
+                 db_account->password);
+        }
+    ho_add_path ("ESI$BIN", "db_ver_tabs", sizeof(FILENAME), cmnd_file);
+    ho_spawn (SPAWN_BATCH, cmnd_file, arg_list, &batch_process_id);
+#ifndef USE_X 
+    wi_open_dialog (main_dialog);
+#endif
+    sprintf (msg, mg_message (DB_BATCH_STARTED), db_account->scope, db_account->name,
+             batch_process_id);
+    am_message (AM_STATUS, msg);
+    
+    return status;
+    }
+/* END:     */

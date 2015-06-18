@@ -1,0 +1,335 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SEZ_GET.PC*/
+/* *9    15-OCT-1990 16:13:50 GILLESPIE "(SPR 1000) Merge Ernie deltas"*/
+/*  6B1  12-OCT-1990 17:51:23 GILLESPIE "Merge Ernie Deltas"*/
+/* *8    31-AUG-1990 10:22:57 PURNA "(SPR 0) add return version number if version=0"*/
+/* *7    17-AUG-1990 22:15:21 VINCE "(SPR 5644) Code Cleanup"*/
+/* *6    11-JUL-1990 12:10:30 GILLESPIE "(SPR 1) Allow version 0 to request the LATEST version"*/
+/* *5    18-JUN-1990 12:07:20 GILLESPIE "(SPR 1) Changes to allow 3-D lines to be handles as select list entryes (IES deltas)"*/
+/* *4     1-NOV-1989 10:12:59 GILLESPIE "(SPR 30) Adjust for include file changes; add pragmas to HO routines"*/
+/* *3    14-SEP-1989 16:19:27 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *2    25-JUL-1989 20:00:17 GILLESPIE "(SPR 50) Seismic system revamp"*/
+/* *1    19-JUN-1989 12:36:13 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element SEZ_GET.PC*/
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Exploration Systems, Inc. 1989                          */
+/*                    Unpublished -- All rights reserved                            */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY   */
+/*CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE      */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*                            Exploration Systems                                   */
+/*                            c/o Finder Graphics Systems                           */
+/*                            201 Tamal Vista Blvd.                                 */
+/*                            Corte Madera, CA  94925                               */
+/*                            (415) 927-0100                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+#include "esi_c_lib.h"
+#include "esi_se_int.h"
+
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#include "esi_se_err.h"
+static BOOL first = TRUE;
+
+/* Function Description -----------------------------------------------------       */
+/*Description:                                                                      */
+/*    Used to get  seismic surface data from SEIS_SURFACE.                          */
+/*                                                                                  */
+/*Prototype:                                                                        */
+/*    publicdef INT sez_get(CHAR *surf_code, SEIS_SURFACE_DATA_CLASS surf_type,     */
+/*                      SEIS_SURFACE_DATA_TYPE data_type, FULL_LINE_NAME *line,     */
+/*                      ANALYST_NAME source, SEIS_ATTRIBUTE_DATA_TYPE attribute,    */
+/*                      SEIS_SURFACE_NLIST_TYPE format, INT *version, FLOAT *upper_time,    */
+/*                      FLOAT *lower_time, CDP_FLOAT *first_cdp, CDP_FLOAT *last_cdp,   */
+/*                      FLOAT *upper_time_spe, FLOAT *lower_time_spe,               */
+/*                      CDP_FLOAT *first_cdp_spe, CDP_FLOAT *last_cdp_spe,          */
+/*                      NLIST_ID nlist_id, FILENAME nlist_file);                    */
+/*                                                                                  */
+/*Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)        */
+/*    (I) surf_code       -(CHAR *) Name of the surface to be stored.               */
+/*    (I) surf_type       -(SEIS_SURFACE_DATA_CLASS) Type of the surface to be stored.      */
+/*    (I) data_type       -(SEIS_SURFACE_DATA_TYPE) Type of the data  stored for the surface.       */
+/*    (I) line            -(FULL_LINE_NAME *) Line name and survey structure.       */
+/*    (I) source          -(ANALYST_NAME) Source to which pertains the data.        */
+/*    (I) attribute       -(SEIS_ATTRIBUTE_DATA_TYPE) Gives the attribute of the seismic traces     */
+/*                            where data was picked.                                */
+/*    (I) format          -(SEIS_SURFACE_NLIST_TYPE) Format in which the data is stored in the  */
+/*                            nlist.                                                */
+/*    (I/O) version       -(INT *) Version number for the pick.                     */
+/*    (O) upper_time      -(FLOAT *) Upper time in the nlist.                       */
+/*    (O) lower_time      -(FLOAT *) Lower time in the nlist.                       */
+/*    (O) first_cdp       -(CDP_FLOAT *) First cdp in the section with a value.     */
+/*    (O) last_cdp        -(CDP_FLOAT *) Last cdp in the section with a value.      */
+/*    (O) upper_time_spe  -(FLOAT *) Upper time for special pick ( only interp use ).   */
+/*    (O) lower_time_spe  -(FLOAT *) Lower time for special pick ( only interp use ).   */
+/*    (O) first_cdp_spe   -(CDP_FLOAT *) First cdp for special pick ( only interp use ).    */
+/*    (O) last_cdp_spe    -(CDP_FLOAT *) Last cdp for special pick ( only interp use ). */
+/*    (O) nlist_id        -(NLIST_ID) Name of the nlist where the data is stored.   */
+/*    (O) nlist_file      -(FILENAME) Name of the nlist file where the nlist is stored. */
+/*                                                                                  */
+/*                                                                                  */
+/*Return Value/Status:                                                              */
+/*    SUCCESS - Successful completion.                                              */
+/*    SE_NO_DATA - No data found in the database.                                   */
+/*    Function returns nlist error code if pb in write nlist or                     */
+/*    oracle error code if pb in oracle.                                            */
+/*                                                                                  */
+/*Scope:                                                                            */
+/*    PUBLIC                                                                        */
+/*                                                                                  */
+/*Limitations/Assumptions:                                                          */
+/*                                                                                  */
+/*-----------------------------------------------------------------------------     */
+
+/* BEGIN:                                                                           */
+#if USE_PROTOTYPES
+publicdef INT sez_get (CHAR *surf_code, SEIS_SURFACE_DATA_CLASS surf_type,
+                       SEIS_SURFACE_DATA_TYPE data_type, FULL_LINE_NAME *line,
+                       ANALYST_NAME source, SEIS_ATTRIBUTE_DATA_TYPE attribute,
+                       SEIS_SURFACE_NLIST_TYPE format, INT *version, FLOAT *upper_time,
+                       FLOAT *lower_time, CDP_FLOAT *first_cdp, CDP_FLOAT *last_cdp,
+                       FLOAT *upper_time_spe, FLOAT *lower_time_spe,
+                       CDP_FLOAT *first_cdp_spe, CDP_FLOAT *last_cdp_spe,
+                       NLIST_ID nlist_id, FILENAME nlist_file)
+#else
+publicdef INT sez_get (surf_code, surf_type, data_type, line, source, attribute,
+                       format, version, upper_time, lower_time, first_cdp, last_cdp,
+                       upper_time_spe, lower_time_spe, first_cdp_spe, last_cdp_spe,
+                       nlist_id, nlist_file)
+CHAR *surf_code;
+SEIS_SURFACE_DATA_CLASS surf_type;
+SEIS_SURFACE_DATA_TYPE data_type;
+FULL_LINE_NAME *line;
+ANALYST_NAME source;
+SEIS_ATTRIBUTE_DATA_TYPE attribute;
+SEIS_SURFACE_NLIST_TYPE format;
+INT *version;
+FLOAT *upper_time;
+FLOAT *lower_time;
+CDP_FLOAT *first_cdp;
+CDP_FLOAT *last_cdp;
+FLOAT *upper_time_spe;
+FLOAT *lower_time_spe;
+CDP_FLOAT *first_cdp_spe;
+CDP_FLOAT *last_cdp_spe;
+NLIST_ID nlist_id;
+FILENAME nlist_file;
+#endif
+    {
+    
+    /*    declare  local variables                                                  */
+    
+    CHAR source_hori[31];
+    INT istatus;
+    
+    /*   declare variables used in PRO*C   statements                               */
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    
+    VARCHAR select[1024];
+    VARCHAR s_surf_code[32];
+    int s_surf_type;
+    int s_data_type;
+    int s_line_id;
+    VARCHAR s_source[32];
+    int s_attribute;
+    int s_format;
+    int s_version;
+    double s_first_cdp;
+    double s_last_cdp;
+    double s_lower_time;
+    double s_upper_time;
+    double s_first_cdp_spe;
+    double s_last_cdp_spe;
+    double s_lower_time_spe;
+    double s_upper_time_spe;
+    VARCHAR s_nlist_id[64];
+    VARCHAR s_nlist_file[240];
+    
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ------------------------------------                                         */
+    /*initialize returned value to be                                               */
+    /*zero. To avoid returning garbage                                              */
+    /*numbers that will cause system                                                */
+    /*crash                                                                         */
+    /*------------------------------------                                          */
+    
+    s_lower_time = 0.0;
+    s_upper_time = 0.0;
+    s_first_cdp = 0.0;
+    s_last_cdp = 0.0;
+    s_lower_time_spe = 0.0;
+    s_upper_time_spe = 0.0;
+    s_first_cdp_spe = 0.0;
+    s_last_cdp_spe = 0.0;
+    
+    /* -----------------------------------                                          */
+    /*    set returned status to SUCCESS                                            */
+    /*   -----------------------------------                                        */
+    
+    istatus = SUCCESS;
+    
+    /* ---------------------------------------------                                */
+    /*    fill source for the surface to store                                      */
+    /*    if the source is null we take the current oracle account                  */
+    /*   ---------------------------------------------                              */
+    
+    sez_fillsource (source, source_hori);
+    
+    EXEC SQL WHENEVER SQLERROR GOTO errsql;
+    
+    /*     ------------------------------------------------------                   */
+    /*       prepare the SQL statement only the first time we enter                 */
+    /*       this routine                                                           */
+    /*      -------------------------------------------------------                 */
+    
+    if (first)
+        {
+        PROJECT_NAME project_name;
+        TABLE_NAME table_hor;
+        
+        /*    inquire project name to build the table name                          */
+        
+        qs_inq_c (QS_PROJECT_NAME, project_name, (INT *)0);
+        sez_table_name (SEIS_SURFACE_TABLE, table_hor);
+        
+        select.len = sprintf ((char *)select.arr, 
+"SELECT DIGITAL_REF, DIGITAL_REF_VOLUME, LOWER_TIME , UPPER_TIME ,FIRST_CDP ,\
+    LAST_CDP ,LOWER_TIME_SPE,UPPER_TIME_SPE,FIRST_CDP_SPE,LAST_CDP_SPE, VERSION \
+FROM %s.%s \
+WHERE SURFACE_CODE=:surf_code AND \
+    SURFACE_TYPE =:surf_type AND DATA_TYPE=:data_type AND \
+    LINE_ID = :s_line_id AND SOURCE=:source AND \
+    ATTRIBUTE =:attribute AND FORMAT =:format \
+    ORDER BY VERSION DESC"
+                , project_name, table_hor);
+        
+        EXEC SQL PREPARE S1 FROM : select;
+        
+        EXEC SQL DECLARE C1 CURSOR FOR S1;
+        
+        select.len = sprintf ((char *)select.arr, 
+"SELECT DIGITAL_REF, DIGITAL_REF_VOLUME, LOWER_TIME , UPPER_TIME ,FIRST_CDP ,\
+    LAST_CDP ,LOWER_TIME_SPE,UPPER_TIME_SPE,FIRST_CDP_SPE,LAST_CDP_SPE \
+FROM %s.%s \
+WHERE SURFACE_CODE=:surf_code AND \
+    SURFACE_TYPE =:surf_type AND DATA_TYPE=:data_type AND \
+    LINE_ID = :s_line_id AND SOURCE=:source AND \
+    ATTRIBUTE =:attribute AND FORMAT =:format \
+    AND VERSION = :version"
+                , project_name, table_hor);
+        
+        EXEC SQL PREPARE S2 FROM : select;
+        
+        EXEC SQL DECLARE C2 CURSOR FOR S2;
+        first = FALSE;
+        
+        }
+    /*  ---------------------------------------------                               */
+    /*    fill all variables used in the SQL statement                              */
+    /*    ---------------------------------------------                             */
+    
+    V_FROMC (s_source, source_hori);
+    V_FROMC (s_surf_code, surf_code);
+    s_line_id = (int)line->id;
+    s_surf_type = (int)surf_type;
+    s_data_type = (int)data_type;
+    s_attribute = (int)attribute;
+    s_format = (int)format;
+    
+    /* Version == 0 is a special flag indicating request of the highest version number, */
+    /*given the other specified values.  Note that 7 (count 'em - seven) columns    */
+    /*are required to specify a given 'version suite'                               */
+    if (*version EQUALS 0)
+        {
+        EXEC SQL OPEN C1 USING : s_surf_code,  : s_surf_type,  : s_data_type,
+           : s_line_id,  : s_source,  : s_attribute,  : s_format;
+        
+        /*   --------------------------------                                       */
+        /*    execute the FETCH statement                                           */
+        /*     ---------------------------------                                    */
+        
+        EXEC SQL WHENEVER NOT FOUND GOTO not_found;
+        
+        EXEC SQL FETCH C1 INTO : s_nlist_id,  : s_nlist_file,  : s_lower_time,
+           : s_upper_time,  : s_first_cdp,  : s_last_cdp,  : s_lower_time_spe,
+           : s_upper_time_spe,  : s_first_cdp_spe,  : s_last_cdp_spe, : s_version;
+        *version = s_version;
+        }
+    else
+        {
+        s_version = *version;
+        EXEC SQL OPEN C2 USING : s_surf_code,  : s_surf_type,  : s_data_type,
+           : s_line_id,  : s_source,  : s_attribute,  : s_format,  : s_version;
+        
+        /*   --------------------------------                                       */
+        /*    execute the FETCH statement                                           */
+        /*     ---------------------------------                                    */
+        
+        EXEC SQL WHENEVER NOT FOUND GOTO not_found;
+        
+        EXEC SQL FETCH C2 INTO : s_nlist_id,  : s_nlist_file,  : s_lower_time,
+           : s_upper_time,  : s_first_cdp,  : s_last_cdp,  : s_lower_time_spe,
+           : s_upper_time_spe,  : s_first_cdp_spe,  : s_last_cdp_spe;
+        }
+    /*   a record was found in the data base we fill in the values                  */
+    /*     returned to the caller                                                   */
+    
+    V_FROMV (nlist_id, s_nlist_id);
+    V_FROMV (nlist_file, s_nlist_file);
+    *lower_time = s_lower_time;
+    *upper_time = s_upper_time;
+    *first_cdp = s_first_cdp;
+    *last_cdp = s_last_cdp;
+    *lower_time_spe = s_lower_time_spe;
+    *upper_time_spe = s_upper_time_spe;
+    *first_cdp_spe = s_first_cdp_spe;
+    *last_cdp_spe = s_last_cdp_spe;
+    
+    istatus = SUCCESS;
+    
+    return istatus;
+    
+    /*    ---------------------------------------------                             */
+    /*      we come here if there is no data retrieved                              */
+    /*      ---------------------------------------------                           */
+    
+not_found:
+    istatus = SE_NO_DATA;
+    
+    return istatus;
+    
+    /*    ---------------------------------------------                             */
+    /*      we come here in case of SQL error or nlist write error                  */
+    /*      ---------------------------------------------                           */
+    
+errsql:
+#ifdef DEBUG
+    printf (" error when retrieving in SEIS_SURFACE : %d \n oracle message %s ",
+            OR_STATUS, OR_MESSAGE);
+
+#endif
+    istatus = OR_STATUS;
+    
+    return istatus;
+    }
+/* END:                                                                             */

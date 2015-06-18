@@ -1,0 +1,202 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element HO_SET_LOG.PC */
+/* *8     2-AUG-1991 17:40:34 LOEBL "(SPR 2238) Standardize hold/release cursor handling" */
+/* *7     4-JAN-1991 10:49:45 GILLESPIE "(SPR 1) Move environment determination to ho_get_environment" */
+/* *6    17-AUG-1990 21:53:19 VINCE "(SPR 5644) Code Cleanup" */
+/* *5    26-FEB-1990 09:24:40 GILLESPIE "(SPR 6010) Add ULTRIXR to list of environments" */
+/* *4    12-FEB-1990 09:24:31 GORDON "(SPR 0) Remove reference to HOST_VERSION" */
+/* *3    18-DEC-1989 16:40:40 PURNA "(SPR 5069) export facility mods" */
+/* *2    14-SEP-1989 16:15:53 GORDON "(SPR 100) Gulf/Sun/Unix mods" */
+/* *1     5-SEP-1989 14:44:13 GORDON "was db_set_log" */
+/* DEC/CMS REPLACEMENT HISTORY, Element HO_SET_LOG.PC */
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_ho.h"
+
+#ifndef ESI_AM_H
+
+#include "esi_am.h"
+
+#endif
+
+#ifndef ESI_C_LIB_H
+
+#include "esi_c_lib.h"
+
+#endif
+
+#ifndef ESI_DB_H
+
+#include "esi_db.h"
+
+#endif
+
+#ifndef ESI_DB_MSG_H
+
+#include "esi_db_msg.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_MG_H
+
+#include "esi_mg.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+
+#ifndef ESI_HO_FILES_H
+
+#include "esi_ho_files.h"
+
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+    Set the logical names for the specified account and scope.
+
+Prototype:
+    publicdef INT ho_set_logical_names(DB_ACCOUNT_STRUCT *db_account,BOOL set_process);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) db_account  -(DB_ACCOUNT_STRUCT *) Account structure.
+    (I) set_process -(BOOL)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    OR_STATUS
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT ho_set_logical_names (DB_ACCOUNT_STRUCT *db_account, BOOL set_process) 
+#else
+publicdef INT ho_set_logical_names (db_account, set_process)
+DB_ACCOUNT_STRUCT *db_account;
+BOOL set_process;
+#endif
+    {
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[512];
+    VARCHAR logical_name[241];
+    VARCHAR translation[241];
+    int seq;
+    int concealed;
+    EXEC SQL END DECLARE SECTION;
+    
+    FILENAME last_log;
+    INT i;
+    INT status;
+    CHAR **tcp;
+    FILENAME string;
+    CHAR environment[12];
+
+    ho_get_environment(environment);
+    qs_set_c (QS_ENVIRONMENT, environment, strlen (environment));
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT LOGICAL_NAME, TRANSLATION, NVL(SEQ, 0), DECODE(CONCEAL,'Y',1,0) \
+FROM %s.LOGICAL_NAMES \
+WHERE SCOPE = '%s' AND ENVIRONMENT = '%s' \
+ORDER BY NVL(CONCEAL,'zzz'), LOGICAL_NAME, SEQ"
+            , db_account->name, db_account->scope, environment);
+    
+    EXEC SQL WHENEVER SQLERROR GOTO wayout;
+    EXEC ORACLE OPTION (RELEASE_CURSOR=YES);
+    EXEC ORACLE OPTION (HOLD_CURSOR=NO);
+    EXEC SQL PREPARE S1 FROM : stmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1;
+    
+    EXEC SQL FETCH C1 INTO : logical_name,  : translation,  : seq,  : concealed;
+    while (OR_STATUS EQUALS SUCCESS)
+        {
+        V_SETZERO (logical_name);
+        V_SETZERO (translation);
+        if (seq EQUALS 0)            /* not a logical name list */
+            {
+            status = ho_set_logical_name (NULL, (char *)logical_name.arr,
+                                          (char *)translation.arr, concealed,
+                                          set_process);
+            if (status IS_NOT_EQUAL_TO SUCCESS)
+                {
+                sprintf (string, mg_message (DB_BAD_LOGICAL_NAME),
+                         (char *)logical_name.arr, (char *)translation.arr);
+                am_message (AM_ALERT, string);
+                }
+            EXEC SQL FETCH C1 INTO : logical_name,  : translation,  : seq,
+                : concealed;
+            }
+        else
+            {
+            strcpy (last_log, (char *)logical_name.arr);
+            tcp = (CHAR **)0;
+            while ((ARE_SAME (last_log,
+                              (char *)logical_name.arr)) AND (OR_STATUS EQUALS SUCCESS))
+                {
+                ts_tcp_append (&tcp, (char *)translation.arr);
+                EXEC SQL FETCH C1 INTO : logical_name,  : translation,  : seq,
+                    : concealed;
+                V_SETZERO (logical_name);
+                V_SETZERO (translation);
+                }
+            status = ho_set_logical_list (NULL, last_log, tcp);
+            ts_tcp_free (tcp);
+            }
+        }
+wayout:
+    if (OR_STATUS < 0)
+        {
+        status = OR_STATUS;
+        }
+    else
+        {
+        status = SUCCESS;
+        }
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL CLOSE C1;
+    
+    return status;
+    }
+/* END:     */

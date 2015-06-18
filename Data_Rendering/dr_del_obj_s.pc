@@ -1,0 +1,228 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_DEL_OBJ_S.PC*/
+/* *4    11-JUN-1991 11:21:33 KEE "(SPR 74707476) Fix Graphic Object Type deletion bug, case 1753 and case 1759"*/
+/* *3    15-OCT-1990 16:53:04 GILLESPIE "(SPR 1000) Merge Ernie deltas"*/
+/* *2    24-SEP-1990 16:11:06 GILLESPIE "Beta Deltas"*/
+/* *1    19-JUN-1989 12:31:04 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_DEL_OBJ_S.PC*/
+
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/******************************************************************************
+
+NAME:          	dr_delete_object_type_sql
+
+DESCRIPTION:   	Deletes a graphic object type
+
+
+	Input:    	object_type 	- the object name
+     			dr_data			- usual dr structure
+
+	Output:   	None
+	
+	Status:   	SUCCESS
+               	FAIL
+               	
+******************************************************************************/
+
+#include    "esi_gl_defs.h"
+#include    "esi_mp.h"
+#include    "esi_dr.h"
+#include    "esi_qs.h"
+#include    "esi_am.h"
+#include    "esi_oracle.h"
+#include    "esi_ho_files.h"
+#include    "esi_wi.h"
+
+publicdef INT dr_delete_object_type_sql (object_type, dr_data)
+CHAR *object_type;
+DR_DATA *dr_data;
+{
+    INT status;
+    PROJECT_NAME project;
+    ANALYST_NAME user;
+    CHAR mg[256];
+    INT nlen;
+    static BOOL s1_defined = FALSE;
+    static BOOL s2_defined = FALSE;
+    static BOOL s3_defined = FALSE;
+    static BOOL s4_defined = FALSE;
+    INT fetch_status;
+    BOOL ifyes = FALSE;
+    FILENAME full_filename;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[1024];
+        VARCHAR object_name[41];
+        int     object_id;
+        int     item_id;
+        int     nitems;
+        int     nall;
+	int     remaining_items;
+    EXEC SQL END DECLARE SECTION;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO sqlerrorpt;
+
+    qs_inq_c(QS_PROJECT_NAME, project, &nlen);
+    qs_inq_c(QS_FINDER_ACCOUNT, user, &nlen);
+    
+    /*  Setup a cursor for the graphic_objects table  */
+
+    if (! s1_defined)
+    {
+        sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT OBJECT_ID \
+FROM   %s.GRAPHIC_OBJECTS \
+WHERE  OBJECT_NAME = :object_name AND \
+SOURCE IN ('%s', NULL)", project, user);
+
+        EXEC SQL PREPARE S1 FROM :sqlstmt;
+        EXEC SQL DECLARE GO1_CUR CURSOR FOR S1;
+        s1_defined = TRUE;
+    }
+
+    if (! s2_defined)
+    {
+        sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT COUNT(*) FROM %s.GRAPHIC_OBJECT_CORRELATIONS \
+WHERE OBJECT_ID IN (\
+SELECT OBJECT_ID \
+FROM  %s.GRAPHIC_OBJECTS \
+WHERE OBJECT_NAME = :object_name AND \
+SOURCE IN ('%s', NULL))", project, project, user);
+
+        EXEC SQL PREPARE S2 FROM :sqlstmt;
+        EXEC SQL DECLARE GO2_CUR CURSOR FOR S2;
+        s2_defined = TRUE;
+    }
+
+    if (! s3_defined)
+    {
+        sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT COUNT(*) FROM %s.GRAPHIC_OBJECT_CORRELATIONS \
+WHERE OBJECT_ID IN (\
+SELECT OBJECT_ID \
+FROM  %s.GRAPHIC_OBJECTS \
+WHERE OBJECT_NAME = :object_name)", project, project);
+
+        EXEC SQL PREPARE S3 FROM :sqlstmt;
+        EXEC SQL DECLARE GO3_CUR CURSOR FOR S3;
+        s3_defined = TRUE;
+    }
+
+    /*  Delete each instance of this type  */
+
+    V_C_TO_V (object_name, object_type);
+    EXEC SQL OPEN GO1_CUR USING :object_name;
+    EXEC SQL OPEN GO2_CUR USING :object_name;
+    EXEC SQL OPEN GO3_CUR USING :object_name;
+
+    if (OR_STATUS != SUCCESS)
+        {
+        return OR_STATUS;
+        }
+
+    EXEC SQL FETCH GO2_CUR INTO :nitems;
+    if (OR_STATUS != SUCCESS)
+        {
+        return OR_STATUS;
+        }
+
+    EXEC SQL FETCH GO3_CUR INTO :nall;
+    if (OR_STATUS != SUCCESS)
+        {
+        return OR_STATUS;
+        }
+
+    if (nall IS_NOT_EQUAL_TO 0)
+     {
+      if (nitems EQUALS 0)
+       {
+        am_message(AM_ALERT, 
+        "You have attempted to delete a graphic object which you do not own. \
+You cannot delete it.");
+        }
+      else
+       {
+	ho_add_path("ESI$CULTURE", object_type, sizeof(FILENAME), full_filename);
+	sprintf(mg, "There are %d Graphic Object %s Owned by You and %d Owned \
+by Others. Is It Ok to Delete Yours?", nitems, object_type, nall-nitems);
+        wiyesno (mg, "", &ifyes, &status);
+       }
+     }
+
+    if (ifyes)
+     {
+      fetch_status = SUCCESS;
+      while (fetch_status == SUCCESS)
+        {
+        EXEC SQL FETCH GO1_CUR INTO :object_id;
+        fetch_status = OR_STATUS;
+
+        if (fetch_status == SUCCESS)
+            {
+            dr_delete_object_rows (object_id, object_type, dr_data);
+            }
+        }
+      dr_data->current_object_type[0] = '\0';
+     }
+  
+
+    if (! s4_defined)
+    {
+        sqlstmt.len = sprintf((char *)sqlstmt.arr,
+        "SELECT COUNT(*) \
+         FROM   %s.GRAPHIC_OBJECTS \
+         WHERE  OBJECT_NAME = :object_name",
+        project);
+
+        EXEC SQL PREPARE S4 FROM :sqlstmt;
+        EXEC SQL DECLARE COUNTER CURSOR FOR S4;
+        s4_defined = TRUE;
+    }
+
+    EXEC SQL OPEN  COUNTER USING :object_name;
+    EXEC SQL FETCH COUNTER INTO  :remaining_items;
+
+    if ((remaining_items == 0) || (OR_STATUS == OR_EOF))
+        {
+	sqlstmt.len = sprintf ((char *)sqlstmt.arr,
+	"DELETE FROM %s.GRAPHIC_OBJECT_CODES \
+	 WHERE  NAME = '%s'",
+        project, object_type);
+
+	EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+
+	ho_delete_file(full_filename, &status);
+        }
+
+    EXEC SQL COMMIT WORK;
+    status = OR_STATUS;
+    return status;
+
+sqlerrorpt:
+    strncpy (mg, sqlca.sqlerrm.sqlerrmc, 70);
+    mg[70] = 0;
+    am_message (AM_ALERT, mg);
+    status = OR_STATUS;
+    return status;
+}
+

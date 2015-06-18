@@ -1,0 +1,175 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LG_DM_CHK_W.PC*/
+/* *6    23-AUG-1990 17:40:00 JESSIE "(SPR 1) fix include files"*/
+/* *5    14-SEP-1989 16:16:45 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *4    13-AUG-1989 01:46:45 GILLESPIE "(SPR 5) Change WLL_LOG_TRACE_HDR to WELL_LOG_CURVE; always release cursor"*/
+/* *3     8-AUG-1989 10:45:16 VINCE "(SPR -1) added Gulf mods; static in SQL declare section"*/
+/* *2    19-JUL-1989 08:03:27 GORDON "(SPR 100) Add mods from Sun port"*/
+/* *1    19-JUN-1989 12:33:23 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element LG_DM_CHK_W.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_lg_defs.h"
+
+#ifndef ESI_LG_LDEFS_H
+
+#include "esi_lg_ldefs.h"
+
+#endif
+
+#include "esi_c_lib.h"
+
+#ifndef ESI_NL_H
+
+#include "esi_nl.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_TC_H
+
+#include "esi_tc.h"
+
+#endif
+
+#ifndef ESI_HO_H
+
+#include "esi_ho.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#include "esi_lg_err.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+    Checks to see if an update trace already exists in the crrent project
+    area.  If no such trace exists, SUCCESS is returned, otherwise FAIL
+    is returned.
+
+Prototype:
+    publicdef INT lg_ltdm_check_write(UWI inUwi, CHAR traceCname[]);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) inUwi       -(UWI) %P Unique Well Identifier.        
+    (I) traceCname  -(CHAR [])
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+    OR_STATUS - Status returned from Oracle.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lg_ltdm_check_write (UWI inUwi, CHAR traceCname[]) 
+#else
+publicdef INT lg_ltdm_check_write (inUwi, traceCname)
+UWI inUwi;
+CHAR traceCname[];
+#endif
+    {
+    INT status = SUCCESS;           /*   result status.                       */
+    LOG_TRACE_STRUCT traceStruct;   /*   workspace of LOG_TRACE_STRUCT.       */
+    PROJECT_NAME current_project_name;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR select[512];
+    int version;
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ************************************************************************* */
+    
+    if (inUwi EQUALS NULL OR traceCname EQUALS NULL)
+        return LG_INVALID_POINTER;
+    
+    if (lgz_check_exist (inUwi)OR lgz_check_exist (traceCname))
+        return LG_INVALID_POINTER;
+    
+    tc_zeroes (&traceStruct, sizeof(LOG_TRACE_STRUCT));
+    hoblockmove (inUwi, traceStruct.uwi, sizeof(UWI));
+    strcpy (traceStruct.trace_name, traceCname);
+    traceStruct.version = 0;
+    
+    status = lg_ltdm_parser (&traceStruct);
+    
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        return status;
+    
+    /*  If there is no version number, returns  */
+    /*  error message.                          */
+    
+    if (traceStruct.version <= 0)
+        return LG_INVALID_VERSION;
+    
+    /*   if the specified trace exists, we      */
+    /*   suppose can read the nlistName.        */
+    /*   construct the serching phrase.       */
+    EXEC SQL WHENEVER SQLERROR GOTO errrpt;
+    EXEC SQL WHENEVER NOT FOUND GOTO errnfd;
+    
+    qs_inq_c (QS_PROJECT_NAME, current_project_name, (INT *)0);
+    
+    select.len = sprintf ((char *)select.arr, 
+"SELECT VERSION FROM %s.WELL_LOG_CURVE_HDR WHERE \
+UWI = '%s' AND TRACE_TYPE = '%s' AND VERSION = %d"
+            , current_project_name, inUwi, traceStruct.trace, traceStruct.version);
+    
+    EXEC SQL PREPARE S1 FROM : select;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    
+    EXEC SQL OPEN C1;
+    
+    EXEC SQL FETCH C1 INTO : version;
+    status = FAIL;
+    goto way_out;
+    
+errrpt:
+    status = OR_STATUS;
+    goto way_out;
+    
+errnfd:
+    status = SUCCESS;
+    
+way_out:
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL CLOSE C1;
+    return status;
+    
+    }
+/* END:     */

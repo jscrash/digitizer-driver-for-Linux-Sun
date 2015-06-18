@@ -1,0 +1,162 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_PUT_OBJECT.PC*/
+/* *3    15-OCT-1990 16:59:07 GILLESPIE "(SPR 1000) Merge Ernie deltas"*/
+/* *2    18-JUL-1990 09:56:07 GILLESPIE "(SPR 1) Cleanup"*/
+/* *1    19-JUN-1989 12:31:16 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_PUT_OBJECT.PC*/
+/******************************************************************************
+
+        Copyright Exploration Systems, Inc. 1989
+           Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+            Exploration Systems, Inc.
+            579 Market Street
+            San Francisco, CA  USA 94105
+            (415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/******************************************************************************
+
+NAME:           dr_put_object
+
+DESCRIPTION:    Save a graphics object to the database
+
+
+    Input:      Standard data structure
+
+    Output:     None
+
+    Status:     SUCCESS;
+                DR_SAVE_ERROR
+                
+    TODO:       1)  How do we make sure that database reflects user's
+                    deletes?
+                    
+                    As written, deleted elements are left dangling in
+                    the database.
+                    
+                2)  Need to update GIS indicies.
+
+******************************************************************************/
+
+#include    "esi_c_lib.h"
+#include    "esi_am.h"
+#include    "esi_dr.h"
+#include    "esi_qs.h"
+#include    "esi_ts.h"
+#include    "esi_oracle.h"
+
+#if USE_PROTOTYPES
+publicdef INT dr_put_object(DR_DATA *dr_data)
+#else
+publicdef INT dr_put_object(dr_data)
+DR_DATA *dr_data;
+#endif
+    {
+    INT status;
+    PROJECT_NAME project;
+    CHAR msg[80];
+    CHAR quote_type[80];
+    CHAR quote_source[80];
+    CHAR quote_top[80];
+    CHAR quote_base[80];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[2048];
+    EXEC SQL END DECLARE SECTION;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO sqlerrorpt;
+    
+    /*  Get the project name  */
+
+    qs_inq_c(QS_PROJECT_NAME, project, (INT *)0);
+
+    /* make local copies of strings to be quoted */
+
+    strcpy (quote_type,   dr_data->current_object_type);
+    strcpy (quote_source, dr_data->source);
+    strcpy (quote_top,    dr_data->current_top);
+    strcpy (quote_base,   dr_data->current_base);
+
+    /* quote the local copies */
+
+    ts_quote (quote_type,   '\'');
+    ts_quote (quote_source, '\'');
+    ts_quote (quote_top,    '\'');
+    ts_quote (quote_base,   '\'');
+
+    /* check for a null string (i.e. '') and change it to NULL for SQL */
+
+    if (quote_type[1]   == '\'') strcpy (quote_type,   "NULL");
+    if (quote_source[1] == '\'') strcpy (quote_source, "NULL");
+    if (quote_top[1]    == '\'') strcpy (quote_top,    "NULL");
+    if (quote_base[1]   == '\'') strcpy (quote_base,   "NULL");
+
+    /*  Setup the SQL statement  */
+
+    if (dr_data->new_object)
+        {
+        sqlstmt.len = sprintf((char *)sqlstmt.arr, 
+        "INSERT INTO %s.GRAPHIC_OBJECTS \
+             (OBJECT_NAME, OBJECT_ID, SOURCE, OBJECT_UNIT, \
+              ATTRIBUTE_1, ATTRIBUTE_2, LOWER_LEFT_X, LOWER_LEFT_Y, \
+              UPPER_RIGHT_X, UPPER_RIGHT_Y) \
+         VALUES (%s, %d, %s, NULL, %s, %s, %f, %f, %f, %f)",
+        project,
+        quote_type,
+        dr_data->current_object_key,
+        quote_source,
+        quote_top,
+        quote_base,
+        dr_data->lower_left_extent.x,
+        dr_data->lower_left_extent.y,
+        dr_data->upper_right_extent.x,
+        dr_data->upper_right_extent.y);
+        }
+    else
+        {
+        sqlstmt.len = sprintf((char *)sqlstmt.arr, 
+        "UPDATE %s.GRAPHIC_OBJECTS     \
+             SET OBJECT_NAME   = %s,   \
+                 SOURCE        = %s,   \
+                 OBJECT_UNIT   = NULL, \
+                 ATTRIBUTE_1   = %s,   \
+                 ATTRIBUTE_2   = %s,   \
+                 LOWER_LEFT_X  = %f,   \
+                 LOWER_LEFT_Y  = %f,   \
+                 UPPER_RIGHT_X = %f,   \
+                 UPPER_RIGHT_Y = %f    \
+         WHERE OBJECT_ID = %d",
+        project,
+        quote_type,
+        quote_source,
+        quote_top,
+        quote_base,
+        dr_data->lower_left_extent.x,
+        dr_data->lower_left_extent.y,
+        dr_data->upper_right_extent.x,
+        dr_data->upper_right_extent.y,
+        dr_data->current_object_key);
+        }
+
+    EXEC SQL EXECUTE IMMEDIATE : sqlstmt;
+    
+    return OR_STATUS;
+    
+sqlerrorpt:
+    strncpy(msg, OR_MESSAGE, 70);
+    msg[70] = 0;
+    am_message(AM_STATUS, (char *)sqlstmt.arr);
+    am_message(AM_STATUS, msg);
+    
+    return OR_STATUS;
+    }

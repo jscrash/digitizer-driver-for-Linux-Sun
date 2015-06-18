@@ -1,0 +1,1291 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element VI_MAIN5.PC */
+/* *4    16-AUG-1991 17:30:55 JESSIE "(SPR 0) for BHP's modification" */
+/* *3    25-JUN-1991 16:28:22 DOUG "(SPR 0) Changes specified by Don Vossler to identify sources of both time and velocity */
+/*horizons." */
+/* *2    14-JUN-1991 18:00:23 DOUG "(SPR 0) Initial checkin in correct library." */
+/* *1    14-JUN-1991 17:56:11 DOUG "Convert rms to average velocity along seismic lines." */
+/* DEC/CMS REPLACEMENT HISTORY, Element VI_MAIN5.PC */
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1991
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+/* Function Description -------------------------------------------------------
+Description:
+    Transform seismic surface velocities.
+    VERSION 1.1
+
+Prototype:
+    vi_main5 -oid aaa -proj bbb -line ccc -hor ddd -srch eee -depth
+             -src fff
+
+Parameters:
+    -oid aaa                    Oracle ID/Password, e.g. EUREKA/EUREKA
+    -proj bbb                   Project name
+    -line ccc                   Seismic line select list name
+    -hor  ddd                   Seismic horizon names
+    -srch eee                   Owner of time horizons
+    -depth                      If present, produce depth horizons
+    -src  fff                   Owner of velocity surface data.
+                 
+Limitations/Assumptions:
+ 
+Revisions:
+    03 Jun 1991: DAV - Use source info from command line, not 'LOADER'.
+-----------------------------------------------------------------------------*/
+
+#include "esi_c_lib.h"            /* for strings */
+#ifndef ESI_FM_H
+#include "esi_fm.h"
+#endif
+#include "esi_se.h"            /* for se typedefs and prototypes */
+
+#ifndef ESI_NL_H
+#include "esi_nl.h"            /* for shot nlist */
+#endif
+
+#ifndef ESI_NL_ERR_H
+#include "esi_nl_err.h"
+#endif
+
+#ifndef ESI_SE_ERR_H
+#include "esi_se_err.h"
+#endif
+
+#ifndef ESI_VI_H
+#include "esi_vi.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"            /* for project projection */
+#endif
+
+#ifndef ESI_OR_H
+#include "esi_or.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_SL_METH_AH
+#include "esi_sl_meth.ah"           
+#endif
+
+publicdef INT main (argc, argv)
+INT argc;
+CHAR *argv[];
+    {
+    PROJECT_NAME project;    
+    INT status;
+    INT i;
+    INT j;
+    INT num;
+    BOOL go;
+    NLIST_ID lines;
+    CHAR *horz;
+    INT numhorz;
+    BOOL idep;
+    CHAR srch[81];
+    CHAR srcv[81];
+   
+    /* process command line arguments */
+    /* ------------------------------ */
+    go = TRUE;
+    
+    /* Get ORACLE id/password */
+    /* ---------------------- */
+    i = vi_args (argc, argv, "-oid", &num);
+    if (i < 0)
+        {
+        fprintf (stderr, "No Oracle ID.\n");
+        go = FALSE;
+        }
+    else
+        {
+        if ((status = or_login (argc, argv)) IS_NOT_EQUAL_TO SUCCESS)
+            {
+            fprintf (stderr,
+                     "Unable to connect to Oracle using %s: Terminating.\n",
+                     argv[i + 1]);
+            exit (EXIT_FAILURE);
+            }
+        }
+    
+    /* Get project name */
+    /* ---------------- */
+    i = vi_args (argc, argv, "-proj", &num);
+    if (i < 0)
+        {
+        fprintf (stderr, "No project.\n");
+        go = FALSE;
+        }
+    else
+        {
+        qs_set_c (QS_PROJECT_NAME, ts_sto_upper (argv[i + 1]), 0);
+        strcpy (project, argv[i + 1]);
+        if ((status = finder_config_project (FALSE)) IS_NOT_EQUAL_TO SUCCESS)
+            {
+            fprintf (stderr, 
+                     "Unable to connect to project %s: Terminating.\n",
+                     argv[i + 1]);
+            or_logout (FALSE);
+            goto NO_PROCESS;
+            }
+        }
+
+
+    /* Get seismic line select list name */
+    /* --------------------------------- */
+    i = vi_args (argc, argv, "-line", &num);
+    if (i > 0 AND num > 0)
+        {
+        strcpy (lines, argv[i + 1]);
+        }
+    else
+        {
+        fprintf (stderr, "No seismic select list.\n");
+        go = FALSE;
+        }
+
+
+    /* Get list of horizon names */
+    /* ------------------------- */
+    i = vi_args (argc, argv, "-hor", &numhorz);
+    if (i > 0 AND numhorz > 0 AND go == TRUE)
+        {
+        horz = (CHAR *) tc_alloc (30 * numhorz);
+        for (j = 0; j < numhorz; j++)
+            strcpy (&horz[30 * j], ts_sto_upper(argv[i + 1 + j]));
+        }
+
+    /* Get owner of time horizon data to be used */
+    /* ----------------------------------------- */
+    i = vi_args (argc, argv, "-srch", &num);
+    if (i < 0 || num EQUALS 0)
+        {
+        fprintf (stderr, "No time horizon source.\n");
+        go = FALSE;
+        }
+    else
+        {
+        strcpy (srch, ts_sto_upper (argv[i + 1]));
+        }
+
+
+    /* Get owner of velocity horizon data to be used */
+    /* --------------------------------------------- */
+    i = vi_args (argc, argv, "-src", &num);
+    if (i < 0 || num EQUALS 0)
+        {
+        fprintf (stderr, "No velocity horizon source.\n");
+        go = FALSE;
+        }
+    else
+        {
+        strcpy (srcv, ts_sto_upper (argv[i + 1]));
+        }
+
+
+    /* Check presence of depth output flag */
+    /* ----------------------------------- */
+    i = vi_args(argc,argv,"-depth",&num);
+    if(i > 0)
+        {
+        idep = TRUE;
+        }
+    else
+        {
+        idep = FALSE;
+        }
+
+
+    /* If main parameters were present, then can proceed. */
+    /* -------------------------------------------------- */
+    if (go EQUALS FALSE)
+        {
+        or_logout (TRUE);
+        goto NO_PROCESS;
+        }
+        
+    /* we're ready to process */
+    /* ---------------------- */
+    status = viz_main5 (project, lines, numhorz, horz, srch, idep, srcv);
+    
+    or_logout (TRUE);
+    
+    exit (EXIT_SUCCESS);
+    
+NO_PROCESS:
+    fprintf (stderr,
+             "Usage: vi_main5 -oid <oracle_login> -proj <project>\n");
+    fprintf (stderr,
+             "                -line <line list>\n");
+    fprintf (stderr, 
+             "                -hor <Horizon list>\n");
+    fprintf (stderr,
+             "                -vtyp <velocity type 'AVG|STK'>\n");
+    fprintf (stderr,
+             "                -sample <Sample interval>\n");
+    fprintf(stderr,
+             "                -ref T1 V1 T2 V2 .... TN VN\n");
+    fprintf(stderr,
+             "                -srch <Owner of time horizon data>\n");
+    fprintf(stderr,
+             "                -depth\n");
+    fprintf(stderr,
+             "                -src <Owner of velocity horizon data>\n");
+    exit (EXIT_FAILURE);
+    
+}
+
+/* ========================================================================*/
+
+/* Function Description -------------------------------------------------------
+Description:
+    Function to back interpolate velocities on lines from grids.
+
+Prototype:
+    privatedef INT viz_main5(PROJECT_NAME project, NLIST_ID line_list,
+                             INT numhorz, CHAR *horz, CHAR *srch,
+                              BOOL idep, CHAR *srcv)
+    
+Parameters:
+    (I) project     -(PROJECT_NAME) Name of project containing data.
+    (I) line_list   -(NLIST_ID) Seismic select list name.
+    (I) numhorz     -(INT)      Number of horizon names input.
+    (I) horz        -(CHAR *)   Horizon name array.  Each horizon name
+                                starts 30 characters from the start of
+                                the previous horizon name.  
+    (I) srch        -(CHAR *)   Time horizon owner name.
+    (I) idep        -(BOOL)     If 'TRUE', output depth horizons as well.
+    (I) srcv        -(CHAR *)   Velocity horizon owner name.
+
+Return Value/Status:
+    SUCCESS.
+    FAIL.
+
+Scope:
+    PUBLIC
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+#define TVSIZ 30
+
+#ifdef PROTOTYPES
+privatedef INT viz_main5(PROJECT_NAME project, NLIST_ID line_list,
+                         INT numhorz, CHAR *horz, CHAR *srch,
+                         BOOL idep, CHAR *srcv)
+#else
+privatedef INT viz_main5(project, line_list, numhorz, horz, srch, idep, srcv)
+PROJECT_NAME project;
+NLIST_ID     line_list;
+INT          numhorz;
+CHAR        *horz;
+CHAR        *srch;
+BOOL         idep;
+CHAR        *srcv;
+#endif
+{
+    SEIS_SURV survey;       /* seismic survey name                          */
+    INT numlines;           /* no. lines to actually process                */
+    INT *lines;             /* internal line_id's                           */
+    INT status;             /* status flag for function calls               */
+    INT stat_save;          /* error status save                            */
+    INT stat_flag = 0;      /* error occurrance flag                        */
+    INT cur_line;           /* current line instance                        */
+    INT i;                  /* loop index                                   */
+    INT j;                  /* loop index                                   */
+    INT k;                  /* loop index                                   */
+    INT m;                  /* loop index                                   */
+    CDP_FLOAT fcdp;         /* cdp value returned from surface nlist        */
+    DOUBLE ftime;           /* time value returned from surface nlist       */
+    DOUBLE fvel;            /* vel value returned from surface nlist        */
+    DOUBLE avel;            /* interpolated avg-velocity                    */
+    UINT Col_List[2];       /* Column list for nlist access                 */
+    VOIDPTR Var_List[2];    /* Address list for nlist access                */
+    INT Units[2];           /* UOM codes                                    */
+    size_t Data_Sizes[2];   /* Data width in bytes                          */
+    INT Data_Types[2];      /* Data type codes                              */
+    UINT nallocated;        /* no. input values allocated                   */
+    UINT ncols;             /* no. columns in Col_List                      */
+    UINT nrows;             /* no. rows actually returned                   */
+    INT jj;                 /* working index                                */
+    FULL_LINE_NAME fname;   /* working version                              */
+    NLIST_HEADER *tlist;    /* seis_surface nlist work space - time         */
+    NLIST_HEADER *slist;    /* seis_surface nlist work space - stk          */
+    NLIST_HEADER *alist;    /* seis_surface nlist work space - avel         */
+    NLIST_HEADER *dlist;    /* seis_surface nlist work space - depth        */
+    CHAR source[31];        /* source name array for se_get (time)          */
+    CHAR sourcev[31];       /* source name array for se_get (velocity)      */
+    INT version = 0;        /* version value for se_get                     */
+    FLOAT *upper_time;      /* 'upper' time returned from se_get            */
+    FLOAT *lower_time;      /* 'lower' time returned from se_get            */
+    DOUBLE *sort_time;      /* times used for setting horizon order         */
+    FLOAT  work;            /* work space                                   */
+    CDP_FLOAT *first_cdp;   /* first cdp value returned by se_get           */
+    CDP_FLOAT *last_cdp;    /* last cdp value returned by se_get            */
+    CDP_FLOAT *cdp_dist;    /* cdp-to-cdp spacing                           */
+    INT  num_exist;         /* number horizons existing for current line    */
+    UINT *table_kntt;       /* number tables in nlist                       */
+    UINT *table_knts;       /* number tables in nlist                       */
+    CDP_FLOAT min_cdp;      /* min CDP for line                             */
+    CDP_FLOAT max_cdp;      /* max CDP for line                             */
+    INT num_cdps;           /* max number cdp's on line                     */
+    INT **cdps;             /* cdp values                                   */
+    DOUBLE **times;         /* horizon times                                */
+    DOUBLE **svels;         /* horizon stacking velocities                  */
+    DOUBLE **avels;         /* horizon average velocities                   */
+    DOUBLE **deps;          /* horizon depths                               */
+    INT *iwork;             /* work space                                   */
+    DOUBLE *dwork;          /* work space                                   */
+    UINT row_knt;           /* number rows in nlist                         */
+    INT ndx;                /* working index                                */
+    INT icdp;               /* min cdp number for table                     */
+    INT nret;               /* number rows returned                         */
+    DOUBLE tim[TVSIZ];      /* vel function times                           */
+    DOUBLE vel_stk[TVSIZ];  /* vel function stk vels                        */
+    DOUBLE vel_avg[TVSIZ];  /* vel function avg vels                        */
+    INT knt;                /* array count                                  */
+    UINT tbl_num;           /* nlist table number                           */
+    INT nout;               /* number values returned by vi_rms_avg2        */
+
+    EXEC SQL BEGIN DECLARE SECTION;
+        long lineid;
+        VARCHAR linename[40];
+        VARCHAR survname[500];
+        VARCHAR lnstmt[2000];
+        VARCHAR select[2000]; 
+    EXEC SQL END DECLARE SECTION;
+
+    /* Get line ids specified by select list now */
+    /* ----------------------------------------- */
+    status = vi_lines(project, line_list, &lines, &numlines);
+    if(status != SUCCESS || numlines <= 0)
+        {
+        fprintf(stderr, "Could not get lineids from select list.\n");
+        fprintf(stderr, "status = %d\n");
+        return status;
+        }
+    
+    /* Allocate working space */
+    /* ---------------------- */
+    tlist = (NLIST_HEADER *)tc_alloc(numhorz*sizeof(NLIST_HEADER));
+    slist = (NLIST_HEADER *)tc_alloc(numhorz*sizeof(NLIST_HEADER));
+    alist = (NLIST_HEADER *)tc_alloc(numhorz*sizeof(NLIST_HEADER));
+    if(idep)
+        {
+        dlist = (NLIST_HEADER *)tc_alloc(numhorz*sizeof(NLIST_HEADER));
+        }
+    first_cdp = (CDP_FLOAT *)tc_alloc(numhorz*sizeof(CDP_FLOAT));
+    last_cdp = (CDP_FLOAT *)tc_alloc(numhorz*sizeof(CDP_FLOAT));
+    cdp_dist = (CDP_FLOAT *)tc_alloc(numhorz*sizeof(CDP_FLOAT));
+    upper_time = (FLOAT *)tc_alloc(numhorz*sizeof(FLOAT));
+    lower_time = (FLOAT *)tc_alloc(numhorz*sizeof(FLOAT));
+    sort_time = (DOUBLE *)tc_alloc(numhorz*sizeof(FLOAT));
+    table_kntt = (UINT *)tc_zalloc(numhorz*sizeof(UINT));
+    table_knts = (UINT *)tc_zalloc(numhorz*sizeof(UINT));
+        
+    /* Loop over lines - line data repeated for each CDP */
+    /* ------------------------------------------------- */
+    nallocated = 1;
+    ncols = 2;
+    Col_List[0] = 1;
+    Col_List[1] = 2;
+    Var_List[0] = (VOIDPTR)&fcdp;
+    Var_List[1] = (VOIDPTR)&ftime;
+    Units[0] = 0;
+    Units[1] = 0;
+    Data_Sizes[0] = sizeof(DOUBLE);
+    Data_Sizes[1] = sizeof(DOUBLE);
+    Data_Types[0] = FLOAT_TYPE;
+    Data_Types[1] = FLOAT_TYPE;
+    cur_line = 0;
+        
+    /* Loop over lines - find 1st line having all horizons */
+    /* (Expensive loop to get strat order of horizons)     */
+    /* --------------------------------------------------- */
+    for (k = 0; k < numlines; k++)
+        {
+        cur_line = lines[k];
+        
+        /* Get line name */
+        /* ------------- */
+        lineid = cur_line;
+        lnstmt.len = sprintf ((char *)lnstmt.arr, 
+        "SELECT LINE_NAME, SURVEY \
+        FROM %s.SEIS_LINE_HDR \
+        WHERE LINE_ID = %d", project, lineid);
+    
+        /* Set error handling */
+        /* ------------------ */
+        EXEC SQL WHENEVER SQLERROR GOTO :not_found;
+        
+        EXEC SQL PREPARE S1 FROM  :lnstmt;
+        EXEC SQL DECLARE C1 CURSOR FOR S1;
+        EXEC SQL OPEN C1;
+        EXEC SQL FETCH C1 INTO :linename, :survname;
+        EXEC SQL CLOSE C1;
+        goto next1;
+        
+        /* Warning message */
+        /* --------------- */
+    not_found:
+        fprintf(stderr, "Line '%s' not found.\n", linename.arr);
+        
+        /* Turnoff error handling */
+        /* ---------------------- */
+    next1:
+        EXEC SQL WHENEVER SQLERROR CONTINUE;
+
+#if 0           
+        V_SETZERO(survname);
+        strcpy(survey, (CHAR *)survname.arr);
+        strcpy (source, "LOADER");
+#endif
+        strcpy(source, srch);
+        strcpy(sourcev, srcv);
+        V_FROMV(fname.survey, survname);
+        V_FROMV(fname.line_name, linename);
+        fname.id = cur_line;
+         
+        max_cdp = 1.e+30;
+        min_cdp = -max_cdp;
+        num_exist = 0;
+           
+        /* Horizon input/setup handling */
+        /* ---------------------------- */
+        for(i = 0; i < numhorz; i++)
+            {
+            
+            /* Initialize the nlists */
+            /* --------------------- */
+            status = se_init_hor_nlist(&tlist[i]);
+            status = se_init_hor_nlist(&slist[i]);
+
+            /* Now input the horizons */
+            /* ---------------------- */
+            version = 0;    
+            status = se_get (&slist[i], &horz[30 * i], SE_HORIZ, SE_VEL_STK,
+                             &fname, sourcev, SE_AT_NM, SE_FINDER, &version,
+                             &upper_time[i], &lower_time[i],
+                             &first_cdp[i], &last_cdp[i]);
+            if (status < SUCCESS)
+                {
+                goto free_list;
+                }
+                
+            version = 0;
+            status = se_get (&tlist[i], &horz[30 * i], SE_HORIZ, SE_TIME,
+                             &fname, source, SE_AT_NM, SE_FINDER, &version,
+                             &upper_time[i], &lower_time[i],
+                             &first_cdp[i], &last_cdp[i]);
+            if (status < SUCCESS)
+                {
+                goto free_list;
+                }
+
+            /* Find cdp range common to all */
+            /* ---------------------------- */
+            min_cdp = MAX(min_cdp, first_cdp[i]);
+            max_cdp = MIN(max_cdp, last_cdp[i]);
+                        
+            /* Get the number of tables in these n-lists */
+            /* ----------------------------------------- */
+            nl_inq_nlist_int(tlist[i], NL_NLIST_NTABLES, (INT *)&table_kntt[i]);
+            nl_inq_nlist_int(slist[i], NL_NLIST_NTABLES, (INT *)&table_knts[i]);
+            
+            /* Make sure tables actually exist for both */
+            /* ---------------------------------------- */
+            if(table_kntt[i] > 0 AND table_knts[i] > 0)
+                {
+                num_exist += 1;
+                }
+        
+            /* Release nlists */
+            /* -------------- */
+free_list:
+            nl_free_nlist(slist[i]);
+            
+            }  /* end of horizon loop */
+            
+        /* Check if all horizons present - if yes, set time order */
+        /* ------------------------------------------------------ */
+        if(num_exist EQUALS numhorz)
+            {
+            if(min_cdp > max_cdp)
+                {
+                num_exist = 0;
+                continue;
+                }
+            
+            /* CDP at which we will determine sort order */
+            /* ----------------------------------------- */ 
+            min_cdp = 0.5*(min_cdp + max_cdp);
+            
+            /* Set sort time array */
+            /* ------------------- */
+            for(i = 0; i < numhorz; i++)
+                {
+                status = vi_get_cdp_value(tlist[i], min_cdp, &sort_time[i]);
+                nl_free_nlist(tlist[i]);
+                }
+                
+            /* Sort/reorder horizon names */
+            /* -------------------------- */
+            for(i = numhorz - 1; i > 0; i--)
+                {
+                for(j = 0; j < i; j++)
+                    {
+                    if(sort_time[j] > sort_time[j + 1])
+                        {
+                        work = sort_time[j];
+                        sort_time[j] = sort_time[j + 1];
+                        sort_time[j + 1] = work;
+                        strcpy(source, &horz[30 * j]);
+                        strcpy(&horz[30 * j], &horz[30 * (j + 1)]);
+                        strcpy(&horz[30 * (j + 1)], source);
+                        }
+                    }
+                }
+            break;
+            }
+            
+        } /* end of line loop */
+    
+    /* If no line contains all horizons, then can't process */
+    /* ---------------------------------------------------- */
+    if(num_exist < numhorz)
+        {
+        fprintf(stderr,"No line contains all specified horizons.\n");
+        fprintf(stderr,"No processing can be done.\n");
+        stat_flag = 1;
+        stat_save = FAIL;
+        goto CLEANUP;
+        }
+            
+    /* Process all lines */
+    /* ----------------- */
+    for (k = 0; k < numlines; k++)
+        {
+        cur_line = lines[k];
+        
+        /* Get line name */
+        /* ------------- */
+        lineid = cur_line;
+        lnstmt.len = sprintf ((char *)lnstmt.arr, 
+        "SELECT LINE_NAME, SURVEY \
+        FROM %s.SEIS_LINE_HDR \
+        WHERE LINE_ID = %d", project, lineid);
+    
+        /* Set error handling */
+        /* ------------------ */
+        EXEC SQL WHENEVER SQLERROR GOTO :not_found2;
+        
+        EXEC SQL PREPARE S2 FROM  :lnstmt;
+        EXEC SQL DECLARE C2 CURSOR FOR S2;
+        EXEC SQL OPEN C2;
+        EXEC SQL FETCH C2 INTO :linename, :survname;
+        EXEC SQL CLOSE C2;
+        goto next2;
+        
+        /* Warning message */
+        /* --------------- */
+    not_found2:
+        continue;
+        
+        /* Turnoff error handling */
+        /* ---------------------- */
+    next2:
+        EXEC SQL WHENEVER SQLERROR CONTINUE;
+         
+        V_SETZERO(survname);
+        strcpy(survey, (CHAR *)survname.arr);
+        fname.id = cur_line;
+        strcpy (fname.survey, survey);
+        V_FROMV(fname.line_name, linename);
+        strcpy (source, srch);                   /* Time     */
+        strcpy (sourcev, srcv);                  /* Velocity */
+         
+        min_cdp = 1.e+30;
+        max_cdp = -min_cdp;
+        num_exist = 0;
+           
+        /* Horizon input loop */
+        /* ------------------ */
+        for(i = 0; i < numhorz; i++)
+            {           
+            /* Initialize the nlists */
+            /* --------------------- */
+            status = se_init_hor_nlist(&tlist[i]);
+            status = se_init_hor_nlist(&slist[i]);
+            status = se_init_hor_nlist(&alist[i]); 
+            if(idep)
+                {   
+                status = se_init_hor_nlist(&dlist[i]);
+                }    
+
+            /* Now input the horizons                         */
+            /* 1st one not existing for line terminates input */
+            /* ---------------------------------------------- */
+            version = 0;
+            status = se_get (&tlist[i], &horz[30 * i], SE_HORIZ, SE_TIME,
+                             &fname, source, SE_AT_NM, SE_FINDER, &version,
+                             &upper_time[i], &lower_time[i],
+                             &first_cdp[i], &last_cdp[i]);
+            if (status < SUCCESS)
+                {
+                break;
+                }
+            
+            version = 0;    
+            status = se_get (&slist[i], &horz[30 * i], SE_HORIZ, SE_VEL_STK,
+                             &fname, sourcev, SE_AT_NM, SE_FINDER, &version,
+                             &upper_time[i], &lower_time[i],
+                             &first_cdp[i], &last_cdp[i]);
+            if (status < SUCCESS)
+                {
+                break;
+                }
+                
+            /* Get the number of tables in these n-lists */
+            /* ----------------------------------------- */
+            nl_inq_nlist_int(tlist[i], NL_NLIST_NTABLES, (INT *)&table_kntt[i]);
+            nl_inq_nlist_int(slist[i], NL_NLIST_NTABLES, (INT *)&table_knts[i]);
+
+            if(table_kntt[i] > 0 AND table_knts[i] > 0)
+                {
+                num_exist += 1;
+                }
+            else
+                {
+                break;
+                }
+                
+            min_cdp = MIN(min_cdp, first_cdp[i]);
+            max_cdp = MAX(max_cdp, last_cdp[i]);
+            
+            }  /* end of horizon input loop */
+           
+        /* Horizon memory allocation and fill */
+        /* ---------------------------------- */
+        num_cdps = (INT)(max_cdp - min_cdp + 1.1);
+        cdps = (INT **)tc_alloc(num_exist * sizeof(INT *));
+        times = (DOUBLE **)tc_alloc(num_exist * sizeof(DOUBLE *));
+        svels = (DOUBLE **)tc_alloc(num_exist * sizeof(DOUBLE *));
+        avels = (DOUBLE **)tc_alloc(num_exist * sizeof(DOUBLE *));
+        if(idep)
+            {
+            deps = (DOUBLE **)tc_alloc(num_exist * sizeof(DOUBLE *));
+            }
+        iwork = (INT *)tc_zalloc(num_cdps * sizeof(INT));
+        dwork = (DOUBLE *)tc_zalloc(num_cdps * sizeof(DOUBLE));
+        for(i = 0; i < num_exist; i++)
+            {
+            cdps[i] = (INT *)tc_zalloc(num_cdps * sizeof(INT));
+            times[i] = (DOUBLE *)tc_zalloc(num_cdps * sizeof(DOUBLE));
+            svels[i] = (DOUBLE *)tc_zalloc(num_cdps * sizeof(DOUBLE));
+            avels[i] = (DOUBLE *)tc_zalloc(num_cdps * sizeof(DOUBLE));
+            if(idep)
+                {
+                deps[i] = (DOUBLE *)tc_zalloc(num_cdps * sizeof(DOUBLE));
+                }
+        
+            /* Read time tables */
+            /* ---------------- */
+            for(j = 0; j < table_kntt[i]; j++)
+                {
+                /* Set the current table active */
+                /* ---------------------------- */
+                nl_set_current_row(tlist[i], 1, j+1);
+
+                /* Get row count for this table */
+                /* ---------------------------- */
+                nl_inq_table_int (tlist[i], j+1, NL_TABLE_NROWS,
+                                  (INT *) &row_knt);
+                                          
+                /* Get start index where to store table contents */
+                /* --------------------------------------------- */
+                icdp = (INT)(min_cdp + 0.1);
+                
+                /* Now get data from nlist */
+                /* ----------------------- */
+                nallocated = row_knt;
+                ncols = 2;
+                Col_List[0] = 1;
+                Col_List[1] = 2;
+                Var_List[0] = (VOIDPTR)iwork;
+                Var_List[1] = (VOIDPTR)dwork;
+                Data_Sizes[0] = sizeof(INT);
+                Data_Sizes[1] = sizeof(DOUBLE);
+                Data_Types[0] = INT_TYPE;
+                Data_Types[1] = FLOAT_TYPE;
+                
+                status = nl_get_rows_convert(tlist[i], nallocated,
+                                             ncols, Col_List, Var_List,
+                                             Units, Data_Sizes,
+                                             Data_Types, (UINT *)&nret);
+                if(status < SUCCESS)
+                    {
+                    fprintf(stderr,"Could not input time values for '%s'\n",
+                            &horz[30 * i]);
+                            
+                    /* Release local memory before clearing out */
+                    /* ---------------------------------------- */
+                    for(m = 0; m <= i; m++)
+                        {
+                        tc_free(times[m]);
+                        tc_free(svels[m]);
+                        tc_free(avels[m]);
+                        if(idep)
+                            {
+                            tc_free(deps[m]);
+                            }
+                        }
+                    tc_free(*times);
+                    tc_free(*svels);
+                    tc_free(*avels);
+                    if(idep)
+                        {
+                        tc_free(*deps);
+                        }
+                    tc_free(iwork);
+                    tc_free(dwork);
+                    
+                    stat_flag = 1;
+                    stat_save = status;
+                    goto CLEANUP;
+                    }
+                    
+                    /* Move data to horizon space interpolating as needed */
+                    /* -------------------------------------------------- */
+                    vi_cdp_intp(row_knt, icdp, iwork, dwork, cdps[i],
+                                times[i]);
+                    
+                } /* end of read time tables loop */
+        
+            /* Read stacking velocity tables */
+            /* ----------------------------- */
+            for(j = 0; j < table_knts[i]; j++)
+                {
+                /* Set the current table active */
+                /* ---------------------------- */
+                nl_set_current_row(slist[i], 1, j+1);
+
+                /* Get row count for this table */
+                /* ---------------------------- */
+                nl_inq_table_int (slist[i], j+1, NL_TABLE_NROWS,
+                                  (INT *) &row_knt);
+
+                                         
+                /* Get start index where to store table contents */
+                /* --------------------------------------------- */
+                icdp = (INT)(min_cdp + 0.1);
+                
+                /* Now get data from nlist */
+                /* ----------------------- */
+                nallocated = row_knt;
+                ncols = 2;
+                Col_List[0] = 1;
+                Col_List[1] = 2;
+                Var_List[0] = (VOIDPTR)iwork;
+                Var_List[1] = (VOIDPTR)dwork;
+                Data_Sizes[0] = sizeof(INT);
+                Data_Sizes[1] = sizeof(DOUBLE);
+                Data_Types[0] = INT_TYPE;
+                Data_Types[1] = FLOAT_TYPE;
+                
+                status = nl_get_rows_convert(slist[i], nallocated,
+                                             ncols, Col_List, Var_List,
+                                             Units, Data_Sizes,
+                                             Data_Types, (UINT *)&nret);
+                if(status < SUCCESS)
+                    {
+                    fprintf(stderr,"Could not input stk vel values for '%s'\n",
+                            &horz[30 * i]);
+                            
+                    /* Release local memory before clearing out */
+                    /* ---------------------------------------- */
+                    for(m = 0; m <= i; m++)
+                        {
+                        tc_free(times[m]);
+                        tc_free(svels[m]);
+                        tc_free(avels[m]);
+                        if(idep)
+                            {
+                            tc_free(deps[m]);
+                            }
+                        }
+                    tc_free(*times);
+                    tc_free(*svels);
+                    tc_free(*avels);
+                    if(idep)
+                        {
+                        tc_free(*deps);
+                        }
+                    tc_free(iwork);
+                    tc_free(dwork);
+                    
+                    stat_flag = 1;
+                    stat_save = status;
+                    goto CLEANUP;
+                    }
+                    
+                    /* Move data to horizon space interpolating as needed */
+                    /* -------------------------------------------------- */
+                    vi_cdp_intp(row_knt, icdp, iwork, dwork, cdps[i],
+                                svels[i]);
+
+                } /* end of read stacking velocity tables loop */
+                
+            }  /* end of horizon allocation/fill loop */
+           
+        /* Velocity processing - get data for each CDP and calc avg vel */
+        /* ------------------------------------------------------------ */
+        tim[0] = 0.0;
+        vel_stk[0] = 0.0;
+        for(i = 0; i < num_cdps; i++)
+            {
+            /* Assemble next velocity function */
+            /* ------------------------------- */
+            for(j = 0; j < num_exist; j++)
+                {
+                tim[j+1] = times[j][i];
+                vel_stk[j+1] = svels[j][i];
+                }
+                
+            /* Validity check velocity function */
+            /* -------------------------------- */
+            knt = 0;
+            for(j = 1; j <= num_exist; j++)
+                {
+                if(tim[j] EQUALS 0.0 || vel_stk[j] EQUALS 0.0)
+                    {
+                    break;
+                    }
+                knt += 1;
+                }
+            if(knt EQUALS 0)
+                {
+                avels[j-1][i] = 0.0;
+                if(idep)
+                    {
+                    deps[j-1][i] = 0.0;
+                    }
+                continue;
+                }
+            knt += 1;
+        
+            /* Calculate average velocity function now */
+            /* --------------------------------------- */
+            status = vi_rms_avg2(knt, tim, vel_stk, vel_avg, &nout);
+            
+            if(status < SUCCESS)
+                {
+                j = cdps[0][i];
+                if(j > 0)
+                    {
+                    fprintf(stderr, "Error in conversion STK to AVG:\n");
+                    fprintf(stderr, "  Line = %d\n",cur_line);
+                    /*j = cdps[0][i] > 0 ? cdps[0][i] : -cdps[0][i];*/
+                    fprintf(stderr, "  CDP  = %d\n",j);
+                    if(status EQUALS -1 || status EQUALS -3)
+                        {
+                        fprintf(stderr, " Times out of order.\n");
+                        }
+                    if(status EQUALS -2 || status EQUALS -3)
+                        {
+                        fprintf(stderr, " Impossible velocity inversion.\n");
+                        }
+                    }
+                }
+                
+            /* Save velocity values back to avg vel horizon array */
+            /* Also save depth values if requested                */
+            /* -------------------------------------------------- */
+            for(j = 1; j < nout; j++)
+                {
+                avels[j-1][i] = vel_avg[j];
+                if(idep)
+                    {
+                    deps[j-1][i] = 0.0005 * vel_avg[j] * tim[j];
+                    }
+                }
+            
+            }  /* end of velocity processing loop */
+        
+        /* Build & save output nlists for this line */
+        /* ---------------------------------------- */
+        for(i = 0; i < num_exist; i++)
+            {            
+            /* Assemble nlist tables for average velocity */
+            /* ------------------------------------------ */
+            ndx = 0;
+            while(ndx < num_cdps)
+                {
+                ndx = vi_mak_tbl(ndx, num_cdps, cdps[i], avels[i], iwork,
+                                 dwork, &knt);
+
+                /* If no points returned, then done */
+                /* -------------------------------- */
+                if(knt EQUALS 0)
+                    {
+                    break;
+                    }
+                    
+                /* Init table */
+                /* ---------- */
+                status = nl_start_table (alist[i], &tbl_num);
+                if (status < SUCCESS)
+                    {
+                    fprintf (stderr, 
+                             "Error return from 'nl_set_current_row' -\n");
+                    fprintf (stderr, "    Status = %d\n", status);
+                    stat_flag = 1;
+                    stat_save = status;
+                            
+                    /* Release local memory before clearing out */
+                    /* ---------------------------------------- */
+                    for(m = 0; m <= i; m++)
+                        {   
+                        tc_free(times[m]);
+                        tc_free(svels[m]);
+                        tc_free(avels[m]);
+                        if(idep)
+                            {
+                            tc_free(deps[m]);
+                            }
+                        }
+                    tc_free(*times);
+                    tc_free(*svels);
+                    tc_free(*avels);
+                    if(idep)
+                        {
+                        tc_free(*deps);
+                        }
+                    tc_free(iwork);
+                    tc_free(dwork);
+                    goto CLEANUP;
+                    }
+                
+                /* Put values into nlist */
+                /* --------------------- */  
+                nallocated = knt;              
+                status = nl_add_rows_convert (alist[i], nallocated, ncols, 
+                                              Col_List, Var_List, Units,
+                                              Data_Sizes, Data_Types);
+                if (status < SUCCESS)
+                    {
+                    fprintf (stderr, "Problem with 'nl_add_rows':status = %d\n",
+                             status);
+                    stat_flag = 1;
+                    stat_save = status;
+                            
+                    /* Release local memory before clearing out */
+                    /* ---------------------------------------- */
+                    for(m = 0; m <= i; m++)
+                        {   
+                        tc_free(times[m]);
+                        tc_free(svels[m]);
+                        tc_free(avels[m]);
+                        if(idep)
+                            {
+                            tc_free(deps[m]);
+                            }
+                        }
+                    tc_free(*times);
+                    tc_free(*svels);
+                    tc_free(*avels);
+                    if(idep)
+                        {
+                        tc_free(*deps);
+                        }
+                    tc_free(iwork);
+                    tc_free(dwork);
+                    goto CLEANUP;
+                    }
+                                 
+                } /* end of assemble average velocity nlist tables loop */
+            
+            /* Assemble nlist tables for depth */
+            /* ------------------------------- */
+            ndx = 0;
+            while(idep AND ndx < num_cdps)
+                {
+                ndx = vi_mak_tbl(ndx, num_cdps, cdps[i], deps[i], iwork,
+                                 dwork, &knt);
+
+                /* If no points returned, then done */
+                /* -------------------------------- */
+                if(knt EQUALS 0)
+                    {
+                    break;
+                    }
+                    
+                /* Init table */
+                /* ---------- */
+                status = nl_start_table (dlist[i], &tbl_num);
+                if (status < SUCCESS)
+                    {
+                    fprintf (stderr, 
+                             "Error return from 'nl_set_current_row' -\n");
+                    fprintf (stderr, "    Status = %d\n", status);
+                    stat_flag = 1;
+                    stat_save = status;
+                            
+                    /* Release local memory before clearing out */
+                    /* ---------------------------------------- */
+                    for(m = 0; m <= i; m++)
+                        {   
+                        tc_free(times[m]);
+                        tc_free(svels[m]);
+                        tc_free(avels[m]);
+                        if(idep)
+                            {
+                            tc_free(deps[m]);
+                            }
+                        }
+                    tc_free(*times);
+                    tc_free(*svels);
+                    tc_free(*avels);
+                    if(idep)
+                        {
+                        tc_free(*deps);
+                        }
+                    tc_free(iwork);
+                    tc_free(dwork);
+                    goto CLEANUP;
+                    }
+                
+                /* Put values into nlist */
+                /* --------------------- */  
+                nallocated = knt;              
+                status = nl_add_rows_convert (dlist[i], nallocated, ncols, 
+                                              Col_List, Var_List, Units,
+                                              Data_Sizes, Data_Types);
+                if (status < SUCCESS)
+                    {
+                    fprintf (stderr, "Problem with 'nl_add_rows':status = %d\n",
+                             status);
+                    stat_flag = 1;
+                    stat_save = status;
+                            
+                    /* Release local memory before clearing out */
+                    /* ---------------------------------------- */
+                    for(m = 0; m <= i; m++)
+                        {   
+                        tc_free(times[m]);
+                        tc_free(svels[m]);
+                        tc_free(avels[m]);
+                        if(idep)
+                            {
+                            tc_free(deps[m]);
+                            }
+                        }
+                    tc_free(*times);
+                    tc_free(*svels);
+                    tc_free(*avels);
+                    if(idep)
+                        {
+                        tc_free(*deps);
+                        }
+                    tc_free(iwork);
+                    tc_free(dwork);
+                    goto CLEANUP;
+                    }
+                                 
+                } /* end of assemble depth nlist tables loop */
+            
+            /* Output average velocity nlist */
+            /* ----------------------------- */
+            version = 0;
+            status = se_put (alist[i], &horz[30 * i], SE_HORIZ,
+                             SE_VEL_AVG, &fname, sourcev,
+                             SE_AT_NM, SE_FINDER, version);      
+            if (status < SUCCESS)
+                {
+                fprintf (stderr, "Failed in call to se_put -\n");
+                fprintf (stderr, "    Horizon name = %s\n", &horz[30 * i]);
+                fprintf (stderr, "    Line No = %d\n", cur_line);
+                fprintf (stderr, "    Status = %d\n", status);
+                stat_flag = 1;
+                stat_save = status;
+                            
+                /* Release local memory before clearing out */
+                /* ---------------------------------------- */
+                for(m = 0; m <= i; m++)
+                    {   
+                    tc_free(times[m]);
+                    tc_free(svels[m]);
+                    tc_free(avels[m]);
+                    if(idep)
+                        {
+                        tc_free(deps[m]);
+                        }
+                    }
+                tc_free(*times);
+                tc_free(*svels);
+                tc_free(*avels);
+                    if(idep)
+                        {
+                        tc_free(*deps);
+                        }
+                tc_free(iwork);
+                tc_free(dwork);
+                goto CLEANUP;
+                }
+            
+            /* Output depth nlist */
+            /* ------------------ */
+            if(idep)
+                {
+                version = 0;
+                status = se_put (dlist[i], &horz[30 * i], SE_HORIZ,
+                                 SE_DEPTH, &fname, sourcev,
+                                 SE_AT_NM, SE_FINDER, version);      
+                if (status < SUCCESS)
+                    {
+                    fprintf (stderr, "Failed in call to se_put -\n");
+                    fprintf (stderr, "    Horizon name = %s\n", &horz[30 * i]);
+                    fprintf (stderr, "    Line No = %d\n", cur_line);
+                    fprintf (stderr, "    Status = %d\n", status);
+                    stat_flag = 1;
+                    stat_save = status;
+                            
+                    /* Release local memory before clearing out */
+                    /* ---------------------------------------- */
+                    for(m = 0; m <= i; m++)
+                        {   
+                        tc_free(times[m]);
+                        tc_free(svels[m]);
+                        tc_free(avels[m]);
+                        if(idep)
+                            {
+                            tc_free(deps[m]);
+                            }
+                        }
+                    tc_free(*times);
+                    tc_free(*svels);
+                    tc_free(*avels);
+                    if(idep)
+                        {
+                        tc_free(*deps);
+                        }
+                    tc_free(iwork);
+                    tc_free(dwork);
+                    goto CLEANUP;
+                    }
+                }
+                
+            /* update seis_hor_codes */
+            /* (ok if dup. key error)*/
+            /* --------------------- */
+            select.len = sprintf((char *)select.arr,
+            "INSERT INTO %s.SEIS_HOR_CODES \
+            (HOR_CODE,DISPLAY_NAME) \
+            VALUES ('%s','%s')", project, &horz[30 * i], &horz[30 * i]);   
+                      
+            EXEC SQL EXECUTE IMMEDIATE :select;       
+                                
+            } /* end of output nlist save loop */
+            
+        /* Release nlists */
+        /* -------------- */
+        for(i = 0; i < num_exist; i++)
+            {
+            nl_free_nlist(tlist[i]);
+            nl_free_nlist(slist[i]);
+            nl_free_nlist(alist[i]);
+            if(idep)
+                {
+                nl_free_nlist(dlist[i]);
+                }
+            }
+        } /* end of line loop */
+        
+    EXEC SQL COMMIT WORK;
+    
+    /* Free work space */
+    /* --------------- */
+    for(m = 0; m < num_exist; m++)
+        {   
+        tc_free(times[m]);
+        tc_free(svels[m]);
+        tc_free(avels[m]);
+        if(idep)
+            {
+            tc_free(deps[m]);
+            }
+        }
+    tc_free(*times);
+    tc_free(*svels);
+    tc_free(*avels);
+    if(idep)
+        {
+        tc_free(*deps);
+        }
+    tc_free(iwork);
+    tc_free(dwork);      
+
+
+    /* All ok - clear status flag */
+    /* -------------------------- */
+    stat_flag = 0;
+    
+    /* Deallocate work space */
+    /* --------------------- */
+CLEANUP:
+    tc_free (tlist);
+    tc_free (slist);
+    tc_free (alist);
+    if(idep)
+        {
+        tc_free (dlist);
+        }
+    tc_free (first_cdp);
+    tc_free (last_cdp);
+    tc_free (upper_time);
+    tc_free (lower_time);
+    tc_free (table_kntt);
+    tc_free (table_knts);
+    
+    /* Clear out old pointer values */
+    /* ---------------------------- */
+    if (stat_flag)
+        {
+        status = stat_save;
+        }
+    else
+        {
+        status = SUCCESS;
+        }
+    return status;
+    
+nospace:
+    fprintf (stderr, "Could not allocate space for one or more variables.\n");
+    stat_save = -1;
+    stat_flag = 1;
+    goto CLEANUP;
+
+serr:
+    status = OR_STATUS;
+    fprintf(stderr,"SQL error: %d occurred.\n%-70.70s\n",
+        OR_STATUS,OR_MESSAGE);
+    return status; 
+}

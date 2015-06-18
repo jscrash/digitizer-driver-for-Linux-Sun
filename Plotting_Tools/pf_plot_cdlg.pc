@@ -1,0 +1,279 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element PF_PLOT_CDLG.PC*/
+/* *3    17-AUG-1990 22:11:32 VINCE "(SPR 5644) Code Cleanup"*/
+/* *2    18-DEC-1989 16:40:51 PURNA "(SPR 5069) export facility mods"*/
+/* *1    19-JUN-1989 12:35:56 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element PF_PLOT_CDLG.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_pf.h"
+#include "esi_fi.h"
+#include "esi_ho.h"
+#include "esi_am.h"
+#include "esi_tc.h"
+#include "esi_wi.h"
+#include "esi_oracle.h"
+#include "pf_cdlgs.rh"
+static CHAR PF_RESOURCE_FILE[] = "PF_CDLGS";
+
+#define pfmsg(str)  wiscdt(pfs->cdlgids.pf_choose_id,PF_SELPLOT_MSG, str)
+#define SET_SELECTED_LOGICAL   FALSE
+
+#if USE_PROTOTYPES
+static INT pfzz_stats (PF_STRUCT *pfs);
+
+#else       /* no prototypes */
+static INT pfzz_stats ();
+
+#endif      /* of #if USE_PROTOTYPES */
+
+/* File Description ---------------------------------------------------------
+Overview:
+
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT pf_plotter_cdlg(PDS *pinfo_struct);
+
+Private_Functions:
+    static INT pfzz_stats (PF_STRUCT *pfs);
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT pf_plotter_cdlg(PDS *pinfo_struct);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    pinfo_struct    -(PDS *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    CANCEL
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT pf_plotter_cdlg (PDS *pinfo_struct)
+#else
+publicdef INT pf_plotter_cdlg (pinfo_struct)
+PDS *pinfo_struct;
+#endif
+    {
+    INT tempnpens = 0;
+    PDS *pinfo;
+    PF_STRUCT *pfs;
+    INT status = SUCCESS, i, tmplen = 0, default_index = 0, use_default = FALSE,
+                 event_id = 0, item = 0, done = FALSE, id = 0, event_class = 0,
+                 exitmode = SUCCESS;    /* SUCCESS, CANCEL, FAIL */
+    
+    CHAR default_pname[55], string[255];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR plotter_name[80];
+    int num_plotters;
+    EXEC SQL END DECLARE SECTION;
+    
+    /************************** Start Code **************************/
+    
+    num_plotters = 0;
+    use_default = FALSE;
+    
+    pfs = (PF_STRUCT *)tc_zalloc (sizeof(PF_STRUCT));
+    pfs->selected_plotter = (PDS *)tc_zalloc (sizeof(PDS));
+    
+    pfs->sp.index = 0;
+    pfs->sp.num_plotters = 0;
+    fi_push ();
+    
+    status = am_define_resource (AM_DIALOG, PF_RESOURCE_FILE, PF_SELECT_PLOTTER,
+                                 NULL_FUNCTION_PTR, &id, NULL);
+    
+    pfs->cdlgids.pf_choose_id = id;
+    
+    EXEC SQL SELECT COUNT (*)INTO : num_plotters FROM ESI.FINDER_PLOTTERS;
+    
+    if (num_plotters > 0)
+        {
+        pfs->pname_tcp = (CHAR **)tc_zalloc (sizeof(CHAR *) * (num_plotters + 1));
+        
+        pfs->sp.num_plotters = num_plotters;
+        
+        EXEC SQL DECLARE DB_DEVICES CURSOR FOR SELECT NAME FROM ESI.
+            FINDER_PLOTTERS ORDER BY NAME;
+        
+        EXEC SQL OPEN DB_DEVICES;
+        EXEC SQL FETCH DB_DEVICES INTO : plotter_name;
+        
+        for (i = 0; OR_STATUS == SUCCESS; i++)
+            {
+            V_SETZERO (plotter_name);
+            
+            pfs->pname_tcp[i] = (CHAR *)tc_zalloc (plotter_name.len + 1);
+            strcpy (pfs->pname_tcp[i], (char *)plotter_name.arr);
+            
+            if (!strcmp (pfs->pname_tcp[i], default_pname))
+                {
+                use_default = TRUE;
+                default_index = i + 1;
+                }
+            EXEC SQL FETCH DB_DEVICES INTO : plotter_name;
+            }
+        EXEC SQL CLOSE DB_DEVICES;
+        pfs->sp.index = 0;
+        wiencdi (pfs->cdlgids.pf_choose_id, PF_SELPLOT_INFO_BTN, ON);
+        wiencdi (pfs->cdlgids.pf_choose_id, PF_SELPLOT_ACCEPT_BTN, ON);
+        wiencdi (pfs->cdlgids.pf_choose_id, PF_SELPLOT_CANCEL_BTN, ON);
+        wiencdi (pfs->cdlgids.pf_choose_id, PF_SELPLOT_SELECT_BTN, ON);
+        status = wiopcd (pfs->cdlgids.pf_choose_id);
+        event_id = pfs->cdlgids.pf_choose_id + 1;
+        
+        wiscdt (id, PF_SELPLOT_PLOTTER_DISP, pfs->pname_tcp[pfs->sp.index]);
+        pfmsg ("Press SELECT to choose a plotter");
+        
+        exitmode = SUCCESS;
+        done = FALSE;
+        while (done == FALSE)
+            {
+            wi_request_event (0, &event_class, &event_id, &item);
+            if (event_id != pfs->cdlgids.pf_choose_id)
+                wibeep (2);
+            else
+                switch (item)
+                {
+            case PF_SELPLOT_CANCEL_BTN:
+                done = TRUE;
+                exitmode = CANCEL;
+                break;
+                
+            case PF_SELPLOT_ACCEPT_BTN:
+                if ((pfs->sp.index > pfs->sp.num_plotters) OR (pfs->sp.index < 0))
+                    {
+                    sprintf (string, "Bad index range: %d", pfs->sp.index);
+                    pfs->sp.index = 0;
+                    pfmsg (string);
+                    done = FALSE;
+                    break;
+                    }
+                strcpy (pfs->selected_plotter->name, pfs->pname_tcp[pfs->sp.index]);
+                
+                status = pf_inq_plotter (pfs->pname_tcp[pfs->sp.index],
+                                         pfs->selected_plotter);
+                if (status == FAIL)
+                    {
+                    sprintf (string, "\"%s\" Offline.", pfs->pname_tcp[pfs->sp.index]);
+                    pfmsg (string);
+                    done = FALSE;
+                    }
+                else
+                    {
+                    done = TRUE;
+                    exitmode = SUCCESS;
+                    pfzz_stats (pfs);
+#if SET_SELECTED_LOGICAL == TRUE
+                    status = ho_set_logical_name (NULL, "ESI$SELECTED_PLOTTER",
+                                                  pfs->selected_plotter->name, 0,
+                                                  FALSE);
+#endif
+                    }
+                break;
+                
+            case PF_SELPLOT_SELECT_BTN:
+                if (pfs->sp.index < 0)
+                    pfs->sp.index = 0;
+                pfs->sp.index++;
+                if (pfs->sp.index >= pfs->sp.num_plotters)
+                    pfs->sp.index = 0;
+                wiscdt (id, PF_SELPLOT_PLOTTER_DISP, pfs->pname_tcp[pfs->sp.index]);
+                done = FALSE;
+                break;
+                
+            case PF_SELPLOT_INFO_BTN:
+                if (pfs->sp.index < 0)
+                    pfs->sp.index = 0;
+                pf_inq_plotter (pfs->pname_tcp[pfs->sp.index], pfs->selected_plotter);
+                pfzz_stats (pfs);
+                done = FALSE;
+                
+            default:
+                done = FALSE;
+                break;
+                }
+            }
+        am_release_resource (pfs->cdlgids.pf_choose_id);
+        fi_pop ();
+        if (pinfo_struct != (PDS *)0 AND (strlen (pfs->selected_plotter->name)))
+            hoblockmove (pfs->selected_plotter, pinfo_struct, sizeof(PDS));
+        }
+    else
+        {
+        am_message (AM_STATUS, "Sorry, No plotters available. ");
+        }
+    return exitmode;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT pfzz_stats(PF_STRUCT *pfs);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    pfs             -(PF_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PRIVATE to <pf_plot_cdlg.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT pfzz_stats (PF_STRUCT *pfs)
+#else
+static INT pfzz_stats (pfs)
+PF_STRUCT *pfs;
+#endif
+    {
+    INT status;
+    CHAR string[255];
+    
+    sprintf (string, "Stat:%s   Size: %3.2f, %3.2f  Queue: %s",
+             pfs->selected_plotter->status, pfs->selected_plotter->xsize,
+             pfs->selected_plotter->ysize, pfs->selected_plotter->queue);
+    pfmsg (string);
+    return SUCCESS;
+    }
+/* END:     */

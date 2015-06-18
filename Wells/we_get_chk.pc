@@ -1,0 +1,247 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element WE_GET_CHK.PC*/
+/* *7    14-AUG-1990 13:39:16 VINCE "(SPR 5644) Header Standardization"*/
+/* *6     7-MAR-1990 18:13:02 GILLESPIE "(SPR 1) Change tu... argument from FLOAT to DOUBLE"*/
+/* *5    23-JAN-1990 12:33:37 GILLESPIE "(SPR 6001) Change all [21] sizes to [24] for RISC machines"*/
+/* *4    14-SEP-1989 16:21:12 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *3    13-AUG-1989 02:08:06 GILLESPIE "(SPR 5) Fixes for Gulf Schema changes"*/
+/* *2    26-JUN-1989 11:05:24 GILLESPIE "(SPR 20) Fix castings"*/
+/* *1    19-JUN-1989 12:41:56 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element WE_GET_CHK.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_we_wells.h"
+#include "esi_c_lib.h"
+#include "esi_oracle.h"
+#include "esi_am.h"
+#include "esi_qs.h"
+#include "esi_tu.h"
+#include "esi_we_err.h"
+#include "esi_gl_project.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+    Read checkshot survey from database.
+    Caller must pass in the number of available slots in the provided
+    time/depth arrays on input using nck; nck will be filled with the
+    actual number of time/depth pairs returned on return .
+    
+Prototype:
+    publicdef VOID we_get_checkshots(UWI uwi,INT  *status,INT  *ck_waytime,
+        INT  *ck_datum,INT  *nck,FLOAT *time,FLOAT *depth,FLOAT *ve,FLOAT *unit);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    uwi             -(UWI) Uwi.
+    status          -(INT  *) Success or fail.
+    ck_waytime      -(INT  *) 1 way or 2 ways travel time.
+    ck_datum        -(INT  *) Elevation of checkshot_survey datum -not converted.
+    nck             -(INT  *) N pairs retrieved.
+    time            -(FLOAT *) -\
+    depth           -(FLOAT *) Time depth pair arrays, time in second, depth in feet.
+    ve              -(FLOAT *) Ve (correction velocity) in feet per second.
+    unit            -(FLOAT *) Unit value in feet of depth uom (1 if feet, 
+                        1/.3048 if meters.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+    WE_EXCESS_CHECKSHOTS
+    WE_NO_CHECKSHOTS
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef VOID we_get_checkshots (UWI uwi, INT *status, INT *ck_waytime, INT *ck_datum,
+                                  INT *nck, FLOAT *time, FLOAT *depth, FLOAT *ve,
+                                  FLOAT *unit) 
+#else
+publicdef VOID we_get_checkshots (uwi, status, ck_waytime, ck_datum, nck, time, depth,
+                                  ve, unit)
+UWI uwi;
+INT *status;
+INT *ck_waytime;
+INT *ck_datum;
+INT *nck;
+FLOAT *time, *depth;
+FLOAT *ve;
+FLOAT *unit;
+#endif
+    {
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR uwi_db[24];
+    VARCHAR units_db[41];
+    VARCHAR stmt[255];
+    int onetwoway;
+    int datum;
+    int elevation;
+    float correction_velocity;
+    float time_array[50];
+    float depth_array[50];
+    EXEC SQL END DECLARE SECTION;
+    
+    INT nrecs = 251;                /*  maximum number of checkshot points permitted */
+    INT i, j, stat;
+    FLOAT *point;
+    DOUBLE coeff;
+    PROJECT_NAME project;
+    CHAR units[41];
+    PROJECT_DEFAULT *project_defaults;
+    
+    point = depth;
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    V_FROMC (uwi_db, uwi);
+    
+    /*      INQUIRE WHAT ARE THE UNITS TO CONVERT EVERYTHING TO FEET     */
+    am_open_workspace ("PROJECT_DEFAULTS", AM_GLOBAL, (VOIDPTR *) & project_defaults);
+    
+    EXEC SQL WHENEVER SQLERROR GOTO ERR;
+    
+    strcpy (units, project_defaults->unit.log_depth);
+    
+    stat = tu_unit_conversion (1., units, &coeff, "FEET");
+    if (stat != SUCCESS)
+        {
+        *status = FAIL;
+        return;
+        }
+    *unit = coeff;
+    if (abs (*unit - 1.) < 0.0001)
+        *unit = 1.;
+    
+    /* NOTE:  This code assumes that the time values are to be returned in
+    SECONDS, and converts any MSEC values to SECONDS on retrieval.
+    If this is causing problems, user should not place MSEC value in UNITS field */
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT MEASURED_DEPTH, TIME * DECODE(TIME_UNIT,'SEC',1.0,'MSEC',.001,1.0)\
+FROM %s.WELL_CHECKSHT_SRVY \
+WHERE UWI = :uwi \
+ORDER BY MEASURED_DEPTH"
+            , project);
+    
+    EXEC SQL PREPARE S1 FROM : stmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1 USING : uwi_db;
+    
+    /* fetch the database rows into the programmer-defined space */
+    for (*nck = 0; OR_STATUS EQUALS SUCCESS AND * nck < nrecs;  * nck += OR_ROWCOUNT)
+        {
+        EXEC SQL FETCH C1 INTO : depth_array,  : time_array;
+        for (i = 0; i < OR_ROWCOUNT AND (*nck + i) < nrecs; i++)
+            {
+            *depth++ = depth_array[i];
+            *time++ = time_array[i];
+            }
+        }
+    EXEC SQL CLOSE C1;
+    
+    if (*nck > 0)
+        {
+        stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT NVL(CHECKSHOT_12WAY,1), \
+NVL( CHECKSHOT_DATUM, -999),\
+NVL( CHECKSHOT_VSD, -999), \
+ELEVATION  \
+FROM %s.WELL_CHECKSHOT_HDR A, %s.WELL_HDR B \
+WHERE A.UWI = B.UWI AND UWI = :uwi"
+                , project);
+        
+        EXEC SQL PREPARE S2 FROM : stmt;
+        EXEC SQL DECLARE C2 CURSOR FOR S2;
+        
+        EXEC SQL OPEN C2 USING : uwi_db;
+        EXEC SQL FETCH C2 INTO : onetwoway,  : datum,  : correction_velocity,
+            : elevation;
+        
+        EXEC SQL CLOSE C2;
+        
+        *ck_waytime = onetwoway;
+        if (datum != -999)
+            *ck_datum = datum;
+        else
+            *ck_datum = elevation;
+        if (correction_velocity != -999)
+            *ve = correction_velocity;
+        else
+            *ve = 6500;
+        
+        /*  reference everything to checkshot_datum     */
+        /*  and skip eventual negative values       */
+        if (elevation != *ck_datum)
+            {
+            depth = point;
+            j = 0;
+            for (i = 0; i < *nck; i++)
+                {
+                depth[i] += (*ck_datum - elevation);
+                if (depth[i] > 0)
+                    {
+                    depth[j] = depth[i];
+                    j++;
+                    }
+                }
+            if (j > 0)
+                *nck = j;
+            else
+                {
+                *status = FAIL;
+                return;
+                }
+            }
+        /*  now convert everything to feeeeet          */
+        if (*unit != 1.)
+            {
+            depth = point;
+            for (i = 0; i < *nck; i++)
+                {
+                depth[i] *= *unit;
+                }
+            *ck_datum *= *unit;
+            
+            if (correction_velocity != -999)
+                *ve *= *unit;
+            }
+        }
+ERR:
+    if (*nck EQUALS 0)
+        {
+        *status = WE_NO_CHECKSHOTS;
+        }
+    else if (*nck EQUALS nrecs)     /* more checkshots exist than room to
+                                    store them */
+        {
+        *status = WE_EXCESS_CHECKSHOTS;
+        }
+    else
+        {
+        *status = OR_STATUS;
+        }
+    return;
+    }
+/* END-CODE */
+/* END:     */

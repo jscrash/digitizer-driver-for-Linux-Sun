@@ -1,0 +1,485 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element CP_CALL_BATCH.PC */
+/* *11   16-SEP-1991 16:35:46 PURNA "(SPR 0) follow up on prev mod" */
+/* *10   13-SEP-1991 14:22:58 PURNA "(SPR 0) Added error check" */
+/* *9    14-AUG-1991 11:57:15 KEE "(SPR -1) Put in File Lock/Unlock logic" */
+/* *8    12-AUG-1991 13:51:00 PURNA "(SPR 0) added \n at the end of script file" */
+/* *7    14-JUN-1991 16:56:06 PURNA "(SPR 0) change calls to batch job" */
+/* *6    13-JUN-1991 09:48:50 PURNA "(SPR 0) rename batch job" */
+/* *5    11-JUN-1991 12:43:18 PURNA "(SPR 0) update user interface" */
+/* *4     6-MAY-1991 17:18:00 PURNA "(SPR 0) init change" */
+/* *3     6-MAY-1991 16:40:46 PURNA "(SPR 0) init change" */
+/* *2    31-JUL-1990 17:13:53 PURNA "(SPR 0) remove include esi_qs.h" */
+/* *1     7-DEC-1989 16:05:48 PURNA "export facility" */
+/* DEC/CMS REPLACEMENT HISTORY, Element CP_CALL_BATCH.PC */
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_GL_VCHAR_H
+#include "esi_gl_vchar.h"
+#endif
+#ifndef ESI_CP_ERR_H
+#include "esi_cp_err.h"
+#endif
+#ifndef ESI_CP_H
+#include "esi_cp.h"
+#endif
+#ifndef ESI_SL_H
+#include "esi_sl.h"
+#endif
+#ifndef ESI_HO_H
+#include "esi_ho.h"
+#endif
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_MP_H
+#include "esi_mp.h"
+#endif
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+static INT cpz_load_sl();
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+/* EXEC ORACLE OPTION (REBIND = NO); */
+static INT type_flag;
+
+publicdef INT cp_test_dtype(pex,ret_status)
+CP_STRUCT *pex;
+INT *ret_status;
+{
+	CHAR unique_name[64];
+	NLIST_HEADER select_list;
+	INT status;
+	DOUBLE xmin,ymin,xmax,ymax;	
+	PROJECTION_ID other_projection;
+	PROJECTION_STRUCTURE *map_data,*other_data;
+
+	sprintf(unique_name,"%s$%s",pex->source_name,pex->dests_name);
+	type_flag = 0;
+	if(pex->well_option != CP_NONE_OPTION)
+	    {
+	    status = cpz_load_sl(WELLS_DATA_TYPE,pex,pex->well_option,
+				&select_list);
+	    if(status != SUCCESS)
+		{
+		*ret_status = status;
+	    	return CP_LOAD_WELL_FAIL;
+		}
+	    status = or_load_wells(unique_name,select_list);
+	    if(status != SUCCESS)
+		{
+		*ret_status = status;
+	    	return CP_LOAD_WELL_FAIL;
+		}
+	    nl_free_nlist(select_list);
+	    type_flag += CP_WELL_DTYPE;
+	    }
+	if(pex->seismic_option != CP_NONE_OPTION)
+	    {
+	    status = cpz_load_sl(SEISMIC_DATA_TYPE,pex,pex->seismic_option,
+				&select_list);
+	    if(status != SUCCESS)
+		{
+		*ret_status = status;
+	    	return CP_LOAD_SEIS_FAIL;
+		}
+	    status = or_load_seismic(unique_name,select_list);
+	    if(status != SUCCESS)
+		{
+		*ret_status = status;
+	    	return CP_LOAD_SEIS_FAIL;
+		}
+	    nl_free_nlist(select_list);
+	    type_flag += CP_SEISMIC_DTYPE;
+	    }
+	if(pex->culture_option != CP_NONE_OPTION)
+	    {
+	    status = cpz_load_sl(LYNX_DATA_TYPE,pex,pex->culture_option,
+				&select_list);
+	    if(status != SUCCESS)
+		{
+		*ret_status = status;
+	    	return CP_LOAD_LYNX_FAIL;
+		}
+	    status = or_load_lynx(unique_name,select_list);
+	    if(status != SUCCESS)
+		{
+		*ret_status = status;
+	    	return CP_LOAD_LYNX_FAIL;
+		}
+	    nl_free_nlist(select_list);
+	    type_flag += CP_CULTURE_DTYPE;
+	    }
+	if(pex->lease_option != CP_NONE_OPTION)
+	    {
+	    status = cpz_load_sl(LEASE_DATA_TYPE,pex,pex->lease_option,
+				&select_list);
+	    if(status != SUCCESS)
+		{
+		*ret_status = status;
+	    	return CP_LOAD_LEASE_FAIL;
+		}
+	    status = or_load_lease(unique_name,select_list);
+	    if(status != SUCCESS)
+		{
+		*ret_status = status;
+	    	return CP_LOAD_LEASE_FAIL;
+		}
+	    nl_free_nlist(select_list);
+	    type_flag += CP_LEASE_DTYPE;
+	    }
+	if(pex->go_option != CP_NONE_OPTION)
+	    {
+	    qs_inq_c (QS_PROJECT_PROJECTION, other_projection, (INT *)0);
+            if(ARE_DIFFERENT(other_projection,pex->map_projection))
+        	{
+        	ct_get_projection (other_projection, &other_data);
+        	ct_get_projection (pex->map_projection, &map_data);
+        	ct_transform_point (pex->ll_x,pex->ll_y, map_data,
+                        &xmin, &ymin, other_data);
+        	ct_transform_point (pex->ur_x,pex->ur_y, map_data,
+                        &xmax, &ymax, other_data);
+        	}
+	    else
+		{
+		xmin = pex->ll_x;
+		ymin = pex->ll_y;
+		xmax = pex->ur_x;
+		ymax = pex->ur_y;
+		}
+	
+	    type_flag += CP_GRAPHIC_OBJECT;
+	    if(pex->geo_selection_type EQUALS CP_GEO_NO_CONST)
+		{
+	    	status = or_load_graphic_object(unique_name,FALSE,
+			xmin,ymin,xmax,ymax);
+		}
+	    else
+		{
+		status = or_load_graphic_object(unique_name,TRUE,
+			xmin,ymin,xmax,ymax);
+		}
+	    if(status != SUCCESS)
+		{
+		*ret_status = status;
+	    	return CP_LOAD_GO_FAIL;
+		}
+	    }
+
+    if(type_flag EQUALS 0)
+	return CP_NO_DATA_TYPE;
+
+	type_flag += CP_CODES_DTYPE;
+
+  return SUCCESS;  
+}
+
+
+/****************************************************************************/
+/*									    */
+/*  CP_CALL_BATCH							    */
+/*									    */
+/*  Batch job to Copy seismic and well table driven by select list	    */
+/*  from source project to target project				    */
+/*									    */
+/*  Returns:  SUCCESS							    */
+/*									    */
+/****************************************************************************/
+
+publicdef INT cp_call_batch(pex,ret_status)
+CP_STRUCT *pex;
+INT *ret_status;
+{	
+    	FILENAME fi_account, fi_password, fi_database;
+	CHAR arg_list[256];
+	CHAR temp_list[256];
+	CHAR syscall[1024];
+	INT status;
+	INT batch_process_id;
+	INT option_flag;
+	FILENAME comi_file;
+	FILE *comi_fp;
+        DATE_TIME date_tag;
+
+        EXEC SQL BEGIN DECLARE SECTION;
+	    long proc_id;
+        EXEC SQL END DECLARE SECTION;
+
+        EXEC SQL SELECT USERENV('SESSIONID') INTO :proc_id FROM DUAL;
+
+    qs_inq_c (QS_FINDER_ACCOUNT, fi_account, (INT *)0);
+    qs_inq_c (QS_FINDER_PASSWORD, fi_password, (INT *)0);
+    qs_inq_c (QS_DATABASE, fi_database, (INT *)0);
+
+    if (strlen (fi_database) != 0)
+	{
+	strcat(fi_password,"@");
+	strcat(fi_password,fi_database);
+	}
+
+    option_flag = 0;
+    if(pex->update_option)
+	option_flag += CP_UPDATE_OPTION;
+
+    ho_date_tag (date_tag);
+
+    /*    name of the script file which is submitted to run the loader  */
+    if (pex->dests_type EQUALS CP_EXT_APPL)
+	{
+#if UNIX
+    	sprintf (temp_list, "datamover_script_%s", date_tag);
+#else
+    	strcpy (temp_list, "datamover_script.com");
+#endif
+
+    	status = ho_add_path("ESI$SCRATCH",temp_list,MAXPATHLENGTH,
+                       comi_file);
+
+    	/* Create command file */
+    	comi_fp = (FILE *)ho_open (comi_file, "w", NULL);
+	status = ho_lock(comi_fp, ON);
+    	if (comi_fp EQUALS NULL_FILE_PTR || status != SUCCESS)
+            {
+            return CP_CANNOT_OPEN_FILE;
+            }
+
+#ifdef vms
+    	fprintf (comi_fp, "$ GS_FINDER_CLIENT :== $ESI$BIN:GS_FINDER_CLIENT\n");
+    	fprintf (comi_fp, "$ GS_FINDER_CLIENT ");
+    	fprintf (comi_fp, " %s/%s", fi_account,fi_password);
+	fprintf (comi_fp, " -proj %s",pex->source_name);
+	fprintf (comi_fp, " -pid %d",proc_id);
+	fprintf (comi_fp, " -receiver %s",pex->dests_name);
+	fprintf (comi_fp, " -type %d",type_flag);
+	fprintf (comi_fp, " -arg %s\n",pex->ext_appl_arg);
+    	fprintf (comi_fp, "$EXIT \n");
+#endif
+
+#if UNIX
+    	ho_add_path("ESI$BIN","gs_finder_client",sizeof(FILENAME),temp_list);
+    	fprintf (comi_fp, "#!/bin/csh -f\n");
+    	fprintf (comi_fp, "# Temporary script file created by Finder.\n");
+    	fprintf (comi_fp, "#\n# THIS FILE MAY BE DELETED.\n");
+    	fprintf (comi_fp, "%s", temp_list);
+    	fprintf (comi_fp, " %s/%s", fi_account,fi_password);
+	fprintf (comi_fp, " -proj %s",pex->source_name);
+	fprintf (comi_fp, " -pid %d",proc_id);
+	fprintf (comi_fp, " -receiver %s",pex->dests_name);
+	fprintf (comi_fp, " -type %d",type_flag);
+	fprintf (comi_fp, " -arg %s\n",pex->ext_appl_arg);
+#endif
+	status = ho_lock(comi_fp, OFF);	
+	fclose (comi_fp);
+	status = ho_spawn(SPAWN_BATCH, comi_file, "DELETE", &batch_process_id);
+        }
+    else
+	{
+    	ho_add_path("ESI$BIN","datamover_main",sizeof(FILENAME),temp_list);
+	sprintf (arg_list,"\"%s/%s\", \"%s\", \"%s\", \"%d\", \"%d\", \"%d\"",
+		fi_account,fi_password,
+		pex->source_name,
+		pex->dests_name,
+		proc_id,type_flag,option_flag);
+    	status = ho_spawn (SPAWN_BATCH, temp_list, arg_list, &batch_process_id);
+	}
+
+    if(status != SUCCESS)
+	{
+	*ret_status = status;
+	return CP_BATCH_JOB_FAIL;
+	}
+
+    return SUCCESS;
+}
+
+
+static INT cpz_load_sl(data_type,pex,option,ret_sl_list)
+SL_DATA_TYPE data_type;
+CP_STRUCT *pex;
+INT option;
+NLIST_HEADER *ret_sl_list;
+{
+    INT status;
+    NLIST_HEADER slist=(NLIST_HEADER)0;
+    COORD xmin,xmax,ymin,ymax;
+    PROJECTION_STRUCTURE *map_data;
+    PROJECTION_STRUCTURE *other_data;
+    PROJECTION_ID other_projection;
+    CHAR text[1024];
+    INT nitems;
+	
+    if(pex->geo_selection_type != CP_GEO_NO_CONST)
+	{
+	if(data_type EQUALS LEASE_DATA_TYPE)
+	    {
+       	    if(ARE_DIFFERENT("GEODETIC",pex->map_projection))
+        	{
+        	ct_get_projection ("GEODETIC", &other_data);
+        	ct_get_projection (pex->map_projection, &map_data);
+        	ct_transform_point (pex->ll_x,pex->ll_y, map_data,
+                            &xmin, &ymin, other_data);
+        	ct_transform_point (pex->ur_x,pex->ur_y, map_data,
+                          &xmax, &ymax, other_data);
+        	}
+	    else
+		{
+		xmin = pex->ll_x;
+		ymin = pex->ll_y;
+		xmax = pex->ur_x;
+		ymax = pex->ur_y;
+		}
+	    }
+	else	
+	    {
+	    qs_inq_c (QS_PROJECT_PROJECTION, other_projection, (INT *)0);
+            if(ARE_DIFFERENT(other_projection,pex->map_projection))
+        	{
+        	ct_get_projection (other_projection, &other_data);
+        	ct_get_projection (pex->map_projection, &map_data);
+        	ct_transform_point (pex->ll_x,pex->ll_y, map_data,
+                        &xmin, &ymin, other_data);
+        	ct_transform_point (pex->ur_x,pex->ur_y, map_data,
+                        &xmax, &ymax, other_data);
+        	}
+	    else
+		{
+		xmin = pex->ll_x;
+		ymin = pex->ll_y;
+		xmax = pex->ur_x;
+		ymax = pex->ur_y;
+		}
+	    }
+
+	if(option EQUALS CP_SELECT_OPTION)
+	    {
+	    switch (data_type)
+	    	{
+	    	case WELLS_DATA_TYPE :
+		    status = sl_read_list(data_type,pex->well_sl_name,
+				&slist);
+		    if(status != SUCCESS) return status;
+		    break;
+	    	case SEISMIC_DATA_TYPE :
+		    status = sl_read_list(data_type,pex->seismic_sl_name,
+					&slist);
+		    if(status != SUCCESS) return status;
+		    break;
+	    	case LEASE_DATA_TYPE :			
+		    status = sl_read_list(data_type,pex->lease_sl_name,
+					&slist);
+		    if(status != SUCCESS) return status;
+		    break;
+	    	case LYNX_DATA_TYPE :
+		    status = sl_read_list(data_type,pex->culture_sl_name,
+					&slist);
+		    if(status != SUCCESS) return status;
+		    break;
+	    	}
+	    }
+
+	switch (data_type)
+	    {
+	    case WELLS_DATA_TYPE :
+    		sprintf (text,
+		"NODE_ID IN (SELECT NODE_ID FROM %s.NODES WHERE NODE_X \
+BETWEEN %lf AND %lf AND NODE_Y BETWEEN %lf AND %lf)",
+		pex->source_name,xmin,xmax,ymin,ymax);
+		status = sl_select(slist,"WELL_HDR",text,ret_sl_list,
+				  &nitems);
+	    	if(status != SUCCESS) return status;
+		break;
+	    case SEISMIC_DATA_TYPE :
+    		sprintf (text,
+    		"UPPER_RIGHT_X >= %.2f AND UPPER_RIGHT_Y >= %.2f AND \
+LOWER_LEFT_X  <= %.2f AND LOWER_LEFT_Y  <= %.2f",
+    		xmin, ymin, xmax, ymax);
+		status = sl_select(slist,"SEIS_LINE_HDR",text,ret_sl_list,
+			&nitems);
+	    	if(status != SUCCESS) return status;
+		break;
+	    case LEASE_DATA_TYPE :		
+		sprintf(text,"LEASE_ID IN (SELECT LEASE_ID \
+FROM %s.LEASE_POLYGONS WHERE LATITUDE BETWEEN %.2f AND %.2f AND \
+LONGITUDE BETWEEN %.2f AND %.2f) ORDER BY LEASE_ID",
+		pex->source_name,ymin,ymax,xmin,xmax);
+		status = sl_select(slist,"LEASE",text,ret_sl_list,&nitems);
+	    	if(status != SUCCESS) return status;
+		break;
+	    case LYNX_DATA_TYPE :
+		sprintf(text,"MAXX > %lf AND MAXY > %lf AND \
+MINX < %lf AND MINY < %lf",xmin,ymin,xmax,ymax);
+		status = sl_select(slist,"LYNX_CULTURE",text,ret_sl_list,
+				   &nitems);
+	    	if(status != SUCCESS) return status;
+		break;
+	    }
+	}
+    else
+	{ 
+	if(option EQUALS CP_ALL_OPTION)
+	    {
+	    switch (data_type)
+	    	{
+	    	case WELLS_DATA_TYPE :
+		    status = sl_select(slist,"WELL_HDR","",ret_sl_list,
+					&nitems);
+	    	    if(status != SUCCESS) return status;
+		    break;
+	    	case SEISMIC_DATA_TYPE :
+		    status = sl_select(slist,"SEIS_LINE_HDR","",
+					ret_sl_list,&nitems);
+	    	    if(status != SUCCESS) return status;
+		    break;
+	    	case LEASE_DATA_TYPE :		
+		    status = sl_select(slist,"LEASE","",ret_sl_list,
+					&nitems);
+	    	    if(status != SUCCESS) return status;
+		    break;
+	    	case LYNX_DATA_TYPE :
+		    status = sl_select(slist,"LYNX_CULTURE","",
+					ret_sl_list,&nitems);
+	    	    if(status != SUCCESS) return status;
+		    break;
+	    	}
+	    }
+    	else
+	    {
+	    switch (data_type)
+	    	{
+	    	case WELLS_DATA_TYPE :
+		    status = sl_read_list(data_type,pex->well_sl_name,
+				ret_sl_list);
+	    	    if(status != SUCCESS) return status;
+		    break;
+	    	case SEISMIC_DATA_TYPE :
+		    status = sl_read_list(data_type,pex->seismic_sl_name,
+					ret_sl_list);
+	    	    if(status != SUCCESS) return status;
+		    break;
+	    	case LEASE_DATA_TYPE :			
+		    status = sl_read_list(data_type,pex->lease_sl_name,
+					ret_sl_list);
+	    	    if(status != SUCCESS) return status;
+		    break;
+	    	case LYNX_DATA_TYPE :
+		    status = sl_read_list(data_type,pex->culture_sl_name,
+					ret_sl_list);
+	    	    if(status != SUCCESS) return status;
+		    break;
+	    	}
+	    }
+	}
+     return SUCCESS;
+}
+
+
+

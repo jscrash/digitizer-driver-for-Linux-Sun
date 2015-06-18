@@ -1,0 +1,341 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_EXP_MAIN.PC */
+/* *2     1-MAY-1991 21:58:21 KEE "(SPR -1) Landmark Export" */
+/* *1     1-MAY-1991 21:51:31 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_EXP_MAIN.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* TITLE : Landmark landmark_loader */
+
+/* START-HISTORY :
+   05/02/90	Rod Hanks	Original development.
+   END-HISTORY */
+
+/* START-CODE : */
+/*
+   **                                 INCLUDE FILES
+*/
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_WI_H
+#include "esi_wi.h"
+#endif
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+#ifndef LD_LM2_EXP_WORK_H
+#include "ld_lm2_exp_work.h"
+#endif
+
+#include "ld_lm2_exp_main.rh"  
+
+/*  */
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+   **
+   **   ROUTINE:  ld_lm2_exp_main (application entry point)
+   **
+   **   DESCRIPTION:
+   **
+   **        Initialize application. Accesses the necessary
+   **        resource files and loads them into the MAC terminal.
+   **        The application manager is given the name of the function
+   **        for handling resource events.
+   **
+   **   PARAMETERS:
+   **
+   **        pointer        Required Application Manager BYTE pointer.
+   **                       It is not utilized in this application.
+   **
+*/
+
+#if USE_PROTOTYPES
+publicdef INT ld_lm2_exp_main (BYTE *pointer)
+#else
+publicdef INT ld_lm2_exp_main (pointer)
+BYTE *pointer;
+#endif
+{
+    LANDMARK_WORKSPACE     *workspace;
+    INT status;
+    INT bufspace;
+    PROJECT_NAME project;
+    CHAR    *tempPtr;
+    CHAR    *ptr1;
+    INT	    len1;
+    PROJECTION_ID	  default_projection;
+    INT     hiliteSel;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[200];
+	VARCHAR map_name[40];
+	int	map_count;
+	int	curve_count;
+	int	source_count1;
+	int	source_count2;
+	VARCHAR	curve_name[40];
+	VARCHAR source_name[13];
+    EXEC SQL END DECLARE SECTION;
+
+    if (status = am_declare("Landmark Export 2d"))
+	wi_alert(0, "", "am_declare", mg_message(status));
+
+    if (status = am_define_workspace("LandMark Export 2d", AM_APPLICATION,
+                         sizeof(LANDMARK_WORKSPACE), (VOIDPTR *)&workspace))
+	wi_alert(0, "", "am_define_workspace", mg_message(status));
+
+    if (status = am_define_resource( AM_DIALOG, "LD_LM2_EXP_MAIN", LandMark,
+                         ld_lm2_exp_server,
+                         &workspace->dialogID, workspace))
+	wi_alert(0, "", "am_define_resource", mg_message(status));
+
+    workspace->siesmic = 0;
+    workspace->horizons = 0;
+    workspace->faults = 0;
+    workspace->wells = 0;
+    workspace->culture = 0;
+    workspace->tops = 0;
+    workspace->logs = 0;
+    workspace->mapName[0] = 0;
+    workspace->sourcePicked = -1;
+    workspace->nsources = 0;
+    workspace->ncurves = 0;
+    workspace->ncurvesPicked = 0;
+    qs_inq_c(QS_PROJECT_NAME,project,(INT *) 0);
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT COUNT(DISTINCT TRACE_TYPE) \
+FROM %s.WELL_LOG_CURVE_HDR", project);
+
+    EXEC SQL PREPARE s2a FROM :sqlstmt;
+    EXEC SQL DECLARE CNTA_CUR CURSOR FOR s2a;
+    EXEC SQL OPEN CNTA_CUR;
+    EXEC SQL FETCH CNTA_CUR INTO :curve_count;
+    EXEC SQL CLOSE CNTA_CUR;
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT DISTINCT TRACE_TYPE \
+FROM %s.WELL_LOG_CURVE_HDR", project);
+
+    EXEC SQL PREPARE s1a FROM :sqlstmt;
+    EXEC SQL DECLARE LISA_CUR CURSOR FOR s1a;
+    EXEC SQL OPEN LISA_CUR;
+
+    EXEC SQL FETCH LISA_CUR INTO :curve_name;
+    workspace->ncurves = 0;
+    bufspace = curve_count*41;
+    workspace->tempCurves = am_allocate(AM_APPLICATION, bufspace);
+    tempPtr = (CHAR*) workspace->tempCurves;
+    while(OR_STATUS == SUCCESS)
+	{
+	ptr1 = (CHAR*)curve_name.arr;
+	len1 = curve_name.len;
+	while (len1>0)
+	    {
+	    *tempPtr++ = *ptr1++;
+	    len1--;
+	    }
+	*tempPtr++ = 0;
+	workspace->ncurves++;
+	EXEC SQL FETCH LISA_CUR INTO :curve_name;
+	}
+    EXEC SQL CLOSE LISA_CUR;
+
+    workspace->tcp_of_curves = ts_make_tcp(workspace->tempCurves, 
+							workspace->ncurves);
+/*
+					Above, make a list of curves in
+					temporary storage.  Will be used for
+					the LD_L2_CURVE_PIPE if presented.
+*/
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT COUNT(DISTINCT SOURCE) \
+FROM %s.WELL_LOG_CURVE_HDR \
+UNION \
+SELECT COUNT(DISTINCT SOURCE) \
+FROM %s.WELL_TOPS", project, project);
+
+    EXEC SQL PREPARE s2b FROM :sqlstmt;
+    EXEC SQL DECLARE CNTB_CUR CURSOR FOR s2b;
+    EXEC SQL OPEN CNTB_CUR;
+    EXEC SQL FETCH CNTB_CUR INTO :source_count1;
+    EXEC SQL FETCH CNTB_CUR INTO :source_count2;
+    EXEC SQL CLOSE CNTB_CUR;
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT DISTINCT SOURCE \
+FROM %s.WELL_LOG_CURVE_HDR \
+UNION \
+SELECT DISTINCT SOURCE \
+FROM %s.WELL_TOPS", project, project);
+
+    EXEC SQL PREPARE s1b FROM :sqlstmt;
+    EXEC SQL DECLARE LISB_CUR CURSOR FOR s1b;
+    EXEC SQL OPEN LISB_CUR;
+
+    EXEC SQL FETCH LISB_CUR INTO :source_name;
+    workspace->nsources = 0;
+    bufspace = (source_count1 + source_count2) * 41;
+    workspace->tempSources = am_allocate(AM_APPLICATION, bufspace);
+    tempPtr = (CHAR*) workspace->tempSources;
+    while(OR_STATUS == SUCCESS)
+	{
+	ptr1 = (CHAR*)source_name.arr;
+	len1 = source_name.len;
+	while (len1>0)
+	    {
+	    *tempPtr++ = *ptr1++;
+	    len1--;
+	    }
+	*tempPtr++ = 0;
+	workspace->nsources++;
+	EXEC SQL FETCH LISB_CUR INTO :source_name;
+	}
+    EXEC SQL CLOSE LISB_CUR;
+
+    workspace->tcp_of_sources = ts_make_tcp(workspace->tempSources, 
+							workspace->nsources);
+/*
+					Above, make a list of sources in
+					temporary storage.  Will be used for
+					the LD_L2_SOURCE_PIPE if presented.
+*/
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT COUNT(*) \
+FROM %s.MAP_DEFINITIONS ", project);
+
+    EXEC SQL PREPARE s2c FROM :sqlstmt;
+    EXEC SQL DECLARE CNTC_CUR CURSOR FOR s2c;
+    EXEC SQL OPEN CNTC_CUR;
+    EXEC SQL FETCH CNTC_CUR INTO :map_count;
+    EXEC SQL CLOSE CNTC_CUR;
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT DISTINCT MAP_NAME \
+FROM %s.MAP_DEFINITIONS", project);
+
+    EXEC SQL PREPARE s1c FROM :sqlstmt;
+    EXEC SQL DECLARE LISC_CUR CURSOR FOR s1c;
+    EXEC SQL OPEN LISC_CUR;
+
+    EXEC SQL FETCH LISC_CUR INTO :map_name;
+    workspace->map_count = 0;
+    bufspace = map_count*41;
+    workspace->temp_names = am_allocate(AM_APPLICATION, bufspace);
+    tempPtr = (CHAR*) workspace->temp_names;
+    while(OR_STATUS == SUCCESS)
+	{
+	ptr1 = (CHAR*)map_name.arr;
+	len1 = map_name.len;
+	while (len1>0)
+	    {
+	    *tempPtr++ = *ptr1++;
+	    len1--;
+	    }
+	*tempPtr++ = 0;
+	(workspace->map_count)++;
+	EXEC SQL FETCH LISC_CUR INTO :map_name;
+	}
+    EXEC SQL CLOSE LISC_CUR;
+
+    workspace->tcp_of_maps = ts_make_tcp(workspace->temp_names,
+					 workspace->map_count);
+     
+    if (status = wi_set_selections(workspace->dialogID, LEX_WHICH_MAP, 
+				LEX_MAPSCROLL, workspace->map_count,
+				1, workspace->tcp_of_maps))
+	wi_alert(0, "", "wi_set_selections", mg_message(status));
+
+    ct_projection_list(&workspace->projectionList, 
+		       &workspace->projectionCount, TRUE);
+    if (status = wi_set_selections(workspace->dialogID, LMP_PROJECTION, 
+                                LMP_PROJSCROLL, workspace->projectionCount,
+                                1, workspace->projectionList))
+        wi_alert(0, "", "wi_set_selections", mg_message(status));
+
+    status = ct_get_default_project(default_projection);
+    if (status != SUCCESS) wi_alert(0, "", "ct_get_default_project",
+						mg_message(status));
+
+    hiliteSel = 0;
+    while (hiliteSel < workspace->projectionCount
+	&& strcmp(workspace->projectionList[hiliteSel], 
+		  default_projection) != 0)
+	{
+	hiliteSel++;
+	}
+    if (hiliteSel < workspace->projectionCount)
+	{
+	hiliteSel++;
+	status = wi_set_default_sel(workspace->dialogID, LMP_PROJECTION,
+					hiliteSel);
+	}
+/*
+					Set up the finder default projection
+					as the default in the selector box.
+*/
+    if (status = wi_set_default_button(workspace->dialogID, LEX_OKAY, 1))
+	wi_alert(0, "", "wi_set_default_button", mg_message(status));
+
+    if (status = wi_set_dialog_value(workspace->dialogID, LEX_SEISMIC, 
+					workspace->siesmic))
+	wi_alert(0, "", "wi_set dialog_value", mg_message(status));
+    if (status = wi_set_dialog_value(workspace->dialogID, LEX_HORIZONS,
+					workspace->horizons))
+	wi_alert(0, "", "wi_set dialog_value", mg_message(status));
+    if (status = wi_set_dialog_value(workspace->dialogID, LEX_FAULTS,
+					workspace->faults))
+	wi_alert(0, "", "wi_set dialog_value", mg_message(status));
+    if (status = wi_set_dialog_value(workspace->dialogID, LEX_WELLS,
+					workspace->wells ))
+	wi_alert(0, "", "wi_set dialog_value", mg_message(status));
+    if (status = wi_set_dialog_value(workspace->dialogID, LEX_CULTURE,
+					workspace->culture))
+	wi_alert(0, "", "wi_set dialog_value", mg_message(status));
+    if (status = wi_set_dialog_value(workspace->dialogID, LEX_TOPS,
+					workspace->tops))
+	wi_alert(0, "", "wi_set dialog_value", mg_message(status));
+    if (status = wi_set_dialog_value(workspace->dialogID, LEX_LOGS,
+					workspace->logs))
+	wi_alert(0, "", "wi_set dialog_value", mg_message(status));
+
+    if (status = wi_open_dialog(workspace->dialogID))
+	wi_alert(0, "", "wi_open_dialog", mg_message(status));
+
+    return SUCCESS;
+
+}
+

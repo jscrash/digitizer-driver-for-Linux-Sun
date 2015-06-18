@@ -1,0 +1,166 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element WL_GET_LABEL.PC*/
+/* *5    25-SEP-1990 09:58:09 GILLESPIE "(SPR 1) Merge Ernie deltas"*/
+/*  3B1  24-SEP-1990 17:31:51 GILLESPIE "Beta Deltas"*/
+/* *4    14-AUG-1990 13:41:11 VINCE "(SPR 5644) Header Standardization"*/
+/* *3    23-JAN-1990 12:34:04 GILLESPIE "(SPR 6001) Change all [21] sizes to [24] for RISC machines"*/
+/* *2    13-AUG-1989 02:08:35 GILLESPIE "(SPR 5) Fixes for Gulf Schema changes"*/
+/* *1    19-JUN-1989 12:42:03 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element WL_GET_LABEL.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_wl_err.h"
+#include "esi_wl_msg.h"
+#include "esi_oracle.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+    Function to get the label information.
+    mode: 
+        = 0 => execute fetch, leave cursor opened,
+        = 1 => execute fetch, close cursor,
+        = 2 => close cursor, no fetch.
+
+Prototype:
+    publicdef INT wl_get_label(CHAR *uwi,CHAR *sent_sql,INT mode,CHAR *label);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) uwi         -(CHAR *) UWI.
+    (I) sent_sql    -(CHAR *) SQL statement.
+    (I) mode        -(INT) Processing mode.
+    (O) label       -(CHAR *) Text string to return.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    WL_ORACLE_ERROR - Oracle error.
+    WL_NO_DATA_FOUND - No data.
+    WL_SQL_STATEMENT_TOO_LONG
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT wl_get_label (CHAR *uwi, CHAR *sent_sql, INT mode, CHAR *label) 
+#else
+publicdef INT wl_get_label (uwi, sent_sql, mode, label)
+CHAR *uwi;
+CHAR *sent_sql;
+INT mode;
+CHAR *label;
+#endif
+    {
+    
+    INT status;                     /* RETURN STATUS */
+    static BOOL inited = FALSE;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[512];           /* ORACLE COPY OF SQL STATEMENT */
+    VARCHAR query_uwi[24];          /* UWI TO QUERY ON */
+    VARCHAR return_string[244];     /* STRING FETCHED */
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ********************************************************************** */
+    
+    status = SUCCESS;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO orcerr;
+    EXEC SQL WHENEVER NOT FOUND GOTO no_data;
+    
+    if (mode < 2)
+        {
+        
+        /* * PREPARE SQL STATEMENT * */
+        /* ------------------------- */
+        
+        if (NOT inited)
+            {
+            /* CHECK STATEMENT LENGTH */
+            
+            if (strlen (sent_sql) > 511)
+                {
+                status = WL_SQL_STATEMENT_TOO_LONG;
+                goto finished;
+                }
+            /* TRANSFER TO ORACLE SQL STATEMENT */
+            V_FROMC (sqlstmt, sent_sql);
+            EXEC SQL PREPARE S FROM : sqlstmt;
+            EXEC SQL DECLARE CUR CURSOR FOR S;
+            
+            inited = TRUE;
+            }
+        /* * (RE)OPEN CURSOR AND FETCH LABEL STRING * */
+        /* ------------------------------------------ */
+        
+        /* INITIALIZE OTHER ORACLE VARS */
+        V_FROMC (query_uwi, uwi);
+        V_CLEAR (return_string);
+        
+        EXEC SQL OPEN CUR USING : query_uwi;
+        EXEC SQL FETCH CUR INTO : return_string;
+        V_FROMV (label, return_string);
+        }
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    if (mode > 0 AND inited)
+        {
+        inited = FALSE;
+        EXEC SQL CLOSE CUR;
+        }
+    goto finished;
+    
+    /* * NO DATA FOUND * */
+    /* ----------------- */
+    
+no_data:
+    status = WL_NO_DATA_FOUND;
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    if (mode > 0 AND inited)
+	{
+	inited = FALSE;
+	EXEC SQL CLOSE CUR;
+	}
+    goto finished;
+    
+    /* * ORACLE ERROR * */
+    /* ---------------- */
+    
+orcerr:
+    status = WL_ORACLE_ERROR;
+    EXEC SQL WHENEVER SQLERROR CONTINUE;	/* (CP) remove this addition if it causes trouble */
+    if (mode > 0 AND inited)
+        {
+	inited = FALSE;
+	EXEC SQL CLOSE CUR;
+	}
+    
+    /* * RETURN * */
+    /* ---------- */
+    
+finished:
+    
+    return status;
+    }
+/* END:     */

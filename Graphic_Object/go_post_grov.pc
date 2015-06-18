@@ -1,0 +1,303 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element GO_POST_GROV.PC*/
+/* *5    14-AUG-1991 15:57:45 JTM "(SPR 8766) Changed exit to print error message and continue as submitted by Calgary."*/
+/* *4    15-OCT-1990 17:02:55 GILLESPIE "(SPR 1000) Merge Ernie deltas"*/
+/* *3    19-JUL-1990 18:42:17 GILLESPIE "(SPR 5411) Support for fault traces"*/
+/* *2    28-FEB-1990 06:10:26 GILLESPIE "(SPR 1) Change call sequence to go_draw_oject to remove unused scatter parm"*/
+/* *1    19-JUN-1989 12:32:39 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element GO_POST_GROV.PC*/
+/******************************************************************************
+
+        Copyright Exploration Systems, Inc. 1989
+           Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+            Exploration Systems, Inc.
+            579 Market Street
+            San Francisco, CA  USA 94105
+            (415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/*
+ *  FILE : GO_POST_GROV.C
+ *
+ *  ROUTINES : go_post_grov()
+ */
+
+/* Include Files                                                                    */
+
+#include "esi_c_lib.h"
+#include "esi_go.h"                      /* graphics overlay */
+
+#ifndef ESI_WM_H
+#include "esi_wm.h"                      /* window manager */
+#endif
+
+#ifndef ESI_WM_CLS_H
+#include "esi_wm_cls.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"                  /* oracle sql */
+#endif
+
+#ifndef ESI_MP_H
+#include "esi_mp.h"                      /* mapping */
+#endif
+
+#ifndef ESI_FM_H
+#include "esi_fm.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_AM_H
+#include "esi_am.h"                      /* application manager */
+#endif
+
+#ifndef ESI_SL_H
+#include "esi_sl.h"                      /* select list stuff */
+#endif
+
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+/* EXEC ORACLE OPTION(REBIND = NO); */
+
+/************************************************************************************/
+/*                                                                                  */
+/* Function : go_post_grov.c                                                        */
+/*                                                                                  */
+/* Description : Post graphics objects in a map.                                    */
+/*    Objects include user defined Text,Lines, and Polygons.                        */
+/*                                                                                  */
+/************************************************************************************/
+
+#if USE_PROTOTYPES
+publicdef INT go_post_grov(GO_STRUCT *values, PICKABLE_GRA_OBJ **pick_gra_obj)
+#else
+publicdef INT go_post_grov(values, pick_gra_obj)
+GO_STRUCT *values;
+PICKABLE_GRA_OBJ **pick_gra_obj;
+#endif
+    {
+    
+    INT             status = SUCCESS, flag = 0;
+    INT             object_class;
+    INT             non_editing_segment = 0; /* segment number              */
+    CHAR            message[128];
+    PROJECT_NAME    project;
+    CHAR            local_phrase[2048];      /* local copy of select phrase */
+    CHAR            local_type[40];          /* local copy of object type   */
+    CHAR            local_source[40];        /* local copy of source        */
+    MAP_STRUCTURE   *map;                    /* current map structure       */
+    static BOOL inited = FALSE;
+    INT i;
+    /* NLIST VARIABLES                                        */
+    
+    INT num_objects;
+    NLIST_HEADER select_list = (NLIST_HEADER)0;
+    NLIST_HEADER gis_control_list;
+    
+    /* PICKING VARIABLES                                                            */
+    INT *nallocated, *nused;
+    PICKABLE_OBJECT pick_obj_struct;
+    INT group_id;
+    INT size_int;
+    INT size;
+    UINT blocksize = 20;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR    sqlstmt[2048];
+        static VARCHAR type[41];
+        static int object_id;
+        static long code;
+    EXEC SQL END DECLARE SECTION;
+    
+    /* --------------- */
+    /* | GET THE MAP | */
+    /* --------------- */
+    
+    status = mp_get_current_map(&map);
+    if (status != SUCCESS)
+        {
+        goto finished;
+        }
+
+    qs_inq_c(QS_PROJECT_NAME, project, (INT *)0);
+    
+    /* * FIND THE WM CLASS FOR THESE OBJECTS --> OBJECT_CLASS * */
+    /* -------------------------------------------------------- */
+    
+    EXEC SQL WHENEVER SQLERROR GOTO ora_error;
+    EXEC SQL WHENEVER NOT FOUND GOTO ora_error;
+
+    if (NOT inited)
+        {
+        sqlstmt.len = sprintf((char *)sqlstmt.arr,
+        "SELECT CODE FROM %s.GRAPHIC_OBJECT_CODES WHERE NAME = :v1",
+        project);
+        
+        EXEC SQL PREPARE S1 FROM :sqlstmt;
+        EXEC SQL DECLARE CODE_CUR CURSOR FOR S1;
+        
+        inited = TRUE;
+        }
+
+    V_FROMC (type, values->object_type);
+    EXEC SQL OPEN CODE_CUR USING :type;
+
+    EXEC SQL FETCH CODE_CUR INTO :code;
+    object_class = code;
+    
+    /* * IF NON-EDITABLE, THEN ALL IN ONE SEGMENT * */
+    /* -------------------------------------------- */
+    
+    if (values->suppress_editing)
+        {
+        wmsallocate(&non_editing_segment);
+        wmoset(non_editing_segment, WM_CLASS_SEGMENT, "",
+               "Non-editable Graphic Objects");
+        }
+
+    /* * GET LIST OF GRAPHIC OBJECTS * */
+    /* ------------------------------- */
+    /* BY TYPE OR SELECT BY PHRASE     */
+
+    if (values->select_by_phrase != NULL)
+        {
+        (void) strcpy (local_phrase, values->select_by_phrase);
+        }
+    else
+        {
+        /* make a local copy so that we can quote the type */
+        (void) strcpy (local_type, values->object_type);
+        ts_quote (local_type, '\'');
+
+        (void) sprintf (local_phrase, "WHERE OBJECT_NAME = %s", local_type);
+        }
+
+    if (values->source == NULL)
+        {
+        /* if no source specified use the current analyst name */
+        (void) strcat (local_phrase, " AND (SOURCE = USER OR SOURCE IS NULL)");
+        }
+    else
+        {
+        /* make a local copy and quote SOURCE */
+        (void) strcpy (local_source, values->source);
+        ts_quote (local_source, '\'');
+
+        if (strcspn(local_source, "_%") != strlen(local_source))
+            {
+            /* source contains Oracle wildcard characters; use LIKE */
+            (void) strcat (local_phrase, " AND SOURCE LIKE ");
+            (void) strcat (local_phrase, local_source);
+            }
+        else if (values->source[0] == '(')
+            {
+            /* source is a list i.e. ('ME','THEM'); use IN and don't quote */
+            (void) strcat (local_phrase, " AND SOURCE IN ");
+            (void) strcat (local_phrase, values->source);
+            }
+        else
+            {
+            /* just a plain ol' name */
+            (void) strcat (local_phrase, " AND SOURCE = ");
+            (void) strcat (local_phrase, local_source);
+            }
+        }
+
+    EXEC SQL WHENEVER NOT FOUND GOTO finished;
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+    "SELECT OBJECT_ID FROM %s.GRAPHIC_OBJECTS %s",
+    project, local_phrase);
+
+    EXEC SQL PREPARE S_OBJ FROM : sqlstmt;
+    EXEC SQL DECLARE C_OBJ CURSOR FOR S_OBJ;
+    EXEC SQL OPEN C_OBJ;
+    
+    /* * LOOP THROUGH AND DRAW OBJECTS * */
+    /* --------------------------------- */
+
+    nallocated = &pick_gra_obj[0]->nallocated;
+    nused      = &pick_gra_obj[0]->nused;
+    size_int   = sizeof(INT);
+    size       = sizeof(PICKABLE_OBJECT);
+    
+    FOREVER
+        {
+        EXEC SQL FETCH C_OBJ INTO : object_id;
+        
+        tc_zeroes(&pick_obj_struct, size);
+        status = go_draw_object((INT)object_id, object_class, values, map,
+                                &group_id, &pick_obj_struct);
+        if (status != SUCCESS)
+            {
+	     (void) sprintf(message, "%s [OBJECT=%d]", (char *)mg_message(status), object_id);
+	     (void) am_message(AM_STATUS, message);
+            }
+
+        /* allocate elements inside pick structure if necessary */
+        if (*nallocated == 0)
+            {
+            pick_gra_obj[0]->object_id = (INT *)tc_alloc(blocksize * size_int);
+            pick_gra_obj[0]->group_id  = (INT *)tc_alloc(blocksize * size_int);
+            pick_gra_obj[0]->pick_obj  = (PICKABLE_OBJECT *)tc_alloc(blocksize * size);
+            *nallocated = blocksize;
+            }
+        else if (*nused == *nallocated)
+            {
+            *nallocated *= 2;
+            pick_gra_obj[0]->object_id =
+                (INT *)tc_realloc (pick_gra_obj[0]->object_id,
+                                   *nallocated * size_int);
+
+            pick_gra_obj[0]->group_id =
+                (INT *)tc_realloc (pick_gra_obj[0]->group_id,
+                                   *nallocated * size_int);
+
+            pick_gra_obj[0]->pick_obj =
+                (PICKABLE_OBJECT *)tc_realloc (pick_gra_obj[0]->pick_obj,
+                                               *nallocated * size);
+            }
+
+        pick_gra_obj[0]->object_id[*nused] = object_id;
+        pick_gra_obj[0]->group_id[*nused]  = group_id;
+        pick_gra_obj[0]->pick_obj[*nused]  = pick_obj_struct;
+        (*nused)++;
+        }
+
+    /* * ORACLE ERROR * */
+    /* ---------------- */
+    
+ora_error:
+    status = OR_STATUS;
+    
+    /* * RETURN * */
+    /* ---------- */
+    
+finished:
+    if (non_editing_segment != 0)
+        {
+        wmsclose(non_editing_segment);
+        }
+
+    return(status);
+    }

@@ -1,0 +1,953 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_DBA_FUNC.PC*/
+/*  10    9-MAR-1992 17:06:34 LOEBL "(SPR 6022) Dim Archive/Restore buttons"*/
+/*  9     9-MAR-1992 09:29:45 LOEBL "(SPR 6056) Add functionality to detect Oracle tablespace file"*/
+/* *8     1-OCT-1991 11:33:16 CHEW "(SPR 0) Replaced scope radio items with static messages (case # 3795)"*/
+/* *7    14-AUG-1990 13:08:49 VINCE "(SPR 5644) Header Standardization"*/
+/* *6    18-DEC-1989 16:40:13 PURNA "(SPR 5069) export facility mods"*/
+/* *5    21-SEP-1989 11:09:47 GILLESPIE "(SPR 102) change sysuserauth view to dba_users (V6 change)"*/
+/* *4    20-SEP-1989 11:21:40 GILLESPIE "(SPR 100) Gulf mods"*/
+/* *3    19-SEP-1989 13:35:51 GILLESPIE "(SPR 100) GULF MODS"*/
+/* *2    14-SEP-1989 18:13:36 GORDON "(SPR -1) checkin from gulf"*/
+/* *1    19-JUN-1989 12:30:07 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_DBA_FUNC.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include    "esi_c_lib.h"
+
+#ifndef ESI_AM_H
+
+#include    "esi_am.h"
+
+#endif
+
+#ifndef ESI_DB_H
+
+#include    "esi_db.h"
+
+#endif
+
+#ifndef ESI_DB_MSG_H
+
+#include    "esi_db_msg.h"
+
+#endif
+
+#ifndef ESI_FI_H
+
+#include    "esi_fi.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include    "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include    "esi_qs.h"
+
+#endif
+
+#ifndef ESI_TC_H
+
+#include    "esi_tc.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include    "esi_ts.h"
+
+#endif
+
+#ifndef ESI_WI_H
+
+#include    "esi_wi.h"
+
+#endif
+
+#ifndef ESI_MG_H
+
+#include "esi_mg.h"
+
+#endif
+
+#include    "db_funcs.rh"
+EXEC ORACLE OPTION (RELEASE_CURSOR = YES);
+EXEC ORACLE OPTION (SELECT_ERROR = NO);
+
+static char RESOURCE_FILE[] = "DB_FUNCS";
+static DB_ACCOUNT_STRUCT last_account;
+#define DB_ACCOUNT_CHANGED 1
+EXEC SQL BEGIN DECLARE SECTION;
+static VARCHAR account_name[62];
+static VARCHAR account_password[31];
+static VARCHAR account_scope[8];
+static int dba_flag;
+static VARCHAR buffer[128];
+EXEC SQL END DECLARE SECTION;
+
+/* File Description ---------------------------------------------------------
+Overview:
+    This module services the DBA functions dialog
+    box Through this utility, the operator can
+    perform Finder account maintainance The
+    following functions are supported:
+
+        CREATE ANALYST
+        CREATE PROJECT
+        DELETE ACCOUNT
+        ARCHIVE ACCOUNT
+        RESTORE ACCOUNT
+        CONNECT to another ACCOUNT
+        GRANT privileges on an ACCOUNT's tables.
+
+    NOTE: It is possible for an account to
+    belong to more than one scope By sorting on
+    type descending, we get the following priority
+    list: SYSTEM  PROJECT   CODES   ANALYST
+
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT db_dba_func(CHAR *not_used);
+
+Private_Functions:
+    static INT db_dba_dialog_server(INT id, INT item, DB_ACCOUNT_STRUCT *db_account);
+    
+    static INT dbz_create_account(INT id, DB_ACCOUNT_STRUCT *db_account);
+
+    static INT dbz_get_name_password(INT id, DB_ACCOUNT_STRUCT *db_account, 
+                                     BOOL name_must_exist, BOOL password_must_exist);
+    
+    static INT dbz_connect_to_system(INT id, DB_ACCOUNT_STRUCT *db_account);
+    
+    static INT dbz_connect(INT id, DB_ACCOUNT_STRUCT *db_account);
+    
+    static INT dbz_set_scope(INT id, DB_ACCOUNT_STRUCT *db_account);
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+    See above.
+    
+Prototype:
+    static INT dbz_set_scope(INT id, DB_ACCOUNT_STRUCT *db_account);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) id              -(INT)
+    (I) db_account      -(DB_ACCOUNT_STRUCT)
+    
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PRIVATE to <db_dba_func>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT dbz_set_scope (INT id, DB_ACCOUNT_STRUCT *db_account) 
+#else
+static INT dbz_set_scope (id, db_account)
+INT id;
+DB_ACCOUNT_STRUCT *db_account;
+#endif
+    {
+    INT status = SUCCESS;
+    
+    /* find out who this is                        */
+    EXEC SQL DECLARE SCOPES CURSOR FOR SELECT TYPE FROM ESI.
+        FINDER_ACCOUNTS WHERE ACCOUNT_NAME = USER ORDER BY TYPE;
+    
+    EXEC SQL OPEN SCOPES;
+    EXEC SQL FETCH SCOPES INTO : account_scope;
+    
+    tc_zeroes (&db_account->account_scope, sizeof db_account->account_scope);
+    
+    /* set check boxes for each account scope that
+    is appropriate (remember, an account can be
+    more than one scope)                        */
+    
+    if (OR_STATUS EQUALS SUCCESS)
+        {
+        while (OR_STATUS EQUALS SUCCESS)
+            {
+            V_SETZERO (account_scope);
+            if (ARE_SAME ((char *)account_scope.arr, "ANALYST"))
+                {
+                db_account->account_scope.analyst = TRUE;
+                strcpy (db_account->scope, "ANALYST");
+                wi_set_dialog_text (id, CDLG_301_SCOPE, "Analyst");
+                }
+            else if (ARE_SAME ((char *)account_scope.arr, "PROJECT"))
+                {
+                db_account->account_scope.project = TRUE;
+                V_FROMV (db_account->scope, account_scope);
+                wi_set_dialog_text (id, CDLG_301_SCOPE, "Project");
+                }
+            else if (ARE_SAME ((char *)account_scope.arr, "CODE"))
+                {
+                db_account->account_scope.code = TRUE;
+                V_FROMV (db_account->scope, account_scope);
+                wi_set_dialog_text (id, CDLG_301_SCOPE, "Codes");
+                }
+            else if (ARE_SAME ((char *)account_scope.arr, "SYSTEM"))
+                {
+                db_account->account_scope.system = TRUE;
+                V_FROMV (db_account->scope, account_scope);
+                wi_set_dialog_text (id, CDLG_301_SCOPE, "System");
+                }
+            EXEC SQL FETCH SCOPES INTO : account_scope;
+            }
+        }
+    else
+        {
+        db_account->account_scope.analyst = TRUE;
+        strcpy (db_account->scope, "");
+        wi_set_dialog_text (id, CDLG_301_MESSAGE,
+                            mg_message (DB_DBA_NOT_FINDER_ACCOUNT));
+        status = DB_DBA_NOT_FINDER_ACCOUNT;
+        }
+    /* see if this account is a DBA account        */
+    dba_flag = FALSE;
+    EXEC SQL SELECT DBA_PRIV INTO : dba_flag FROM DBA_USERS WHERE USERNAME = USER;
+    
+    if (dba_flag)                   /* remember the DBA name/password              */
+        {
+        strcpy (db_account->dba.name, db_account->name);
+        strcpy (db_account->dba.password, db_account->password);
+        strcpy (db_account->dba.database, db_account->database);
+        }
+    db_account->dba.flag |= dba_flag;   /*      once a DBA, always a DBA    */
+    
+    /* enable DBA button functions if this user is
+    a DBA                                       */
+    
+    wi_enable_dialog_item (id, CDLG_301_CREATE_ANALYST, (INT)dba_flag);
+    wi_enable_dialog_item (id, CDLG_301_CREATE_PROJECT, (INT)dba_flag);
+    wi_enable_dialog_item (id, CDLG_301_RESTORE, (INT)dba_flag);
+    wi_enable_dialog_item (id, CDLG_301_PROMPT_3, (INT)dba_flag);
+    wi_enable_dialog_item (id, CDLG_301_PROMPT_4, (INT)dba_flag);
+    wi_enable_dialog_item (id, CDLG_301_DELETE, (INT)db_account->dba.flag);
+    
+    /* set the QS variables                        */
+    qs_set_c (QS_FINDER_ACCOUNT, db_account->name, strlen (db_account->name));
+    qs_set_c (QS_FINDER_PASSWORD, db_account->password, strlen (db_account->password));
+    qs_set_c (QS_DATABASE, db_account->database, strlen (db_account->database));
+    ho_set_logical_names (db_account, FALSE);
+    
+#if 0
+    /* set each check box as appropriate           */
+    wi_set_dialog_value (id, CDLG_301_ANALYST, (INT)db_account->account_scope.analyst);
+    wi_set_dialog_value (id, CDLG_301_PROJECT, (INT)db_account->account_scope.project);
+    wi_set_dialog_value (id, CDLG_301_CODES, (INT)db_account->account_scope.code);
+    wi_set_dialog_value (id, CDLG_301_SYSTEM, (INT)db_account->account_scope.system);
+#endif
+
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Reconnects to a different ORACLE Account.
+
+Prototype:
+    static INT dbz_connect(INT id, DB_ACCOUNT_STRUCT *db_account);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) id              -(INT)
+    (I) db_account      -(DB_ACCOUNT_STRUCT *)
+    
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PRIVATE to <db_dba_func>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT dbz_connect (INT id, DB_ACCOUNT_STRUCT *db_account) 
+#else
+static INT dbz_connect (id, db_account)
+INT id;
+DB_ACCOUNT_STRUCT *db_account;
+#endif
+    {
+    INT status = SUCCESS;
+    
+    wi_set_dialog_text (id, CDLG_301_MESSAGE, mg_message (DB_DBA_RECONNECT));
+    
+    /* LOG OFF OF ORACLE - BE CAREFUL !!! */
+    EXEC SQL COMMIT WORK RELEASE;
+    
+    V_FROMC (account_name, db_account->name);
+    V_FROMC (account_password, db_account->password);
+    
+    /* reconstruct SQL*NET database name,
+            if necessary */
+    
+    if (IS_STRING (db_account->database))
+        {
+        sprintf ((char *)account_name.arr, "%s@%s", account_name.arr,
+                 db_account->database);
+        V_SETLEN (account_name);
+        }
+    /* RECONNECT TO THE NEW ACCOUNT */
+    
+    EXEC SQL CONNECT : account_name IDENTIFIED BY : account_password;
+    
+    /* DETECT FOR FAILED CONNECT
+    This is a dangerous condition.  The poor
+    soul cannot continue in this state!
+    */
+    
+    if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+        {
+        *db_account = last_account; /* restore old account */
+        V_FROMC (account_name, db_account->name);
+        V_FROMC (account_password, db_account->password);
+        /* reconstruct SQL*NET database name,
+            if necessary */
+        if (IS_STRING (db_account->database))
+            {
+            sprintf ((char *)account_name.arr, "%s@%s", account_name.arr,
+                     db_account->database);
+            V_SETLEN (account_name);
+            }
+        /* RECONNECT TO ORACLE, PLLLEEEASE!! */
+        
+        EXEC SQL CONNECT : account_name IDENTIFIED BY : account_password;
+        
+        wi_set_dialog_text (id, CDLG_301_ACCOUNT_NAME, (char *)account_name.arr);
+        wi_set_dialog_text (id, CDLG_301_ACCOUNT_PASSWORD, "");
+        wi_set_dialog_text (id, CDLG_301_MESSAGE,
+                            mg_message (DB_DBA_INVALID_NAME_PASSWORD));
+        status = DB_DBA_INVALID_NAME_PASSWORD;
+        }
+    else
+        {
+        status = dbz_set_scope (id, db_account);    /* set up the check boxes */
+        }
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    See above.
+    
+Prototype:
+    static INT dbz_connect_to_system(INT id, DB_ACCOUNT_STRUCT *db_account);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) id              -(INT)
+    (I) db_account      -(DB_ACCOUNT_STRUCT)
+
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PRIVATE to <db_dba_func>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT dbz_connect_to_system (INT id, DB_ACCOUNT_STRUCT *db_account) 
+#else
+static INT dbz_connect_to_system (id, db_account)
+INT id;
+DB_ACCOUNT_STRUCT *db_account;
+#endif
+    {
+    CHAR text[128];
+    INT status;
+    /* connect back to system account */
+    
+    strcpy (db_account->name, db_account->dba.name);
+    strcpy (db_account->password, db_account->dba.password);
+    strcpy (db_account->scope, "");
+    if (IS_STRING (db_account->database))
+        {
+        sprintf (text, "%s@%s", db_account->name, db_account->database);
+        }
+    else
+        {
+        strcpy (text, db_account->name);
+        }
+    wi_set_dialog_text (id, CDLG_301_ACCOUNT_NAME, text);
+    wi_set_dialog_text (id, CDLG_301_ACCOUNT_PASSWORD, "");
+    status = dbz_connect (id, db_account);
+    
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT dbz_get_name_password(INT id, DB_ACCOUNT_STRUCT *db_account, 
+                                     BOOL name_must_exist, BOOL password_must_exist);
+                                     
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) id              -(INT)
+    (I) db_account      -(DB_ACCOUNT_STRUCT *)
+    (I) name_must_exit  -(BOOL)
+    (I) password_must_exist -(BOOL)
+    
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PRIVATE to <db_dba_func>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT dbz_get_name_password (INT id, DB_ACCOUNT_STRUCT *db_account,
+                                      BOOL name_must_exist, BOOL password_must_exist) 
+#else
+static INT dbz_get_name_password (id, db_account, name_must_exist,
+                                      password_must_exist)
+INT id;
+DB_ACCOUNT_STRUCT *db_account;
+BOOL name_must_exist;
+BOOL password_must_exist;
+#endif
+    {
+    INT val;
+    INT status = SUCCESS;
+    INT changes[2];
+    INT nitems;
+    CHAR *p;
+    
+    last_account = *db_account;     /* save in case of bad connect */
+    
+    wiqdrcd (id, 2, &nitems, changes);  /* see if anything has changed */
+    if (nitems IS_NOT_EQUAL_TO 0)
+        {
+        status = DB_ACCOUNT_CHANGED;
+        /* read the name and password */
+        wiqccdi (id, CDLG_301_ACCOUNT_NAME, &val, db_account->name);
+        ts_sto_upper (ts_noblanks (db_account->name));
+        wiqccdi (id, CDLG_301_ACCOUNT_PASSWORD, &val, db_account->password);
+        ts_sto_upper (db_account->password);
+        }
+    if (IS_EMPTY_STRING (db_account->name))
+        {
+        if (name_must_exist)
+            {
+            wi_set_dialog_text (id, CDLG_301_MESSAGE,
+                                mg_message (DB_DBA_NAME_REQUIRED));
+            return DB_DBA_NAME_REQUIRED;
+            }
+        else
+            {
+            EXEC SQL SELECT USER INTO : account_name FROM DUAL;
+            V_FROMV (db_account->name, account_name);
+            }
+        }
+    if (IS_EMPTY_STRING (db_account->password))
+        {
+        if (password_must_exist)
+            {
+            wi_set_dialog_text (id, CDLG_301_MESSAGE,
+                                mg_message (DB_DBA_PASSWORD_REQUIRED));
+            status = DB_DBA_PASSWORD_REQUIRED;
+            }
+        }
+    p = strchr (db_account->name, '@'); /* look for database name */
+    if (p IS_NOT_EQUAL_TO NULL)
+        {
+        *p = 0;
+        strcpy (db_account->database, p + 1);
+        }
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    See above.
+    
+Prototype:
+    static INT dbz_create_account(INT id, DB_ACCOUNT_STRUCT *db_account);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) id              -(INT)
+    (I) db_account      -(DB_ACCOUNT_STRUCT *)
+    
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PRIVATE to <db_dba_func>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT dbz_create_account (INT id, DB_ACCOUNT_STRUCT *db_account) 
+#else
+static INT dbz_create_account (id, db_account)
+INT id;
+DB_ACCOUNT_STRUCT *db_account;
+#endif
+    {
+    INT status;
+    INT instruct_id;
+    INT timeout = 0;
+    INT class ;
+    INT event_id;
+    INT item;
+    
+    /* verify that the bozo knows what s/he
+        is doing ... */
+    fi_push ();
+    status = am_define_resource (AM_DIALOG, RESOURCE_FILE, DB_DBA_FUNCTIONS_INSTRUCT,
+                                 NULL_FUNCTION_PTR, &instruct_id, NULL);
+    if (ARE_SAME (db_account->scope, "PROJECT"))
+        {
+        wi_set_dialog_text (instruct_id, CDLG_302_TEXT,
+                            mg_message (DB_CREATE_PROJECT_INSTRUCT));
+        }
+    else
+        {
+        wi_set_dialog_text (instruct_id, CDLG_302_TEXT,
+                            mg_message (DB_CREATE_ANALYST_INSTRUCT));
+        }
+    wi_open_dialog (instruct_id);
+    
+    /* do nothing until one of the buttons
+            on the instructions box is hit */
+    event_id = instruct_id + 1;
+    while (event_id IS_NOT_EQUAL_TO instruct_id)
+        {
+        wi_request_event (timeout, &class , &event_id, &item);
+        switch (item)
+            {
+        case CDLG_302_CANCEL:
+            status = FAIL;
+            break;
+        case CDLG_302_PROCEED:
+            status = SUCCESS;
+            break;
+            }
+        }
+    am_release_resource (instruct_id);
+    fi_pop ();
+    
+    /* The only way to proceed is if the operator
+    has read and acknowledged the caveats presented.
+    We therefore assume that proceeding is appropriate.
+    */
+    
+    if (status EQUALS SUCCESS)
+        {
+        wi_set_dialog_text (id, CDLG_301_MESSAGE, mg_message (DB_DBA_CREATE_ACCOUNT));
+        status = dbz_get_name_password (id, db_account, TRUE, TRUE);
+        if ((status EQUALS SUCCESS) OR (status EQUALS DB_ACCOUNT_CHANGED))
+            {
+            buffer.len = sprintf ((char *)buffer.arr,
+                                  "GRANT CONNECT,RESOURCE TO %s IDENTIFIED BY %s",
+                                  db_account->name, db_account->password);
+            EXEC SQL EXECUTE IMMEDIATE : buffer;
+            
+            if (OR_STATUS EQUALS SUCCESS)
+                {
+                status = dba_create_account (db_account);
+                dbz_set_scope (id, db_account);
+                wi_open_dialog (id);
+                }
+            status = finder_config_project (FALSE); /* reset logicals for 'current' project */
+            }
+        }
+    else                            /* cancelled operation. Put back to DBA account */
+        {
+        status = dbz_connect_to_system (id, db_account);
+        }
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    See above.
+    
+Prototype:
+    static INT db_dba_dialog_server(INT id, INT item, DB_ACCOUNT_STRUCT *db_account);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) id              -(INT)
+    (I) item            -(INT)
+    (I) db_account      -(DB_ACCOUNT_STRUCT *)
+    
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PRIVATE to <db_dba_func>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT db_dba_dialog_server (INT id, INT item, DB_ACCOUNT_STRUCT *db_account) 
+#else
+static INT db_dba_dialog_server (id, item, db_account)
+INT id;
+INT item;
+DB_ACCOUNT_STRUCT *db_account;
+#endif
+    {
+    INT status = SUCCESS;
+    DB_CREATE_FLAGS create_flags;
+    
+    switch (item)
+        {
+        
+    case CDLG_301_ARCHIVE:
+        wi_set_dialog_text (id, CDLG_301_MESSAGE, mg_message (DB_DBA_ARCHIVE_ACCOUNT));
+        status = dbz_get_name_password (id, db_account, FALSE, FALSE);
+        if (status EQUALS DB_ACCOUNT_CHANGED)
+            {
+            /* connect to new account */
+            status = dbz_connect (id, db_account);
+            }
+        if (status EQUALS SUCCESS)
+            {
+            status = dba_archive_account (db_account);
+            }
+        break;
+        
+    case CDLG_301_CONNECT:
+        status = dbz_get_name_password (id, db_account, TRUE, TRUE);
+        if ((status EQUALS SUCCESS) OR (status EQUALS DB_ACCOUNT_CHANGED))
+            {
+            status = dbz_connect (id, db_account);
+            }
+        break;
+    case CDLG_301_CREATE_ANALYST:
+        strcpy (db_account->scope, "ANALYST");
+        dbz_create_account (id, db_account);
+        break;
+        
+    case CDLG_301_CREATE_PROJECT:
+        strcpy (db_account->scope, "PROJECT");
+        dbz_create_account (id, db_account);
+        break;
+        
+    case CDLG_301_DELETE:
+        
+        wi_set_dialog_text (id, CDLG_301_MESSAGE, mg_message (DB_DBA_DELETE_ACCOUNT));
+        status = dbz_get_name_password (id, db_account, db_account->dba.flag, FALSE);
+        if (status EQUALS DB_ACCOUNT_CHANGED)
+            {
+            /* connect to new account */
+            status = dbz_connect (id, db_account);
+            }
+        /* protect from deleting a reserved account */
+        if ((ARE_SAME (db_account->name, "SYSTEM")) OR (ARE_SAME (db_account->name,
+                                                                 "CODES")) OR (
+                                                                            ARE_SAME (
+                                                                            db_account->
+                                                                                      name
+                                                                                      , 
+                                                                                 "ESI"))
+            OR (ARE_SAME (db_account->name, "DEFAULT_PROJECT")))
+            {
+            am_message (AM_ALERT, mg_message (DB_NO_DROP_ACCT_RESTRICTION));
+            status = DB_NO_DROP_ACCT_RESTRICTION;
+            break;
+            }
+        if (status EQUALS SUCCESS)  /* drop all tables and directories */
+            {
+            status = dba_delete_account (db_account);
+            }
+        /* save this now obsolete account */
+        
+        last_account = *db_account;
+        
+        dbz_connect_to_system (id, db_account);
+        EXEC SQL WHENEVER SQLERROR CONTINUE;
+        
+        V_FROMC (account_name, last_account.name);
+        V_FROMC (account_scope, last_account.scope);
+        
+        /* drop account references from the
+                Finder account tables */
+        EXEC SQL DELETE ESI.FINDER_ACCOUNTS WHERE TYPE =  :
+                                                         account_scope AND ACCOUNT_NAME 
+                                                         =  : account_name;
+        
+        if (ARE_SAME (last_account.scope, "ANALYST"))
+            {
+            EXEC SQL DELETE ESI.ANALYST_CONFIGURATION WHERE ACCOUNT_NAME =  :
+                                                                           account_name;
+                
+            }
+        else if (ARE_SAME (last_account.scope, "PROJECT"))
+            {
+            /* report any analysts that referenced this
+               now-deleted project as their default */
+            
+            EXEC SQL DECLARE DEFAULT_PROJECT CURSOR FOR SELECT ACCOUNT_NAME FROM ESI.
+                ANALYST_CONFIGURATION WHERE PROJECT =  : account_name;
+            
+            EXEC SQL OPEN DEFAULT_PROJECT;
+            
+            EXEC SQL FETCH DEFAULT_PROJECT INTO : buffer;
+            if (OR_STATUS EQUALS SUCCESS)
+                {
+                am_message (AM_STATUS, mg_message (DB_DEFAULT_PROJECT_DELETED));
+                while (OR_STATUS EQUALS SUCCESS)
+                    {
+                    V_SETZERO (buffer);
+                    am_message (AM_REPORT, (char *)buffer.arr);
+                    EXEC SQL FETCH DEFAULT_PROJECT INTO : buffer;
+                    }
+                }
+            EXEC SQL CLOSE DEFAULT_PROJECT;
+            }
+        buffer.len = sprintf ((char *)buffer.arr, "REVOKE CONNECT, RESOURCE FROM %s",
+                              account_name.arr);
+        
+        EXEC SQL EXECUTE IMMEDIATE : buffer;
+        
+        /*---------------------------------------*/
+        /* make the current account              */
+        /* the 'last account' (since the         */
+        /* real 'last account' no longer exists) */
+        /*---------------------------------------*/
+        last_account = *db_account;
+        
+        break;
+        
+    case CDLG_301_DONE:
+        am_release_resource (id);
+        fi_pop ();
+        tc_free (db_account);
+        status = am_quit ();
+        break;
+        
+    case CDLG_301_GRANT:
+        wi_set_dialog_text (id, CDLG_301_MESSAGE, mg_message (DB_DBA_SET_PRIVILEGES));
+        status = dbz_get_name_password (id, db_account, FALSE, FALSE);
+        if (status EQUALS DB_ACCOUNT_CHANGED)
+            {
+            /* connect to new account */
+            status = dbz_connect (id, db_account);
+            }
+        if (status EQUALS SUCCESS)
+            {
+            status = dba_grant_privileges (db_account);
+            }
+        break;
+        
+    case CDLG_301_NEW_PASSWORD:
+        wi_set_dialog_text (id, CDLG_301_MESSAGE, mg_message (DB_DBA_CHANGE_PASSWORD));
+        status = dbz_get_name_password (id, db_account, FALSE, TRUE);
+        if (status EQUALS DB_ACCOUNT_CHANGED)
+            {
+            V_FROMC (account_name, db_account->name);
+            V_FROMC (account_password, db_account->password);
+            buffer.len = sprintf ((char *)buffer.arr,
+                                  "GRANT CONNECT TO %s IDENTIFIED BY %s",
+                                  account_name.arr, account_password.arr);
+            
+            EXEC SQL EXECUTE IMMEDIATE : buffer;
+            
+            if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+                {
+                wi_set_dialog_text (id, CDLG_301_MESSAGE,
+                                    mg_message (DB_DBA_INVALID_NAME_PASSWORD));
+                status = DB_DBA_INVALID_NAME_PASSWORD;
+                }
+            else
+                {
+                status = SUCCESS;
+                }
+            }
+        break;
+        
+    case CDLG_301_RESTORE:
+        wi_set_dialog_text (id, CDLG_301_MESSAGE, mg_message (DB_DBA_RESTORE_ACCOUNT));
+        status = dbz_get_name_password (id, db_account, TRUE, TRUE);
+        
+        /* create the oracle account */
+        buffer.len = sprintf ((char *)buffer.arr,
+                              "GRANT CONNECT,RESOURCE TO %s IDENTIFIED BY %s",
+                              db_account->name, db_account->password);
+        EXEC SQL EXECUTE IMMEDIATE : buffer;
+        
+        if (OR_STATUS EQUALS SUCCESS)
+            {
+            status = dba_restore_account (db_account);
+            dbz_set_scope (id, db_account);
+            wi_open_dialog (id);
+            }
+        else
+            {
+            status = OR_STATUS;
+            }
+        break;
+        
+    case CDLG_301_VALIDATE:
+        status = dbz_get_name_password (id, db_account, FALSE, FALSE);
+        if (status EQUALS DB_ACCOUNT_CHANGED)
+            {
+            /* connect to new account */
+            status = dbz_connect (id, db_account);
+            }
+        if (status EQUALS SUCCESS)
+            {
+            wi_set_dialog_text (id, CDLG_301_MESSAGE,
+                                mg_message (DB_DBA_VALIDATE_ACCOUNT));
+            /* first make sure that all columns exist */
+            create_flags.create_constraints = TRUE;
+            create_flags.create_indexes = TRUE;
+            create_flags.create_sequences = TRUE;
+            create_flags.create_tables = TRUE;
+            create_flags.create_views = TRUE;
+            create_flags.create_synonyms = TRUE;
+            create_flags.grant_privileges = TRUE;
+            status = dba_update_account (db_account, &create_flags);
+            if (status EQUALS SUCCESS)
+                {
+                status = dba_validate_account (db_account, &create_flags);
+                }
+            }
+        break;
+        
+    default:
+        status = FAIL;
+        }
+    if (status EQUALS SUCCESS)
+        {
+        wi_set_dialog_text (id, CDLG_301_MESSAGE, mg_message (DB_DBA_DEFAULT_PROMPT));
+        }
+    status = SUCCESS;               /* application manager can only deal with success */
+    
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Main application entry point.
+    See above.
+
+Prototype:
+    publicdef INT db_dba_func(CHAR *not_used);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) not_used        -(CHAR *)
+    
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT db_dba_func (CHAR *not_used) 
+#else
+publicdef INT db_dba_func (not_used)
+CHAR *not_used;
+#endif
+    {
+    INT id;
+    INT i;
+    INT status;
+    DB_ACCOUNT_STRUCT *db_account;
+    
+    status = am_declare ("DBA");
+    db_account = ALLOCATE (DB_ACCOUNT_STRUCT);
+    
+    fi_push ();
+    status = am_define_resource (AM_DIALOG, RESOURCE_FILE, DB_DBA_FUNCTIONS_CDLG,
+                                 db_dba_dialog_server, &id, db_account);
+    
+    if (status EQUALS SUCCESS)
+        {
+        qs_inq_c (QS_FINDER_ACCOUNT, db_account->name, &i);
+        qs_inq_c (QS_FINDER_PASSWORD, db_account->password, &i);
+        qs_inq_c (QS_DATABASE, db_account->database, &i);
+        dbz_set_scope (id, db_account);
+        
+#if 0
+        /* disable the check boxes */
+        wi_enable_dialog_item (id, CDLG_301_ANALYST, OFF);
+        wi_enable_dialog_item (id, CDLG_301_PROJECT, OFF);
+        wi_enable_dialog_item (id, CDLG_301_CODES, OFF);
+        wi_enable_dialog_item (id, CDLG_301_SYSTEM, OFF);
+#endif
+        
+        if (IS_STRING (db_account->database))
+            {
+            sprintf ((char *)account_name.arr, "%s@%s", db_account->name,
+                     db_account->database);
+            wi_set_dialog_text (id, CDLG_301_ACCOUNT_NAME, (char *)account_name.arr);
+            }
+        else
+            {
+            wi_set_dialog_text (id, CDLG_301_ACCOUNT_NAME, db_account->name);
+            }
+        wi_open_dialog (id);
+        
+        last_account = *db_account;
+        }
+    else
+        {
+        am_release_resource (id);
+        tc_free (db_account);
+        }
+    return status;
+    }
+/* END:     */

@@ -1,0 +1,482 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element ORACLE_XREF.PC */
+/* *1    13-NOV-1990 11:27:50 VINCE "initial release" */
+/* DEC/CMS REPLACEMENT HISTORY, Element ORACLE_XREF.PC */
+/* DEC/CMS REPLACEMENT HISTORY, Element ORACLE_XREF.PC */
+/* *3     9-NOV-1990 10:42:44 MING "change ho_find_files to ho_find_pathnames" */
+/* *2    21-AUG-1990 16:40:43 TOM "(SPR 1) Initial coding" */
+/* *1    21-AUG-1990 16:33:08 TOM "Cross-references oracle tables, columns, and actions." */
+/* DEC/CMS REPLACEMENT HISTORY, Element ORACLE_XREF.PC */
+
+#include "esi_oracle.h"
+#include "esi_gl_defs.h"
+#include "esi_c_lib.h"
+#include "esi_ctype.h"
+#include "esi_ht.h"
+#include "esi_ht_err.h"
+#include "esi_ts.h"
+
+EXEC SQL INCLUDE SQLCA;
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+typedef enum 
+    {
+    TABLE, COLUMN, ACTION, TABLE_COLUMN, TABLE_ACTION, COLUMN_ACTION,
+        TABLE_COLUMN_ACTION
+    } TYPES;
+
+/* This function performs the lookup in the hash table and determines whether
+   or not the token is an Oracle table, column, or action. */
+
+#if USE_PROTOTYPES
+publicdef INT ht_lookup (CHAR *string, TCP *table, TCP *column, TCP *action,
+                         HASH_TABLE_P ht)
+#else
+publicdef INT ht_lookup (string, table, column, action, ht)
+CHAR *string;
+TCP *table;
+TCP *column;
+TCP *action;
+HASH_TABLE_P ht;
+#endif 
+    {
+    TYPES type;
+    
+    /* Is the key found in the hash table? */
+    
+    if ((ht_find (ht, (VOIDPTR)string, (VOIDPTR) & type)) != HT_KEY_NOT_FOUND)
+        {
+        
+        /* If so, what is it? */
+        
+        switch (type)
+            {
+        case TABLE:
+            ts_tcp_append (table, string);
+            break;
+        case COLUMN:
+            ts_tcp_append (column, string);
+            break;
+        case ACTION:
+            ts_tcp_append (action, string);
+            break;
+        case TABLE_COLUMN:
+            ts_tcp_append (table, string);
+            ts_tcp_append (column, string);
+            break;
+        case TABLE_ACTION:
+            ts_tcp_append (table, string);
+            ts_tcp_append (action, string);
+            break;
+        case COLUMN_ACTION:
+            ts_tcp_append (column, string);
+            ts_tcp_append (action, string);
+            break;
+        case TABLE_COLUMN_ACTION:
+            ts_tcp_append (table, string);
+            ts_tcp_append (column, string);
+            ts_tcp_append (action, string);
+            break;
+            }
+        }
+    }
+
+/* This function initializes the hash table by reading in the oracle 
+    statements and inserting them into the hash table ht. */
+
+#if USE_PROTOTYPES
+publicdef INT init_ht (HASH_TABLE_P *ht)
+#else
+publicdef INT init_ht (ht)
+HASH_TABLE_P *ht;
+#endif
+    {
+    TCP tables, columns, actions, temp;
+    TYPES type, data;
+    INT status;
+    
+    /* Get the oracle statements into three TCPs. */
+    
+    zz_get_oracle_names (&tables, &columns, &actions);
+    
+    /* Set up the hash table, each key with 32 characters. */
+    
+    ht_init_hash_table (800, 40, HT_CHAR_KEY, sizeof(CHAR) * 32, sizeof type,
+                        HT_APPLICATION_TABLE, ht);
+    
+    /* Clear the hash table before inserting. */
+    
+    ht_clear_table (*ht);
+    
+    type = TABLE;                   /* Load in the tables to the hash table. */
+    for (temp = tables; *temp; temp++)
+        {
+        if ((status = ht_insert (*ht, (VOIDPTR) * temp, (VOIDPTR) & type)) != SUCCESS)
+            printf ("%s%s%d\n", *temp, " Error inserting in tables hash table ",
+                      status);
+        }
+    type = COLUMN;                  /* Load in the columns to the hash table. */
+    for (temp = columns; *temp; temp++)
+        {
+        if ((status = ht_insert (*ht, (VOIDPTR) * temp, (VOIDPTR) & type)) != SUCCESS)
+            {
+            if (status = HT_DUPLICATE_KEY)
+                {
+                type = TABLE_COLUMN;
+                ht_update (*ht, (VOIDPTR) * temp, (VOIDPTR) & type);
+                }
+            else
+                {
+                printf ("%s%s%d\n", *temp, " Error inserting in columns hash table ",
+                        status);
+                }
+            type = COLUMN;
+            }
+        }
+    type = ACTION;                  /* Load in the actions to the hash table. */
+    for (temp = actions; *temp; temp++)
+        {
+        if ((status = ht_insert (*ht, (VOIDPTR) * temp, (VOIDPTR) & type)) != SUCCESS)
+            {
+            if (status = HT_DUPLICATE_KEY)
+                {
+                ht_find (*ht, (VOIDPTR) * temp, (VOIDPTR) & data);
+                switch (data)
+                    {
+                case TABLE:
+                    type = TABLE_ACTION;
+                    ht_update (*ht, (VOIDPTR) * temp, (VOIDPTR) & type);
+                    break;
+                case COLUMN:
+                    type = COLUMN_ACTION;
+                    ht_update (*ht, (VOIDPTR) * temp, (VOIDPTR) & type);
+                    break;
+                case TABLE_COLUMN:
+                    type = TABLE_COLUMN_ACTION;
+                    ht_update (*ht, (VOIDPTR) * temp, (VOIDPTR) & type);
+                    break;
+                    }
+                }
+            else
+                {
+                printf ("%s%s%d\n", *temp, " Error inserting in actions hash table ",
+                        status);
+                }
+            type = ACTION;
+            }
+        }
+    }
+
+/* This function parses the prototype definition and pulls out the function 
+   name. */
+
+#if USE_PROTOTYPES
+publicdef INT get_func (CHAR line[], CHAR func_name[])
+#else
+publicdef INT get_func (line, func_name)
+CHAR line[];
+CHAR func_name[];
+#endif
+    {
+    CHAR *cp;
+    
+    cp = strchr (line, '(');
+    *cp = NUL;
+    
+    cp--;
+    
+    while (*cp == ' ' || *cp == '\t')
+        cp--;
+    
+    *(++cp) = NUL;
+    
+    while (*cp != ' ' && *cp != '\t')
+        cp--;
+    
+    cp++;
+    strcpy (func_name, cp);
+    }
+
+/* This function outputs the results of the search, two files.  One file
+   contains the tables and columns, one the actions. */
+
+#if USE_PROTOTYPES
+publicdef INT out_tables (CHAR *funcname, TCP table, TCP column, TCP action,
+                          FILE *outfile1, FILE *outfile2)
+#else
+publicdef INT out_tables (funcname, table, column, action, outfile1, outfile2)
+CHAR *funcname;
+FILE *outfile1, *outfile2;
+TCP table, column, action;
+#endif
+    {
+EXEC SQL BEGIN DECLARE SECTION;
+    INT a, b, c;
+    VARCHAR or_table[255];
+    VARCHAR or_column[255];
+    VARCHAR or_action[255];
+    VARCHAR or_funcname[255];
+EXEC SQL END DECLARE SECTION;
+
+    /* Remove duplicates. */
+
+    ts_tcp_remove_duplicates (table);
+    ts_tcp_remove_duplicates (column);
+    ts_tcp_remove_duplicates (action);
+
+    /* Output the function name. */
+
+    V_FROMC (or_funcname, funcname);
+    EXEC SQL DELETE FROM LIBRARIAN.SYMBOL_SQL
+	WHERE SYMBOL = :or_funcname;
+
+    fputs ("\nModule: ", outfile1);
+    fprintf (outfile1, "%s\n", funcname);
+    
+    EXEC SQL DELETE FROM LIBRARIAN.SYMBOL_SQL_ACTIONS
+	WHERE SYMBOL = :or_funcname;
+    
+    fputs ("\nModule: ", outfile2);
+    fprintf (outfile2, "%s\n", funcname);
+    
+    /* If all the tables are empty, say so, and leave. */
+    
+    if ((table == (TCP)NULL) && (column == (TCP)NULL) && (action == (TCP)NULL))
+        {
+        fprintf (outfile1, "%s\n", "  No Oracle tables or columns.");
+        fprintf (outfile2, "%s\n", "  No Oracle actions.");
+        return;
+        }
+
+    /* If only one or two tables are empty, flag an error. */
+    
+    if ((table == (TCP)NULL) || (column == (TCP)NULL) || (action == (TCP)NULL))
+        {
+        fputs ("  Warning: Incomplete Oracle statements.\n", outfile1);
+        fputs ("  Warning: Incomplete Oracle statements.\n", outfile2);
+        fprintf (stderr, "Warning:  Incomplete Oracle statements in function %s\n", funcname);
+
+        /* Output to tables and columns file. */
+        
+        if (table != (TCP)NULL)
+            {
+            fputs ("  tables:\n", outfile1);
+            for (a = 0; table[a] != NULL; fprintf (outfile1, "%s\n", table[a++]))
+                ;
+            }
+        if (column != (TCP)NULL)
+            {
+            fputs ("  columns:\n", outfile1);
+            for (b = 0; column[b] != NULL; fprintf (outfile1, "%s\n", column[b++]))
+                ;
+            }
+        /* Output to actions file. */
+        
+        if (action != (TCP)NULL)
+            {
+            for (c = 0; action[c] != NULL;
+                 fprintf (outfile2, "%s%s\n", "  ", action[c++]))
+                ;
+            }
+        }
+    else                            /* Let's print out all the tables. */
+        {
+        
+        /* Do the tables and columns file. */
+        
+        for (a = 0; table[a] != NUL; a++)
+            {
+            for (b = 0; column[b] != NUL; b++)
+		{
+		V_FROMC (or_table, table[a]);
+		V_FROMC (or_column, column[b]);
+		EXEC SQL INSERT INTO LIBRARIAN.SYMBOL_SQL
+		    (SYMBOL, TNAME, CNAME)
+		VALUES
+		    (:or_funcname, :or_table, :or_column);
+
+                fprintf (outfile1, "%s%-32s%s%-32s\n", "  table:  ", table[a], "  column:  ",
+                         column[b]);
+		}
+            }
+
+        /* Do the actions file. */
+        
+        for (c = 0; action[c] != NUL; c++)
+            {
+	    V_FROMC (or_action, action[c]);
+	    EXEC SQL INSERT INTO LIBRARIAN.SYMBOL_SQL_ACTION
+		(SYMBOL, ACTION)
+	    VALUES
+		(:or_funcname, :or_action);
+
+	    fprintf (outfile2, "%s%s\n", "  ", action[c]);
+	    }
+        }
+    }
+
+/* This is the main function.  It scans the file for uppercase tokens and
+   sends them to the lookup function. */
+
+#if USE_PROTOTYPES
+publicdef INT main (int argc, char *argv[])
+#else
+publicdef INT main (argc, argv)
+int argc;
+char *argv[];
+#endif
+    {
+    TCP table, column, action, files, temp, temp2;
+    CHAR line[255], func_name[255], c, token[255];
+    INT a, b;
+    HASH_TABLE_P ht;
+    FILE *file, *outfile1, *outfile2;
+    BOOL incomment;
+    
+    table  = (TCP)NULL;
+    column = (TCP)NULL;
+    action = (TCP)NULL;
+    files  = (TCP)NULL;
+    temp   = (TCP)NULL;
+    temp2  = (TCP)NULL;
+    
+    /* Login to Oracle. */
+
+    or_login (argc, argv);
+
+    /* Open the output files. */
+    
+    if (((outfile1 = fopen ("tabcol.dat", "w")) == (FILE *)NULL) ||
+                     ((outfile2 = fopen ("action.dat", "w")) == (FILE *)NULL))
+        {
+        printf ("%s", "Error opening output files.\n");
+        return;
+        }
+    line[0] = NUL;
+    func_name[0] = NUL;
+    token[0] = NUL;
+    
+    /* Initialize the hash table. */
+    
+    init_ht (&ht);
+    
+    incomment = FALSE;
+    
+    /* Open the input files. */
+    if (argc < 3)
+	printf ("%s\n", "Too few parameters.");
+
+    while (--argc > 1)
+	{
+	ho_find_pathnames (argv[argc], &temp);
+	ts_tcp_union (files, temp, &temp2);
+	ts_tcp_free (files);
+	files = (TCP)NULL;
+	ts_tcp_free (temp);
+	temp = (TCP)NULL;
+	ts_tcp_union (temp2, temp, &files);
+	ts_tcp_free (temp2);
+	temp2 = (TCP)NULL;
+	}
+
+    ts_tcp_remove_duplicates (files);
+
+    ts_tcp_free (temp);
+    temp = (TCP)NULL;
+    
+    for (temp = files; *files; files++)
+        {
+        if ((file = fopen (*files, "r")) == (FILE *)NULL)
+            {
+            printf ("%s%s\n", "Error opening input file ", *files);
+            return;
+            }
+        /* Scan the file. */
+        
+        while (fgets (line, sizeof line, file) != NULL)
+            {
+            
+            /* Are we at the beginning? */
+            
+            if (strncmp (line, "/* BEGIN:", 9) == 0)
+                {
+                
+                /* If so, scan for filename. */
+                
+                while (strchr (line, '(') == 0)
+                    fgets (line, sizeof line, file);
+                
+                get_func (line, func_name);
+                
+                while (strchr (line, '{') == 0)
+                    fgets (line, sizeof line, file);
+                
+                /* Scan until we hit the end of the function. */
+                
+                while (strncmp (line, "/* END:", 7))
+                    {
+                    a = 0;
+                    
+                    while ((c = line[a]))
+                        {
+                        switch (c)
+                            {
+                        case '/':   /* Have we started a comment? */
+                            c = line[a + 1];
+                            if (c == '*')
+                                {
+                                incomment = TRUE;
+                                a++;
+                                }
+                            break;
+                        case '*':   /* Have we ended a comment? */
+                            c = line[a + 1];
+                            if (c == '/')
+                                {
+                                incomment = FALSE;
+                                a++;
+                                }
+                            break;
+                        default:    /* Let's just do normal code... */
+                            b = 0;
+                            if (((isupper (c)) || (c == '_') || (isdigit (c))) &&
+                                (incomment == FALSE))
+                                {
+                                while (isupper (line[a]) || (line[a] == '_') ||
+                                       isdigit (line[a]))
+                                    token[b++] = line[a++];
+                                
+                                token[b] = '\0';
+                                
+                                /* If the token terminated with just a normal
+                                   terminator, not another character, look it up. */
+                                
+                                if (!(islower (line[a])))
+                                    ht_lookup (token, &table, &column, &action, ht);
+                                }
+                            break;
+                            }
+                        a++;
+                        }
+                    fgets (line, sizeof line, file);
+                    }
+                /* Do some nasty output... */
+                
+                out_tables (func_name, table, column, action, outfile1, outfile2);
+                
+                /* Free up what's left. */
+                
+                strcpy (func_name, "\0");
+                ts_tcp_free (table);
+                table = (TCP)NULL;
+                ts_tcp_free (column);
+                column = (TCP)NULL;
+                ts_tcp_free (action);
+                action = (TCP)NULL;
+                }
+            }
+        fclose (file);
+        }
+    EXEC SQL COMMIT WORK RELEASE;
+    return;
+    }

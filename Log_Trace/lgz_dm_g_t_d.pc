@@ -1,0 +1,163 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LGZ_DM_G_T_D.PC*/
+/*  9    26-FEB-1992 16:34:16 JESSIE "(SPR 6180) add TVD display of traces and tops"*/
+/* *8    17-JUL-1991 16:29:41 JANTINA "(SPR 0) Update top,base"*/
+/* *7    23-AUG-1990 17:36:39 JESSIE "(SPR 1) fix include files"*/
+/* *6    14-SEP-1989 16:16:14 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *5    13-AUG-1989 03:02:37 GILLESPIE "(SPR 5) CHANGE SHARED TO SHARED_TRACE"*/
+/* *4    13-AUG-1989 01:45:55 GILLESPIE "(SPR 5) Change WLL_LOG_TRACE_HDR to WELL_LOG_CURVE; always release cursor"*/
+/* *3     8-AUG-1989 10:44:12 VINCE "(SPR -1) added Gulf mods; static in SQL declare section"*/
+/* *2    19-JUL-1989 15:13:36 GORDON "(SPR 100) 100"*/
+/* *1    19-JUN-1989 12:33:06 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element LGZ_DM_G_T_D.PC*/
+
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/* **************************************************************************
+
+    Author:   James Chang
+    ************************************************************************ */
+
+#include "esi_lg_defs.h"
+#ifndef ESI_GL_LDEFS_H
+#include "esi_lg_ldefs.h"
+#endif
+#ifndef ESI_LG_ERR_H
+#include "esi_lg_err.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#include "esi_oracle.h"
+
+
+/* **************************************************************************
+
+    ROUTINE:  LGZ_GET_TRACE_DATA
+
+    DESCRIPTION
+	To retrieve all the data of the specified trace.
+
+    ************************************************************************ */
+publicdef INT lgz_get_trace_data(     traceStruct )
+    /* ********************************************************************* */
+LOG_TRACE_STRUCT   *traceStruct;       /* pointer of given LOG_TRACE_STRUCT.*/
+{
+    INT status;
+    PROJECT_NAME project_name;
+
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR	upd_select[1024];
+    VARCHAR	upd_source[12];
+    VARCHAR	upd_service[12];
+    VARCHAR	upd_shared[3];
+    VARCHAR	upd_depth_type[3];
+    VARCHAR	upd_depth_uom[24];
+    double	upd_top;
+    double	upd_base;
+    double	upd_dinc;
+    double	upd_min;
+    double	upd_max;
+    VARCHAR	upd_trace_uom[24];
+    VARCHAR	upd_comments[80];
+    VARCHAR     upd_digital_ref[20];
+    VARCHAR     upd_digital_ref_volume[80];
+    long        upd_trace_id;
+    
+EXEC SQL END DECLARE SECTION;  
+/* ************************************************************************* */
+
+				 /* construct the table name.               */
+    qs_inq_c(QS_PROJECT_NAME, project_name, (INT *) 0);
+    
+    EXEC SQL WHENEVER SQLERROR GOTO upd_err;
+    EXEC SQL WHENEVER NOT FOUND GOTO upd_nfd;
+	
+	upd_select.len = sprintf((char *)upd_select.arr, 
+"SELECT TRACE_ID, SOURCE, SERVICE, SHARED_TRACE, TOP, BASE, \
+DEPTH_INC, DEPTH_UNIT, DEPTH_TYPE, \
+TRACE_MIN, TRACE_MAX, DIGITAL_REF, DIGITAL_REF_VOLUME, \
+TRACE_UNIT, TRACE_REMARKS FROM %s.WELL_LOG_CURVE_HDR \
+WHERE UWI = '%s' AND TRACE_TYPE = '%s' AND \
+VERSION = '%d'",project_name, traceStruct->uwi, 
+traceStruct->trace, traceStruct->version );
+
+	EXEC SQL PREPARE S1 FROM :upd_select;
+	EXEC SQL DECLARE C1 CURSOR FOR S1;         
+
+   EXEC SQL OPEN C1;
+
+   EXEC SQL FETCH C1 INTO :upd_trace_id, :upd_source, :upd_service, :upd_shared,
+	:upd_top, :upd_base, :upd_dinc, :upd_depth_uom, 
+	:upd_depth_type, :upd_min, :upd_max, :upd_digital_ref,
+	:upd_digital_ref_volume, :upd_trace_uom, :upd_comments;
+
+    traceStruct->trace_id = upd_trace_id;   	
+    V_FROMV(traceStruct -> source, upd_source);
+    V_FROMV(traceStruct -> service, upd_service);
+    V_FROMV(traceStruct -> nlist_id, upd_digital_ref);
+    V_FROMV(traceStruct -> filename, upd_digital_ref_volume);
+    if (upd_shared.arr[0] EQUALS 'Y')
+    {
+	traceStruct -> shared = TRUE;
+    }
+    else
+    {
+	traceStruct -> shared = FALSE;
+    }
+    
+    V_FROMV( traceStruct -> depth_uom, upd_depth_uom);
+    if( upd_depth_type.arr[0] EQUALS 'T')
+    {
+	strcpy(traceStruct -> depth_or_time, "TIME");
+	traceStruct -> depth_type = DEPTH_IN_TIME;
+    }
+    else
+    {
+	strcpy(traceStruct -> depth_or_time, "DEPTH");
+	traceStruct -> depth_type = DEPTH_IN_DISTANCE;
+    }
+    V_FROMV(traceStruct -> trace_uom, upd_trace_uom );
+    traceStruct -> non_null_top = upd_top;
+    traceStruct -> non_null_base = upd_base;
+    if( traceStruct -> top EQUALS 0.0)
+        traceStruct -> top = upd_top;
+    if( traceStruct -> base EQUALS 0.0)
+        traceStruct -> base = upd_base;
+    traceStruct -> dinc = upd_dinc;
+    traceStruct -> max = upd_max;
+    traceStruct -> min = upd_min;
+    V_FROMV(traceStruct -> comments, upd_comments);
+	status = SUCCESS;
+    goto way_out;
+
+upd_err:
+    status = OR_STATUS;
+    goto way_out;
+upd_nfd:
+    status = LG_TRACE_NOT_FOUND;
+    goto way_out;
+way_out:
+	EXEC SQL WHENEVER SQLERROR CONTINUE;
+	EXEC SQL CLOSE C1;
+	return status;
+}

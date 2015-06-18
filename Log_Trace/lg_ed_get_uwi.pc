@@ -1,0 +1,289 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LG_ED_GET_UWI.PC*/
+/* *3    14-SEP-1989 16:17:17 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *2    13-AUG-1989 01:47:36 GILLESPIE "(SPR 5) Change WLL_LOG_TRACE_HDR to WELL_LOG_CURVE; always release cursor"*/
+/* *1    19-JUN-1989 12:33:40 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element LG_ED_GET_UWI.PC*/
+
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_lg_edit.h"
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_WI_H
+#include "esi_wi.h"
+#endif
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_WE_WELLS_H
+#include "esi_we_wells.h"
+#endif
+#ifndef ESI_LG_LDEFS_H
+#include "esi_lg_ldefs.h"
+#endif
+#ifndef ESI_LG_MSG_H
+#include "esi_lg_msg.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_FI_H
+#include "esi_fi.h"
+#endif
+
+#include "lg_ed_main_menus.rh"
+#include "lg_ed_well_cdlgs.rh"
+
+#define   Resource_File "LG_ED_WELL_CDLGS"
+
+/******************************************************************************/
+/*                                                                            */
+/*    Routine:        LG_WELL_GET_UWI                                         */
+/*                                                                            */
+/*    Function:       This routine brings up a select list of UWI for the     */
+/*                    current project, and prompts the user to select a       */
+/*                    single UWI to be the current well.                      */
+/*                                                                            */
+/*    Author:         D. Mcleod                                               */
+/*                                                                            */
+/******************************************************************************/
+
+
+publicdef INT lg_well_get_uwi( plg)
+
+  LOG_EDIT_STRUCT   *plg;
+
+{
+    INT                status;
+    INT                num_items_ret;      /* num items returned by select (1)*/
+    INT                Item, value, ID;    
+    INT                event_id;           /* Id of resource generating event */
+    INT		       items_selected[1];  /* array for return item           */
+    CHAR               text[128];          /* dummy array for wirqst          */
+
+/******************************************************************************/
+
+                                           /* set up trace selector dialog res*/
+
+    fi_push();   
+
+    status = am_define_resource( AM_DIALOG,
+                                 Resource_File,
+                                 LG_ED_WELL_GET_UWI,  /* dialog id            */
+                                 NULL_FUNCTION_PTR,
+                                 &ID,               
+                                 NULL);
+
+                                       /* Retrieve list of UWI's from ORACLE  */
+
+    status = lg_well_get_uwi_list(plg);
+                                       /* If ORACLE error ocurred or there were
+                                          no UWI's then get out            */
+    if ( status < 0 || plg->num_uwis == 0)
+      {
+       am_message( AM_ALERT, mg_message(LG_ED_NO_WELLS_WITH_LOGS) );
+       am_release_resource( ID);       
+       fi_pop();
+       return (FAIL);
+      }
+
+                                           /* set up selector control         */
+    wisselt(ID, LG_ED_WELL_SELECT_LIST,
+                LG_ED_WELL_SELECT_BAR, 
+                plg->num_uwis, 1, plg->uwi_tcp);
+
+                                           /* set default selec. to 1st item  */
+    wi_set_default_sel( ID, LG_ED_WELL_SELECT_LIST, 1);
+
+                                           /* bring up dialog box             */
+    status = wiopcd(ID); 
+
+                                           /* query Proceed or Cancel buttons */
+    for( status = FAIL; status != SUCCESS;  )
+       {
+       wi_request_dialog_item( &event_id, &Item, &value, text);
+       if ( event_id != ID )
+          {
+          wibeep(1);
+          }
+       else
+          {
+          status = SUCCESS;
+          }
+       }
+
+                                           /* Event is from correct dialog.   */
+    switch (Item)
+     {
+      case LG_ED_WELL_BTN_CANCEL:          /* Cancel button pressed, exit     */
+           status = FAIL;
+           break;
+
+
+      case LG_ED_WELL_BTN_RETRIEVE:        /* Retrieve button pressed         */
+                                           /* query dialog for 1 selection    */
+           wiqsel( ID, LG_ED_WELL_SELECT_LIST,
+                       &num_items_ret, 
+                       items_selected);
+
+           if (num_items_ret == 0)
+            {
+             status = FAIL;
+            }
+           else                            /* set UWI name in structure.      */
+            {
+             strcpy( plg->edit_uwi,
+                     plg->uwi_tcp[items_selected[0] -1 ]);
+
+                                           /* Set number of traces  (new UWI) */
+
+             status = lg_ltdm_inq_well_trace( plg->edit_uwi,
+                                              "",
+                                              &plg->trace_tcp,
+                                              &plg->num_traces);
+
+
+             if (plg->num_traces == 0)
+               {
+               strcpy(text,mg_message(LG_ED_NO_TRACES_THIS_WELL));
+               sprintf(text, "%s %s",text,mg_message(LG_ED_MENU_ITEMS_DIMMED));
+               am_message( AM_ALERT, text); 
+
+               }
+
+             status = SUCCESS;
+
+            } 
+           break;
+     }                                     /* end of switch construct         */
+    
+
+    am_release_resource( ID);              /* release dialog resource         */
+    fi_pop();                              /* return control                  */
+
+
+
+
+    return status;
+
+}
+
+/* *********************************************************************** */
+/*	             					     	           */
+/*   Routine:      lg_well_get_uwi_list                                    */
+/*                                                                         */
+/*   Purpose:      Retrieve distinct UWI's from ORACLE into a tcp.         */
+/*                                                                         */
+/*   Author:       D Mcleod                                                */
+/*                                                                         */
+/* *********************************************************************** */
+
+publicdef INT lg_well_get_uwi_list( plg)
+
+  LOG_EDIT_STRUCT *plg;
+ {
+  INT    i;
+  INT    len;
+  PROJECT_NAME project;
+
+  EXEC SQL BEGIN DECLARE SECTION;
+
+  VARCHAR sqlphrase[200];
+  VARCHAR uwi[31];
+  int     count;
+
+  EXEC SQL END DECLARE SECTION;
+
+/* ****************************************************************** */
+
+  if (plg->uwi_tcp != (CHAR **)NULL)
+   {
+    return SUCCESS; 
+   }
+
+  EXEC SQL WHENEVER SQLERROR GOTO errrept;
+
+/* Count number of distinct UWI'S, allocate memory for array of char. ptrs.  */
+
+  qs_inq_c( QS_PROJECT_NAME, project, &len);
+
+  sqlphrase.len = sprintf((char *)sqlphrase.arr, "SELECT COUNT(DISTINCT UWI) \
+                           FROM %s.WELL_LOG_CURVE_HDR", project);
+
+  EXEC SQL PREPARE S1 FROM :sqlphrase;
+  EXEC SQL DECLARE C1 CURSOR FOR S1;
+  EXEC SQL OPEN C1;
+  EXEC SQL FETCH C1 INTO :count;
+  EXEC SQL CLOSE C1;
+
+  
+  plg->uwi_tcp = ts_tcp_alloc(count);
+  plg->num_uwis = count;
+
+/* Now fetch the UWI's                                                       */
+
+  sqlphrase.len = sprintf((char *)sqlphrase.arr, "SELECT DISTINCT UWI \
+                           FROM %s.WELL_LOG_CURVE_HDR ORDER BY UWI",
+                           project);
+
+  EXEC SQL PREPARE S2 FROM :sqlphrase;
+  EXEC SQL DECLARE C2 CURSOR FOR S2;
+  EXEC SQL OPEN C2;
+  EXEC SQL FETCH C2 INTO :uwi;
+
+/* Loop on UWI's to fill tcp                                            */
+
+  i = 0;
+
+while( OR_STATUS == SUCCESS)
+{
+    V_SETZERO(uwi);
+
+    plg->uwi_tcp[i] = (CHAR *)tc_zalloc(sizeof(CHAR) * (uwi.len + 1));
+    strcpy(plg->uwi_tcp[i], (char *)uwi.arr);
+
+    i++;
+
+    EXEC SQL FETCH C2 INTO :uwi;
+}
+
+EXEC SQL CLOSE C2;
+
+
+
+return SUCCESS;
+
+errrept:
+	printf("SQL error %d occurred", OR_STATUS);
+	return FAIL;
+}

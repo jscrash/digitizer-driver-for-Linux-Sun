@@ -1,0 +1,663 @@
+
+Pro*C/C++: Release 10.2.0.3.0 - Production on Tue Nov 15 02:22:54 2011
+
+Copyright (c) 1982, 2005, Oracle.  All rights reserved.
+
+Open file: ld.pc
+     1  /* *2     1-MAY-1991 21:53:59 KEE "(SPR -1) Landmark Import" */
+     2  /* *1     1-MAY-1991 21:23:41 KEE "Landmark Import & Export, Zycor Expo
+        rt and Mimic Export" */
+     3  /* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_SHOT_TRACE.PC */
+     4  /**********************************************************************
+        ********     */
+     5  /*                                                                     
+                     */
+     6  /*                Copyright Finder Graphics Systems, Inc. 1989         
+                     */
+     7  /*           Unpublished -- All rights reserved                        
+                     */
+     8  /*                                                                     
+                     */
+     9  /*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems,
+         Inc.  AND   */
+    10  /*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR
+         USE ON THE  */
+    11  /*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NO
+        T BE         */
+    12  /*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONS
+        ENT OF       */
+    13  /*                                                                     
+                     */
+    14  /*            Finder Graphics Systems, Inc.                            
+                     */
+    15  /*            201 Tamal Vista Blvd                                     
+                     */
+    16  /*            Corte Madera, CA  USA 94925                              
+                     */
+    17  /*            (415) 927-0100                                           
+                     */
+    18  /*                                                                     
+                     */
+    19  /*(The above notice does not constitute an admission of publication or 
+                     */
+    20  /*unrestricted dissemination of the work)                              
+                     */
+    21  /*                                                                     
+                     */
+    22  /**********************************************************************
+        ********     */
+    23  
+    24  /* ********************************************************************
+        ****
+    25  
+    26     NAME: LD_LM2_IMP_SHOT_TRACE.PC
+    27  
+    28     AUTHOR: Rod Hanks
+    29     DATE:   May 18th, 1990
+    30     DESCRIPTION: Load seismic traces into Finder from a file output by L
+        andmark.
+    31                  Finder does not actually use the data in this form, but
+         it
+    32                  gives us someplace to put it.
+    33     ********************************************************************
+        **** */
+    34  
+    35  #ifndef ESI_ORACLE_H
+    36  #include "esi_oracle.h"
+    37  #endif
+    38  #ifndef ESI_HO_FILES_H
+    39  #include "esi_ho_files.h"
+    40  #endif
+    41  #ifndef ESI_CTYPE_H
+    42  #include "esi_ctype.h"
+    43  #endif
+    44  #ifndef LD_LM2_IMP_WORK_H
+    45  #include "ld_lm2_imp_work.h"
+    46  #endif
+    47  
+    48  #if USE_PROTOTYPES
+    49  publicdef VOID ld_lm2_imp_shot_trace (FILENAME fileName, PROJECT_NAME p
+        roject,
+
+Pro*C/C++: Release 10.2.0.3.0 - Production on Tue Nov 15 02:22:54 2011
+
+Copyright (c) 1982, 2005, Oracle.  All rights reserved.
+
+    50                          BOOL convertProj, PROJECTION_STRUCTURE *default
+        Proj, 
+    51                          PROJECTION_STRUCTURE *inputProj, CHAR *source, 
+    52                          INT overwrite)
+    53  #else
+    54  publicdef VOID ld_lm2_imp_shot_trace (fileName, project,
+    55                          convertProj, defaultProj, inputProj,
+    56                          source, overwrite)
+    57  FILENAME        fileName;
+    58  PROJECT_NAME    project;
+    59  BOOL                  convertProj;
+    60  PROJECTION_STRUCTURE *defaultProj;
+    61  PROJECTION_STRUCTURE *inputProj;
+    62  CHAR                 *source;
+    63  INT                   overwrite;
+    64  #endif
+    65      {
+    66  /**********************************************************************
+        ******
+    67  
+    68          V a r i a b l e   D e c l a r a t i o n s .
+    69  
+    70  ***********************************************************************
+        *******/
+    71  
+    72      FILE           *spfile;
+    73      CHAR           inputSurvey[24];
+    74      CHAR          *inputName;
+    75      CHAR          *pos;
+    76      CHAR           lastName[80];
+    77      BOOL           moreFlag;
+    78      INT            arrayNDX;
+    79      BOOL           skipOne;
+    80      BOOL           useUpdate;
+    81      INT            thisShot;
+    82      INT            thisTrace;
+    83      CHAR           thisSource[13];
+    84      CHAR           thisSurvey[21];
+    85      CHAR           thisName[21];
+    86  #ifdef USE_OLDPARSING
+    87      CHAR           dummy[255];
+    88      CHAR          *inputShot;
+    89      CHAR          *inputTrace;
+    90  #else
+    91      LD_SCANNER_STRUCT ld_scan;  
+    92  #endif
+    93  
+    94  /*
+    95                                  General variable declarations.
+    96  */
+    97      EXEC SQL BEGIN DECLARE SECTION;
+    98          VARCHAR sqlstmt[400];
+    99          int     lineID;
+   100          VARCHAR landmarkName[81];
+   101          VARCHAR lineName[24];
+   102          VARCHAR survey[24];
+   103          int     initial_shot;
+   104          int     final_shot;
+   105          int     initial_trace;
+   106          int     final_trace;
+   107          VARCHAR sourceName[13];
+   108      EXEC SQL END DECLARE SECTION;
+   109  /*
+   110                                  Oracle variable declarations.
+   111  */
+   112  /**********************************************************************
+        ******
+   113  
+   114          I n i t i a l i z a t i o n .
+   115  
+   116  ***********************************************************************
+        *******/
+   117  
+   118      sqlstmt.len = sprintf((char *)sqlstmt.arr,
+   119  "SELECT FINDER_LINE_NAME, FINDER_SURVEY FROM %s.SEIS_LINE_XREF \
+
+Pro*C/C++: Release 10.2.0.3.0 - Production on Tue Nov 15 02:22:54 2011
+
+Copyright (c) 1982, 2005, Oracle.  All rights reserved.
+
+   120  WHERE VENDOR_LINE_NAME = :landmarkName AND VENDOR = 'LANDMARK'", projec
+        t);
+   121  
+   122      EXEC SQL PREPARE S9 FROM :sqlstmt;
+   123      if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare S9");
+   124      EXEC SQL DECLARE XREF_CURS CURSOR FOR S9;
+   125      
+   126      sqlstmt.len = sprintf((char *)sqlstmt.arr,
+   127  "SELECT LINE_ID \
+   128  FROM %s.SEIS_LINE_HDR \
+   129  WHERE LINE_NAME = :lineName AND SURVEY = :survey", project);
+   130  
+   131      EXEC SQL PREPARE S1 FROM :sqlstmt;
+   132      if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s1");
+   133      EXEC SQL DECLARE LOOK_CURS CURSOR FOR S1;
+   134      
+   135      sqlstmt.len = sprintf((char *)sqlstmt.arr,
+   136  "INSERT INTO %s.SEIS_TRACE_HDR (LINE_ID, \
+   137  FIRST_SP, LAST_SP, FIRST_TRACE, LAST_TRACE, DIGITAL_REF_VOLUME, \
+   138  FIRST_CDP, LAST_CDP, \
+   139  UPPER_TIME, LOWER_TIME, DATA_SIZE, NSAMPLES, SAMPLE_INTERVAL, \
+   140  NTRACES, ATTRIBUTE, INC_TRACE, NB_WORDS, CDP_PER_TRACE, \
+   141  PROCESS_CODE, DATA_POINTER, SIGN, SOURCE) VALUES (\
+   142  :lineID, :initial_shot, :final_shot, \
+   143  :initial_trace, :final_trace, 'X', \
+   144  -99, -99, -99, -99, -99, -99, -99, -99, 'X', -99, -99, -99, -99, \
+   145  -99, 0, :sourceName)", project);
+   146  
+   147      EXEC SQL PREPARE S2 FROM :sqlstmt;
+   148      if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s2");
+   149  
+   150      sqlstmt.len = sprintf((char *)sqlstmt.arr,
+   151  "UPDATE %s.SEIS_TRACE_HDR SET SOURCE = :sourceName, FIRST_SP = :initial
+        _shot, \
+   152  LAST_SP = :final_shot, FIRST_TRACE = :initial_trace, \
+   153  LAST_TRACE = :final_trace \
+   154  WHERE LINE_ID = :lineID", project);
+   155  
+   156      EXEC SQL PREPARE S3 FROM :sqlstmt;
+   157      if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s3");
+   158  
+   159      sqlstmt.len = sprintf((char *)sqlstmt.arr,
+   160  "SELECT SOURCE FROM %s.SEIS_TRACE_HDR \
+   161  WHERE LINE_ID = :lineID", project);
+   162  
+   163      EXEC SQL PREPARE S4 FROM :sqlstmt;
+   164      if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s4");
+   165      EXEC SQL DECLARE ID_CURS CURSOR FOR S4;
+   166  
+   167      spfile = ho_open(fileName, "r", NULL);
+   168      if (spfile == (FILE *)NULL)
+   169          {
+   170          printf("Unable to open seismic trace file named %s\n", fileName
+        );
+   171          }
+   172      else
+   173          {
+   174          printf("loading seismic traces from %s\n", fileName);
+   175          lastName[0] = 0;
+   176  #ifdef USE_OLDPARSING
+   177          fgets(dummy, 255, spfile);
+   178          fgets(dummy, 255, spfile);
+   179          fgets(dummy, 255, spfile);
+   180  /*
+   181                                  Skip the first three lines, they contai
+        n
+   182                                  formatting information.  We don't use i
+        t
+   183                                  because we look for the spaces between
+   184                                  the columns.
+   185  */
+   186  /**********************************************************************
+        *******
+   187  
+   188          M a i n   L o g i c .
+
+Pro*C/C++: Release 10.2.0.3.0 - Production on Tue Nov 15 02:22:54 2011
+
+Copyright (c) 1982, 2005, Oracle.  All rights reserved.
+
+   189  
+   190  ***********************************************************************
+        ******/
+   191  
+   192          moreFlag = TRUE;
+   193          while (moreFlag)
+   194              {
+   195              do
+   196                  {
+   197                  pos = fgets(dummy, 255, spfile);
+   198                  }
+   199                  while (pos != (CHAR *) 0 && strlen(dummy) < 5);
+   200  
+   201              if (pos == (CHAR *) 0)
+   202                  {
+   203                  moreFlag = FALSE;
+   204                  }
+   205  /*
+   206                                  Get next line from file, if any, and
+   207                                  set a flag when no more.  We want to
+   208                                  fall thru the loop one last time in
+   209                                  this case in order to output the last
+   210                                  line.
+   211  */
+   212              if (moreFlag)
+   213                  {
+   214                  while (*pos == ' ')
+   215                      {
+   216                      pos++;
+   217                      }
+   218                  inputName = pos;
+   219                  while (*pos != ' ' && *pos != 0)
+   220                      {
+   221                      pos++;
+   222                      }
+   223                  *pos = 0;
+   224                  pos++;
+   225                  while (*pos == ' ')
+   226                      {
+   227                      pos++;
+   228                      }
+   229                  inputShot = pos;
+   230                  while (*pos != ' ' && *pos != 0)
+   231                      {
+   232                      pos++;
+   233                      }
+   234                  *pos = 0;
+   235                  pos++;
+   236                  while (*pos == ' ')
+   237                      {
+   238                      pos++;
+   239                      }
+   240                  inputTrace = pos;
+   241                  while (*pos != ' ' && *pos != 0)
+   242                      {
+   243                      pos++;
+   244                      }
+   245                  *pos = 0;
+   246  #else
+   247          tc_zeroes(&ld_scan, sizeof(LD_SCANNER_STRUCT)); 
+   248          ld_scan.in.fix_format = TRUE;
+   249          ld_scan.in.snowhite = TRUE;
+   250          ld_scan.in.num_pair = 3;
+   251          ld_scan.in.start[0] = 1;     ld_scan.in.end[0] = 12;
+   252          ld_scan.in.start[1] = 14;    ld_scan.in.end[1] = 24;
+   253          ld_scan.in.start[2] = 26;    ld_scan.in.end[2] = 36;
+   254          while (ld_scan.eof == FALSE)
+   255            {
+   256              ld_scan_line(spfile, &ld_scan);
+   257              if ((ld_scan.out_nitems != ld_scan.in.num_pair AND 
+   258                   ld_scan.out_nitems != 0) OR
+   259                  ld_scan.out[0].parmtype != LD_STRING OR
+   260                  ld_scan.out[1].parmtype != LD_DOUBLE OR
+   261                  ld_scan.out[2].parmtype != LD_DOUBLE)
+   262                { /* scan header */
+
+Pro*C/C++: Release 10.2.0.3.0 - Production on Tue Nov 15 02:22:54 2011
+
+Copyright (c) 1982, 2005, Oracle.  All rights reserved.
+
+   263                  continue;
+   264                }
+   265              else 
+   266                {
+   267                  break;
+   268                }
+   269            }
+   270          while (TRUE)
+   271            {
+   272              if (ld_scan.eof == TRUE)
+   273                {
+   274                  moreFlag = !ld_scan.eof;
+   275                  *inputName = *inputSurvey = 0;
+   276                }
+   277              else if (ld_scan.out_nitems == 0)
+   278                {
+   279                  ld_scan_line(spfile, &ld_scan);
+   280                  continue;
+   281                }
+   282              else if (ld_scan.out_nitems != ld_scan.in.num_pair OR
+   283                       ld_scan.out[0].parmtype != LD_STRING OR
+   284                       ld_scan.out[1].parmtype != LD_DOUBLE OR
+   285                       ld_scan.out[2].parmtype != LD_DOUBLE)
+   286                { 
+   287                  printf("Invalid line format - following line will be sk
+        ipped\n ");
+   288                  printf("%s",ld_scan.line);
+   289                  continue;
+   290                }
+   291              else 
+   292                {
+   293                  moreFlag = !ld_scan.eof;
+   294                  inputName = ld_scan.out[0].parmval.cval;        
+   295                  thisShot = (INT) ld_scan.out[1].parmval.dbval;
+   296                  thisTrace = (INT) ld_scan.out[2].parmval.dbval;
+   297  #endif
+   298                  pos = inputName + strlen(inputName);
+   299                  while ((int)pos > (int)inputName && *pos != '-')
+   300                      {
+   301                      pos--;
+   302                      }
+   303                  if ((int)pos > (int)inputName)
+   304                      {
+   305                      strncpy(inputSurvey, inputName, (pos - inputName));
+   306                      inputSurvey[(int)(pos - inputName)] = 0;
+   307                      }
+   308                  else
+   309                      {
+   310                      pos = inputName;
+   311                      while (isalpha(*pos))
+   312                          {
+   313                          pos++;
+   314                          }
+   315                      strncpy(inputSurvey, inputName, (pos - inputName));
+   316                      inputSurvey[(int)(pos - inputName)] = 0;
+   317                      }
+   318                  }
+   319  /*
+   320                                  Above, parse out the input line into li
+        ne
+   321                                  name (and survey), shot number, trace n
+        umber.
+   322  */      
+   323              if (strcmp(lastName, inputName) != 0 || moreFlag == FALSE)
+   324                  {
+   325                  if (strlen(lastName) != 0 && skipOne == FALSE && arrayN
+        DX == 2)
+   326                      {
+   327                      EXEC SQL OPEN ID_CURS USING :lineID;
+   328                      if (OR_STATUS != 0) ld_show_error(OR_STATUS,
+   329                                                          "open id_curs")
+        ;
+   330                      EXEC SQL FETCH ID_CURS INTO :sourceName;
+   331                      if (OR_STATUS < 0) 
+   332                          {
+
+Pro*C/C++: Release 10.2.0.3.0 - Production on Tue Nov 15 02:22:54 2011
+
+Copyright (c) 1982, 2005, Oracle.  All rights reserved.
+
+   333                          ld_show_error(OR_STATUS, "fetch id_curs");
+   334                          }
+   335                      else if (OR_STATUS == 0)
+   336                          {
+   337                          useUpdate = TRUE;
+   338                          }
+   339                      else
+   340                          {
+   341                          useUpdate = FALSE;
+   342                          }
+   343                      EXEC SQL CLOSE ID_CURS;
+   344                      if (OR_STATUS != 0) ld_show_error(OR_STATUS,
+   345                                                          "close id_curs"
+        );
+   346  /*
+   347                                  Get the next line id number.
+   348  */
+   349                      if (useUpdate == FALSE)
+   350                          {
+   351                          V_FROMC(sourceName, source);
+   352                          EXEC SQL EXECUTE S2 USING :lineID, 
+   353                                          :initial_shot, :final_shot,
+   354                                          :initial_trace, :final_trace,
+   355                                          :sourceName;
+   356                          if (OR_STATUS != 0) ld_show_error(OR_STATUS,
+   357                                                          "execute s2");
+   358                          }
+   359                      else if (overwrite == 0)
+   360                          {
+   361                          printf("Line exists, not overwritten.\n");
+   362                          }
+   363                      else
+   364                          {
+   365                          V_V_TO_C(thisSource, sourceName);
+   366                          if (strcmp(thisSource, source) != 0)
+   367                              {
+   368                              printf("Line exists with source %s, \
+   369  new source %s will be replaced.\n", thisSource, source);
+   370                           V_FROMC(sourceName,source);
+   371                              }
+   372                              EXEC SQL EXECUTE S3 USING 
+   373                                                  :sourceName,
+   374                                                  :initial_shot, :final_s
+        hot,
+   375                                                  :initial_trace, :final_
+        trace,
+   376                                                  :lineID;
+   377                              if (OR_STATUS != 0) ld_show_error(OR_STATUS
+        ,
+   378                                                          "execute s3");
+   379                          }
+   380                      EXEC SQL COMMIT WORK;
+   381                      if (OR_STATUS != 0) ld_show_error(OR_STATUS, "commi
+        t trace");
+   382                      }
+   383  /*
+   384                                  End.  We just completed retrieving all 
+        of the
+   385                                  lines for a survey, so write this line 
+        out.
+   386  */
+   387                  if (moreFlag)
+   388                      {
+   389  /*
+   390                                  From here down, we are at the beginning
+         of a
+   391                                  new line, so initialize to begin collec
+        ting
+   392                                  data from the file for it.
+   393  */
+   394                      strcpy(lastName, inputName);
+   395                      printf("Line: %s\n", lastName);
+   396  /*
+   397                                  Set control break value for next time.
+   398  */
+
+Pro*C/C++: Release 10.2.0.3.0 - Production on Tue Nov 15 02:22:54 2011
+
+Copyright (c) 1982, 2005, Oracle.  All rights reserved.
+
+   399                      arrayNDX = 0;
+   400  /*
+   401                                  Seed the accumulators for the enclosing
+         box.
+   402                                  This keeps us from being bothered by ze
+        ros.
+   403  */
+   404                      V_FROMC(landmarkName, inputName);
+   405                      V_FROMC(lineName, inputName);
+   406                      V_FROMC(survey, inputSurvey);
+   407                      EXEC SQL OPEN XREF_CURS USING :landmarkName;
+   408                      if (OR_STATUS != 0) ld_show_error(OR_STATUS, 
+   409                                                          "open xref_curs
+        ");
+   410                      EXEC SQL FETCH XREF_CURS INTO :lineName, :survey;
+   411                      if (OR_STATUS < 0) ld_show_error(OR_STATUS,
+   412                                                          "fetch xref_cur
+        s");
+   413                      EXEC SQL CLOSE XREF_CURS;
+   414                      if (OR_STATUS != 0) ld_show_error(OR_STATUS,
+   415                                                          "close xref_cur
+        s");
+   416  /*
+   417                                          Look in the cross reference fil
+        e to
+   418                                          find the line name and survey w
+        e should
+   419                                          use for this landmark line name
+        .  If we
+   420                                          don't find it, we'll use the re
+        sults of
+   421                                          the parsing algorithm above.
+   422  */
+   423                      EXEC SQL OPEN LOOK_CURS USING :lineName, :survey;
+   424                      if (OR_STATUS != 0) ld_show_error(OR_STATUS, "open 
+        look_curs");
+   425                      lineID = 0;
+   426                      EXEC SQL FETCH LOOK_CURS INTO :lineID;
+   427                      if (OR_STATUS < 0) 
+   428                          {
+   429                          ld_show_error(OR_STATUS, "fetch look_curs");
+   430                          }
+   431                      else if (OR_STATUS == 0)
+   432                          {
+   433                          skipOne = FALSE;
+   434                          }
+   435                      else
+   436                          {
+   437                          skipOne = TRUE;
+   438                          V_V_TO_C(thisSurvey, survey);
+   439                          V_V_TO_C(thisName, lineName);
+   440                          printf("Skipping line %s of survey %s, \
+   441  not in database.\n", thisName, thisSurvey);
+   442                          }
+   443                      EXEC SQL CLOSE LOOK_CURS;
+   444                      if (OR_STATUS != 0) ld_show_error(OR_STATUS, 
+   445                                                          "close look_cur
+        s");
+   446  /*
+   447                                  First step, find out if this line alrea
+        dy
+   448                                  exists.
+   449  */
+   450                      }
+   451  /*
+   452                                  This is a new line.  
+   453  */
+   454                  }
+   455              if (moreFlag)
+   456                  {
+   457  #ifdef USE_OLDPARSING
+   458                  sscanf(inputShot, "%d", &thisShot);
+   459                  sscanf(inputTrace, "%d", &thisTrace);
+   460  #endif
+   461                  switch (arrayNDX)
+
+Pro*C/C++: Release 10.2.0.3.0 - Production on Tue Nov 15 02:22:54 2011
+
+Copyright (c) 1982, 2005, Oracle.  All rights reserved.
+
+   462                    {
+   463                    case 0:
+   464                      initial_shot = thisShot;
+   465                      initial_trace = thisTrace;
+   466                      break;
+   467                    case 1:
+   468                      final_shot = thisShot;
+   469                      final_trace = thisTrace;
+   470                      break;
+   471                    }
+   472                  arrayNDX++;
+   473                  }
+   474                 if (ld_scan.eof == FALSE)
+   475                   {
+   476                     ld_scan_line(spfile, &ld_scan);
+   477                   }
+   478                 else
+   479                   {
+   480                     break;
+   481                   }
+   482              }
+   483  /**********************************************************************
+        *******
+   484  
+   485          C l e a n   U p   A n d   E x i t .
+   486  
+   487  ***********************************************************************
+        *******/
+   488          }
+   489      if (spfile != (FILE *)NULL) fclose(spfile);
+   490      return;
+   491      }
+Close file: ld.pc
+
+Pro*C/C++: Release 10.2.0.3.0 - Production on Tue Nov 15 02:22:54 2011
+
+Copyright (c) 1982, 2005, Oracle.  All rights reserved.
+
+
+
+                              Precompiler Options
+-------------------------------------------------------------------------------
+Option Name    Current Value        Where set
+-------------------------------------------------------------------------------
+auto_connect      no                default                                     
+char_map          charz             default                                     
+close_on_commit   no                default                                     
+cmax              100               default                                     
+cmin              2                 default                                     
+cincr             1                 default                                     
+ctimeout          0                 default                                     
+cnowait           0                 default                                     
+code              ansi_c            default                                     
+comp_charset      multi_byte        default                                     
+config            default           default                                     
+cpool             no                default                                     
+cpp_suffix        *none*            default                                     
+dbms              native            default                                     
+def_sqlcode       no                default                                     
+define            WIN32_LEAN_AND_MEAt:\oracle\product\10.2.0\db_4\precomp\admin\
+duration          transaction       default                                     
+dynamic           oracle            default                                     
+errors            yes               default                                     
+errtype           *none*            default                                     
+events            no                default                                     
+fips              none              default                                     
+header            *none*            default                                     
+hold_cursor       no                default                                     
+iname             ld.pc             command line                                
+include           *none*            default                                     
+intype            *none*            default                                     
+lines             no                default                                     
+lname             ld.log            command line                                
+ltype             long              default                                     
+maxliteral        1024              default                                     
+maxopencursors    10                default                                     
+mode              oracle            default                                     
+native_types      no                default                                     
+nls_char          *none*            default                                     
+nls_local         no                default                                     
+objects           yes               default                                     
+oname             *none*            default                                     
+oraca             no                default                                     
+pagelen           80                default                                     
+parse             none              default                                     
+prefetch          1                 default                                     
+release_cursor    no                default                                     
+select_error      yes               default                                     
+sqlcheck          syntax            default                                     
+sys_include       *none*            default                                     
+threads           no                default                                     
+type_code         oracle            default                                     
+unsafe_null       no                default                                     
+userid            *none*            default                                     
+utf16_charset     nchar_charset     default                                     
+varchar           no                default                                     
+version           recent            default                                     
+win32_threads     no                default                                     

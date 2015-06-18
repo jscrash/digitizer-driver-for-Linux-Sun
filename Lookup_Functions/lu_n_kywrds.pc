@@ -1,0 +1,95 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LU_N_KYWRDS.PC */
+/* *2    20-OCT-1989 11:31:11 CONROY "(SPR 5030) initial checkin" */
+/* *1    20-OCT-1989 11:30:23 CONROY "Returns number of distinct keywords in CODES.EXPRESSION_CODES" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LU_N_KYWRDS.PC */
+/* DEC/CMS REPLACEMENT HISTORY, Element MD_VERIFY_TLU.C*/
+/* *2    10-OCT-1989 14:18:53 GORDON "(SPR 4999) Mods for new lookup method"*/
+/* *1    19-JUN-1989 13:07:49 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element MD_VERIFY_TLU.C*/
+
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+
+/* * FILE DESCRIPTION * */
+/* -------------------- */
+/* ************************************************************************
+
+   NAME: LU_NUM_OF_KEYWORDS.PC
+
+   AUTHOR: JOHN CONROY
+
+   DESCRIPTION: Function to get the number of distinct keywords in
+		the table CODES.EXPRESSION_CODES.
+
+   ************************************************************************ */
+
+/* * INCLUDE FILES * */
+/* ----------------- */
+
+#include "esi_c_lib.h"
+#ifndef ESI_GL_DEFS_H
+#include "esi_gl_defs.h"
+#endif
+#ifndef ESI_LU_H
+#include "esi_lu.h"
+#endif
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+
+/* * FUNCTION TITLE * */
+/* ------------------ */
+
+INT lu_num_of_keywords(number)
+
+/* * ARGUMENT LIST * */
+/* ------------------ */
+
+INT *number;
+
+
+/* * VARIABLE LIST * */
+/* ----------------- */
+
+{
+EXEC SQL BEGIN DECLARE SECTION;
+    long num;
+EXEC SQL END DECLARE SECTION;
+
+
+/* ********************************************************************** */
+
+EXEC SQL
+    SELECT COUNT(DISTINCT KEYWORD) INTO :num 
+    FROM CODES.EXPRESSION_CODES;
+
+if (OR_STATUS EQUALS SUCCESS)
+    {
+    *number = num;
+    }
+else
+    {
+    *number = 0;
+    }
+
+return OR_STATUS;
+}

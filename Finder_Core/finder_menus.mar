@@ -1,0 +1,95 @@
+; DEC/CMS REPLACEMENT HISTORY, Element FINDER_MENUS.MAR
+;  22   12-MAR-1992 11:03:59 JANTINA "(SPR 0) added SEISMIC EVENT FUNCTIONS to main menu"
+; *21   29-OCT-1991 15:35:46 PURNA "(SPR 1530) Removed ^Z from Zoom Locate menu item"
+; *20   22-OCT-1991 16:02:26 JTM "(SPR 0) Made SQL Forms a Beta Item, so it can be removed from the VMS side. Case #4527"
+; *19   23-AUG-1991 15:23:19 JTM "(SPR 0) Commented out IES Export for general release."
+; *18    5-AUG-1991 17:34:49 JTM "(SPR 0) Added beta logical names, and removed Log Digitizer completely."
+; *17   29-JUL-1991 15:27:03 JTM "(SPR 0) Turned 'Well Log Trace' back on after Unocal fixes to ld_lg_ascii.c"
+; *16   15-JUL-1991 11:53:08 JTM "(SPR 0) Dimmed 'Log Digitizer' under utilites menu."
+; *15    5-JUL-1991 16:43:14 SANTIAGO "(SPR -1) added SqlFormsPalette entry to Database pulldown"
+; *14   11-JUN-1991 14:59:34 JESSIE "(SPR 0) add VI entry"
+; *13    7-JUN-1991 14:42:49 MING "(SPR 0) add PLOT FILE MANAGER"
+; *12    7-MAY-1991 15:27:12 PURNA "(SPR 0) add data mover to loaders menu"
+; *11    1-MAY-1991 22:27:55 KEE "(SPR -1) Add Landmark Import & Export, Zycor Export and Mimic Export"
+; *10    3-JAN-1991 17:52:58 JESSIE "(SPR 0) comment out well_log trace"
+; *9    12-DEC-1990 17:32:07 JESSIE "(SPR 6327) comment out Get Help on Menu & Get Help on Front Dialog"
+; *8    20-NOV-1990 10:10:06 JESSIE "(SPR 0) comment out Seismic Modeling"
+; *7    12-OCT-1990 16:49:56 GILLESPIE "(SPR 100) Merge Ernie Deltas"
+; *6    19-JUL-1990 08:35:32 GILLESPIE "(SPR 1) Comment out Land Grid for now - needs to have topo progs added"
+; *5    21-DEC-1989 15:51:15 GORDON "(SPR 0) Add aspect ratio lock"
+; *4    18-NOV-1989 09:48:33 HALL "(SPR 5075) Global overhaul"
+; *3    28-SEP-1989 13:29:59 GORDON "(SPR 1) Remove Seismic menu - put UKOOA starter under Loaders"
+; *2    27-JUL-1989 08:48:33 GORDON "(SPR 100) add land grid loader"
+; *1    20-JUN-1989 12:08:10 GILLESPIE ""
+; DEC/CMS REPLACEMENT HISTORY, Element FINDER_MENUS.MAR
+;   Finder Menus Data Structure
+;   Copyright 1988 Exploration Systems, Inc
+;   J Gillespie  June 1988
+;
+;   To make your own menus:
+;       1. Prepare an input file (e.g. mymenus.mar) using the system editor.
+;       2. Compile the file using the VMS command
+;               $ MACRO mymenus+esi$lib:finder/lib
+;       3. Link the resulting file using the FLINK procedure:
+;               $ @ESI$BIN:ZZ_FLINK MYFINDER MYMENUS -B
+;
+;------------------------------------------------------------------------------
+;
+;       BEGIN DEFINITION OF MENU STRUCTURE
+;
+;------------------------------------------------------------------------------
+;
+;
+BEGIN_FINDER_MENUS              ; This line is required !!!
+;
+MENU    1,<Global>,1
+    MENU    1, <Make or Highlight List>, 3, gb_make_or_hilite, <Make List>
+    MENU    1, <->
+    MENU    1, <Window Control>, 3, wm_control, <Window Control>
+    MENU    1, <Zoom - Locate>, 3, gb_whereami, <Zoom - Locate>
+    MENU    1, <Aspect Ratio Lock>, 3, wm_toggle_aspect_lock, <Toggle Aspect Ratio Lock>
+    MENU    1, <->
+;   MENU    1, <Get help on a menu>, 3, hf_help_server, <Menu Help>
+;   MENU    1, <Get help on a front dialog>, 3, hf_help_server, <Dialog Help>
+MENU    2,<Finder>,1
+    MENU    2, <Mapping>,                   3, mp_mapping,  <Mapping>
+    MENU    2, <Geologic Interpretation>,   3, xs_main,     <Cross Section>
+;   MENU    2, <Seismic Modeling>,          2, 3
+    MENU    2, <Finder Database>,           2, 4
+    MENU    2, <Plot File Manager>,         3, pf_manager, <Plot File Manager>
+    MENU    2, <Utilities>,                 2, 5
+    MENU    2, <Velocity Interpolation>,    3, vi_main,<Velocity Interpolation>,<P2F11Q>
+    MENU    2, <Quit Finder>,               3, finder_quit, <Quit Finder>
+;MENU    3,<Modeling>,1
+;   MENU    3,  <Synthetic Seismograms>,    4, syn_synth,<Synthetic Seismograms>
+;   MENU    3,  <Stratigraphic Modeling>,   3, mo_strat_model, <Stratigraphic Modeling>
+;   MENU    3,  <Geophone Responses>,       4, mo_array, <Geophone Array Response>
+MENU    4,<Database>,1
+    MENU    4,  <ORACLE Forms>,             3, or_select_form_app,<Select ORACLE Form>
+    MENU    4,  <Reports>,                  3, or_select_report_app,<Select ORACLE Report>
+    MENU    4,  <->
+    MENU    4,  <SQL Processor>,            3, or_sql_processor, <SQL Processor>
+    MENU    4,  <SQL Forms Palette>,        7, 0, <SqlFormPalette &>,<A12R8F>
+MENU    5,<Utilities>,1
+    MENU    5,  <Loaders>,                  2, 6
+;    MENU    5,  <Log Digitizer>,           3, lg_digitize_main, <Log Trace Digitizer>
+    MENU    5,  <Log Trace Editing>,        3, lg_edit_main, <Log Editing>
+    MENU    5,  <Configure Analyst>,        3, gb_configure_analyst, <Configure Analyst>
+;    MENU    5,  <Host Command Processor>,   3, gb_host_processor ,<Host Commands>
+    MENU    5,  <DBA Utilities>,            3, db_dba_func, <DBA Functions>
+MENU    6,<Loaders>,1
+    MENU    6,  <UKOOA>,                    3, ukooa_main, <UKOOA Loader>
+    MENU    6,  <Calculate Line Intersections>, 3, inter_main,<Line Intersection>
+    MENU    6,  <Tobin Graphic Objects>,    3, tl_tobin_main, <Tobin Loader>
+    MENU    6,  <Well Log Trace>,           3, ld_lg_ascii, <Log Trace Loader>
+    MENU    6,  <Scatter>,                  3, ld_s_g_c_loader, <XYZ Loader>
+;   MENU    6,  <Land Grid>,                3, ld_land_grid_loader, <Land Grid Loader>
+;    MENU    6,  <Export to IES>,            3, gq_ies_main, <IES Export>,<KG7W94>
+    MENU    6,  <Export to Zycor>,          3, ld_zycor, <Zycor Export>,<R307JL>
+    MENU    6,  <Export to MIMIC>,          3, ld_mimic, <Mimic Export>,<M2AD31>
+    MENU    6,  <Export to Landmark 2d>,    3, ld_lm2_exp_main, <Landmark Export 2d>,<OO2C41>
+    MENU    6,  <Import from Landmark 2d>,  3, ld_lm2_imp_main, <Landmark Import 2d>,<B2123V>
+    MENU    6,  <Data Mover>,               3, cp_main_server, <Data Mover>
+;
+END_FINDER_MENUS        ;       !!! This line required
+.END                    ;       !!! This line required

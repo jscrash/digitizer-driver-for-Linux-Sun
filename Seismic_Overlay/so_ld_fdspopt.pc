@@ -1,0 +1,132 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SO_LD_FDSPOPT.PC*/
+/* *4    26-JUL-1990 17:21:18 GILLESPIE "(SPR 1) Lint run; incorporate changes for horizon end point posting"*/
+/* *3    25-JUL-1990 20:04:59 VINCE "(SPR 5644) Header Standardization"*/
+/* *2    25-JUL-1989 20:06:54 GILLESPIE "(SPR 50) Seismic system revamp"*/
+/* *1    19-JUN-1989 12:41:23 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element SO_LD_FDSPOPT.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_so.h"
+#include "esi_qs.h"
+#include "esi_oracle.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+    Function to load the seis_fault_disp_opt.
+
+Prototype:
+    publicdef INT so_loadf_disp_opt(SO_STRUCT *pso,CHAR *fault_code,CHAR *source_code);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    pso             -(SO_STRUCT *) Seismic overlay structure.
+    fault_code      -(CHAR *) Fault code.
+    source_code     -(CHAR *) Source code.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT so_loadf_disp_opt (SO_STRUCT *pso, CHAR *fault_code, CHAR *source_code)
+#else
+publicdef INT so_loadf_disp_opt (pso, fault_code, source_code)
+SO_STRUCT *pso;
+CHAR *fault_code;
+CHAR *source_code;
+#endif
+    {
+    static PROJECT_NAME prev_project_name;
+    INT status;
+    PROJECT_NAME project_name;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    
+    VARCHAR select[1024];
+    VARCHAR line_color[16];
+    VARCHAR line_style[16];
+    VARCHAR line_thickness[16];
+    char *fault_code_column;
+    char *source_code_column;
+    int fault_type;
+    float max_throw;
+    
+    EXEC SQL END DECLARE SECTION;
+    
+    status = SUCCESS;
+    
+    /* clear target data */
+    
+    V_CLEAR (line_color);
+    V_CLEAR (line_style);
+    V_CLEAR (line_thickness);
+    fault_type = 0;
+    max_throw = 0.0;
+    
+    /* get project name */
+    
+    qs_inq_c (QS_PROJECT_NAME, project_name, (INT *)0);
+    
+    /* build select phrase */
+    
+    fault_code_column = fault_code;
+    source_code_column = source_code;
+    if (strcmp (prev_project_name, project_name))
+        {
+        strcpy (prev_project_name, project_name);
+        select.len = sprintf ((char *)select.arr, 
+"SELECT LINE_COLOR,LINE_STYLE,\
+    LINE_THICKNESS,FAULT_TYPE,MAX_THROW FROM %s.SEIS_FAULT_DISP_OPT\
+    WHERE FAULT_CODE = :fault_code_column AND SOURCE = :source_code_column"
+                , project_name);
+        
+        /* read the data from oracle table */
+        
+        EXEC SQL PREPARE S1 FROM : select;
+        EXEC SQL DECLARE C1 CURSOR FOR S1;
+        }
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL OPEN C1 USING : fault_code_column,  : source_code_column;
+    
+    EXEC SQL FETCH C1 INTO : line_color,  : line_style,  : line_thickness,
+        : fault_type,  : max_throw;
+    
+    /* load into structure */
+    
+    V_FROMV (pso->fdisp_opt.line_color, line_color);
+    V_FROMV (pso->fdisp_opt.line_style, line_style);
+    V_FROMV (pso->fdisp_opt.line_thickness, line_thickness);
+    pso->fdisp_opt.fault_type = fault_type;
+    pso->fdisp_opt.max_throw = max_throw;
+    
+    return status;
+    }
+/* END:     */

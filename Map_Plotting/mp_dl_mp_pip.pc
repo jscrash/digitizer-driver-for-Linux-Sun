@@ -1,0 +1,197 @@
+/*  DEC/CMS REPLACEMENT HISTORY, Element MP_DL_MP_PIP.PC*/
+/*  *3    17-AUG-1990 22:04:11 VINCE "(SPR 5644) Code Cleanup"*/
+/*  *2    26-JUN-1989 10:53:34 GILLESPIE "(SPR 20) Fix castings"*/
+/*  *1    19-JUN-1989 12:34:40 SYSTEM ""*/
+/*  DEC/CMS REPLACEMENT HISTORY, Element MP_DL_MP_PIP.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_mp.h"
+#include "esi_fi.h"
+#include "esi_am.h"
+#include "esi_wi.h"
+#include "esi_md_msg.h"
+#include "esi_md_err.h"
+#include "esi_oracle.h"
+#include "esi_qs.h"
+#include "esi_ts.h"
+
+#ifndef ESI_MG_H
+
+#include "esi_mg.h"
+
+#endif
+
+#include "md_mapdef.rh"
+/* EXEC ORACLE OPTION (REBIND = NO); */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Services events from the delete map dialog.
+
+Prototype:
+    publicdef INT mp_delete_map_pipe();
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT mp_delete_map_pipe ()
+#else
+publicdef INT mp_delete_map_pipe ()
+#endif
+    {
+    INT status;
+    CHAR **names_tcp = 0;
+    INT *nselected = 0;
+    PROJECT_NAME project;
+    RESOURCE_ID *cdlg_id;
+    static BOOL inited = FALSE;
+    INT id;
+    INT class ;
+    INT i;
+    INT nitems;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    static VARCHAR map_name[50];
+    VARCHAR sqlstmt[250];
+    EXEC SQL END DECLARE SECTION;
+    
+    fi_push ();
+    
+    /* * GET THE LIST OF MAPS AVAILABLE * */
+    /* ---------------------------------- */
+    
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    status = mp_map_list (project, &names_tcp, &nitems);
+    if (status != SUCCESS)
+        {
+        goto finished;
+        }
+    nselected = (INT *)am_allocate (AM_APPLICATION, nitems * sizeof(INT));
+    
+    /* * SETUP AND OPEN DIALOG * */
+    /* ------------------------- */
+    
+    am_open_workspace ("CDLG", AM_APPLICATION, (VOIDPTR *) & cdlg_id);
+    if (cdlg_id->delete_map_id EQUALS 0)
+        {
+        am_define_resource (AM_DIALOG, "MD_MAPDEF", MD_DELETE_MAP, NULL_FUNCTION_PTR,
+                            &cdlg_id->delete_map_id, NULL);
+        }
+    else
+        {
+        wi_clear (cdlg_id->delete_map_id);
+        }
+    wi_set_selections (cdlg_id->delete_map_id, MD_DELETE_MAP_SELECT,
+                       MD_DELETE_MAP_SCROLL, nitems, nitems, names_tcp);
+    wi_open_dialog (cdlg_id->delete_map_id);
+    
+    /* * SETUP SQL STATEMENTS * */
+    /* ------------------------ */
+    
+    if (NOT inited)
+        {
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr,
+                               "DELETE FROM %s.MAP_DEFINITIONS WHERE MAP_NAME = :v1",
+                               project);
+        EXEC SQL PREPARE S1 FROM : sqlstmt;
+        
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr,
+                               "DELETE FROM %s.MAP_OVERLAYS WHERE MAP_NAME = :v2",
+                               project);
+        EXEC SQL PREPARE S2 FROM : sqlstmt;
+        
+        inited = TRUE;
+        }
+    /* * SERVICE THE DIALOG * */
+    /* ---------------------- */
+    
+    status = FAIL;
+    while (status EQUALS FAIL)
+        {
+        wi_request_event (0, &class , &id, &i);
+        
+        if (id EQUALS cdlg_id->delete_map_id)
+            {
+            switch (i)
+                {
+            case MD_DELETE_MAP_OK:
+                wi_query_selections (id, MD_DELETE_MAP_SELECT, &nitems, nselected);
+                if (nitems <= 0)
+                    {
+                    wi_set_dialog_text (id, MD_DELETE_MAP_MSG,
+                                        mg_message (MD_PLEASE_SELECT));
+                    break;
+                    }
+                while (nitems > 0)
+                    {
+                    V_FROMC (map_name,
+                             ts_snowhite (names_tcp[nselected[nitems - 1] - 1]));
+                    EXEC SQL EXECUTE S1 USING : map_name;
+                    EXEC SQL EXECUTE S2 USING : map_name;
+                    nitems--;
+                    }
+                EXEC SQL COMMIT;
+                status = SUCCESS;
+                break;
+                
+            case MD_DELETE_MAP_CANCEL:
+                status = SUCCESS;
+                break;
+                }
+            }
+        else
+            {
+            wi_beep (1);
+            }
+        }
+    /* * CLOSE THE DIALOG * */
+    /* -------------------- */
+    
+    wi_close_dialog (cdlg_id->delete_map_id);
+    wi_open_dialog (cdlg_id->base_dialog_id);
+    
+finished:
+    fi_pop ();
+    ts_tcp_free (names_tcp);
+    am_free (nselected);
+    
+    if (status != SUCCESS)
+        {
+        am_message (AM_ALERT, mg_message (status));
+        }
+    return SUCCESS;
+    }
+/* END:     */

@@ -1,0 +1,1575 @@
+Binary file ./core matches
+Binary file ./export/schema_063.dmp matches
+./gh/ies.link/flink_ies:# Julian Carlisle -    Wed Feb  7 23:11:53 PST 1990
+./gh/ies.link/flink_msxfr:# Julian Carlisle -    Wed Feb  7 23:11:53 PST 1990
+./gh/kit.making/make_kit:# Julian 		Sun Dec  9 05:23:27 PST 1990
+./glue/amg_allocate.c:/* *2     7-FEB-1990 06:55:49 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/amg_declare.c:/* *2     7-FEB-1990 06:55:53 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/amg_def_res.c:/* *2     7-FEB-1990 06:55:56 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/amg_free.c:/* *2     7-FEB-1990 06:55:59 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/amg_message.c:/* *2     7-FEB-1990 06:56:03 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/amg_quit.c:/* *2     7-FEB-1990 06:56:07 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/amg_rel_res.c:/* *2     7-FEB-1990 06:56:10 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/amg_set_rsrvr.c:/* *2     7-FEB-1990 06:56:13 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_bgngrd_gc.c:/* *2     7-FEB-1990 06:56:17 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_bgnplt_gc.c:/* *2     7-FEB-1990 06:56:21 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_clcbnd_gc.c:/* *2     7-FEB-1990 06:56:24 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_clcflt_gc.c:/* *2     7-FEB-1990 06:56:27 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_clcgrd_gc.c:/* *2     7-FEB-1990 06:56:31 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_clchgt_gc.c:/* *2     7-FEB-1990 06:56:36 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_clcisf_gc.c:/* *2     7-FEB-1990 06:56:38 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_clciso_gc.c:/* *2     7-FEB-1990 06:56:42 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_clcply_gc.c:/* *2     7-FEB-1990 06:56:45 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_conkey_gc.c:/* *2     7-FEB-1990 06:56:49 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_conmap_gc.c:/* *2     7-FEB-1990 06:56:54 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_convue_gc.c:/* *2     7-FEB-1990 06:56:57 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_defflt_gc.c:/* *2     7-FEB-1990 06:57:01 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_defgfl_gc.c:/* *2     7-FEB-1990 06:57:04 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_endgrd_gc.c:/* *2     7-FEB-1990 06:57:09 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_endplt_gc.c:/* *2     7-FEB-1990 06:57:12 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_esichr_gc.c:/* *2     7-FEB-1990 06:57:17 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_fltmap_gc.c:/* *2     7-FEB-1990 06:57:21 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_fltmsh_gc.c:/* *2     7-FEB-1990 06:57:25 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_fltvue_gc.c:/* *2     7-FEB-1990 06:57:31 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_mshvue_gc.c:/* *2     7-FEB-1990 06:57:34 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_nfile_gc.c:/* *2     7-FEB-1990 06:57:38 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_setclb_gc.c:/* *2     7-FEB-1990 06:57:41 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_setcon_gc.c:/* *2     7-FEB-1990 06:57:45 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_setedg_gc.c:/* *2     7-FEB-1990 06:57:50 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_setglg_gc.c:/* *2     7-FEB-1990 06:57:53 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_setglm_gc.c:/* *2     7-FEB-1990 06:57:58 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_setgnl_gc.c:/* *2     7-FEB-1990 06:58:02 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_setgrd_gc.c:/* *2     7-FEB-1990 06:58:05 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_setgrp_gc.c:/* *2     7-FEB-1990 06:58:09 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_setnul_gc.c:/* *2     7-FEB-1990 06:58:12 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_setpag_gc.c:/* *2     7-FEB-1990 06:58:16 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_setprp_gc.c:/* *2     7-FEB-1990 06:58:20 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_setrpl_gc.c:/* *2     7-FEB-1990 06:58:25 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_setsep_gc.c:/* *2     7-FEB-1990 06:58:28 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_setsmt_gc.c:/* *2     7-FEB-1990 06:58:34 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_settik_gc.c:/* *2     7-FEB-1990 06:58:37 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_setvue_gc.c:/* *2     7-FEB-1990 06:58:41 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_setwin_gc.c:/* *2     7-FEB-1990 06:58:44 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_setxyg_gc.c:/* *2     7-FEB-1990 06:58:49 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/co_setzbd_gc.c:/* *2     7-FEB-1990 06:58:53 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/ctg_def_prj.c:/* *2     7-FEB-1990 06:58:57 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/ctg_get_prjn.c:/* *2     7-FEB-1990 06:59:00 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/ctg_gtp0.c:/* *2     7-FEB-1990 06:59:04 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/dg_esilab_gf.c:/* *3     7-FEB-1990 06:59:07 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/dg_esilin_gf.c:/* *3     7-FEB-1990 06:59:10 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/fig_conf_prj.c:/* *2     7-FEB-1990 06:59:13 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/gfindcrs.c:/* *3     7-FEB-1990 06:59:16 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/giemod_gc.c:/* *3     7-FEB-1990 06:59:20 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/giemod_gc.c:/* *3    11-AUG-1989 10:04:17 JULIAN "(SPR 999) fixing statement not reached problem"*/
+./glue/gkz_dr11_gc.c:/* *3     7-FEB-1990 06:59:23 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/hog_add_path.c:/* *2     7-FEB-1990 06:59:26 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/hog_ctime.c:/* *2     7-FEB-1990 06:59:29 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/hog_cur_path.c:/* *2     7-FEB-1990 06:59:32 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/hog_date_tag.c:/* *2     7-FEB-1990 06:59:35 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/hog_get_uniq.c:/* *2     7-FEB-1990 06:59:40 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/hog_gfnt.c:/* *2     7-FEB-1990 06:59:43 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/hog_spawn.c:/* *2     7-FEB-1990 06:59:46 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/hog_syscom.c:/* *2     7-FEB-1990 06:59:50 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/hog_trn_file.c:/* *2     7-FEB-1990 06:59:54 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/ho_cpu_tm_gc.c:/* *2     7-FEB-1990 06:59:56 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/ldggisup.c:/* *2     7-FEB-1990 06:59:59 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/ldginter.c:/* *3     7-FEB-1990 07:00:03 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/leg_nl_ed.c:/* *4     7-FEB-1990 07:00:06 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/leg_nl_ed.c:* Julian  3/28/87
+./glue/lug_txt_index.c:/* *4     7-FEB-1990 07:00:32 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/mgg_message.c:/* *2     7-FEB-1990 07:00:36 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/mgg_message.c:* Julian   3/28/87
+./glue/mog_emp_driv.c:/* *3     7-FEB-1990 07:00:39 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/mog_gsed_type.c:/* *3     7-FEB-1990 07:00:42 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/mog_hoblmove.c:/* *2     7-FEB-1990 07:00:46 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/mog_llcount.c:/* *2     7-FEB-1990 07:00:53 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/mog_llfirst.c:/* *2     7-FEB-1990 07:00:56 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/mog_llnext.c:/* *2     7-FEB-1990 07:00:59 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/mog_resettxt.c:/* *5     7-FEB-1990 07:01:02 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/mog_sddfwig.c:/* *2     7-FEB-1990 07:01:05 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/mog_sdwiggl.c:/* *2     7-FEB-1990 07:01:08 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/mog_tie_driv.c:/* *2     7-FEB-1990 07:01:12 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/org_login.c:/* *3     7-FEB-1990 08:13:39 JULIAN "(SPR 1) Fix non-portable assignment. Compiler screams quieted." */
+./glue/org_login.c:/* *2     7-FEB-1990 07:04:35 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/ovg_scatter.c:/* *3     7-FEB-1990 07:04:38 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/pf_glue.c:/* *3     7-FEB-1990 07:04:42 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/pf_glue.c:* Julian Carlisle  May 21, 1988
+./glue/qsg_inqc.c:/* *2     7-FEB-1990 07:04:46 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/qsg_inqf.c:/* *2     7-FEB-1990 07:04:49 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/qsg_inqi.c:/* *2     7-FEB-1990 07:04:52 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/qsg_setc.c:/* *2     7-FEB-1990 07:04:56 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/qsg_setf.c:/* *2     7-FEB-1990 07:04:59 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/qsg_seti.c:/* *2     7-FEB-1990 07:05:03 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/segllong.c:/* *3     7-FEB-1990 07:05:07 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/segl_seism.c:/* *4     7-FEB-1990 07:05:11 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/segsplit.c:/* *3     7-FEB-1990 07:05:15 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/seg_bld_nlids.c:/* *3     7-FEB-1990 07:05:19 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/se_ppos.c:/* *3     7-FEB-1990 07:05:22 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/syngl_glue.c:/* *3     7-FEB-1990 07:05:26 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/ugoperr_gc.c:/* *3     7-FEB-1990 07:05:36 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/ugrqband_gc.c:/* *3     7-FEB-1990 07:05:40 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/ugrqdrag_gc.c:/* *3     7-FEB-1990 07:05:43 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/ugsbutmap_gc.c:/* *3     7-FEB-1990 07:05:46 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/ugsrawxf_gc.c:/* *3     7-FEB-1990 07:05:49 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/ugssamp_gc.c:/* *3     7-FEB-1990 07:05:53 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/ugsscaxf_gc.c:/* *3     7-FEB-1990 07:05:56 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/ugstabxf_gc.c:/* *3     7-FEB-1990 07:05:59 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/ugstbtyp_gc.c:/* *3     7-FEB-1990 07:06:02 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/wigalert.c:/* *2     7-FEB-1990 07:06:04 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigbeep.c:/* *2     7-FEB-1990 07:06:07 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigchmni.c:/* *2     7-FEB-1990 07:06:10 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigclcd.c:/* *2     7-FEB-1990 07:06:15 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigenabcd.c:/* *2     7-FEB-1990 07:06:18 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigencdi.c:/* *2     7-FEB-1990 07:06:21 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigenfmi.c:/* *2     7-FEB-1990 07:06:24 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigenkb.c:/* *2     7-FEB-1990 07:06:26 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigenmna.c:/* *2     7-FEB-1990 07:06:30 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigenmni.c:/* *2     7-FEB-1990 07:06:35 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigmsg.c:/* *2     7-FEB-1990 07:06:38 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigopcd.c:/* *2     7-FEB-1990 07:06:41 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigpop.c:/* *2     7-FEB-1990 07:06:44 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigpush.c:/* *2     7-FEB-1990 07:06:47 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigqccdi.c:/* *2     7-FEB-1990 07:06:50 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigqdrcd.c:/* *2     7-FEB-1990 07:06:53 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigqfront.c:/* *2     7-FEB-1990 07:06:56 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigqsel.c:/* *2     7-FEB-1990 07:06:59 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigrdfcd.c:/* *2     7-FEB-1990 07:07:02 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigrdfmn.c:/* *2     7-FEB-1990 07:07:05 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigrlscd.c:/* *2     7-FEB-1990 07:07:08 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigrlsmn.c:/* *2     7-FEB-1990 07:07:11 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigrqcdi.c:/* *2     7-FEB-1990 07:07:16 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigrqevt.c:/* *2     7-FEB-1990 07:07:20 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigrqint.c:/* *2     7-FEB-1990 07:07:23 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigrqss.c:/* *2     7-FEB-1990 07:07:26 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigrqst.c:/* *2     7-FEB-1990 07:07:29 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigscdr.c:/* *2     7-FEB-1990 07:07:32 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigscdt.c:/* *2     7-FEB-1990 07:07:35 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigscdttl.c:/* *2     7-FEB-1990 07:07:38 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigscdv.c:/* *2     7-FEB-1990 07:07:41 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigsmaxsel.c:/* *2     7-FEB-1990 07:07:44 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigsmnt.c:/* *2     7-FEB-1990 07:07:47 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigsmode.c:/* *2     7-FEB-1990 07:07:50 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigsselt.c:/* *2     7-FEB-1990 07:07:53 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigssst.c:/* *2     7-FEB-1990 07:07:56 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigvismn.c:/* *2     7-FEB-1990 07:07:59 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wigyesno.c:/* *2     7-FEB-1990 07:08:01 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wig_ass_tobj.c:/* *2     7-FEB-1990 07:08:05 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wig_chownid.c:/* *2     7-FEB-1990 07:08:07 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wig_chowntag.c:/* *2     7-FEB-1990 07:08:10 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wig_clear.c:/* *2     7-FEB-1990 07:08:15 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wig_def_tobj.c:/* *2     7-FEB-1990 07:08:18 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wig_del_cdlin.c:/* *2     7-FEB-1990 07:08:21 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wig_do_help.c:/* *2     7-FEB-1990 07:08:24 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wig_ins_cdlin.c:/* *2     7-FEB-1990 07:08:27 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wig_pop_own.c:/* *2     7-FEB-1990 07:08:30 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wig_push_own.c:/* *2     7-FEB-1990 07:08:33 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wig_q_hlpkey.c:/* *2     7-FEB-1990 07:08:36 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wig_q_inp_id.c:/* *2     7-FEB-1990 07:08:39 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wig_rel_tobj.c:/* *2     7-FEB-1990 07:08:42 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wig_s_cdclkbk.c:/* *2     7-FEB-1990 07:08:45 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wig_s_ownid.c:/* *2     7-FEB-1990 07:08:48 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wig_s_owntag.c:/* *2     7-FEB-1990 07:08:51 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wig_s_selobj.c:/* *2     7-FEB-1990 07:08:54 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgaclose.c:/* *2     7-FEB-1990 07:08:57 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgaopen.c:/* *2     7-FEB-1990 07:09:00 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmggallocate.c:/* *2     7-FEB-1990 07:09:03 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmggclose.c:/* *2     7-FEB-1990 07:09:06 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmggdelete.c:/* *2     7-FEB-1990 07:09:09 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmggdtec.c:/* *2     7-FEB-1990 07:09:14 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgghlit.c:/* *2     7-FEB-1990 07:09:17 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmggopen.c:/* *2     7-FEB-1990 07:09:20 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmggvis.c:/* *2     7-FEB-1990 07:09:23 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgoinq.c:/* *2     7-FEB-1990 07:09:26 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgoinqcur.c:/* *2     7-FEB-1990 07:09:30 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgoinqold.c:/* *2     7-FEB-1990 07:09:33 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgoinqtyp.c:/* *2     7-FEB-1990 07:09:35 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgoset.c:/* *2     7-FEB-1990 07:09:38 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgpallocate.c:/* *2     7-FEB-1990 07:09:41 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgpclose.c:/* *2     7-FEB-1990 07:09:44 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgpopen.c:/* *2     7-FEB-1990 07:09:47 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgprequest.c:/* *2     7-FEB-1990 07:09:50 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgqpanzoom.c:/* *2     7-FEB-1990 07:10:41 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgregdeflt.c:/* *2     7-FEB-1990 07:10:54 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgsallocate.c:/* *2     7-FEB-1990 07:09:53 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgsclose.c:/* *2     7-FEB-1990 07:09:56 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgsdelete.c:/* *2     7-FEB-1990 07:09:59 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgsdtec.c:/* *2     7-FEB-1990 07:10:03 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgshlit.c:/* *2     7-FEB-1990 07:10:07 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgsrelprior.c:/* *2     7-FEB-1990 07:10:11 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgsvis.c:/* *2     7-FEB-1990 07:10:18 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgtallocate.c:/* *2     7-FEB-1990 07:10:23 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgtbandrect.c:/* *2     7-FEB-1990 07:10:28 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgtbandvec.c:/* *2     7-FEB-1990 07:10:31 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgtinq.c:/* *2     7-FEB-1990 07:10:36 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgtlocate.c:/* *2     7-FEB-1990 07:10:46 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgtpanzoom.c:/* *2     7-FEB-1990 07:10:50 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgtregister.c:/* *2     7-FEB-1990 07:10:58 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgtregmode.c:/* *2     7-FEB-1990 07:11:03 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgtregonoff.c:/* *2     7-FEB-1990 07:11:07 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgtselect.c:/* *2     7-FEB-1990 07:11:11 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgwallocate.c:/* *2     7-FEB-1990 07:11:15 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgwband.c:/* *2     7-FEB-1990 07:11:18 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgwclose.c:/* *2     7-FEB-1990 07:11:22 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgwdelete.c:/* *2     7-FEB-1990 07:11:26 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgwdtec.c:/* *2     7-FEB-1990 07:11:29 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgwfront.c:/* *2     7-FEB-1990 07:11:33 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgwhlit.c:/* *2     7-FEB-1990 07:11:38 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgwinq.c:/* *2     7-FEB-1990 07:11:45 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgwopen.c:/* *2     7-FEB-1990 07:11:48 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgwsetndc.c:/* *2     7-FEB-1990 07:11:51 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmgwvis.c:/* *2     7-FEB-1990 07:11:55 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmg_gpl.c:/* *3     7-FEB-1990 07:11:58 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style." */
+./glue/wmg_inq_wkwn.c:/* *2     7-FEB-1990 07:12:01 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmg_s_curscr.c:/* *2     7-FEB-1990 07:12:04 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmg_s_winscr.c:/* *2     7-FEB-1990 07:12:07 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./glue/wmg_update.c:/* *2     7-FEB-1990 07:12:10 JULIAN "ULTRIX port mods. SUN & mips both pcc variants. use same fortran call style."*/
+./inc/ansidwt.h:/* *5     4-MAR-1990 12:24:50 JULIAN "(SPR 6010) Fix proto problem on ULTRIXR" */
+./inc/ansidwt.h:/* *4     4-MAR-1990 10:25:41 JULIAN "(SPR 6010) Fix ultrix compile errors. " */
+./inc/ansidwt.h:/* *3    26-FEB-1990 19:06:14 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)" */
+./inc/ansidwt.h:/* *2     6-FEB-1990 00:23:41 JULIAN "(SPR -1) Include file for X" */
+./inc/ansidwt.h:/* *1     6-FEB-1990 00:21:49 JULIAN "Dwt include file" */
+./inc/ansixlib.h:/* *4     4-MAR-1990 10:25:52 JULIAN "(SPR 6010) Fix ultrix compile errors. " */
+./inc/ansixlib.h:/* *3    26-FEB-1990 19:06:18 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)" */
+./inc/ansixlib.h:/* *2     6-FEB-1990 00:23:47 JULIAN "(SPR -1) Include file for X" */
+./inc/ansixlib.h:/* *1     6-FEB-1990 00:21:20 JULIAN "Xlib include file" */
+./inc/ansixt.h:/* *4     4-MAR-1990 10:24:22 JULIAN "(SPR 6010) Fix ultrix compile errors. " */
+./inc/ansixt.h:/* *3    26-FEB-1990 19:06:23 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)" */
+./inc/ansixt.h:/* *2     6-FEB-1990 00:23:55 JULIAN "(SPR -1) Include file for X" */
+./inc/ansixt.h:/* *1     6-FEB-1990 00:22:12 JULIAN "Xt include file" */
+./inc/esi_ct.h:/* *8    26-FEB-1990 19:06:28 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./inc/esi_ctype.h:/* *4    26-FEB-1990 19:06:34 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./inc/esi_errno.h:/* *3    26-FEB-1990 19:06:41 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./inc/esi_gks.h:/* *8     5-MAR-1990 17:09:24 JULIAN "(SPR 6010) Removed ifdef VAXSTATION (not used anymore)"*/
+./inc/esi_gks.h:/* *6     1-MAR-1990 14:25:41 JULIAN "(SPR 6010) Changed MAIN_WKID to function  call"*/
+./inc/esi_gks.h:/* *5    28-FEB-1990 15:42:25 JULIAN "(SPR -1) Add elements to WM_CURRENT struct, change MAIN_WKID & GKS_WISS_WKID def (kee)"*/
+./inc/esi_gks.h:/* *4    26-FEB-1990 19:06:47 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./inc/esi_glue.h:/* *4    26-FEB-1990 19:06:56 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./inc/esi_glue.h:/* *3     9-AUG-1989 11:45:09 JULIAN "(SPR -1) change ftocstr function definition"*/
+./inc/esi_gl_defs.h:/* *8    12-APR-1990 19:19:11 JULIAN "(SPR -1) don't use prototypes on ULTRIX (mips)."*/
+./inc/esi_gl_defs.h:/* *7    27-FEB-1990 08:39:06 JULIAN "(SPR 6010) Change definition of UNIX to 0, 1 rather than FALSE, TRUE"*/
+./inc/esi_ho_desc.h:/* *2    26-FEB-1990 19:07:01 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./inc/esi_ho_files.h:/* *5    26-FEB-1990 19:07:05 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./inc/esi_le_nled.h:/* *5     4-MAR-1990 04:20:49 JULIAN "(SPR 6010) Fixed alignment of LE_KEY struct"*/
+./inc/esi_le_nled.h:/* *4    26-FEB-1990 19:07:14 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./inc/esi_limits.h:/* *3    26-FEB-1990 19:07:18 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)" */
+./inc/esi_math.h:/* *4     4-MAR-1990 10:24:39 JULIAN "(SPR 6010) Fix ultrix compile errors. "*/
+./inc/esi_math.h:/* *2    26-FEB-1990 19:07:21 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./inc/esi_mg.h: * Revision 1.1  2008/02/09 09:15:11  julian
+./inc/esi_nl_int.h:/* *9    26-FEB-1990 19:07:24 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./inc/esi_nl_io.h:/* *9    26-FEB-1990 19:07:29 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./inc/esi_pf.h:    Created on Feb 27, 1988  by  Julian Carlisle
+./inc/esi_stat.h:/* *4    13-JUN-1990 22:53:11 JULIAN "(SPR -1) Fixed include error on SUN."*/
+./inc/esi_stat.h:/* *3     4-MAR-1990 10:24:54 JULIAN "(SPR 6010) Fix ultrix compile errors. "*/
+./inc/esi_stat.h:/* *2    26-FEB-1990 19:07:34 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./inc/esi_stddef.h:/* *11   13-JUN-1990 23:40:58 JULIAN "(SPR -1) Don't include types in UNIX version"*/
+./inc/esi_stddef.h:/* *8    26-FEB-1990 19:07:37 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./inc/esi_stddef.h:/* *4    19-SEP-1989 14:15:33 JULIAN "addef __STDDEF define"*/
+./inc/esi_stddef.h:/* *3    18-SEP-1989 16:47:16 JULIAN "(SPR 1) added define of __STDDEF"*/
+./inc/esi_stddef.h.org:/* *11   13-JUN-1990 23:40:58 JULIAN "(SPR -1) Don't include types in UNIX version"*/
+./inc/esi_stddef.h.org:/* *8    26-FEB-1990 19:07:37 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./inc/esi_stddef.h.org:/* *4    19-SEP-1989 14:15:33 JULIAN "addef __STDDEF define"*/
+./inc/esi_stddef.h.org:/* *3    18-SEP-1989 16:47:16 JULIAN "(SPR 1) added define of __STDDEF"*/
+./inc/esi_stdio.h:/* *10    4-MAR-1990 10:25:05 JULIAN "(SPR 6010) Fix ultrix compile errors. "*/
+./inc/esi_stdio.h:/* *9     1-MAR-1990 14:42:13 JULIAN "(SPR 6010) added prototypes for fopen etc. on ULTRIX side"*/
+./inc/esi_stdio.h:/* *7    28-FEB-1990 19:23:12 JULIAN "(SPR 6010) FIXUP ULTRIX SIDE."*/
+./inc/esi_stdio.h:/* *5    26-FEB-1990 19:07:40 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./inc/esi_stdio.h:/* *3    19-SEP-1989 14:15:03 JULIAN "added __FILE define"*/
+./inc/esi_stdio.h:/* *2    18-SEP-1989 16:49:33 JULIAN "(SPR 1) added __FILE define"*/
+./inc/esi_stdlib.h:/* *2    26-FEB-1990 19:07:47 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./inc/esi_string.h:/* *2    19-SEP-1989 12:21:28 JULIAN "(SPR 1) added __STRING_LOADED define for system compatability."*/
+./inc/esi_tablet_ws.h:/* *2    13-NOV-1989 11:58:06 JULIAN "(SPR 1) Added driver name to workspace"*/
+./inc/esi_tablet_ws.h:/* *2    26-DEC-1988 10:17:30 JULIAN "(SPR 4983) TABLET WKSPACE DEF"*/
+./inc/esi_tablet_ws.h:/* *1    26-DEC-1988 10:16:22 JULIAN "Include file for tablet workspace definition."*/
+./inc/esi_tablet_ws.h:    Julian Carlisle   Dec 26, 1988
+./inc/esi_tb_defs.h:/* *3    13-NOV-1989 11:34:51 JULIAN "Added new tablet support for calcomp."*/
+./inc/esi_tb_defs.h: July	11, 1988      Julian Carlisle.
+./inc/esi_tb_defs.h: August 30, 1988      Julian Carlisle.  Addem mode masks.
+./inc/esi_tb_defs.h: January 5, 1989      Julian Carlisle.  Added prototypes.
+./inc/esi_tg_mat.h:/* *2    13-NOV-1989 11:35:08 JULIAN "Added new tablet support for calcomp."*/
+./inc/esi_time.h:/* *2    26-FEB-1990 19:07:50 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./inc/esi_time.h.org:/* *2    26-FEB-1990 19:07:50 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./inc/esi_ts.h:/* *6    26-FEB-1990 19:07:53 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./inc/esi_types.h:/* *4    26-FEB-1990 19:07:56 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./inc/esi_types.h:/* *3     2-AUG-1989 15:04:59 JULIAN "added extra #endif"*/
+./inc/esi_types.h:/* *2     2-AUG-1989 14:19:59 JULIAN "ADDED __TYPES ALREADY CALLED FLAG."*/
+./inc/esi_types.h.org:/* *4    26-FEB-1990 19:07:56 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./inc/esi_types.h.org:/* *3     2-AUG-1989 15:04:59 JULIAN "added extra #endif"*/
+./inc/esi_types.h.org:/* *2     2-AUG-1989 14:19:59 JULIAN "ADDED __TYPES ALREADY CALLED FLAG."*/
+./inc/esi_wi_int.h:/* *5    28-FEB-1990 15:19:47 JULIAN "(SPR -1) get rid of gks_???_widget declaration (Kee)"*/
+./inc/esi_wi_int.h:/* *3     6-FEB-1990 00:24:02 JULIAN "(SPR -1) Include file for X"*/
+./inc/esi_wm.h:/* *5    28-FEB-1990 15:42:52 JULIAN "(SPR -1) Add elements to WM_CURRENT struct, change MAIN_WKID & GKS_WISS_WKID def (kee)"*/
+./inc/esi_wm.h:/* *4    15-AUG-1989 09:45:04 JULIAN "added gpx_wmtregistration prototype and esi_pr.h include"*/
+./inc/esi_wm_int.h:/* *4     4-MAR-1990 10:25:18 JULIAN "(SPR 6010) Fix ultrix compile errors. "*/
+./inc/esi_wm_int.h:/* *3     1-MAR-1990 14:26:06 JULIAN "(SPR 6010) removed references to Widget for non-X code"*/
+./inc/esi_wm_int.h:/* *2    28-FEB-1990 15:43:05 JULIAN "(SPR -1) Add elements to WM_CURRENT struct, change MAIN_WKID & GKS_WISS_WKID def (kee)"*/
+./inc/esi_x.h:/* *5     4-MAR-1990 10:25:30 JULIAN "(SPR 6010) Fix ultrix compile errors. " */
+./inc/esi_x.h:/* *4     1-MAR-1990 11:50:52 JULIAN "(SPR 6010) add ifdef USE_X and delete if HOST=SUN (Kee)" */
+./inc/esi_x.h:/* *3    26-FEB-1990 19:07:59 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)" */
+./inc/esi_x.h:/* *2     6-FEB-1990 00:24:16 JULIAN "(SPR -1) Include file for X" */
+./inc/esi_x.h:/* *1     6-FEB-1990 00:22:32 JULIAN "X include file" */
+./inc/esi_xs_defs.h:#define XS_STRUCT_VERSION (INT)2     /* bumped to 2 by julian may 12, 1988 */
+./inc/esi_xs_gr.h:* Julian Carlisle
+./inc/npdefs.i:C Julian Carlisle    April 27,1988
+Binary file ./install/core matches
+./install/createdb:# Julian Fri Aug 31 00:51:45 PDT 1990
+./install/finst_argsplit:# Julian 	-	Thu Feb  8 04:46:50 PST 1990
+./install/finst_base:# By Julian Carlisle  Mon Jul 23 12:01:49 PDT 1990
+./install/finst_chksys:# Julian		 Tue Dec  4 23:45:29 PST 1990
+./install/finst_configws:# Julian   -  Mon Nov 19 01:33:49 PST 1990
+./install/finst_createdb:# Julian Fri Aug 31 00:51:45 PDT 1990
+./install/finst_crt:# By Julian Carlisle 		Wed Dec  5 23:14:57 PST 1990
+./install/finst_db:# Julian 	-	Tue Jul 23 21:04:55 PDT 1990
+./install/finst_dbaccts:# Julian
+./install/finst_dot:# Julian	-	Fri Aug 31 02:19:04 PDT 1990
+./install/finst_getdef:# Julian
+./install/finst_getval:# Author: Julian Carlisle	-  Tue Jul 24 01:06:00 PDT 1990
+./install/finst_help:# Julian 
+./install/finst_isroot:# Julian.
+./install/finst_menu:# Author:  Julian Carlisle	-  Tue Jul 24 01:36:42 PDT 1990
+./install/finst_newdb:# Julian 	-	Sun Nov 18 19:49:01 PST 1990 
+./install/finst_putdef:# Julian
+./install/finst_src:# Julian   28/aug/1990
+./install/finst_tape:# Julian		  Sun Dec  2 06:23:58 PST 1990
+./install/finst_testproj:# Julian   28/aug/1990
+./install/finst_yesno:# Author: Julian Carlisle	-  Tue Jul 24 01:06:00 PDT 1990
+./install/finst_yp:# Julian		 Wed Dec  5 03:31:06 PST 1990
+./install/install_finder:# By Julian Carlisle  Mon Jul 23 12:01:49 PDT 1990
+./install/install_finder.sh:# By Julian Carlisle  Mon Jul 23 12:01:49 PDT 1990
+./install/template.finder:# Julian 
+./install/template.oracle:#  Julian Carlisle	-	Thu Mar  1 07:52:16 PST 1990
+./lib/objs/finder_main.c:/* *9    26-FEB-1990 18:57:32 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./lib/objs/finder_main.c:/* *7     6-FEB-1990 00:17:10 JULIAN "(SPR -1) X Version "*/
+./main/finder_main.c:/* *9    26-FEB-1990 18:57:32 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./main/finder_main.c:/* *7     6-FEB-1990 00:17:10 JULIAN "(SPR -1) X Version "*/
+./main/ld_lg_batch.c:/* *3    12-JUL-1990 17:23:51 JULIAN "(SPR -1) Make program a single module" */
+./main/ld_lg_batch.c:/* *2    18-APR-1990 00:02:33 JULIAN "(SPR -1) Re-write this loader to support multiple input files + much more" */
+./main/ld_lg_batch.c:/* *1    25-MAR-1990 09:19:41 JULIAN "standalone ascii log loader." */
+./main/mo_tie_plotter.c:/* *5    12-MAY-1988 05:01:50 JULIAN "(SPR 4132) added 3rd arg to qs_set_c"*/
+./main/mo_trc_plotter.c:/* *3    12-MAY-1988 05:01:55 JULIAN "(SPR 4132) added 3rd arg to qs_set_c"*/
+./main/syn_plotter.c:/* *3    12-MAY-1988 04:43:41 JULIAN "(SPR 4132) added 3rd arg to qs_set_i"*/
+./main/tbh_driver.c:/* *3    13-NOV-1989 11:54:46 JULIAN "(SPR 1) Added Calcomp support, better error handling/logging" */
+./main/tbh_driver.c:/* *2     3-NOV-1989 10:39:46 JULIAN "(SPR 1) TABLET DRIVER MAIN" */
+./main/tbh_driver.c:/* *1     3-NOV-1989 10:38:31 JULIAN "TABLET DRIVER MAIN." */
+./main/tbh_driver.c:*   Julian Carlisle      August 30, 1988
+./main/tbh_driver.c:*   Julian Carlisle      Sept 1988.
+./main/tbh_driver.c:*   Julian Carlisle      Sept 1988.
+./main/tbh_driver.c:*   Julian Carlisle      Sept 1988.
+./main/tbh_driver.c:    Julian  sep 6, 1988
+./main/tbh_driver.c:*   Julian Carlisle      Sept 1988.
+./main/tbh_driver.c:*   Julian Carlisle      Sept 1988.
+./main/tbh_driver.c:*   Julian Carlisle      Sept 1988.
+./main/tbh_driver.c:*   Julian Carlisle      Sept 1988.
+./main/tbh_driver.c:*   Julian Carlisle      Sept 1988.
+./main/tbh_driver.c:*   Julian Carlisle      Sept 1988.
+./main/tbh_driver.c:*   Julian Carlisle      Sept 1988.
+./main/tbh_driver.c:*   Julian Carlisle      Sept 1988.
+./main/tbh_driver.c:*   Julian Carlisle      July 1988.
+./main/tbh_driver.c:*   Julian Carlisle      July 1988.
+./main/tbh_driver.c:*   Julian Carlisle      July 1988.
+./main/tbh_driver.c:* 3/27/87 Julian
+./main/tbh_driver.c:* 3/27/87  Julian
+./main/tbh_driver.c:* Julian Carlisle   July 1988
+./main/tbh_driver.c:* Julian Carlisle   July 1988
+./main/tbh_driver.c:* Julian Carlisle   July 1988
+./main/tbh_driver.c:*   Julian Carlisle      July 1988.
+./main/tbh_driver.c:*  Julian Carlisle   July, 1988
+./main/tbh_driver.c:*   Julian Carlisle      July 1988.
+./main/tbh_driver.c:*   Julian Carlisle      July 1988.
+./main/tbh_driver.c:* Julian Carlisle  July 7, 1988
+./main/tbh_driver.c:*  Julian Carlisle
+./main/tbh_driver.c:*   Julian Carlisle      July 1988.
+./main/tbh_driver.c:*   Julian Carlisle      July 1988.
+./main/tbh_driver.c:*   Julian Carlisle      July 1988.
+./main/tbh_driver.c:*   Julian Carlisle      July 1988.
+./main/tbh_driver.c:*   Julian Carlisle      Sept 1988.
+./maint/backup_source.com:$! December 10, 1989	Julian Carlisle
+./maint/backup_source.com:$!		$ call mountdest "userdisk:[users.julian]saveset.bak"
+./maint/backup_source.com:$! Dec 10, 1989	-	Julian Carlisle
+./maint/doc.c:/* *1    13-NOV-1990 11:25:42 JULIAN "initial release" */
+./maint/doc.c:/* *3    25-SEP-1990 06:03:48 JULIAN "(SPR -1) run doc.com from esi$maint" */
+./maint/doc.c:/* *2    25-SEP-1990 05:58:04 JULIAN "(SPR -1) General source compiler" */
+./maint/doc.c:/* *1    25-SEP-1990 05:22:30 JULIAN "Compilation utiity for FGS sources." */
+./maint/doc.c:* Julian Carlisle
+./maint/doc.com:$! *3    19-JUL-1991 04:57:55 JULIAN "(SPR -1) Fix debug flag case"
+./maint/doc.com:$! *2    19-JUL-1991 04:40:39 JULIAN "(SPR -1) Fix infinite loop on some arg combos."
+./maint/doc.com:$!   Julian   V1.0  05-feb-1988   Initial release. 
+./maint/doc.com:$!   Julian   V1.1  06-feb-1988   Support recursive file specs, wildcards etc. 
+./maint/doc.com:$!   Julian   V2.0  11-Feb-1988	  Add Batch, libraries, SQL support.
+./maint/doc.com:$!   Julian   V2.1  06-nov-1988   Add macro, rscomp, optimize
+./maint/doc.com:$!   Julian   V2.2  01-feb-1989   add user jobfile input 
+./maint/doc.com:$!   Julian   V2.3  01-aug-1989   add -TIME object date checking
+./maint/doc.com:$!   Julian   V3.0  22-sep-1989   fix everything (this time for sure...) 
+./maint/doc.com:$!   Julian   V3.1  21-may-1991   fix infinite loop on bad option, re-release
+./maint/doc.com:$! Author: Julian Carlisle  3/2/88
+./maint/doc.com:	  $ COMP ESI$SRC:XS*.*/LIB=TEMPLIB/DO="MAIL SYS$LOGIN:COMP.BAD JULIAN"
+./maint/doc.com:    and the error file is mailed to julian upon completion of the procedure.
+./maint/doc.com:	Author:	Julian Carlsle			Exploration Systems Inc, Sausalito CA.
+./maint/dropdb.com:$!   Julian Carlisle
+./maint/file.c:/* *1    13-NOV-1990 11:25:44 JULIAN "initial release" */
+./maint/file.c:/* *2    25-SEP-1990 05:59:42 JULIAN "(SPR -1) RMS file description language manipulation utility" */
+./maint/file.c:/* *1    25-SEP-1990 05:59:14 JULIAN "RMS file description language manipulation utility" */
+./maint/filestat.c:/* *1    13-NOV-1990 11:25:47 JULIAN "initial release" */
+./maint/filestat.pc:/* *2    25-SEP-1990 06:01:56 JULIAN "(SPR -1) fix select bug." */
+./maint/filestat.pc: * Author: Julian Carlisle 
+./maint/fnchange.c:/* *1    13-NOV-1990 11:25:50 JULIAN "initial release" */
+./maint/fnchange.c:/* *2     3-AUG-1989 12:57:16 JULIAN "(SPR -1) initial coding" */
+./maint/fnchange.c:/* *1     3-AUG-1989 12:56:39 JULIAN "Change file names in a directory based on a control file" */
+./maint/foo:/* *1    13-NOV-1990 11:28:08 JULIAN "initial release" */
+./maint/foreach.com:$! *2    29-SEP-1990 15:03:27 JULIAN "(SPR -1) vms version of unix foreach command."
+./maint/foreach.com:$! *1    29-SEP-1990 15:02:27 JULIAN "vms version of unix foreach command."
+./maint/foreach.com:$!	Julian '88	
+./maint/fpro.c:/* *1    13-NOV-1990 11:25:52 JULIAN "initial release" */
+./maint/fpro.c:/* FPRO.CC,  JULIAN>CWORK,  JULIAN C./14/87
+./maint/fpro.c:   02/24/88 JULIAN    Modified to handle inline comments on an include line
+./maint/fpro.c:   12/31/87 JULIAN    Modified for new F77 INCLUDE format
+./maint/fpro.c:   12/14/87 JULIAN    Added display of known keywords in help display
+./maint/fpro.c:   12/10/87 JULIAN    Initial Coding
+./maint/fpro.c:   11/30/87 JULIAN C. Template constructed
+./maint/gen_menu.c:/* *1    13-NOV-1990 11:25:54 JULIAN "initial release" */
+./maint/kitinstal.com:$! *3    10-JAN-1991 13:39:33 JULIAN "(SPR -1) 3 db ver tabs not 1"
+./maint/kitinstal.com:$! *2    19-DEC-1990 15:19:25 JULIAN "(SPR -1) link pl_plot_meta"
+./maint/kitinstal.com:$!     Sep 27, 1989 by Julian Carlisle	-- Partial re-write for V5.5
+./maint/kitinstal.com:$!* Julian Carlisle   May 12, 1988     
+./maint/ld_chelog.c:/* *1    13-NOV-1990 11:25:56 JULIAN "initial release" */
+./maint/ld_chelog.c:*  Julian Carlisle   July 7,1990
+./maint/ld_chelog.pc:*  Julian Carlisle   July 7,1990
+./maint/ld_seis_horizons.c:/* *1    13-NOV-1990 11:26:01 JULIAN "initial release" */
+./maint/le_testit.c:/* *1    13-NOV-1990 11:26:04 JULIAN "initial release" */
+./maint/make_kit.com:$! *4    11-JAN-1991 02:28:57 JULIAN "(SPR -1) clean ESI "
+./maint/make_kit.com:$! *3     8-JAN-1991 15:52:49 JULIAN "(SPR -1) do q"
+./maint/make_kit.com:$! *2     8-JAN-1991 08:10:12 JULIAN "(SPR -1) make database for cleaning"
+./maint/make_kit.com:$! Julian Carlisle	09/25/89	 
+./maint/make_kit.com:$! Julian Carlisle  Sep-28-1989
+./maint/mg_config.c:/* *2    18-OCT-1991 18:16:15 JULIAN "(SPR 1) Fixed precompile usage of #ifdef UNIX to #else of #ifdef vms" */
+./maint/mg_config.c:/* *1    13-NOV-1990 11:27:45 JULIAN "initial release" */
+./maint/mg_config.c:/* *4    15-AUG-1990 12:33:37 JULIAN "(SPR 1) added output file header and fixed error in #ifndef output" */
+./maint/mg_config.c:/* *3    10-AUG-1990 13:11:53 JULIAN "(SPR 1) added OUTDIR option" */
+./maint/mg_config.c:/* *2     9-AUG-1990 16:39:53 JULIAN "(SPR 1) added the -rebuild command line switch" */
+./maint/mg_config.c:/* *1     9-AUG-1990 11:20:18 JULIAN "moved from MAIN" */
+./maint/modify.c:/* *1    13-NOV-1990 11:26:05 JULIAN "initial release" */
+./maint/modify.c:/* *1    24-MAY-1990 13:11:30 JULIAN "perform a substitution in multiple files from the command line." */
+./maint/mp_create_map_basis.c:/* *1    13-NOV-1990 11:26:06 JULIAN "initial release" */
+./maint/ms.com:$! Julian Carlisle     26-jan-1988
+./maint/nf_plotter_preview.c:/* *1    13-NOV-1990 11:26:10 JULIAN "initial release" */
+./maint/restart.com:$! Julian Carlisle   09/27/89	
+./maint/rs_compiler.c:/* *1    13-NOV-1990 11:26:14 JULIAN "initial release" */
+./maint/rs_compiler.c:/* *7     6-APR-1989 15:23:05 JULIAN "(SPR 4981) Added INT casting to the output defines"*/
+./maint/se_getpick_main.c:/* *1    13-NOV-1990 11:26:18 JULIAN "initial release" */
+./maint/se_testgetinter.c:/* *1    13-NOV-1990 11:26:20 JULIAN "initial release" */
+./maint/tbh_test_app.c:/* *1    13-NOV-1990 11:26:21 JULIAN "initial release" */
+./maint/tbh_test_app.c:/* *5     7-JAN-1989 13:35:03 JULIAN "(SPR 4987) Fixed function calls so status not in args list ."*/
+./maint/tbh_test_app.c:/* *2     8-NOV-1988 04:53:39 JULIAN "(SPR 4935) tablet driver demo pgm. "*/
+./maint/tbh_test_app.c:/* *1     8-NOV-1988 04:52:50 JULIAN "tablet demo"*/
+./maint/tbh_test_app.c:*   Julian Carlisle      August 30, 1988.
+./maint/test_am.c:/* *1    13-NOV-1990 11:26:24 JULIAN "initial release" */
+./maint/test_am.c: * $Locker: julian $
+./maint/test_am.c: * Revision 1.1  2008/02/09 09:23:37  julian
+./maint/test_bt.c:/* *1    13-NOV-1990 11:26:26 JULIAN "initial release" */
+./maint/test_btdump.c:/* *1    13-NOV-1990 11:26:28 JULIAN "initial release" */
+./maint/test_btdump.c: * $Locker: julian $
+./maint/test_btdump.c: * Revision 1.1  2008/02/09 09:23:37  julian
+./maint/test_cl.c:/* *1    13-NOV-1990 11:26:29 JULIAN "initial release" */
+./maint/test_cl.c: * $Locker: julian $
+./maint/test_cl.c: * Revision 1.1  2008/02/09 09:23:37  julian
+./maint/test_copy_forms.c:/* *1    13-NOV-1990 11:26:31 JULIAN "initial release" */
+./maint/test_cs.c:/* *1    13-NOV-1990 11:26:33 JULIAN "initial release" */
+./maint/test_cs.c: * $Locker: julian $
+./maint/test_cs.c: * Revision 1.1  2008/02/09 09:23:37  julian
+./maint/test_defs.c:/* *1    13-NOV-1990 11:26:34 JULIAN "initial release" */
+./maint/test_defs.c: * $Locker: julian $
+./maint/test_defs.c: * Revision 1.1  2008/02/09 09:23:37  julian
+./maint/test_dma.c:/* *1    13-NOV-1990 11:26:35 JULIAN "initial release" */
+./maint/test_dma.c: * $Locker: julian $
+./maint/test_dma.c: * Revision 1.1  2008/02/09 09:23:37  julian
+./maint/test_gks_wi.c:/* *1    13-NOV-1990 11:26:38 JULIAN "initial release" */
+./maint/test_lg.c:/* *1    13-NOV-1990 11:26:41 JULIAN "initial release" */
+./maint/test_nl.c:/* *1    13-NOV-1990 11:26:43 JULIAN "initial release" */
+./maint/test_pr.c:/* *1    13-NOV-1990 11:26:49 JULIAN "initial release" */
+./maint/test_pr.c: * $Locker: julian $
+./maint/test_pr.c: * Revision 1.1  2008/02/09 09:23:37  julian
+./maint/test_rs.c:/* *1    13-NOV-1990 11:26:51 JULIAN "initial release" */
+./maint/test_rt.c:/* *1    13-NOV-1990 11:26:52 JULIAN "initial release" */
+./maint/test_rt.c: * $Locker: julian $
+./maint/test_rt.c: * Revision 1.1  2008/02/09 09:23:37  julian
+./maint/test_tg.c:/* *1    13-NOV-1990 11:26:54 JULIAN "initial release" */
+./maint/test_tu.c:/* *1    13-NOV-1990 11:26:55 JULIAN "initial release" */
+./maint/test_wi.c:/* *1    13-NOV-1990 11:26:58 JULIAN "initial release" */
+./maint/test_wm.c:/* *1    13-NOV-1990 11:27:04 JULIAN "initial release" */
+./maint/test_wm.c: * $Locker: julian $
+./maint/test_wm.c: * Revision 1.1  2008/02/09 09:23:37  julian
+./maint/tm_test_app.c:/* *1    13-NOV-1990 11:27:06 JULIAN "initial release" */
+./maint/tm_test_app.c: * $Locker: julian $
+./maint/tm_test_app.c: * Revision 1.1  2008/02/09 09:23:37  julian
+./maint/tm_test_rs.c:/* *1    13-NOV-1990 11:27:08 JULIAN "initial release" */
+./maint/tu_test.c:/* *1    13-NOV-1990 11:27:11 JULIAN "initial release" */
+./maint/updlib.com:$!	Julian '88	
+./maint/updlib.com:$!	julian Carlisle
+./maint/zz_client_transfer.c:/* *1    13-NOV-1990 11:27:13 JULIAN "initial release" */
+./maint/zz_flink.com:$! *5    22-MAR-1990 00:21:24 JULIAN "(SPR 1) FIXED PREVIOUS MOD FOR IGNORE BACKUPS."
+./maint/zz_flink.com:$! *4    22-MAR-1990 00:09:43 JULIAN "(SPR -1) Set nobackup flag on executables."
+./maint/zz_make.com:$! $Author: julian $
+./maint/zz_make.com:$! $Locker: julian $
+./maint/zz_make.com:$! Revision 1.1  2008/02/09 09:23:37  julian
+./maint/zz_make_dep.c:/* *1    13-NOV-1990 11:27:23 JULIAN "initial release" */
+./maint/zz_menu_maker.com:$! Oct 17, 1988   Julian Carlisle
+./maint/zz_qui_info.c:/* *1    13-NOV-1990 11:27:31 JULIAN "initial release" */
+./maint/zz_set_checkin_time.c:/* *1    13-NOV-1990 11:27:32 JULIAN "initial release" */
+./maint/zz_tdump.pc:/* *3     1-SEP-1987 13:38:41 JULIAN "removed date stamping."*/
+./maint/zz_tdump.pc:/* *2     8-JUL-1987 11:19:42 JULIAN "NO CHANGES"*/
+./maint/zz_tdump.pc:/* *1     8-JUL-1987 11:16:45 JULIAN "Reserved"*/
+./maint/zz_tdump.pc:* Julian Carlisle   June 18, 1987
+./maint/zz_upd_comp.c:/* *1    13-NOV-1990 11:27:34 JULIAN "initial release" */
+./patch1022/findersrc/src/ug_plot_gks.c:/* *5    26-FEB-1990 19:01:23 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./patch1022/install/ies.link/flink_ies:# Julian Carlisle -    Wed Feb  7 23:11:53 PST 1990
+./patch1022/install/ies.link/flink_msxfr:# Julian Carlisle -    Wed Feb  7 23:11:53 PST 1990
+./plot/np_calcomp.for:C   Julian Carlisle    28, April  1988                          
+./plot/np_calcomp.for:C   Julian Carlisle    28, April  1988                          
+./plot/np_disco.for:C   Julian Carlisle    28, April  1988
+./plot/np_disco.for:C   Julian Carlisle    28, April  1988
+./plot/np_test.for:C Julian Carlisle   April  27, 1988
+./plot/np_tools.for:C  BY Julian Carlisle    ON  April 27, 1988
+./plot/np_tools.for:C Julian Carlisle   April  27th,   1988
+./plot/np_tools.for:C Julian Carlisle   April  29, 1988
+./plot/np_zeta.for:C   Julian Carlisle    28, April  1988
+./plot/np_zeta.for:C   Julian Carlisle    28, April  1988
+./src/ag_arc_angle.c:/* *2    18-MAR-1991 18:05:51 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/ag_arc_angle.c:/* *1    18-MAR-1991 17:43:35 JULIAN "Lease Mapping" */
+./src/ag_auto_scld.c:/* *2    18-MAR-1991 18:06:10 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/ag_auto_scld.c:/* *1    18-MAR-1991 17:44:05 JULIAN "Lease Mapping" */
+./src/ag_auto_sclr.c:/* *2    18-MAR-1991 18:06:16 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/ag_auto_sclr.c:/* *1    18-MAR-1991 17:44:32 JULIAN "Lease Mapping" */
+./src/ag_dnut_shp.c:/* *2    18-MAR-1991 18:06:22 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/ag_dnut_shp.c:/* *1    18-MAR-1991 17:44:58 JULIAN "Lease Mapping" */
+./src/ag_ext_intsxn.c:/* *2    18-MAR-1991 18:06:28 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/ag_ext_intsxn.c:/* *1    18-MAR-1991 17:45:22 JULIAN "Lease Mapping" */
+./src/ag_intersxn.c:/* *2    18-MAR-1991 18:06:34 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/ag_intersxn.c:/* *1    18-MAR-1991 17:45:49 JULIAN "Lease Mapping" */
+./src/ag_plr_crd.c:/* *2    18-MAR-1991 18:06:41 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/ag_plr_crd.c:/* *1    18-MAR-1991 17:46:15 JULIAN "Lease Mapping" */
+./src/ag_ply_area.c:/* *2    18-MAR-1991 18:06:47 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/ag_ply_area.c:/* *1    18-MAR-1991 17:46:40 JULIAN "Lease Mapping" */
+./src/ag_ply_cnvx.c:/* *3    21-JUN-1991 16:51:29 JULIAN "(SPR 0) add privatedef" */
+./src/ag_ply_cnvx.c:/* *2    18-MAR-1991 18:06:54 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/ag_ply_cnvx.c:/* *1    18-MAR-1991 17:47:06 JULIAN "Lease Mapping" */
+./src/ag_ply_fllr.c:/* *2    18-MAR-1991 18:07:02 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/ag_ply_fllr.c:/* *1    18-MAR-1991 17:47:32 JULIAN "Lease Ma" */
+./src/ag_ply_gap.c:/* *2    18-MAR-1991 18:07:09 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/ag_ply_gap.c:/* *1    18-MAR-1991 17:48:09 JULIAN "0" */
+./src/ag_ply_labxy.c:/* *2    18-MAR-1991 18:07:16 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/ag_ply_labxy.c:/* *1    18-MAR-1991 17:48:33 JULIAN "Lease Mapping" */
+./src/ag_ply_prll.c:/* *2    18-MAR-1991 18:07:22 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/ag_ply_prll.c:/* *1    18-MAR-1991 17:48:59 JULIAN "Lease Mapping" */
+./src/ag_ply_pt_cv.c:/* *2    18-MAR-1991 18:07:28 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/ag_ply_pt_cv.c:/* *1    18-MAR-1991 17:49:25 JULIAN "Lease Mapping" */
+./src/ag_ply_pt_cx.c:/* *2    18-MAR-1991 18:07:35 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/ag_ply_pt_cx.c:/* *1    18-MAR-1991 17:49:52 JULIAN "Lease Mapping" */
+./src/ag_shft_dbl.c:/* *2    18-MAR-1991 18:07:41 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/ag_shft_dbl.c:/* *1    18-MAR-1991 17:50:18 JULIAN "Lease Mapping" */
+./src/ag_tmllxy.c:/* *2    18-MAR-1991 18:07:47 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/ag_tmllxy.c:/* *1    18-MAR-1991 17:50:46 JULIAN "Lease Mapping" */
+./src/am_def_res.c:/* *7    23-AUG-1990 15:28:41 JULIAN "(SPR 0) fix compiling error"*/
+./src/am_def_res.c:/* *4     2-MAR-1990 11:12:29 JULIAN "(SPR 6012) fix up USE_X logic to be IFDEF only"*/
+./src/am_def_res.c:/* *3     9-FEB-1990 16:40:44 JULIAN "(SPR -1) Repositioning USE_X code (kee)"*/
+./src/am_def_res.c:/* *2     6-FEB-1990 00:14:47 JULIAN "(SPR -1) X Version"*/
+./src/am_message.c:/* *9    23-AUG-1990 15:29:01 JULIAN "(SPR 0) fix compiling error"*/
+./src/am_message.c:/* *4    26-FEB-1990 18:57:14 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/am_quit.c:/* *3     2-MAR-1990 11:12:37 JULIAN "(SPR 6012) fix up USE_X logic to be IFDEF only"*/
+./src/am_quit.c:/* *2     6-FEB-1990 00:14:59 JULIAN "(SPR -1) X Version"*/
+./src/am_start_app.c:/* *3    26-FEB-1990 18:57:19 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/asp_yesno.c:/* *2     8-DEC-1989 18:41:02 JULIAN "(SPR 100) Change am_release_resource to wi_close_dialog"*/
+./src/as_yesno.c:/* *3    23-AUG-1990 15:29:07 JULIAN "(SPR 0) fix compiling error"*/
+./src/co_init_str.c:/* *3    25-APR-1990 08:40:52 JULIAN "(SPR 0) remove line_color option from co_overlay"*/
+./src/co_init_str.c:/* *2    18-SEP-1989 12:42:34 JULIAN "Gulf mods under SPR 100"*/
+./src/co_make_con.c:/* *15   18-SEP-1991 16:17:24 JULIAN "(SPR 4152) removed the line where it always set the contour interval=1"*/
+./src/co_make_con.c:/* *5    25-APR-1990 08:41:00 JULIAN "(SPR 0) remove line_color option from co_overlay"*/
+./src/co_make_con.c:/* *3    17-OCT-1989 16:56:10 JULIAN "(SPR 0) mod param passing on nl_inq_nlist_user_struct"*/
+./src/co_make_grid.c:/* *10   23-OCT-1991 15:11:17 JULIAN "(SPR 0) add initialization to prev mods"*/
+./src/co_make_grid.c:/* *9    24-SEP-1991 11:39:52 JULIAN "(SPR 4149) free unused allocated memory"*/
+./src/co_overlay.c:/* *8    19-NOV-1990 14:51:03 JULIAN "(SPR 6171) add fault source option"*/
+./src/co_overlay.c:/* *4    25-APR-1990 08:31:50 JULIAN "(SPR 0) remove line_color option from co_overlay"*/
+./src/co_overlay.c:/* *3    24-APR-1990 17:15:01 JULIAN "(SPR 0) fix line color bug being always black"*/
+./src/co_overlay.c:/* *4    25-APR-1990 08:31:50 JULIAN "(SPR 0) remove line_color option from co_overlay"  */
+./src/co_overlay.c:/* *3    24-APR-1990 17:15:01 JULIAN "(SPR 0) fix line color bug being always black" */
+./src/co_post_con.c:/* *15   18-JUN-1991 14:38:23 JULIAN "(SPR 2940) (Jantina) Removed check on coordinate system flag - only need to check map*/
+./src/co_post_con.c:/* *13   27-NOV-1990 16:27:56 JULIAN "(SPR 6198) resize contour labels"*/
+./src/co_post_con.c:/* *11   25-APR-1990 08:32:02 JULIAN "(SPR 0) remove line_color option from co_overlay"*/
+./src/co_post_con.c:/* *7    24-OCT-1989 14:01:51 JULIAN "(SPR 0) mod param passing on nl_inq_nlist_user_struct"*/
+./src/co_post_con.c:/* *4    18-SEP-1989 12:42:43 JULIAN "Gulf mods under SPR 100"*/
+./src/co_settxt.c:/* *4    27-NOV-1990 16:28:03 JULIAN "(SPR 6198) resize contour labels"*/
+./src/co_set_faults.c:/* *2    20-JUN-1990 09:53:27 JULIAN "(SPR 0) replace ct_get_faults with se_get_faults"*/
+./src/ct_map_xy.c:/* *4     5-JUN-1990 09:59:02 JULIAN "(SPR 0) fix return status"*/
+./src/ct_map_xy.c:/* *2    10-OCT-1989 09:42:00 JULIAN "(SPR 5020) mods for CT parameter change"*/
+./src/ct_project_xy.c:/* *2    10-OCT-1989 09:43:00 JULIAN "(SPR 5020) mods for CT parameter change"*/
+./src/ct_trans_nl.c:/* *4    18-OCT-1989 09:46:04 JULIAN "(SPR 0) mod d_width type from INT to size_t"*/
+./src/ct_trans_nl.c:/* *3    10-OCT-1989 09:45:06 JULIAN "(SPR 5020) mods for CT parameter change"*/
+./src/ct_trans_pt.c:/* *2    10-OCT-1989 09:45:34 JULIAN "(SPR 5020) mods for CT parameter change"*/
+./src/ct_uom_fact.c:/* *5     6-MAY-1991 16:45:08 JULIAN "(SPR 0) add uom conversion from and to degrees type"*/
+./src/ct_uom_fact.c:/* *2    10-OCT-1989 09:46:00 JULIAN "(SPR 5020) mods for CT parameter change"*/
+./src/ct_uom_fact_deg.c:/* *2     6-MAY-1991 16:45:14 JULIAN "(SPR 0) add uom conversion from and to degrees type" */
+./src/ct_uom_fact_deg.c:/* *1     6-MAY-1991 16:38:50 JULIAN "data mover function" */
+./src/ct_uom_fact_deg.c:/* *2    10-OCT-1989 09:46:00 JULIAN "(SPR 5020) mods for CT parameter change"*/
+./src/ct_well_loc.c:/* *2    10-OCT-1989 09:47:37 JULIAN "(SPR 5020) Mods for CT parameter change"*/
+./src/db_cr_acct.pc:/* *9     6-FEB-1990 00:17:04 JULIAN "(SPR -1) X Version "*/
+./src/db_set_priv.pc:/* *4    26-FEB-1990 18:57:22 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/db_sqlp_sub.c:/* *5    12-JUL-1991 14:38:44 JULIAN "(SPR 1541) added survey to rel retrieval by line name" */
+./src/db_sqlp_sub.c:/* *4    23-AUG-1990 15:29:20 JULIAN "(SPR 0) fix compiling error" */
+./src/db_sqlp_user.c:/* *6    11-JUN-1991 13:50:40 JULIAN "(SPR 8318) fix crash on selector box <-->" */
+./src/dd_well_xy.c:/* *5    21-MAY-1990 15:04:52 JULIAN "(SPR 5311) fix return xpos,ypos return value"*/
+./src/dd_well_xy.c:/* *4    10-OCT-1989 09:48:05 JULIAN "(SPR 5020) mods for CT parameter change"*/
+./src/dr_edit_line.c:/* *5    18-OCT-1989 10:09:42 JULIAN "(SPR 0) complete prev mod"*/
+./src/dr_edit_line.c:/* *4    18-OCT-1989 10:04:43 JULIAN "(SPR 0) mod param passing on nl_inq_stroke_user_struct"*/
+./src/dr_q_marker.pc:/* *2    30-SEP-1990 16:31:14 JULIAN "(SPR -1) Fix messed up sources found in Ernie->Bert migration"*/
+./src/dr_txt_dlg.c:/* *7    18-OCT-1989 10:15:42 JULIAN "(SPR 0) mod param passing on nl_init_nlist"*/
+./src/dr_txt_dlg.c:/* *7    18-OCT-1989 10:15:42 JULIAN "(SPR 0) mod param passing on nl_init_nlist"*/
+./src/ee_tools_a.c:/* *6    14-AUG-1991 14:01:54 JULIAN "(SPR 1679) added more cases for unary operator"*/
+./src/ee_tools_b.c:/* *3    18-SEP-1989 12:42:57 JULIAN "Gulf mods under SPR 100"*/
+./src/finder_quit.c:/* *9    23-AUG-1990 15:29:38 JULIAN "(SPR 0) fix compiling error"*/
+./src/finder_quit.c:/* *6     2-MAR-1990 11:13:03 JULIAN "(SPR 6012) fix up USE_X logic to be IFDEF only"*/
+./src/finder_quit.c:/* *4     6-FEB-1990 00:27:15 JULIAN "(SPR -1) X Version"*/
+./src/finder_quit.c:/* *3    14-NOV-1989 00:20:20 JULIAN "(SPR 1) Remove call to tbh_terminate."*/
+./src/finder_quit.c:/* *2    13-NOV-1989 13:51:49 JULIAN "(SPR 1) Integrate external tablet functions into finder."*/
+./src/fi_cnfg_ws.pc:/* *12   26-FEB-1990 18:57:38 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/fi_cnfg_ws.pc:/* *10    6-FEB-1990 00:17:19 JULIAN "(SPR -1) X Version "*/
+./src/fi_cnfg_ws.pc:/* *8    13-NOV-1989 13:33:28 JULIAN "(SPR 1) Integrate external tablet functions into finder."*/
+./src/fi_cnfg_ws.pc:/* *3     1-JUL-1989 15:44:05 JULIAN "(SPR 5) added database startup  of tablet driver."*/
+./src/fi_config.c:/* *3    18-DEC-1989 16:40:29 JULIAN "(SPR 5069) export facility mods"*/
+./src/fi_config.c:/* *2    11-AUG-1989 09:31:48 JULIAN "(SPR -1) fixing constant in conditional context"*/
+./src/fi_init.c:/* *10   30-JUL-1990 17:21:38 JULIAN "(SPR 0) add lynx,lease select_list"*/
+./src/fi_init.c:/* *8     2-MAR-1990 11:13:22 JULIAN "(SPR 6012) fix up USE_X logic to be IFDEF only"*/
+./src/fi_init.c:/* *7     6-FEB-1990 00:17:36 JULIAN "(SPR -1) X Version "*/
+./src/fi_init.c:/* *6    18-DEC-1989 16:40:34 JULIAN "(SPR 5069) export facility mods"*/
+./src/fi_init.c:/* *10   30-JUL-1990 17:21:38 JULIAN "(SPR 0) add lynx,lease select_list"            */
+./src/fi_init.c:/* *8     2-MAR-1990 11:13:22 JULIAN "(SPR 6012) fix up USE_X logic to be IFDEF only"*/
+./src/fi_init.c:/* *7     6-FEB-1990 00:17:36 JULIAN "(SPR -1) X Version "                          */
+./src/fi_init.c:/* *6    18-DEC-1989 16:40:34 JULIAN "(SPR 5069) export facility mods"               */
+./src/fi_init_menus.c:/* *7     2-MAR-1990 11:13:38 JULIAN "(SPR 6012) fix up USE_X logic to be IFDEF only"*/
+./src/fi_init_menus.c:/* *5    26-FEB-1990 18:57:43 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/fi_init_menus.c:/* *4     6-FEB-1990 00:17:43 JULIAN "(SPR -1) X Version "*/
+./src/fi_init_menus.c:/* *7     2-MAR-1990 11:13:38 JULIAN "(SPR 6012) fix up USE_X logic to be IFDEF only"*/
+./src/fi_init_menus.c:/* *5    26-FEB-1990 18:57:43 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"  */
+./src/fi_init_menus.c:/* *4     6-FEB-1990 00:17:43 JULIAN "(SPR -1) X Version "                          */
+./src/fi_menu_svr.c:/* *5     2-MAR-1990 11:13:54 JULIAN "(SPR 6012) fix up USE_X logic to be IFDEF only"*/
+./src/fi_menu_svr.c:/* *4     6-FEB-1990 00:17:54 JULIAN "(SPR -1) X Version "*/
+./src/fi_term.pc:/* *6     6-MAR-1990 20:18:22 JULIAN "(SPR 6010) Dont call hocloseio from UNIX"*/
+./src/fi_term.pc:/* *4     6-FEB-1990 00:17:59 JULIAN "(SPR -1) X Version "*/
+./src/fi_term.pc:/* *3    20-NOV-1989 09:41:26 JULIAN "(SPR 1) removed call to gbterm"*/
+./src/fm_sys_cont.c:/* *3     2-NOV-1989 15:26:17 JULIAN "(SPR 30) mod fm_hash_table as privatedef"*/
+./src/gb_clr_cur.c:/* *5    30-JUL-1990 17:21:45 JULIAN "(SPR 0) add lynx,lease select_list"*/
+./src/gb_clr_cur.c:/* *2    11-AUG-1989 09:35:20 JULIAN "(SPR -1) fixing statement not reached problem"*/
+./src/gb_cre_s_mplst.c:/* *2    30-JUL-1990 17:22:01 JULIAN "(SPR 0) add lynx,lease select_list" */
+./src/gb_cre_s_mplst.c:/* *1    30-JUL-1990 17:10:25 JULIAN "create seismic map list" */
+./src/gb_cre_w_mplst.c:/* *2    30-JUL-1990 17:22:06 JULIAN "(SPR 0) add lynx,lease select_list" */
+./src/gb_cre_w_mplst.c:/* *1    30-JUL-1990 17:10:59 JULIAN "create well map list" */
+./src/gb_delete_app.pc:/* *6    16-DEC-1989 16:20:53 JULIAN "(SPR 100) Reorganize server/modal event loop logic"*/
+./src/gb_drw_plyarr.c:/* *5    15-JUL-1991 17:38:05 JULIAN "(SPR 1570) fixed cancel from polygon retrieval problem" */
+./src/gb_highlight.c:/* *3    18-OCT-1989 10:21:11 JULIAN "(SPR 0) mod param passing on nl_inq_nlist_user_struct"*/
+./src/gb_make_or_hi.c:/*  20   13-FEB-1992 16:30:53 JULIAN "(SPR 5770) took out update_enable_controls function and create a separate file*/
+./src/gb_make_or_hi.c:/* *19    2-OCT-1991 16:56:13 JULIAN "(SPR 1558) clear message when starting a new retrieval (point,get list,rectangle,polygon)"*/
+./src/gb_make_or_hi.c:/* *18   21-AUG-1991 16:13:49 JULIAN "(SPR 3749) added 0 rows msg when clear select list"*/
+./src/gb_make_or_hi.c:/* *17   20-AUG-1991 15:16:09 JULIAN "(SPR 3772) fixed false dimming of buttons"*/
+./src/gb_make_or_hi.c:/* *16   11-JUN-1991 13:43:27 JULIAN "(SPR 7330) remove FAIL msg when get empty select list"*/
+./src/gb_make_or_hi.c:/* *15    6-MAY-1991 16:48:13 JULIAN "(SPR 0) add select list in culture overlay for data mover"*/
+./src/gb_make_or_hi.c:/* *14    5-DEC-1990 12:10:24 JULIAN "(SPR 6261) dim lynx and lease data type"*/
+./src/gb_make_or_hi.c:/* *13   30-JUL-1990 17:22:16 JULIAN "(SPR 0) add lynx,lease select_list"*/
+./src/gb_make_or_hi.c:/* *10   26-FEB-1990 18:57:48 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/gb_make_or_hi.c:/* *7    27-NOV-1989 08:40:10 JULIAN "(SPR 100) Ensure state of dialog controls correct after each event."*/
+./src/gb_make_or_hi.c:/* *3     8-AUG-1989 15:22:36 JULIAN "(SPR -1) [data_type] --> [(INT)data_type]"*/
+./src/gb_pick_well.c:/* *3    10-OCT-1989 09:50:05 JULIAN "(SPR 5020) mods for CT parameter change"*/
+./src/gb_rel_ret.pc:/* *11   25-NOV-1989 16:00:35 JULIAN "(SPR 100) Automatically set base table specified by a select phrase."*/
+./src/gb_rmap_well.c:/* *4    10-OCT-1989 09:50:55 JULIAN "(SPR 5020) mods for CT parameter change" */
+./src/gb_sav_cur.c:/* *4    30-JUL-1990 17:22:45 JULIAN "(SPR 0) add lynx,lease select_list"*/
+./src/gb_seis_plygn.c:/* *10    7-OCT-1991 15:20:35 JULIAN "(SPR 4156) added check to select distinct lines" */
+./src/gb_seis_plygn.c:/* *9    30-SEP-1991 17:57:45 JULIAN "(SPR 4136) added trans points after picking seismic line(s)" */
+./src/gb_seis_plygn.c:/* *7    22-MAY-1990 14:17:00 JULIAN "(SPR 5345) add checks on no seismic condition" */
+./src/gb_seis_plygn.c:/* *6     3-MAY-1990 09:35:13 JULIAN "(SPR 5276) fix return status when > 0" */
+./src/gb_seis_plygn.c:/* *3    30-OCT-1989 14:34:57 JULIAN "(SPR 5039) Seismic Select List Mods" */
+./src/gb_s_picking.c:/* *6    30-SEP-1991 17:57:59 JULIAN "(SPR 4136) added trans points after picking seismic line(s)" */
+./src/gb_s_picking.c:/* *5     8-JUL-1991 15:45:09 JULIAN "(SPR 1554) add missing text in status box" */
+./src/gb_s_picking.c:/* *4    30-OCT-1989 14:35:16 JULIAN "(SPR 5039) Seismic Select List Mods" */
+./src/gb_s_picking.c:/* *3    10-OCT-1989 09:51:37 JULIAN "(SPR 5020) mods for CT parameter change" */
+./src/gb_upd_stat.c:/* *6    30-JUL-1990 17:22:49 JULIAN "(SPR 0) add lynx,lease select_list"*/
+./src/gb_upd_stat.c:/* *4    18-OCT-1989 10:23:45 JULIAN "(SPR 0) mod param passing on nl_inq_nlist_user_struct"*/
+./src/gb_whereami.c:/* *4    13-NOV-1989 13:51:54 JULIAN "(SPR 1) Integrate external tablet functions into finder."*/
+./src/gb_whereami.c:/* *3    10-OCT-1989 09:52:12 JULIAN "(SPR 5020) mods for CT parameter change"*/
+./src/gb_w_picking.c:/* *7     8-JUL-1991 15:45:18 JULIAN "(SPR 1554) add missing text in status box" */
+./src/gd_overlay.c:/* *3    19-NOV-1990 14:51:09 JULIAN "(SPR 6171) add fault source option"*/
+./src/gd_post_grid.c:/* *9     5-JUL-1991 16:41:10 JULIAN "(SPR 3039) Inserted a check not to drawn anything if type is NO  SYMBOL"*/
+./src/gd_post_grid.c:/* *7    18-JUN-1991 14:38:40 JULIAN "(SPR 2940) (Jantina) Removed check on coordinate system flag - only need to check map*/
+./src/gf_cstodsc.c:/* *2    26-FEB-1990 18:57:54 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/gf_dsctocs.c:/* *2    26-FEB-1990 18:57:58 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/gkz_setinq_wk.c:/* *2     2-MAR-1990 15:44:36 JULIAN "(SPR 6010) Added esi_gl_defs.h so make can trigger it."*/
+./src/go_draw_line.c:/* *7    17-MAR-1990 13:00:18 JULIAN "(SPR 0) undo last mods"*/
+./src/go_draw_line.c:/* *6    16-MAR-1990 11:13:42 JULIAN "(SPR 5135) create nlz_strip_points"*/
+./src/gq_ies_main.c:/* *8    23-OCT-1991 13:28:21 JULIAN "(SPR 4068) Improved error messages"*/
+./src/gq_ies_main.c:/* *7    14-OCT-1991 17:29:25 JULIAN "(SPR 0) user interface fix"*/
+./src/gq_ies_main.c:/* *6    11-SEP-1991 13:50:26 JULIAN "(SPR 0) fixed crashes when moving wells"*/
+./src/gq_ies_main.c:/* *5    28-AUG-1991 17:28:51 JULIAN "(SPR 0) fixed crashes when select list is empty"*/
+./src/gq_ies_main.c:/* *4    23-AUG-1991 16:05:28 JULIAN "(SPR 0) removed comments on function calls"*/
+./src/gr_draw_grat.c:/* *6    12-MAR-1990 09:58:49 JULIAN "(SPR 0) fix casting"*/
+./src/gr_draw_grat.c:/* *5     9-MAR-1990 16:28:26 JULIAN "(SPR 0) fix casting"*/
+./src/gr_drw_gratg.c:/* *10   30-MAY-1990 08:50:52 JULIAN "(SPR 5350) fix graticule marks inconsistent"*/
+./src/gr_drw_gratg.c:/* *3    10-OCT-1989 09:54:32 JULIAN "(SPR 5020) mods for CT parameter change"*/
+./src/hf_get_help.c:/* *6    23-AUG-1990 15:30:24 JULIAN "(SPR 0) fix compiling error"*/
+./src/hl_hi_seis.c:/* *7     2-NOV-1989 13:56:42 JULIAN "(SPR 30) completed last mod"*/
+./src/hl_hi_seis.c:/* *6    31-OCT-1989 10:50:48 JULIAN "(SPR 5039) change sl files to se files"*/
+./src/hl_hi_seis.c:/* *5    30-OCT-1989 14:35:39 JULIAN "(SPR 5039) Seismic Select List Mods"*/
+./src/hl_hi_seis.c:/* *4    18-OCT-1989 10:34:13 JULIAN "(SPR 0) mod param passing"*/
+./src/hl_hi_well.c:/* *4    10-OCT-1989 09:55:09 JULIAN "(SPR 5020) mods for CT parameter change"*/
+./src/hl_query_seg.c:/* *2    11-AUG-1989 10:25:27 JULIAN "(SPR -1) statement not reached"*/
+./src/hl_q_hi_seg.c:/* *2    11-AUG-1989 10:24:49 JULIAN "(SPR -1) statement not reached"*/
+./src/hoz_str_dsc.c:/* *2    26-FEB-1990 18:58:06 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_abs_path.c:/* *2    11-AUG-1989 10:26:06 JULIAN "(SPR -1) redeclaration of ho_absolute_path"*/
+./src/ho_abs_path.c:/* *2    11-AUG-1989 10:26:06 JULIAN "(SPR -1) redeclaration of ho_absolute_path"   */
+./src/ho_create_dir.c:/* *4    26-FEB-1990 18:58:09 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_ctofstr.c:/* *2    26-FEB-1990 18:58:20 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_delete_dir.c:/* *3    26-FEB-1990 18:58:23 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_del_file.c:/* *2    26-FEB-1990 18:58:28 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_del_file.c:    extern INT unlink ();           /* 3/23/89 Julian: Not just Ultrix(r)! */
+./src/ho_del_file.c:    extern INT unlink ();           /* 3/23/89 Julian: Not just Ultrix(r)! */
+./src/ho_exists.c:/* *3    26-FEB-1990 18:58:31 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_find_fil2.c:/* *3    26-FEB-1990 18:58:34 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_find_file.c:/* *3    26-FEB-1990 18:58:39 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_find_files.c:/* *3    26-FEB-1990 18:58:39 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_find_path.c:/* *3    26-FEB-1990 18:58:34 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_for_stdin.c:/* *2    26-FEB-1990 18:58:43 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_for_stdout.c:/* *2    26-FEB-1990 18:58:46 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_ftocstr.c:/* *2    26-FEB-1990 18:58:49 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_getcurpth.c:/* *2    26-FEB-1990 18:58:52 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_get_chan.c:/* *2     2-NOV-1989 15:24:12 JULIAN "(SPR 30) move hoz_st_chan, make hov privatedef"*/
+./src/ho_io_time.c:/* *2    26-FEB-1990 18:58:55 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_open.c:/* *4    26-FEB-1990 18:58:59 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_open.c:/* *2    18-SEP-1989 12:43:24 JULIAN "Gulf mods under SPR 100"*/
+./src/ho_spawn.c:/* *4    13-JUN-1990 23:31:43 JULIAN "(SPR -1) unix includes esi_stat.h not stat.h"*/
+./src/ho_st_log_lst.c:/* *3    26-FEB-1990 18:59:02 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_st_log_nm.c:/* *4    26-FEB-1990 18:59:06 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_st_log_nm.c:/* *3    18-DEC-1989 16:40:45 JULIAN "(SPR 5069) export facility mods"*/
+./src/ho_syscom_nw.c:/* *3    26-FEB-1990 18:59:09 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_terminal.c:/* *3    26-FEB-1990 18:59:13 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_trn_file.c:/* *4    26-FEB-1990 18:59:16 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_trn_sym.c:/* *3    26-FEB-1990 18:59:19 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_trn_sym.c:/* *3    26-FEB-1990 18:59:19 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_user_mode.c:/* *2    26-FEB-1990 18:59:23 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ho_user_num.c:/* *2    17-MAR-1990 02:18:31 JULIAN "(SPR 1) Fixed type of uid on VMS side to be unsigned."*/
+./src/ht_init_ht.c:/* *2    11-AUG-1989 10:28:46 JULIAN "(SPR -1) statement not reached"*/
+./src/jg_overlay.c:/* *9    10-MAY-1990 11:43:16 JULIAN "(SPR 0) add nl_free_nlist on township labels"*/
+./src/jg_overlay.c:/* *7    29-MAR-1990 14:33:06 JULIAN "(SPR 0) fix text size problem"*/
+./src/jg_overlay.c:/* *6    27-MAR-1990 15:08:13 JULIAN "(SPR 0) add wmsallocate&wmsclose to draw objects"*/
+./src/jg_overlay.c:/* *4    26-MAR-1990 23:46:58 JULIAN "(SPR 1) Make n-List print method a debug option"*/
+./src/jg_overlay.c:/* *9    10-MAY-1990 11:43:16 JULIAN "(SPR 0) add nl_free_nlist on township labels"*/
+./src/jg_overlay.c:/* *7    29-MAR-1990 14:33:06 JULIAN "(SPR 0) fix text size problem"*/
+./src/jg_overlay.c:/* *6    27-MAR-1990 15:08:13 JULIAN "(SPR 0) add wmsallocate&wmsclose to draw objects"*/
+./src/jg_overlay.c:/* *4    26-MAR-1990 23:46:58 JULIAN "(SPR 1) Make n-List print method a debug option"*/
+./src/ldz_ld_sca_fi.c:/* *7    19-AUG-1991 19:27:14 JULIAN "(SPR 3671) changed sscanf format to be able to read float numbers"*/
+./src/ld_lg_ascii.c:/* *4    11-AUG-1989 10:48:48 JULIAN "(SPR -1) redeclaration of ld_lg_ascii_load_requested "*/
+./src/ld_lg_ascii.c:/* *3     9-AUG-1989 11:09:14 JULIAN "(SPR -1) remove redefine LOGNULL"*/
+./src/ld_lg_ascpar.c:/* *3    11-AUG-1989 10:54:05 JULIAN "(SPR -1) 'i' maybe used before set"*/
+./src/ld_sca_svr.c:/* *8    16-AUG-1991 16:23:46 JULIAN "(SPR 3671) added messages when error is detected"*/
+./src/ld_sca_svr.c:/* *7    15-AUG-1991 17:14:22 JULIAN "(SPR 3671) renamed the call to batch job"*/
+./src/ld_tl_tobin.c:/* *2    11-AUG-1989 11:00:01 JULIAN "(SPR -1) static variable TOBIN_PHANTOM_SERVER unused"*/
+./src/ld_uk_lines.c:/* *4    11-AUG-1989 11:08:09 JULIAN "(SPR -1) redeclaration of clear_edittext"*/
+./src/le_nlist_ed.c:/* *7    26-FEB-1990 18:59:26 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/le_nlist_ed.c:/* *4    13-NOV-1989 13:27:49 JULIAN "(SPR 1) Integrate external tablet functions into finder."*/
+./src/le_nlist_ed.c:/*    11/03/86 JULIAN   Completed construction                                      */
+./src/lg_del_cdlg.c:/* *3    11-AUG-1989 11:22:57 JULIAN "(SPR -1) j maybe used before set"*/
+./src/lg_dm_g_t_r.c:/* *6    17-MAR-1990 13:00:27 JULIAN "(SPR 0) undo last mods"*/
+./src/lg_dm_g_t_r.c:/* *5    16-MAR-1990 11:21:18 JULIAN "(SPR 5135) add nl_strip_points"*/
+./src/lg_drw_lg_cl.c:/* *5    18-APR-1990 10:00:46 JULIAN "(SPR 0) remove nlist internal use"*/
+./src/lg_drw_lg_cl.c:/* *3    11-AUG-1989 11:40:06 JULIAN "(SPR -1) constant in conditional context"*/
+./src/lg_drw_log_sl.c:/* *7    18-APR-1990 11:50:03 JULIAN "(SPR 0) fix casting"*/
+./src/lg_drw_log_sl.c:/* *6    18-APR-1990 10:00:57 JULIAN "(SPR 0) remove nlist internal use"*/
+./src/lg_drw_log_sl.c:/* *3    11-AUG-1989 11:40:20 JULIAN "(SPR -1) constant in conditional context"*/
+./src/lg_edit_trans.c:/* *4    16-NOV-1989 17:10:13 JULIAN "(SPR 30) add nl_set_current_point before nl_replace_points"*/
+./src/lg_edit_trans.c:/* *3    11-AUG-1989 12:27:19 JULIAN "(SPR -1) degenerate unsigned comparison, and statement not reached"*/
+./src/lg_edit_transmm.c:/* *4    16-NOV-1989 17:10:13 JULIAN "(SPR 30) add nl_set_current_point before nl_replace_points"*/
+./src/lg_edit_transmm.c:/* *3    11-AUG-1989 12:27:19 JULIAN "(SPR -1) degenerate unsigned comparison, and statement not reached"*/
+./src/lg_ed_db_copy.c:/* *2    11-AUG-1989 11:52:03 JULIAN "(SPR -1) statment not reached"*/
+./src/lg_log_dig.c:/* *9    17-MAR-1990 13:00:33 JULIAN "(SPR 0) undo last mods"*/
+./src/lg_log_dig.c:/* *8    16-MAR-1990 11:22:22 JULIAN "(SPR 5135) add nl_strip_points"*/
+./src/lg_ltdm_nlt.c:/* *3    11-AUG-1989 12:30:10 JULIAN "(SPR -1) function lgz_extract_stroke has return(e) and return;"*/
+./src/ll_linklist.c:/* *3    26-FEB-1990 18:59:45 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ll_linklist.c:/* *2    11-AUG-1989 17:41:12 JULIAN "(SPR -1) the_data may be used before set"*/
+./src/lm_cfclut_srvr.c:/* *6    11-SEP-1991 13:40:24 JULIAN "(SPR 0) add comments" */
+./src/lm_cfclut_srvr.c:/* *5     9-AUG-1991 12:45:22 JULIAN "(SPR 0) split create/modify button to two button" */
+./src/lm_cfclut_srvr.c:/* *4    12-JUN-1991 14:56:12 JULIAN "(SPR 0) upgrade user interface" */
+./src/lm_cfclut_srvr.c:/* *3     7-MAY-1991 17:48:44 JULIAN "(SPR 1622) init change" */
+./src/lm_cfclut_srvr.c:/* *2    18-MAR-1991 18:08:05 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/lm_cfclut_srvr.c:/* *1    18-MAR-1991 17:51:55 JULIAN "Lease Mapping" */
+./src/lm_drw_annot.c:/* *3    11-SEP-1991 13:40:38 JULIAN "(SPR 0) add comments" */
+./src/lm_drw_annot.c:/* *2    18-MAR-1991 18:08:25 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/lm_drw_annot.c:/* *1    18-MAR-1991 17:52:24 JULIAN "Lease Mapping" */
+./src/lm_dsp_ovl.c:/* *5    11-SEP-1991 13:40:49 JULIAN "(SPR 0) add comments" */
+./src/lm_dsp_ovl.c:/* *4     9-AUG-1991 12:46:28 JULIAN "(SPR 3595) fixed memory allocation problem" */
+./src/lm_dsp_ovl.c:/* *3     6-AUG-1991 16:26:05 JULIAN "(SPR 3595) removed parenthesis from sql stmt" */
+./src/lm_dsp_ovl.c:/* *2    18-MAR-1991 18:08:41 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/lm_dsp_ovl.c:/* *1    18-MAR-1991 17:53:40 JULIAN "0" */
+./src/lm_g_nl_clut.c:/* *3    11-SEP-1991 13:40:57 JULIAN "(SPR 0) add comments" */
+./src/lm_g_nl_clut.c:/* *2    18-MAR-1991 18:08:56 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/lm_g_nl_clut.c:/* *1    18-MAR-1991 17:54:46 JULIAN "Lease Mapping" */
+./src/lm_init_nl.c:/* *3    11-SEP-1991 13:41:02 JULIAN "(SPR 0) add comments" */
+./src/lm_init_nl.c:/* *2    18-MAR-1991 18:09:02 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/lm_init_nl.c:/* *1    18-MAR-1991 17:55:21 JULIAN "Lease Mapping" */
+./src/lm_overlay.c:/* *5    11-SEP-1991 13:41:06 JULIAN "(SPR 0) add comments" */
+./src/lm_overlay.c:/* *4     9-AUG-1991 12:47:29 JULIAN "(SPR 3683) updated info messages" */
+./src/lm_overlay.c:/* *2    18-MAR-1991 18:09:08 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/lm_overlay.c:/* *1    18-MAR-1991 17:55:52 JULIAN "Lease Mapping" */
+./src/lu_exp_xlat.pc:/* *8    26-FEB-1990 18:59:52 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)" */
+./src/ly_g_def_gc.c:/* *7     6-NOV-1990 15:30:43 JULIAN "(SPR 6156) township & section labels mods" */
+./src/ly_g_def_gc.c:/* *3    27-MAR-1990 14:09:43 JULIAN "(SPR 1) Fixup topologic stuff" */
+./src/ly_init_ln_nl.c:/* *4    27-MAR-1990 14:09:53 JULIAN "(SPR 1) Fixup topologic stuff" */
+./src/ly_init_tx_nl.c:/* *7    27-MAR-1990 14:10:01 JULIAN "(SPR 1) Fixup topologic stuff" */
+./src/md_find_key.c:/* *2     5-APR-1990 16:16:10 JULIAN "(SPR 0) fix char allocation problem"*/
+./src/md_ver_num.c:/* *2    11-AUG-1989 17:45:00 JULIAN "(SPR -1) temp_parm2 may be used before set"*/
+./src/moh_misc_tool.c:/* *4     6-NOV-1989 11:25:48 JULIAN "(SPR 30) add mg_message"*/
+./src/moh_open_mod.c:/* *5     6-NOV-1989 11:25:59 JULIAN "(SPR 30) add mg_message"*/
+./src/mo_array.for:C 11/12/86 JULIAN   change references to WIENMNI to WIGENMNI
+./src/mo_data_ent.c:/* *6     6-NOV-1989 11:26:05 JULIAN "(SPR 30) add mg_message"*/
+./src/mo_data_ent.c:/* *4    11-AUG-1989 12:50:01 JULIAN "(SPR -1) function mo_draw_vels_trat has return(e) or return;"*/
+./src/mo_dig_tools.c:/* *8     6-NOV-1989 11:26:14 JULIAN "(SPR 30) add mg_message"*/
+./src/mo_dig_tools.c:/* *3     9-AUG-1989 11:53:46 JULIAN "(SPR -1) fixing minor casting problem"*/
+./src/mo_grid_tools.c:/* *6    20-APR-1990 18:30:24 JULIAN "(SPR 0) fix text leaking"*/
+./src/mo_grid_tools.c:/* *5    18-APR-1990 11:54:47 JULIAN "(SPR 1) fix tg_fit_string"*/
+./src/mo_grid_tools.c:/* *4    24-OCT-1989 14:32:34 JULIAN "(SPR 0) mod param passing on nl_inq_nlist_user_struct"*/
+./src/mo_init_tools.c:/* *8     6-NOV-1989 11:26:30 JULIAN "(SPR 30) add mg_message"*/
+./src/mo_init_tools.c:/* *7    24-OCT-1989 14:37:09 JULIAN "(SPR 0) resolve compiling errors"*/
+./src/mo_save_model.c:/* *4     6-NOV-1989 11:26:40 JULIAN "(SPR 30) add mg_message"*/
+./src/mo_tab_dig.c:/* *2     6-NOV-1989 11:26:48 JULIAN "(SPR 30) add mg_message"*/
+./src/mo_tie_plt_com.com:$!* Julian Carlisle     May 21, 1988     
+./src/mo_trc_plt_com.com:$!* Julian Carlisle     May 21, 1988     
+./src/mpzdelfilchk.c:/*  *3    20-FEB-1990 10:08:03 JULIAN "(SPR 5095) culture overlay"*/
+./src/mpz_dsp_ovls.c:/*   16   13-FEB-1992 16:32:14 JULIAN "(SPR 5770) added check to update MHL dlg box"*/
+./src/mpz_dsp_ovls.c:/*  *9    18-MAR-1991 17:10:08 JULIAN "(SPR 0) Lease Mapping init checkin"*/
+./src/mpz_dsp_ovls.c:/*  *7    19-NOV-1990 10:34:08 JULIAN "(SPR 5356) dim LEASE,SEISMIC 3D,PERS... overlays"*/
+./src/mpz_dsp_ovls.c:/*  *5    20-FEB-1990 10:08:15 JULIAN "(SPR 5095) culture overlay"*/
+./src/mpz_to_scr.c:/*  *4    17-MAY-1990 09:53:54 JULIAN "(SPR 0) add return status on wm_inq_deferral"*/
+./src/mp_add_kywrd.c:/*  *5     6-NOV-1990 11:24:24 JULIAN "(SPR 5719) fix crashes when adding more than 27 overlays"*/
+./src/mp_add_ovl.c:/*  *4     6-NOV-1990 11:24:32 JULIAN "(SPR 5719) fix crashes when adding more than 27 overlays"*/
+./src/mp_close_map.c:/*  *3     2-AUG-1990 14:23:03 JULIAN "(SPR 0) remove display map if not synchronized"*/
+./src/mp_dr_n_arrow.c:/*  *7    10-OCT-1989 09:58:15 JULIAN "(SPR 5020) mods for CT parameter change"*/
+./src/mp_dr_n_arrow.c:/*  *4    18-SEP-1989 12:43:37 JULIAN "Gulf mods under SPR 100"*/
+./src/mp_dr_scl_bar.c:/*  *5    18-SEP-1989 12:43:42 JULIAN "Gulf mods under SPR 100"*/
+./src/mp_dr_scl_bar.c:/*  *5    18-SEP-1989 12:43:42 JULIAN "Gulf mods under SPR 100"                      */
+./src/mp_erase_map.c:/*   7    13-FEB-1992 16:08:40 JULIAN "(SPR 5770) added func to update MHL dlg box and added func to set window_id to 0"*/
+./src/mp_gprm.c:/*  *9    18-MAR-1991 17:10:20 JULIAN "(SPR 0) Lease Mapping init checkin"*/
+./src/mp_gprm.c:/*  *7    27-NOV-1990 17:20:43 JULIAN "(SPR 0) complete prev change"*/
+./src/mp_gprm.c:/*  *6    19-NOV-1990 10:33:07 JULIAN "(SPR 6173) select by phrase option is not uppercased"*/
+./src/mp_gprm.c:/*  *5     6-NOV-1990 11:30:56 JULIAN "(SPR 5882) uppercased all parameter"*/
+./src/mp_gprm.c:/*  *4    27-DEC-1989 13:54:33 JULIAN "(SPR -1) comment out fi_push fi_pop for X (Kee)"*/
+./src/mp_i_dsp_strc.c:/*  *5     6-NOV-1990 11:26:16 JULIAN "(SPR 5719) fix crashes when adding more than 27 overlays"*/
+./src/mp_kyrd_sel.c:/*  *3    24-APR-1990 11:45:57 JULIAN "(SPR 0) fix error when pick keyword twice"*/
+./src/mp_mpstup_pip.c:/*  *28   11-JUN-1991 12:54:16 JULIAN "(SPR 0) change parse_dms to publicdef"*/
+./src/mp_mpstup_pip.c:/*  *25    6-NOV-1990 11:27:26 JULIAN "(SPR 6086) fix bugs in map setup"*/
+./src/mp_mpstup_pip.c:/*  *4    10-OCT-1989 09:58:39 JULIAN "(SPR 5020) mods for CT parameter change"*/
+./src/mp_parm_ok.c:/*  *2    18-MAR-1991 17:10:24 JULIAN "(SPR 0) Lease Mapping init checkin"*/
+./src/mp_plot_map.com:$!* Julian Carlisle     May 21, 1988     
+./src/mp_prm_fm_dlg.c:/* *2    18-MAR-1991 18:09:36 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/mp_prm_fm_dlg.c:/* *1    18-MAR-1991 17:57:56 JULIAN "Lease Mapping" */
+./src/mp_prm_fm_tcp.c:/* *3    11-SEP-1991 13:51:36 JULIAN "(SPR 0) add comments to lease overlay" */
+./src/mp_prm_fm_tcp.c:/* *2    18-MAR-1991 18:09:44 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/mp_prm_fm_tcp.c:/* *1    18-MAR-1991 17:58:36 JULIAN "Lease Mapping" */
+./src/mp_prm_frm_fl.c:/*  *5    14-AUG-1991 14:01:05 JULIAN "(SPR 3655) added check in case defined list is empty"*/
+./src/mp_specialchk.c:/*  *3    20-FEB-1990 10:08:40 JULIAN "(SPR 5095) culture overlay"*/
+./src/mp_win_head.c:/*  *6    18-DEC-1989 18:14:26 JULIAN "(SPR 100) Clean non-printing characters from string from ctime()"*/
+./src/mr_registrat.pc:/* *4    13-NOV-1989 13:28:55 JULIAN "(SPR 1) Integrate external tablet functions into finder."*/
+./src/mr_reg_map.c:/* *7    24-OCT-1991 13:24:31 JULIAN "(SPR 3900) Added warning message when register map on works w/o digitizer" */
+./src/mr_reg_map.c:/* *6    13-NOV-1989 23:06:48 JULIAN "(SPR 1) Fix bad args to ct_transform_point()"*/
+./src/mr_reg_map.c:/* *5    13-NOV-1989 13:29:44 JULIAN "(SPR 1) Integrate external tablet functions into finder."*/
+./src/mr_reg_map.c:/* *4    10-OCT-1989 09:59:45 JULIAN "(SPR 5020) mods for CT parameter change"*/
+./src/mr_reg_map.c:/* *2     2-JUL-1989 12:06:05 JULIAN "(SPR 5) Tablet support"*/
+./src/nlh_io.c:/* *7    26-FEB-1990 19:00:05 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/nlm_bilin_nl.c:/* *7    17-MAR-1990 13:01:03 JULIAN "(SPR 0) undo last mods"*/
+./src/nlm_bilin_nl.c:/* *6    16-MAR-1990 11:23:18 JULIAN "(SPR 5135) add nl_strip_points"*/
+./src/nlm_bilin_nl.c:/* *5    26-FEB-1990 19:00:12 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/nlm_spline_nl.c:/* *8    17-MAR-1990 13:01:13 JULIAN "(SPR 0) undo last mods"*/
+./src/nlm_spline_nl.c:/* *7    16-MAR-1990 11:23:51 JULIAN "(SPR 5135) add nl_strip_points"*/
+./src/nlm_spline_nl.c:/* *6    26-FEB-1990 19:00:18 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/nlm_wclp_brk.c:/* *11    2-MAY-1990 11:47:18 JULIAN "(SPR 5221) set null value on nlist to fix contours ovl problem"*/
+./src/nlm_wclp_tx.c:/* *8    26-MAR-1990 23:22:00 JULIAN "(SPR 5095) change memory alloc"*/
+./src/nlm_wclp_tx.c:/* *6    23-MAR-1990 15:31:13 JULIAN "(SPR 5095) change method in text clip"*/
+./src/nlm_wclp_tx.c:/* *4    20-MAR-1990 09:17:02 JULIAN "(SPR 0) minor fix"*/
+./src/nlm_wclp_tx.c:/* *2    19-MAR-1990 17:12:05 JULIAN "(SPR 5095) new element"*/
+./src/nlm_wclp_tx.c:/* *1    19-MAR-1990 17:10:07 JULIAN "text window clip"*/
+./src/nlz_aa_filt.c:/* *4    26-FEB-1990 19:00:22 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)" */
+./src/nlz_ndx_tool.c:/* *8    19-JUL-1991 14:14:06 JULIAN "(SPR 0) fixed crashes when reading nlist on VMS"*/
+./src/nl_del_rows.c:/* *8     3-MAY-1990 09:34:28 JULIAN "(SPR 5276) fix nl statistics on ptable nrows" */
+./src/nl_draw_nl.c:/* *3    18-MAR-1991 17:10:29 JULIAN "(SPR 0) Lease Mapping init checkin"*/
+./src/nl_fill_pl_nl.c:/* *2    18-MAR-1991 18:09:52 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/nl_fill_pl_nl.c:/* *1    18-MAR-1991 17:59:07 JULIAN "0" */
+./src/nl_fill_pl_tab.c:/* *2    18-MAR-1991 18:09:59 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/nl_fill_pl_tab.c:/* *1    18-MAR-1991 17:59:44 JULIAN "0" */
+./src/np_calcomp.for:C   Julian Carlisle    28, April  1988                          
+./src/np_calcomp.for:C   Julian Carlisle    28, April  1988                          
+./src/np_disco.for:C   Julian Carlisle    28, April  1988
+./src/np_disco.for:C   Julian Carlisle    28, April  1988
+./src/np_test.for:C Julian Carlisle   April  27, 1988
+./src/np_tools.for:C  BY Julian Carlisle    ON  April 27, 1988
+./src/np_tools.for:C Julian Carlisle   April  27th,   1988
+./src/np_tools.for:C Julian Carlisle   April  29, 1988
+./src/np_zeta.for:C   Julian Carlisle    28, April  1988
+./src/np_zeta.for:C   Julian Carlisle    28, April  1988
+./src/or_forms_cdlg.pc:/* *4     4-DEC-1989 11:51:52 JULIAN "(SPR 100) New FORM_STRUCT for server, eliminate static variables."*/
+./src/or_rep_cdlg.pc:/* *3    26-FEB-1990 19:00:32 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/or_run_orrep.c:/* *5    18-SEP-1989 12:43:58 JULIAN "Gulf mods under SPR 100"*/
+./src/or_sel_repapp.c:/* *3     3-DEC-1989 14:12:50 JULIAN "(SPR 100) Make default data type WELLS"*/
+./src/ov_gscatthorz.c:/* *2     8-NOV-1989 09:58:49 JULIAN "(SPR 30) fix casting"*/
+./src/ov_opn_scatt.c:/* *3     8-NOV-1989 09:58:54 JULIAN "(SPR 30) fix casting"*/
+./src/ov_st_sca_hor.c:/* *2     8-NOV-1989 09:59:00 JULIAN "(SPR 30) fix casting"*/
+./src/pf_file_cdlg.pc:        Julian Carlisle  Feb 27, 1988
+./src/qs_routines.c:/* *2    11-AUG-1989 13:51:23 JULIAN "(SPR -1) static variable string1,string2 unused"*/
+./src/rs_manager.c:/* *3    11-AUG-1989 13:35:12 JULIAN "(SPR -1) function rsmdclos, rsfetch, rsfree, rsgets has return(e), and return;"*/
+./src/sd_wiggle.c:/* *2    11-AUG-1989 13:41:38 JULIAN "(SPR -1) function sdwiggl has return(e),and return;"*/
+./src/sef_line_stor.c:/* *4    31-OCT-1989 10:51:47 JULIAN "(SPR 5039) change sl files to se files"*/
+./src/sef_line_stor.c:/* *3    30-OCT-1989 14:36:29 JULIAN "(SPR 5039) Seismic Select List Mods"*/
+./src/sez_tbl_nam.c:/* *4     9-AUG-1989 11:34:23 JULIAN "(SPR -1) fixing minor casting problems" */
+./src/sez_tbl_nam.c:/* *3     9-AUG-1989 10:23:24 JULIAN "(SPR -1) fixing minor casting problem" */
+./src/sez_upd_cores.c:/* *2     1-NOV-1989 14:03:09 JULIAN "(SPR 30) splitting seism_tools.pc" */
+./src/sez_upd_cores.c:/* *1     1-NOV-1989 13:41:58 JULIAN "seism_tools" */
+./src/se_cdp_sp.c:/* *2     1-NOV-1989 14:03:43 JULIAN "(SPR 30) splitting seism_tools.pc" */
+./src/se_cdp_sp.c:/* *1     1-NOV-1989 13:42:58 JULIAN "seism_tools" */
+./src/se_cdp_trace.c:/* *2     1-NOV-1989 14:04:48 JULIAN "(SPR 30) splitting seism_tools.pc" */
+./src/se_cdp_trace.c:/* *1     1-NOV-1989 13:44:44 JULIAN "seism_tools" */
+./src/se_cdp_xy.c:/* *2     1-NOV-1989 14:05:16 JULIAN "(SPR 30) splitting seism_tools.pc" */
+./src/se_cdp_xy.c:/* *1     1-NOV-1989 13:45:23 JULIAN "seism_tools" */
+./src/se_first_l_sp.c:/* *2     1-NOV-1989 14:06:35 JULIAN "(SPR 30) splitting seism_tools.pc" */
+./src/se_first_l_sp.c:/* *1     1-NOV-1989 13:47:20 JULIAN "seism_tools" */
+./src/se_line_inter.c:/* *6     6-DEC-1990 10:27:41 JULIAN "(SPR 6216) add double quote for command line arguments"*/
+./src/se_line_inter.c:/* *5    27-NOV-1990 17:10:10 JULIAN "(SPR 6216) add case for UNIX"*/
+./src/se_ln_cdp_xy.c:/* *2     1-NOV-1989 14:07:01 JULIAN "(SPR 30) splitting seism_tools.pc" */
+./src/se_ln_cdp_xy.c:/* *1     1-NOV-1989 13:48:08 JULIAN " seism_tools" */
+./src/se_rd_nl_opt.c:/* *3     2-NOV-1989 13:57:13 JULIAN "(SPR 30) completed last mod" */
+./src/se_rd_nl_opt.c:/* *2     1-NOV-1989 14:07:28 JULIAN "(SPR 30) splitting seism_tools.pc" */
+./src/se_rd_nl_opt.c:/* *1     1-NOV-1989 13:48:39 JULIAN " seism_tools" */
+./src/se_rd_nl_shot.c:/* *3     2-NOV-1989 13:57:20 JULIAN "(SPR 30) completed last mod" */
+./src/se_rd_nl_shot.c:/* *2     1-NOV-1989 14:07:55 JULIAN "(SPR 30) splitting seism_tools.pc" */
+./src/se_rd_nl_shot.c:/* *1     1-NOV-1989 13:49:05 JULIAN "seism_tools" */
+./src/se_split_long.c:/* *2     1-NOV-1989 14:10:01 JULIAN "(SPR 30) splitting seism_tools.pc" */
+./src/se_split_long.c:/* *1     1-NOV-1989 13:53:26 JULIAN "seism_tools" */
+./src/se_sp_cdp.c:/* *2     1-NOV-1989 14:10:26 JULIAN "(SPR 30) splitting seism_tools.pc" */
+./src/se_sp_cdp.c:/* *1     1-NOV-1989 13:56:07 JULIAN "seism_tools" */
+./src/se_sp_cdp_int.c:/* *2     1-NOV-1989 14:10:59 JULIAN "(SPR 30) splitting seism_tools.pc" */
+./src/se_sp_cdp_int.c:/* *1     1-NOV-1989 13:56:32 JULIAN "seism_tools" */
+./src/se_sp_trace.c:/* *2     1-NOV-1989 14:11:40 JULIAN "(SPR 30) splitting seism_tools.pc" */
+./src/se_sp_trace.c:/* *1     1-NOV-1989 13:57:10 JULIAN "seism_tools" */
+./src/se_sp_xy.c:/* *2     1-NOV-1989 14:12:12 JULIAN "(SPR 30) splitting seism_tools.pc" */
+./src/se_sp_xy.c:/* *1     1-NOV-1989 13:57:45 JULIAN "seism_tools" */
+./src/se_trace_cdp.c:/* *2     1-NOV-1989 14:12:51 JULIAN "(SPR 30) splitting seism_tools.pc" */
+./src/se_trace_cdp.c:/* *1     1-NOV-1989 13:59:22 JULIAN "seism_tools" */
+./src/se_trace_sp.c:/* *2     1-NOV-1989 14:13:31 JULIAN "(SPR 30) splitting seism_tools.pc" */
+./src/se_trace_sp.c:/* *1     1-NOV-1989 14:00:22 JULIAN "seism_tools" */
+./src/se_xy_cdp.c:/* *2     1-NOV-1989 14:14:07 JULIAN "(SPR 30) splitting seism_tools.pc" */
+./src/se_xy_cdp.c:/* *1     1-NOV-1989 14:00:45 JULIAN "seism_tools" */
+./src/se_xy_cdp_f.c:/* *2     1-NOV-1989 14:14:51 JULIAN "(SPR 30) splitting seism_tools.pc" */
+./src/se_xy_cdp_f.c:/* *1     1-NOV-1989 14:01:09 JULIAN "seism_tools" */
+./src/se_xy_sp.c:/* *2     1-NOV-1989 14:16:05 JULIAN "(SPR 30) splitting seism_tools.pc" */
+./src/se_xy_sp.c:/* *1     1-NOV-1989 14:01:33 JULIAN "seism_tools" */
+./src/se_xy_trace.c:/* *2     1-NOV-1989 14:17:09 JULIAN "(SPR 30) splitting seism_tools.pc" */
+./src/se_xy_trace.c:/* *1     1-NOV-1989 14:01:57 JULIAN "seism_tools" */
+./src/sl_assign_dtype.c:/* *2    30-JUL-1990 17:23:18 JULIAN "(SPR 0) add lynx,lease select_list" */
+./src/sl_assign_dtype.c:/* *1    30-JUL-1990 17:13:16 JULIAN "assing datatype" */
+./src/sl_call_meth.c:/* *3    23-AUG-1990 15:30:35 JULIAN "(SPR 0) fix compiling error" */
+./src/sl_call_meth.c:/* *2    30-JUL-1990 17:23:24 JULIAN "(SPR 0) add lynx,lease select_list" */
+./src/sl_call_meth.c:/* *1    30-JUL-1990 17:13:43 JULIAN "function to call sl method" */
+./src/sl_ch_list.c:/* *5    30-JUL-1990 17:23:30 JULIAN "(SPR 0) add lynx,lease select_list"*/
+./src/sl_ch_list.c:/* *3     7-DEC-1989 11:02:59 JULIAN "(SPR 5069) add cp_select_list_name"*/
+./src/sl_fil_selstc.c:/* *5    30-JUL-1990 17:23:59 JULIAN "(SPR 0) add lynx,lease select_list"*/
+./src/sl_gdtype_f_str.c:/* *2     3-AUG-1990 18:31:33 JULIAN "(SPR 0) new element" */
+./src/sl_gdtype_f_str.c:/* *1     3-AUG-1990 18:29:23 JULIAN "get dtype given a string" */
+./src/sl_idtype_int.c:/* *2    30-JUL-1990 17:24:05 JULIAN "(SPR 0) add lynx,lease select_list" */
+./src/sl_idtype_int.c:/* *1    30-JUL-1990 17:16:08 JULIAN "integer datatype translation" */
+./src/sl_idtype_str.c:/* *2    30-JUL-1990 17:24:10 JULIAN "(SPR 0) add lynx,lease select_list" */
+./src/sl_idtype_str.c:/* *1    30-JUL-1990 17:16:35 JULIAN "string datatype translation" */
+./src/sl_isel_lease.c:/* *4     9-NOV-1990 16:16:07 JULIAN "(SPR 0) initial change" */
+./src/sl_isel_lease.c:/* *3     6-NOV-1990 11:39:10 JULIAN "(SPR 0) initial changes" */
+./src/sl_isel_lease.c:/* *2    30-JUL-1990 17:24:16 JULIAN "(SPR 0) add lynx,lease select_list" */
+./src/sl_isel_lease.c:/* *1    30-JUL-1990 17:17:02 JULIAN "init lease nlist" */
+./src/sl_isel_lease.c:/* *3    30-OCT-1989 14:37:50 JULIAN "(SPR 5039) Seismic Select List Mods"*/
+./src/sl_isel_list.c:/* *7    30-JUL-1990 17:24:21 JULIAN "(SPR 0) add lynx,lease select_list"*/
+./src/sl_isel_list.c:/* *3    30-OCT-1989 14:37:50 JULIAN "(SPR 5039) Seismic Select List Mods"*/
+./src/sl_isel_lynx.c:/* *2    30-JUL-1990 17:24:40 JULIAN "(SPR 0) add lynx,lease select_list" */
+./src/sl_isel_lynx.c:/* *1    30-JUL-1990 17:17:30 JULIAN "init lynx nlist" */
+./src/sl_isel_lynx.c:/* *3    30-OCT-1989 14:37:50 JULIAN "(SPR 5039) Seismic Select List Mods"*/
+./src/sl_isel_seis.c:/* *2    30-JUL-1990 17:24:46 JULIAN "(SPR 0) add lynx,lease select_list" */
+./src/sl_isel_seis.c:/* *1    30-JUL-1990 17:18:03 JULIAN "init seismic nlist" */
+./src/sl_isel_seis.c:/* *3    30-OCT-1989 14:37:50 JULIAN "(SPR 5039) Seismic Select List Mods"*/
+./src/sl_isel_well.c:/* *2    30-JUL-1990 17:24:52 JULIAN "(SPR 0) add lynx,lease select_list" */
+./src/sl_isel_well.c:/* *1    30-JUL-1990 17:18:31 JULIAN "init wells nlist" */
+./src/sl_isel_well.c:/* *3    30-OCT-1989 14:37:50 JULIAN "(SPR 5039) Seismic Select List Mods"*/
+./src/sl_save_list.c:/*  7    13-FEB-1992 15:46:50 JULIAN "(SPR 5101) added some checking before deleting&replacing nlist"*/
+./src/sl_save_list.c:/* *6    24-JUL-1991 16:05:15 JULIAN "(SPR 3373) added check on select list with ' mark"*/
+./src/sl_save_list.c:/* *5    30-JUL-1990 17:25:04 JULIAN "(SPR 0) add lynx,lease select_list"*/
+./src/sl_sel_desc.c:/* *7    11-JUN-1991 13:31:31 JULIAN "(SPR 7326) truncate select list name to 30 chars"*/
+./src/sl_sel_desc.c:/* *6    30-JUL-1990 17:25:11 JULIAN "(SPR 0) add lynx,lease select_list"*/
+./src/so_bld_com_nl.c:/* *9     7-OCT-1991 15:21:35 JULIAN "(SPR 4156) added check to ignore invisible lines"*/
+./src/so_drw_line.c:/* *10    6-DEC-1990 11:17:03 JULIAN "(SPR 6288) add line id option on line label annotation"*/
+./src/so_drw_sh_lbs.c:/* *2    10-OCT-1989 10:00:45 JULIAN "(SPR 5020) mods for CT parameter change"*/
+./src/so_drw_syms.c:/* *2    10-OCT-1989 10:01:14 JULIAN "(SPR 5020) mods for CT parameter change"*/
+./src/so_explode.c:/* *3    11-AUG-1989 14:11:41 JULIAN "(SPR -1) illegal pointer combination"*/
+./src/so_exp_cdpxy.c:/* *3    11-AUG-1989 14:11:53 JULIAN "(SPR -1) illegal pointer combination"*/
+./src/so_get_ends.c:/* *3    10-OCT-1989 10:01:39 JULIAN "(SPR 5020) Mods for CT parameter change"       */
+./src/so_hor_load.c:/* *10   31-AUG-1990 10:23:26 JULIAN "(SPR 0) add return version number if version=0"*/
+./src/so_line_load.c:/* *3    10-OCT-1989 10:02:05 JULIAN "(SPR 5020) mods for CT parameter change"*/
+./src/so_prc_mistie.c:/* *8    27-AUG-1990 14:09:52 JULIAN "(SPR 0) bug fixes from ernie"*/
+./src/so_prc_ovl.c:/* *7    31-OCT-1989 10:52:24 JULIAN "(SPR 5039) change sl files to se files"*/
+./src/so_prc_ovl.c:/* *6    30-OCT-1989 14:39:46 JULIAN "(SPR 5039) Seismic Select List Mods"*/
+./src/so_prc_ovl.c:/* *5    10-OCT-1989 10:02:52 JULIAN "(SPR 5020) mods for CT parameter change"*/
+./src/so_zvalue.c:/* *16   27-AUG-1990 14:09:59 JULIAN "(SPR 0) bug fixes from ernie"*/
+./src/so_zvalue.c:/* *16   27-AUG-1990 14:09:59 JULIAN "(SPR 0) bug fixes from ernie"                  */
+./src/sqlnet.log: (DESCRIPTION=(ADDRESS=(PROTOCOL=BEQ)(PROGRAM=oracle)(ARGV0=oracleORCL)(ARGS='(DESCRIPTION=(LOCAL=YES)(ADDRESS=(PROTOCOL=beq)))'))(CONNECT_DATA=(SID=ORCL)(CID=(PROGRAM=c:\oracle\ora92\bin\proc.exe)(HOST=BERT)(USER=julian))))
+./src/sx_cnv_cdpxy.c:/* *3    11-AUG-1989 14:18:03 JULIAN "(SPR -1) illegal pointer combination"*/
+./src/sx_del_pnt.c:/* *4     9-AUG-1989 10:29:06 JULIAN "(SPR -1) fixing minor casting problem"*/
+./src/sx_del_pnt.c:/* *4     9-AUG-1989 10:29:06 JULIAN "(SPR -1) fixing minor casting problem"        */
+./src/sx_dlgsiosrvr.c:/* *3    11-AUG-1989 14:18:40 JULIAN "(SPR -1) statement not reached"*/
+./src/sx_ls_mn_srvr.c:/* *3    11-AUG-1989 14:37:23 JULIAN "(SPR -1) statement not reached"*/
+./src/sx_mn_lp_stup.c:/* *4     2-MAR-1990 11:14:18 JULIAN "(SPR 6012) fix up USE_X logic to be IFDEF only"*/
+./src/sx_mn_lp_stup.c:/* *3     8-FEB-1990 18:01:16 JULIAN "(SPR -1) temporary disable all menu items (some rs files need discussion fixing - Kee)"*/
+./src/synplot.com:$!* Julian Carlisle     May 21, 1988     
+./src/syn_csubs.c:/* *3    11-AUG-1989 18:09:07 JULIAN "(SPR -1) cdlgid may be used before set"*/
+./src/syn_csubs.c:/* *2    11-AUG-1989 14:37:33 JULIAN "(SPR -1) statement not reached"*/
+./src/syn_subs.for:C 10/07/86 JULIAN   CHANGE NAME OF RESOURCE FILE FROM SYN TO ESI_RSRC_SYN
+./src/tbh_app_mail.c:/* *3    14-NOV-1989 01:59:59 JULIAN "(SPR 1) Get rid of lib$stops."*/
+./src/tbh_app_mail.c:/* *2    13-NOV-1989 11:47:22 JULIAN "(SPR 1) Added calcomp driver mode."*/
+./src/tbh_clr_buf.c:/* *2    13-NOV-1989 11:47:57 JULIAN "(SPR 1) Added calcomp driver mode."*/
+./src/tbh_cr_prc.c:/* *2    13-NOV-1989 11:48:36 JULIAN "(SPR 1) Added calcomp driver mode."*/
+./src/tbh_get_pt.c:/* *2    13-NOV-1989 11:49:16 JULIAN "(SPR 1) Added calcomp driver mode."*/
+./src/tbh_init.c:/* *2    13-NOV-1989 11:49:58 JULIAN "(SPR 1) Added calcomp driver mode."*/
+./src/tbh_inq_tab.c:/* *3    13-NOV-1989 11:50:49 JULIAN "(SPR 1) Added calcomp driver mode."*/
+./src/tbh_msabort.c:/* *2    13-NOV-1989 11:52:18 JULIAN "(SPR 1) Added calcomp driver mode."*/
+./src/tbh_msinit.c:/* *3    14-NOV-1989 02:00:07 JULIAN "(SPR 1) Get rid of lib$stops."*/
+./src/tbh_msinit.c:/* *2    13-NOV-1989 11:53:10 JULIAN "(SPR 1) Added calcomp driver mode."*/
+./src/tbh_req_loc.c:/* *2    13-NOV-1989 11:53:46 JULIAN "(SPR 1) Added calcomp driver mode."*/
+./src/tbh_set_debug.c:/* *2    13-NOV-1989 11:54:19 JULIAN "(SPR 1) Added calcomp driver mode." */
+./src/tbh_set_debug.c:/* *1    13-NOV-1989 11:15:24 JULIAN "tablet driver app. module" */
+./src/tbh_set_lamp.c:/* *2    13-NOV-1989 11:54:59 JULIAN "(SPR 1) Added calcomp driver mode."*/
+./src/tbh_set_mode.c:/* *2    13-NOV-1989 11:55:37 JULIAN "(SPR 1) Added calcomp driver mode."*/
+./src/tbh_sun.c:/* *2    30-JUL-1991 15:10:04 JULIAN "(SPR -1) -1" */
+./src/tbh_sun.c:/* *1    30-JUL-1991 15:04:12 JULIAN "sun tablet driver" */
+./src/tbh_sun.c:*   Julian Carlisle  Oct 2, 1990
+./src/tbh_sun.c:*   Julian Carlisle
+./src/tbh_sun.c:*   Julian Carlisle 
+./src/tbh_sun.c:    Julian  sep 6, 1988
+./src/tbh_sun.c:*   Julian Carlisle  
+./src/tbh_sun.c:*   Julian Carlisle    
+./src/tbh_sun.c:*   Julian Carlisle     
+./src/tbh_sun.c:* Julian Carlisle  
+./src/tbh_sun.c:* Julian Carlisle  
+./src/tbh_sun.c:*   Julian Carlisle     
+./src/tbh_sun.c:*  Julian Carlisle  
+./src/tbh_sun.c:*   Julian Carlisle     
+./src/tbh_sun.c:*   Julian Carlisle     
+./src/tbh_sun.c:*   Julian Carlisle     
+./src/tbh_sun.c:*   Julian Carlisle    
+./src/tbh_sun.c:*   Julian Carlisle 
+./src/tbh_sun.c:*   Julian Carlisle     
+./src/tbh_sun.c:*   Julian Carlisle      
+./src/tbh_sun.c:Julian Carlisle
+./src/tbh_sun.c:*   Julian Carlisle   
+./src/tbh_sun.c:*   Julian Carlisle     
+./src/tbh_sun.c:*   Julian Carlisle     
+./src/tbh_terminate.c:/* *3    14-NOV-1989 03:51:52 JULIAN "(SPR 1) Added kill message type."*/
+./src/tbh_terminate.c:/* *2    13-NOV-1989 11:56:05 JULIAN "(SPR 1) Added calcomp driver mode."*/
+./src/tbh_terminate.c:/* *2    13-NOV-1989 11:54:59 JULIAN "(SPR 1) Added calcomp driver mode."*/
+./src/tc_alloc.c:/* *4    26-FEB-1990 19:00:38 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/tc_free.c:/* *9    26-FEB-1990 19:00:42 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/tc_free.c:/* *2    11-AUG-1989 15:28:15 JULIAN "(SPR -1) statement not reached"*/
+./src/tc_prime.c:/* *4     6-NOV-1990 11:38:09 JULIAN "(SPR 0) initial changes" */
+./src/tc_prime.c:/* *2    16-MAR-1990 09:12:01 JULIAN "(SPR 0) culture" */
+./src/tc_prime.c:/* *1    16-MAR-1990 08:51:31 JULIAN "prime function" */
+./src/tc_zeroes.c:/* *2    26-FEB-1990 19:00:47 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/tg_fit_text.c:/* *4    20-APR-1990 18:30:33 JULIAN "(SPR 0) fix text leaking"*/
+./src/tg_fit_text.c:/* *3    18-APR-1990 10:06:01 JULIAN "(SPR 1) fix depth tracks bad aspect ratio"*/
+./src/tg_fit_text.c:/* *2    18-SEP-1989 12:44:11 JULIAN "Gulf mods under SPR 100"*/
+./src/tg_register.c:/* *2    27-NOV-1989 14:49:56 JULIAN "(SPR 1) General tablet reg. user interface" */
+./src/tg_register.c:/* *1    27-NOV-1989 14:48:22 JULIAN "General tablet registration user interface." */
+./src/tg_tablet.c:/* *2    13-NOV-1989 11:51:56 JULIAN "(SPR 1) Added support for CALCOMP tablets"*/
+./src/tg_xf_tools.c:/* *2    13-NOV-1989 11:52:55 JULIAN "(SPR 1) Added support for CALCOMP tablets"*/
+./src/tm_am_dump.c:/* *3    11-AUG-1989 15:30:37 JULIAN "(SPR -1) variable data_id data unused"*/
+./src/to_draw_ln_meth.c:/* *11    6-NOV-1990 15:30:51 JULIAN "(SPR 6156) township & section labels mods" */
+./src/to_draw_ln_meth.c:/* *7    26-MAR-1990 23:24:32 JULIAN "(SPR 5095) text bundle mods" */
+./src/to_draw_ln_meth.c:/* *5    23-MAR-1990 16:34:39 JULIAN "(SPR 0) remove debugging analyzer" */
+./src/to_draw_ln_meth.c:/* *4    23-MAR-1990 15:31:41 JULIAN "(SPR 5095) change method in text clip" */
+./src/to_draw_ln_meth.c:/* *3    21-MAR-1990 16:26:58 JULIAN "(SPR 0) more changes" */
+./src/to_draw_ln_meth.c:/* *2    16-MAR-1990 09:12:39 JULIAN "(SPR 5095) culture" */
+./src/to_draw_ln_meth.c:/* *1    16-MAR-1990 08:52:46 JULIAN "culture overlay" */
+./src/to_draw_tx_meth.c:/* *11    6-NOV-1990 15:31:00 JULIAN "(SPR 6156) township & section labels mods" */
+./src/to_draw_tx_meth.c:/* *8    29-MAR-1990 14:33:23 JULIAN "(SPR 0) fix text size problem" */
+./src/to_draw_tx_meth.c:/* *7    26-MAR-1990 23:25:07 JULIAN "(SPR 5095) text bundle mods" */
+./src/to_draw_tx_meth.c:/* *5    23-MAR-1990 16:34:46 JULIAN "(SPR 0) remove debugging analyzer" */
+./src/to_draw_tx_meth.c:/* *4    23-MAR-1990 15:32:06 JULIAN "(SPR 5095) change method in text clip" */
+./src/to_draw_tx_meth.c:/* *3    21-MAR-1990 16:27:47 JULIAN "(SPR 0) more changes" */
+./src/to_draw_tx_meth.c:/* *2    16-MAR-1990 09:13:19 JULIAN "(SPR 5095) culture" */
+./src/to_draw_tx_meth.c:/* *1    16-MAR-1990 08:53:39 JULIAN "culture overlay" */
+./src/to_overlay.c:/* *4     6-MAY-1991 16:49:09 JULIAN "(SPR 0) add select list in culture overlay for data mover" */
+./src/to_overlay.c:/* *2    16-MAR-1990 09:14:05 JULIAN "(SPR 5095) culture" */
+./src/to_overlay.c:/* *1    16-MAR-1990 08:54:11 JULIAN "culture overlay" */
+./src/to_post_grov.c:/* *3    24-JUL-1991 17:02:53 JULIAN "(SPR 0) added more stuff for prev mods" */
+./src/to_post_grov.c:/* *2     7-MAY-1991 10:08:50 JULIAN "(SPR 0) from .pc file" */
+./src/to_post_grov.c:/* *1     7-MAY-1991 10:07:29 JULIAN "culture overlay" */
+./src/to_post_grov.c:/* *11    5-DEC-1990 12:11:17 JULIAN "(SPR 6278) transform nlist before displayin
+./src/to_post_grov.c:/* *7    29-MAR-1990 14:34:29 JULIAN "(SPR 0) fix text size problem" */
+./src/to_post_grov.c:/* *6    26-MAR-1990 23:25:39 JULIAN "(SPR 5095) text bundle mods" */
+./src/to_post_grov.c:/* *4    22-MAR-1990 10:37:56 JULIAN "(SPR 5095) change on external variable, add
+./src/to_post_grov.c:/* *3    21-MAR-1990 16:28:09 JULIAN "(SPR 0) more changes" */
+./src/to_post_grov.c:/* *2    16-MAR-1990 09:11:21 JULIAN "(SPR 5095) culture" */
+./src/to_post_grov.c:/* *1    16-MAR-1990 08:50:57 JULIAN "culture overlay" */
+./src/ts_cnv_chr.c:/*  *2    26-FEB-1990 19:00:50 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ts_fill.c:/*  *2    26-FEB-1990 19:00:53 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ts_find_char.c:/*  *3    26-FEB-1990 19:00:57 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ts_next_token.c:/*  *2    26-FEB-1990 19:01:00 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ts_next_word.c:/*  *2    26-FEB-1990 19:01:04 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ts_parse_dms.c:/* *2    11-JUN-1991 12:48:33 JULIAN "(SPR 0) new element" */
+./src/ts_parse_dms.c:/* *1    11-JUN-1991 12:47:23 JULIAN "parse dms format" */
+./src/ts_quote.c:/*  *2    26-FEB-1990 19:01:08 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ts_strn_trm.c:/* *2    18-MAR-1991 18:10:09 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/ts_strn_trm.c:/* *1    18-MAR-1991 18:00:23 JULIAN "0" */
+./src/ts_str_alph.c:/* *2    18-MAR-1991 18:10:15 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/ts_str_alph.c:/* *1    18-MAR-1991 18:00:58 JULIAN "Lease Mapping" */
+./src/ts_str_fll.c:/* *2    18-MAR-1991 18:10:34 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/ts_str_fll.c:/* *1    18-MAR-1991 18:01:34 JULIAN "Lease Mapping" */
+./src/ts_str_trm.c:/* *2    18-MAR-1991 18:10:41 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/ts_str_trm.c:/* *1    18-MAR-1991 18:02:18 JULIAN "Lease Mapping" */
+./src/ts_str_wrd.c:/* *2    18-MAR-1991 18:10:48 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/ts_str_wrd.c:/* *1    18-MAR-1991 18:02:55 JULIAN "Lease Mapping" */
+./src/ts_tcpdel.c:/*  *2    11-AUG-1989 16:07:38 JULIAN "(SPR -1) tcp evaluation order undefined"*/
+./src/ts_tcp_alloc.c:/*  *3    26-FEB-1990 19:01:12 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ts_token.c:/* *2    18-MAR-1991 18:10:56 JULIAN "(SPR 0) Lease Mapping Init Checkin" */
+./src/ts_token.c:/* *1    18-MAR-1991 18:03:36 JULIAN "Lease Mapping" */
+./src/ugg_if_gpx.c:/* *3    26-FEB-1990 19:01:16 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)" */
+./src/ug_if_gpx.c:/* *3    26-FEB-1990 19:01:19 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/ug_if_gpx.c:    Julian Carlisle	Feb 2, 1989
+./src/ug_init_gks.c:/* *14    5-MAR-1990 04:03:13 JULIAN "(SPR 6010) Define configuration Workspace for Ultrix."*/
+./src/ug_init_gks.c:/* *13    4-MAR-1990 12:33:31 JULIAN "(SPR 6010) Ultrix mods."*/
+./src/ug_init_gks.c:/* *12    2-MAR-1990 11:11:53 JULIAN "(SPR -1) Add X initialization (Kee)"*/
+./src/ug_init_gks.c:/* *10   28-FEB-1990 15:46:12 JULIAN "(SPR -1) Add element to WM_CURRENT struct, change MAIN_WKID & GKS_WISS_WKID def (Kee)"*/
+./src/ug_init_gks.c:/* *9     6-FEB-1990 00:18:10 JULIAN "(SPR -1) X Version "*/
+./src/ug_init_gks.c:/* *8     2-NOV-1989 15:22:26 JULIAN "(SPR 30) move ug_term_gks, make ugv privatedef"*/
+./src/ug_init_gks.c:/* *4    14-AUG-1989 21:07:25 JULIAN "(SPR -1) added color indexes for colors 2-15"*/
+./src/ug_plot_gks.c:/* *5    26-FEB-1990 19:01:23 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/wiz_ack.c:/* *2     5-FEB-1990 23:27:52 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wiz_chk_trap.c:/* *2     5-FEB-1990 23:28:02 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wiz_gets.c:/* *2     5-FEB-1990 23:28:10 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wiz_gnum.c:/* *2     5-FEB-1990 23:28:20 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wiz_gstr.c:/* *2     5-FEB-1990 23:28:28 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wiz_journal.c:/* *5     6-MAR-1990 17:25:41 JULIAN "(SPR 6010) Added ULTRIX mods."*/
+./src/wiz_journal.c:/* *4     2-MAR-1990 11:43:21 JULIAN "(SPR 6012) fix ifdef USE_X == 0"*/
+./src/wiz_journal.c:/* *3     2-MAR-1990 11:14:25 JULIAN "(SPR 6012) fix up USE_X logic to be IFDEF only"*/
+./src/wiz_journal.c:/* *2     5-FEB-1990 23:28:35 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wiz_pop_int.c:/* *2     5-FEB-1990 23:28:47 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wiz_pretagid.c:/* *2     5-FEB-1990 23:29:03 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wiz_push_int.c:/* *2     5-FEB-1990 23:29:13 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wiz_puts.c:/* *2     5-FEB-1990 23:29:24 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wiz_rem_cr.c:/* *2     5-FEB-1990 23:29:33 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wiz_rest_term.c:/* *3     5-FEB-1990 23:29:41 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wiz_scom.c:/* *2     5-FEB-1990 23:29:50 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wiz_set_echo.c:/* *2     5-FEB-1990 23:30:19 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wiz_strop.c:/* *4     2-MAR-1990 11:43:29 JULIAN "(SPR 6012) fix ifdef USE_X == 0"*/
+./src/wiz_strop.c:/* *3     2-MAR-1990 11:14:39 JULIAN "(SPR 6012) fix up USE_X logic to be IFDEF only"*/
+./src/wiz_strop.c:/* *2     5-FEB-1990 23:30:25 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wiz_waitresp.c:/* *4     2-MAR-1990 11:43:35 JULIAN "(SPR 6012) fix ifdef USE_X == 0"*/
+./src/wiz_waitresp.c:/* *3     2-MAR-1990 11:14:48 JULIAN "(SPR 6012) fix up USE_X logic to be IFDEF only"*/
+./src/wiz_waitresp.c:/* *2     5-FEB-1990 23:30:35 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wiz_wait_ev.c:/* *2     5-FEB-1990 23:30:42 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wiz_wait_ev.c:/* *2     5-FEB-1990 23:30:42 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wiz_widget_list.c:/* *7    12-APR-1990 21:09:09 JULIAN "(SPR -1) changed ansiDwt to ansidwt" */
+./src/wiz_widget_list.c:/* *3     8-FEB-1990 17:56:01 JULIAN "(SPR -1) X Version some minor fixing (Kee)" */
+./src/wiz_widget_list.c:/* *2     5-FEB-1990 23:30:52 JULIAN "(SPR -1) X version of WI Module (Kee)" */
+./src/wiz_widget_list.c:/* *1     5-FEB-1990 23:17:44 JULIAN "WIZ CALL FOR X " */
+./src/wi_activate.c:/* *4    12-APR-1990 20:54:04 JULIAN "(SPR -1) changed ansiDwt to ansidwt"*/
+./src/wi_activate.c:/* *2     5-FEB-1990 23:31:05 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_activate.c:/* *4    12-APR-1990 20:54:04 JULIAN "(SPR -1) changed ansiDwt to ansidwt"          */
+./src/wi_activate.c:/* *2     5-FEB-1990 23:31:05 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_alert.c:/* *4    12-APR-1990 20:54:52 JULIAN "(SPR -1) changed ansiDwt to ansidwt"*/
+./src/wi_alert.c:/* *2     5-FEB-1990 23:31:14 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_alert.c:/* *4    12-APR-1990 20:54:52 JULIAN "(SPR -1) changed ansiDwt to ansidwt"          */
+./src/wi_alert.c:/* *2     5-FEB-1990 23:31:14 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_alertx.c:/* *2     5-FEB-1990 23:31:22 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_asn_tobj.c:/* *5    12-APR-1990 20:55:32 JULIAN "(SPR -1) changed ansiDwt to ansidwt"*/
+./src/wi_asn_tobj.c:/* *2     5-FEB-1990 23:31:30 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_asn_tobj.c:/* *5    12-APR-1990 20:55:32 JULIAN "(SPR -1) changed ansiDwt to ansidwt"          */
+./src/wi_asn_tobj.c:/* *2     5-FEB-1990 23:31:30 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_auto_butt.c:/* *2     5-FEB-1990 23:31:39 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_auto_butt.c:/* *2     5-FEB-1990 23:31:39 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_beep.c:/* *2     5-FEB-1990 23:31:50 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_checkid.c:/* *2     5-FEB-1990 23:31:58 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_chkmenitm.c:/* *5    12-APR-1990 20:56:16 JULIAN "(SPR -1) changed ansiDwt to ansidwt"*/
+./src/wi_chkmenitm.c:/* *2     5-FEB-1990 23:32:06 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_chkmenitm.c:/* *5    12-APR-1990 20:56:16 JULIAN "(SPR -1) changed ansiDwt to ansidwt"          */
+./src/wi_chkmenitm.c:/* *2     5-FEB-1990 23:32:06 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_chown_id.c:/* *2     5-FEB-1990 23:32:15 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_chown_id.c:/* *2     5-FEB-1990 23:32:15 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_chown_tag.c:/* *2     5-FEB-1990 23:32:23 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_clear.c:/* *5    12-APR-1990 20:57:11 JULIAN "(SPR -1) changed ansiDwt to ansidwt"*/
+./src/wi_clear.c:/* *2     5-FEB-1990 23:33:08 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_clear.c:/* *5    12-APR-1990 20:57:11 JULIAN "(SPR -1) changed ansiDwt to ansidwt"          */
+./src/wi_clear.c:/* *2     5-FEB-1990 23:33:08 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_cls_dlg.c:/* *2     5-FEB-1990 23:33:22 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_color.c:/* *2     6-FEB-1990 00:13:12 JULIAN "(SPR -1) X Version of WI Module" */
+./src/wi_color.c:/* *1     5-FEB-1990 23:50:48 JULIAN "X COLOR INITIALIZATION" */
+./src/wi_cr_op_menu.c:/* *7    12-APR-1990 20:57:53 JULIAN "(SPR -1) changed ansiDwt to ansidwt" */
+./src/wi_cr_op_menu.c:/* *4     9-FEB-1990 09:53:54 JULIAN "(SPR -1) Turn the print_widget programmer internal reference to OFF " */
+./src/wi_cr_op_menu.c:/* *3     8-FEB-1990 17:56:33 JULIAN "(SPR -1) X Version some minor fixing (Kee)" */
+./src/wi_cr_op_menu.c:/* *2     5-FEB-1990 23:33:32 JULIAN "(SPR -1) X version of WI Module (Kee)" */
+./src/wi_cr_op_menu.c:/* *1     5-FEB-1990 23:20:49 JULIAN "OPTION MENU CREATE" */
+./src/wi_def_dlg.c:/* *7    12-APR-1990 20:58:42 JULIAN "(SPR -1) changed ansiDwt to ansidwt"*/
+./src/wi_def_dlg.c:/* *3     8-FEB-1990 17:56:49 JULIAN "(SPR -1) X Version some minor fixing (Kee)"*/
+./src/wi_def_dlg.c:/* *2     5-FEB-1990 23:33:44 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_def_dlg.c:/* *7    12-APR-1990 20:58:42 JULIAN "(SPR -1) changed ansiDwt to ansidwt"          */
+./src/wi_def_dlg.c:/* *3     8-FEB-1990 17:56:49 JULIAN "(SPR -1) X Version some minor fixing (Kee)"   */
+./src/wi_def_dlg.c:/* *2     5-FEB-1990 23:33:44 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_def_menu.c:/* *6    12-APR-1990 20:59:34 JULIAN "(SPR -1) changed ansiDwt to ansidwt"*/
+./src/wi_def_menu.c:/* *3     6-FEB-1990 00:29:24 JULIAN "(SPR -1) X Version of Wi Module (Kee)"*/
+./src/wi_def_menu.c:/* *2     5-FEB-1990 23:34:02 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_def_menu.c:/* *6    12-APR-1990 20:59:34 JULIAN "(SPR -1) changed ansiDwt to ansidwt"          */
+./src/wi_def_menu.c:/* *3     6-FEB-1990 00:29:24 JULIAN "(SPR -1) X Version of Wi Module (Kee)"        */
+./src/wi_def_menu.c:/* *2     5-FEB-1990 23:34:02 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_def_tobj.c:/* *2     5-FEB-1990 23:34:17 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_del_cdln.c:/* *4    12-APR-1990 21:00:20 JULIAN "(SPR -1) changed ansiDwt to ansidwt"*/
+./src/wi_del_cdln.c:/* *2     5-FEB-1990 23:34:34 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_del_cdln.c:/* *4    12-APR-1990 21:00:20 JULIAN "(SPR -1) changed ansiDwt to ansidwt"          */
+./src/wi_del_cdln.c:/* *2     5-FEB-1990 23:34:34 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_do_help.c:/* *3     5-FEB-1990 23:35:19 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_do_help.c:/* *2    11-AUG-1989 16:09:15 JULIAN "(SPR -1) constant in conditional context"*/
+./src/wi_enbl_ditm.c:/* *2     5-FEB-1990 23:35:32 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_enbl_dlg.c:/* *2     5-FEB-1990 23:35:45 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_enbl_fmen.c:/* *4     2-MAR-1990 12:07:19 JULIAN "(SPR 6012) fix if USE_X == 0 to be ifndef USE_X"*/
+./src/wi_enbl_fmen.c:/* *2     5-FEB-1990 23:35:58 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_enbl_kbd.c:/* *4     2-MAR-1990 12:07:28 JULIAN "(SPR 6012) fix if USE_X == 0 to be ifndef USE_X"*/
+./src/wi_enbl_kbd.c:/* *2     5-FEB-1990 23:36:10 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_enbl_menu.c:/* *2     5-FEB-1990 23:36:27 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_enbl_menu.c:/* *2     5-FEB-1990 23:36:27 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_enbl_mitm.c:/* *2     5-FEB-1990 23:36:40 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_enbl_mitm.c:/* *2     5-FEB-1990 23:36:40 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_enb_ditms.c:/* *2     5-FEB-1990 23:36:51 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_enb_mitms.c:/* *2     5-FEB-1990 23:37:06 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_enb_mitms.c:/* *2     5-FEB-1990 23:37:06 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_init.c:/* *7     2-MAR-1990 12:07:35 JULIAN "(SPR 6012) fix if USE_X == 0 to be ifndef USE_X"*/
+./src/wi_init.c:/* *5     5-FEB-1990 23:37:20 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_ins_cdln.c:/* *4    12-APR-1990 21:00:56 JULIAN "(SPR -1) changed ansiDwt to ansidwt"*/
+./src/wi_ins_cdln.c:/* *2     5-FEB-1990 23:37:39 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_ins_cdln.c:/* *4    12-APR-1990 21:00:56 JULIAN "(SPR -1) changed ansiDwt to ansidwt"          */
+./src/wi_ins_cdln.c:/* *2     5-FEB-1990 23:37:39 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_message.c:/* *2     5-FEB-1990 23:37:55 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_opn_dlg.c:/* *2     5-FEB-1990 23:38:14 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_pop.c:/* *2     5-FEB-1990 23:38:28 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_pop.c:/* *2     5-FEB-1990 23:38:28 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_pop_owner.c:/* *2     5-FEB-1990 23:38:48 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_pop_owner.c:/* *2     5-FEB-1990 23:38:48 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_push.c:/* *2     5-FEB-1990 23:39:01 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_push.c:/* *2     5-FEB-1990 23:39:01 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_push_own.c:/* *2     5-FEB-1990 23:39:14 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_push_own.c:/* *2     5-FEB-1990 23:39:14 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_qed_sel.c:/* *5    12-APR-1990 21:02:49 JULIAN "(SPR -1) changed ansiDwt to ansidwt"*/
+./src/wi_qed_sel.c:/* *2     5-FEB-1990 23:39:31 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_qed_sel.c:/* *5    12-APR-1990 21:02:49 JULIAN "(SPR -1) changed ansiDwt to ansidwt"          */
+./src/wi_qed_sel.c:/* *2     5-FEB-1990 23:39:31 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_query_info.c:/* *2     5-FEB-1990 23:39:59 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_q_dlg_chg.c:/* *5    12-APR-1990 21:01:33 JULIAN "(SPR -1) changed ansiDwt to ansidwt"*/
+./src/wi_q_dlg_chg.c:/* *2     5-FEB-1990 23:40:12 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_q_dlg_chg.c:/* *5    12-APR-1990 21:01:33 JULIAN "(SPR -1) changed ansiDwt to ansidwt"          */
+./src/wi_q_dlg_chg.c:/* *2     5-FEB-1990 23:40:12 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_q_dlg_itm.c:/* *7    24-OCT-1990 11:50:38 JULIAN "(SPR 0) fix compiling errors"*/
+./src/wi_q_dlg_itm.c:/* *4    12-APR-1990 21:02:11 JULIAN "(SPR -1) changed ansiDwt to ansidwt"*/
+./src/wi_q_dlg_itm.c:/* *2     5-FEB-1990 23:40:26 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_q_dlg_itm.c:/* *4    12-APR-1990 21:02:11 JULIAN "(SPR -1) changed ansiDwt to ansidwt"          */
+./src/wi_q_dlg_itm.c:/* *2     5-FEB-1990 23:40:26 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_q_fr_dlg.c:/* *2     5-FEB-1990 23:40:41 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_q_hlpkey.c:/* *2     5-FEB-1990 23:41:22 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_q_in_id.c:/* *2     5-FEB-1990 23:41:34 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_q_in_tag.c:/* *2     5-FEB-1990 23:41:49 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_q_sel.c:/* *2     5-FEB-1990 23:42:03 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_q_sel.c:/* *2     5-FEB-1990 23:42:03 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_rd_df_dlg.c:/* *2     5-FEB-1990 23:42:17 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_rd_df_men.c:/* *2     5-FEB-1990 23:42:30 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_rd_dlg.c:/* *2     5-FEB-1990 23:42:45 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_rd_dlg.c:/* *2     5-FEB-1990 23:42:45 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_read_menu.c:/* *2     5-FEB-1990 23:43:02 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_rel_tobj.c:/* *2     5-FEB-1990 23:43:16 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_req_loc.c:/* *4     5-FEB-1990 23:43:30 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_rls_dlg.c:/* *3     2-MAR-1990 12:14:11 JULIAN "(SPR 6012) fix if USE_X to be ifdef USE_X"*/
+./src/wi_rls_dlg.c:/* *2     5-FEB-1990 23:43:44 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_rls_menu.c:/* *3     2-MAR-1990 12:14:34 JULIAN "(SPR 6012) fix if USE_X to be ifdef USE_X"*/
+./src/wi_rls_menu.c:/* *2     5-FEB-1990 23:43:58 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_rq_dlgitm.c:/* *3     2-MAR-1990 12:14:45 JULIAN "(SPR 6012) fix if USE_X to be ifdef USE_X"*/
+./src/wi_rq_dlgitm.c:/* *2     5-FEB-1990 23:44:14 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_rq_event.c:/* *4     2-MAR-1990 12:14:57 JULIAN "(SPR 6012) fix if USE_X to be ifdef USE_X"*/
+./src/wi_rq_event.c:/* *3     6-FEB-1990 00:13:20 JULIAN "(SPR -1) X Version of WI Module"*/
+./src/wi_rq_event.c:/* *4     2-MAR-1990 12:14:57 JULIAN "(SPR 6012) fix if USE_X to be ifdef USE_X"    */
+./src/wi_rq_event.c:/* *3     6-FEB-1990 00:13:20 JULIAN "(SPR -1) X Version of WI Module"              */
+./src/wi_rq_int.c:/* *2     5-FEB-1990 23:44:31 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_rq_sel.c:/* *2     5-FEB-1990 23:44:45 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_rq_str.c:/* *3     2-MAR-1990 12:15:06 JULIAN "(SPR 6012) fix if USE_X to be ifdef USE_X"*/
+./src/wi_rq_str.c:/* *2     5-FEB-1990 23:45:04 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_rq_str.c:/* *3     2-MAR-1990 12:15:06 JULIAN "(SPR 6012) fix if USE_X to be ifdef USE_X"    */
+./src/wi_rq_str.c:/* *2     5-FEB-1990 23:45:04 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_set_click.c:/* *3     2-MAR-1990 12:15:17 JULIAN "(SPR 6012) fix if USE_X to be ifdef USE_X"*/
+./src/wi_set_click.c:/* *2     5-FEB-1990 23:45:26 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_set_def.c:/* *4    12-APR-1990 21:03:30 JULIAN "(SPR -1) changed ansiDwt to ansidwt"*/
+./src/wi_set_def.c:/* *3     2-MAR-1990 12:15:27 JULIAN "(SPR 6012) fix if USE_X to be ifdef USE_X"*/
+./src/wi_set_def.c:/* *2     5-FEB-1990 23:45:39 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_set_def.c:/* *4    12-APR-1990 21:03:30 JULIAN "(SPR -1) changed ansiDwt to ansidwt"          */
+./src/wi_set_def.c:/* *3     2-MAR-1990 12:15:27 JULIAN "(SPR 6012) fix if USE_X to be ifdef USE_X"    */
+./src/wi_set_def.c:/* *2     5-FEB-1990 23:45:39 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_set_deflt.c:/* *4    12-APR-1990 21:04:09 JULIAN "(SPR -1) changed ansiDwt to ansidwt"*/
+./src/wi_set_deflt.c:/* *3     2-MAR-1990 12:15:38 JULIAN "(SPR 6012) fix if USE_X to be ifdef USE_X"*/
+./src/wi_set_deflt.c:/* *2     5-FEB-1990 23:45:55 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_set_deflt.c:/* *4    12-APR-1990 21:04:09 JULIAN "(SPR -1) changed ansiDwt to ansidwt"          */
+./src/wi_set_deflt.c:/* *3     2-MAR-1990 12:15:38 JULIAN "(SPR 6012) fix if USE_X to be ifdef USE_X"    */
+./src/wi_set_deflt.c:/* *2     5-FEB-1990 23:45:55 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_set_drng.c:/* *4    12-APR-1990 21:04:50 JULIAN "(SPR -1) changed ansiDwt to ansidwt"*/
+./src/wi_set_drng.c:/* *2     5-FEB-1990 23:46:11 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_set_drng.c:/* *4    12-APR-1990 21:04:50 JULIAN "(SPR -1) changed ansiDwt to ansidwt"          */
+./src/wi_set_drng.c:/* *2     5-FEB-1990 23:46:11 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_set_dtitl.c:/* *4    12-APR-1990 21:05:32 JULIAN "(SPR -1) changed ansiDwt to ansidwt"*/
+./src/wi_set_dtitl.c:/* *2     5-FEB-1990 23:46:26 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_set_dtitl.c:/* *4    12-APR-1990 21:05:32 JULIAN "(SPR -1) changed ansiDwt to ansidwt"          */
+./src/wi_set_dtitl.c:/* *2     5-FEB-1990 23:46:26 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_set_dtxt.c:/* *5    12-APR-1990 21:06:11 JULIAN "(SPR -1) changed ansiDwt to ansidwt"*/
+./src/wi_set_dtxt.c:/* *2     5-FEB-1990 23:46:41 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_set_dtxt.c:/* *5    12-APR-1990 21:06:11 JULIAN "(SPR -1) changed ansiDwt to ansidwt"          */
+./src/wi_set_dtxt.c:/* *2     5-FEB-1990 23:46:41 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_set_dval.c:/* *4    12-APR-1990 21:06:52 JULIAN "(SPR -1) changed ansiDwt to ansidwt"*/
+./src/wi_set_dval.c:/* *2     5-FEB-1990 23:47:22 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_set_dval.c:/* *4    12-APR-1990 21:06:52 JULIAN "(SPR -1) changed ansiDwt to ansidwt"          */
+./src/wi_set_dval.c:/* *2     5-FEB-1990 23:47:22 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_set_evmod.c:/* *3     5-FEB-1990 23:47:36 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_set_evmod.c:/* *2    11-AUG-1989 16:10:17 JULIAN "(SPR -1) redeclaration of wi_set_event_mode"*/
+./src/wi_set_mtxt.c:/* *5    12-APR-1990 21:07:33 JULIAN "(SPR -1) changed ansiDwt to ansidwt"*/
+./src/wi_set_mtxt.c:/* *2     5-FEB-1990 23:47:48 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_set_mtxt.c:/* *5    12-APR-1990 21:07:33 JULIAN "(SPR -1) changed ansiDwt to ansidwt"          */
+./src/wi_set_mtxt.c:/* *2     5-FEB-1990 23:47:48 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_set_ownid.c:/* *4     2-MAR-1990 12:07:45 JULIAN "(SPR 6012) fix if USE_X == 0 to be ifndef USE_X"*/
+./src/wi_set_ownid.c:/* *2     5-FEB-1990 23:48:02 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_set_owntg.c:/* *2     5-FEB-1990 23:48:15 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_set_sel.c:/* *2     5-FEB-1990 23:48:28 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_set_sellm.c:/* *4    12-APR-1990 21:08:13 JULIAN "(SPR -1) changed ansiDwt to ansidwt"*/
+./src/wi_set_sellm.c:/* *3     2-MAR-1990 11:07:26 JULIAN "(SPR 6012) change if USE_X to ifdef USE_X (Kee)"*/
+./src/wi_set_sellm.c:/* *2     5-FEB-1990 23:48:42 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_set_sellm.c:/* *4    12-APR-1990 21:08:13 JULIAN "(SPR -1) changed ansiDwt to ansidwt"          */
+./src/wi_set_sellm.c:/* *3     2-MAR-1990 11:07:26 JULIAN "(SPR 6012) change if USE_X to ifdef USE_X (Kee)"  */
+./src/wi_set_sellm.c:/* *2     5-FEB-1990 23:48:42 JULIAN "(SPR -1) X version of WI Module (Kee)"        */
+./src/wi_set_verify.c:/* *3     2-MAR-1990 11:07:34 JULIAN "(SPR 6012) change if USE_X to ifdef USE_X (Kee)"*/
+./src/wi_set_verify.c:/* *2     5-FEB-1990 23:48:56 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_ssst.c:/* *2     5-FEB-1990 23:49:13 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_st_sel_obj.c:/* *2     5-FEB-1990 23:49:30 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_terminate.c:/* *3     2-MAR-1990 11:07:43 JULIAN "(SPR 6012) change if USE_X to ifdef USE_X (Kee)"*/
+./src/wi_terminate.c:/* *2     5-FEB-1990 23:49:43 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wi_wiyesno.c:/* *3     5-FEB-1990 23:49:58 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wl_do_dev.c:/* *10   30-NOV-1990 15:47:49 JULIAN "(SPR 6234) Add clipping after transform well nlist"*/
+./src/wl_do_dev.c:/* *3    10-OCT-1989 10:04:21 JULIAN "(SPR 5020) mods for CT parameter change"*/
+./src/wl_do_nodev.c:/* *7    30-NOV-1990 15:48:04 JULIAN "(SPR 6234) Add clipping after transform well nlist"*/
+./src/wl_do_nodev.c:/* *2    10-OCT-1989 10:04:50 JULIAN "(SPR 5020) mods for CT parameter change"*/
+./src/wl_par_lab_tcp.c:/* *2    29-NOV-1990 10:27:38 JULIAN "(SPR 6090) make source option work for @stack" */
+./src/wmz_cr_gks_widget.c:/* *20   24-OCT-1990 11:50:48 JULIAN "(SPR 0) fix compiling errors" */
+./src/wm_control.c:/* *5    21-SEP-1989 15:18:03 JULIAN "(SPR 4321) added plot button to dialog"*/
+./src/wm_control.c:/* *3    11-AUG-1989 16:18:15 JULIAN "(SPR -1) function wmcontrol, wmtselector has return(e), and return;"*/
+./src/wm_deferral.c:/* *5    17-MAY-1990 09:54:03 JULIAN "(SPR 0) add return status on wm_inq_deferral"*/
+./src/wm_deferral.c:/* *4     2-MAR-1990 11:07:51 JULIAN "(SPR 6012) change if USE_X to ifdef USE_X (Kee)"*/
+./src/wm_deferral.c:/* *3     6-FEB-1990 00:11:57 JULIAN "(SPR -1) X Version (Kee)"*/
+./src/wm_deferral.c:/** Julian Carlisle  Jan 25, 1989                                                   */
+./src/wm_gks_api.c:/* *20   13-JUN-1990 22:42:52 JULIAN "(SPR -1) Added wm_gqchup & wm_gqchh for sun"*/
+./src/wm_gks_api.c:/* *17   17-MAY-1990 15:12:49 JULIAN "(SPR 0) remove er_log on bad font"*/
+./src/wm_gks_api.c:/* *16   17-MAY-1990 09:54:23 JULIAN "(SPR 0) add return status on wm_inq_deferral"*/
+./src/wm_gks_api.c:/* *13    4-MAR-1990 22:14:34 JULIAN "(SPR 6010)  Checkin ULTRIX (GKS3D) bindings."*/
+./src/wm_gks_api.c:/* *11    2-MAR-1990 11:08:00 JULIAN "(SPR 6012) change if USE_X to ifdef USE_X (Kee)"*/
+./src/wm_gks_api.c:/* *9    26-FEB-1990 19:01:27 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/wm_gks_api.c:/* *8     6-FEB-1990 00:12:05 JULIAN "(SPR -1) X Version (Kee)"*/
+./src/wm_gks_api.c:/* *2     1-JUL-1989 15:51:44 JULIAN "(SPR 5) added gks dollar bindings.."*/
+./src/wm_gpx_input.c:/* *14   14-MAY-1990 14:02:16 JULIAN "(SPR 0) revert changes for aspect ratio lock/unlock"*/
+./src/wm_gpx_input.c:/* *12    2-MAR-1990 11:08:20 JULIAN "(SPR 6012) change if USE_X to ifdef USE_X (Kee)"*/
+./src/wm_gpx_input.c:/* *11   28-FEB-1990 15:46:35 JULIAN "(SPR -1) Add element to WM_CURRENT struct, change MAIN_WKID & GKS_WISS_WKID def (Kee)"*/
+./src/wm_gpx_input.c:/* *9     5-FEB-1990 23:50:13 JULIAN "(SPR -1) X version of WI Module (Kee)"*/
+./src/wm_gpx_input.c:/* *8    13-NOV-1989 13:30:48 JULIAN "(SPR 1) Integrate external tablet functions into finder."*/
+./src/wm_gpx_input.c:/* *2     1-JUL-1989 16:43:25 JULIAN "(SPR 5) newer, stronger, faster, and it works on DECWINDOWS!"*/
+./src/wm_gpx_input.c:/** Julian Carlisle  Jan 4, 1989                                                    */
+./src/wm_gpx_input.c:/**   Julian Carlisle      Oct 1, 1988.                                             */
+./src/wm_gpx_input.c:/**   Julian Carlisle      Oct 1, 1988.                                             */
+./src/wm_gpx_input.c:/**   Julian Carlisle      Oct 1, 1988.                                             */
+./src/wm_gpx_input.c:/**   Julian Carlisle      Oct 1, 1988.                                             */
+./src/wm_gpx_input.c:/**   Julian Carlisle      October 28, 1988.                                        */
+./src/wm_logo.c:/* *3    13-AUG-1989 14:02:10 JULIAN "(SPR -1) changed logo from esi to FGS."*/
+./src/wm_set_scr.c:/* *2     2-NOV-1989 15:25:21 JULIAN "(SPR 30) move wm_inq_scr, make wm_current_def_sreen privatedef"*/
+./src/wm_windows.c:/* *9     4-MAR-1990 12:05:19 JULIAN "(SPR 6010) Fixx casting on ULTRIX version"*/
+./src/wm_windows.c:/* *8    28-FEB-1990 15:46:59 JULIAN "(SPR -1) Add element to WM_CURRENT struct, change MAIN_WKID & GKS_WISS_WKID def (Kee)"*/
+./src/wm_windows.c:/* *7    29-DEC-1989 18:05:27 JULIAN "(SPR 1) removed SUN conditional from WMTDRAGSEGMENT"*/
+./src/wm_windows.c:/* *6    13-NOV-1989 13:31:34 JULIAN "(SPR 1) Integrate external tablet functions into finder."*/
+./src/wm_windows.c:/* *5    21-SEP-1989 14:57:58 JULIAN "(SPR 1) added window size routine."*/
+./src/wm_windows.c:/* *2     1-JUL-1989 15:55:18 JULIAN "(SPR 5) fixed many enum clashes and also added more tablet support."*/
+./src/wm_windows.c:/**   Julian Carlisle      Oct 15, 1988.                                            */
+./src/wm_windows.c:/*Julian Carlisle  Dec 27, 1988                                                     */
+./src/wm_zoom.c:/* *2    13-NOV-1989 13:52:49 JULIAN "(SPR 1) Integrate external tablet functions into finder."*/
+./src/xd_post_sca.c:/* *8    16-AUG-1991 16:19:21 JULIAN "(SPR 3775) added check for NO SYMBOL type"*/
+./src/xf_get_choice.c:/* *5    12-APR-1990 21:10:06 JULIAN "(SPR -1) changed ansiDwt to ansidwt" */
+./src/xf_get_choice.c:/* *4    26-FEB-1990 19:01:41 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)" */
+./src/xf_get_choice.c:/* *3     6-FEB-1990 00:10:49 JULIAN "(SPR -1) X Version (Kee)" */
+./src/xf_get_choice.c:/* *2    11-DEC-1989 14:23:24 JULIAN "(SPR 1) initial checkin of X menu input routine" */
+./src/xf_get_choice.c:/* *1    11-DEC-1989 14:20:31 JULIAN "X Windows Popup Choice Menus." */
+./src/xf_initialize.c:/* *5    12-APR-1990 21:11:07 JULIAN "(SPR -1) changed ansiDwt to ansidwt" */
+./src/xf_initialize.c:/* *3     6-FEB-1990 00:11:00 JULIAN "(SPR -1) X Version (Kee)" */
+./src/xf_initialize.c:/* *2    11-DEC-1989 14:22:43 JULIAN "(SPR 1) initial checkin of X initialize routine" */
+./src/xf_initialize.c:/* *1    11-DEC-1989 14:19:10 JULIAN "X Windows initialization for XFinder" */
+./src/xsz_disp_tops.c:/* *11   23-APR-1990 12:28:07 JULIAN "(SPR 0) fix text aspect ratio"*/
+./src/xsz_disp_tops.c:/* *10   20-APR-1990 18:30:41 JULIAN "(SPR 0) fix text leaking"*/
+./src/xsz_disp_tops.c:/* *9    18-APR-1990 10:06:17 JULIAN "(SPR 1) fix depth tracks bad aspect ratio"*/
+./src/xsz_ds_calc.c:/* *3    11-AUG-1989 16:46:41 JULIAN "(SPR -1) statement not reached"*/
+./src/xsz_dump_lyt.c:/* *3    26-FEB-1990 19:01:45 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+./src/xsz_dump_lyt.c:* Julian Carlisle    June  30, 1987
+./src/xsz_fill_data.c:/* *3    18-SEP-1989 12:44:47 JULIAN "Gulf mods under SPR 100"*/
+./src/xsz_fill_data.c:/* *2    27-JUL-1989 20:22:30 JULIAN "(SPR -1) clean up castings... found some bugs too!"*/
+./src/xsz_fill_itv.c:/* *3    11-AUG-1989 17:03:04 JULIAN "(SPR -1) parmStr maybe used before set, function xsz_fill_linterval has return(e) and*/
+./src/xsz_fill_itv.c:/* *2    27-JUL-1989 19:28:28 JULIAN "(SPR -1) cleaned up casting errors"*/
+./src/xsz_fill_lh.c:/* *3    11-AUG-1989 17:14:18 JULIAN "(SPR -1) parmptr may be used before set"*/
+./src/xsz_fill_lh.c:/* *2    27-JUL-1989 20:22:40 JULIAN "(SPR -1) clean up castings... found some bugs too!"*/
+./src/xsz_fill_ls.c:/* *3    11-AUG-1989 17:19:12 JULIAN "(SPR -1) parmptr may be used before set, function xsz_fill_ls has return(e) and return;"*/
+./src/xsz_fill_ls.c:/* *2    27-JUL-1989 20:22:49 JULIAN "(SPR -1) clean up castings... found some bugs too!"*/
+./src/xsz_fill_lsb.c:/* *3    11-AUG-1989 17:14:32 JULIAN "(SPR -1) parmptr may be used before set"*/
+./src/xsz_fill_lsb.c:/* *2    27-JUL-1989 20:22:57 JULIAN "(SPR -1) clean up castings... found some bugs too!"*/
+./src/xsz_fill_lws.c:/* *3    11-AUG-1989 17:14:47 JULIAN "(SPR -1) parmptr may be used before set"*/
+./src/xsz_fill_lws.c:/* *2    27-JUL-1989 20:23:05 JULIAN "(SPR -1) clean up castings... found some bugs too!"*/
+./src/xsz_fill_top.c:/* *3    11-AUG-1989 17:24:58 JULIAN "(SPR -1) parmStr may be used before set"*/
+./src/xsz_fill_top.c:/* *2    27-JUL-1989 20:23:13 JULIAN "(SPR -1) clean up castings... found some bugs too!"*/
+./src/xsz_fill_trc.c:/* *3    11-AUG-1989 17:25:13 JULIAN "(SPR -1) parmStr may be used before set"*/
+./src/xsz_fill_trc.c:/* *2    27-JUL-1989 20:23:21 JULIAN "(SPR -1) clean up castings... found some bugs too!"*/
+./src/xsz_fill_trk.c:/* *3    11-AUG-1989 17:25:29 JULIAN "(SPR -1) parmStr may be used before set"*/
+./src/xsz_fill_trk.c:/* *2    27-JUL-1989 20:23:30 JULIAN "(SPR -1) clean up castings... found some bugs too!"*/
+./src/xsz_fill_xs.c:/* *3    11-AUG-1989 17:27:58 JULIAN "(SPR -1) parmptr may be used before set"*/
+./src/xsz_fill_xs.c:/* *2    27-JUL-1989 20:23:40 JULIAN "(SPR -1) clean up castings... found some bugs too!"*/
+./src/xsz_hor_scale.c:/* *4    18-SEP-1989 12:44:57 JULIAN "Gulf mods under SPR 100"*/
+./src/xsz_hor_scale.c:/* *3    11-AUG-1989 16:47:08 JULIAN "(SPR -1) statement not reached"*/
+./src/xsz_in_struc.c:/* *3    10-MAY-1990 17:30:35 JULIAN "(SPR 5214) fix default value on depth scale interval"*/
+./src/xsz_vbar.c:/* *6    23-APR-1990 12:28:27 JULIAN "(SPR 0) fix text aspect ratio"*/
+./src/xsz_vbar.c:/* *5    20-APR-1990 18:30:52 JULIAN "(SPR 0) fix text leaking"*/
+./src/xsz_vbar.c:/* *4    18-APR-1990 11:55:47 JULIAN "(SPR 0) fix casting"*/
+./src/xsz_vbar.c:/* *3    18-APR-1990 10:06:35 JULIAN "(SPR 1) fix depth tracks bad aspect ratio"*/
+./src/xs_drw_hdr.c:/* *5    23-APR-1990 12:29:01 JULIAN "(SPR 0) fix text aspect ratio"*/
+./src/xs_drw_hdr.c:/* *4    20-APR-1990 18:30:59 JULIAN "(SPR 0) fix text leaking"*/
+./src/xs_drw_hdr.c:/* *3    18-APR-1990 10:06:54 JULIAN "(SPR 1) fix depth tracks bad aspect ratio"*/
+./src/xs_drw_trk.c:/* *9    27-AUG-1990 14:10:41 JULIAN "(SPR 0) bug fixes from ernie"*/
+./src/xs_drw_trk.c:/* *7    23-APR-1990 12:29:42 JULIAN "(SPR 0) fix text aspect ratio"*/
+./src/xs_drw_trk.c:/* *6    20-APR-1990 18:31:07 JULIAN "(SPR 0) fix text leaking"*/
+./src/xs_drw_trk.c:/* *5    18-APR-1990 10:07:06 JULIAN "(SPR 1) fix depth tracks bad aspect ratio"*/
+./src/xs_dsp_tops.c:/* *2     1-JUL-1989 15:42:24 JULIAN "(SPR 5) fix deferral problem."*/
+./src/xs_get_drw_in.c:/* *3    18-SEP-1989 12:45:04 JULIAN "Gulf mods under SPR 100"*/
+./src/xs_gr_plot.c:/* *4    20-JUN-1990 16:01:28 JULIAN "(SPR 0) change size from plot size to drawing size"*/
+./src/xs_gr_plot.c:/** Julian Carlisle   July 1, 1987                                                  */
+./src/xs_gr_tools.c:/* *10   19-JUN-1990 10:50:50 JULIAN "(SPR 0) fix aspect ratio on neutral file plotting"*/
+./src/xs_gr_tools.c:/* *8    17-APR-1990 23:52:34 JULIAN "(SPR -1) Check for width <= 0 make very small"*/
+./src/xs_gr_tools.c:* Julian Carlisle   02/24/87
+./src/xs_gr_tools.c:* Julian Carlisle   may 9, 1988
+./src/xs_gr_tools.c:* May 9, 1988     Julian Carlisle
+./src/xs_gr_tools.c:* Julian   Aug 12, 1987
+./src/xs_gr_tools.c:* Julian Carlisle
+./src/xs_launch_plots.com:$!* Julian Carlisle     May 21, 1988     
+./src/xs_main.c:/* *8    15-AUG-1991 11:39:15 JULIAN "(SPR 0) fixed compiling error"*/
+./src/xs_main.c:/* *7     9-AUG-1991 12:42:36 JULIAN "(SPR 3373) added loop when saving wrong name"*/
+./src/xs_main.c:/* *6     2-AUG-1991 17:24:41 JULIAN "(SPR 3373) removed message when cancel from well retr"*/
+./src/xs_main.c:/* *5    24-JUL-1991 16:06:08 JULIAN "(SPR 3373) added check when fail on retrieve wells"*/
+./src/xs_obj_dump.c:* Julian Carlisle    June  30, 1987
+./src/xs_put_lyt.c:/* *3    18-SEP-1989 12:45:17 JULIAN "Gulf mods under SPR 100"*/
+./src/xs_rtr_tops.c:/* *3    27-AUG-1990 14:10:53 JULIAN "(SPR 0) bug fixes from ernie"*/
+./src/xs_sav_tops.c:/* *3    27-AUG-1990 14:11:00 JULIAN "(SPR 0) bug fixes from ernie"*/
+./src/xs_sav_tops.c:/* *3    27-AUG-1990 14:11:00 JULIAN "(SPR 0) bug fixes from ernie"                  */
+./src/xs_scale_blk.c:/* *6    20-APR-1990 18:31:21 JULIAN "(SPR 0) fix text leaking"*/
+./src/xs_scale_blk.c:/* *3    18-SEP-1989 12:45:37 JULIAN "Gulf mods under SPR 100"*/
+./src/xs_top_dig.c:/* *11   20-APR-1990 18:31:28 JULIAN "(SPR 0) fix text leaking"*/
+./src/xs_top_dig.c:/* *10   18-APR-1990 10:07:22 JULIAN "(SPR 1) fix depth tracks bad aspect ratio"*/
+./src/xs_top_dig.c:/* *4    18-SEP-1989 12:45:53 JULIAN "Gulf mods under SPR 100"*/
+./src/xs_trk_cdlg.c:/* *5     8-FEB-1990 17:57:13 JULIAN "(SPR -1) X Version some minor fixing (Kee)"*/
+./src/xs_trk_cdlg.c:/* *4     6-FEB-1990 00:18:28 JULIAN "(SPR -1) X Version "*/
+./ulib/cmslib/argsplit.csh:# Julian 	-	Thu Feb  8 04:46:50 PST 1990
+./ulib/cmslib/build_f77_sed_script.csh:# Julian
+./ulib/cmslib/comp.cld:! Julian Carlisle
+./ulib/cmslib/comp.csh:# Julian
+./ulib/cmslib/doc.c:/* *3    25-SEP-1990 06:03:48 JULIAN "(SPR -1) run doc.com from esi$maint" */
+./ulib/cmslib/doc.c:/* *2    25-SEP-1990 05:58:04 JULIAN "(SPR -1) General source compiler" */
+./ulib/cmslib/doc.c:/* *1    25-SEP-1990 05:22:30 JULIAN "Compilation utiity for FGS sources." */
+./ulib/cmslib/doc.c:* Julian Carlisle
+./ulib/cmslib/doc.cld:! Julian Carlisle
+./ulib/cmslib/doc.com:$! *2    23-MAY-1990 11:08:42 VINCE "(SPR 1) Replace with a few bug fixes in global filename var. (julian) "
+./ulib/cmslib/doc.com:$!   Julian   V1.0  05-feb-1988   Initial release. 
+./ulib/cmslib/doc.com:$!   Julian   V2.0  11-Feb-1988	  Add Batch, libraries, SQL support.
+./ulib/cmslib/doc.com:$!   Julian   V2.1  06-nov-1988   Add macro, rscomp, optimize
+./ulib/cmslib/doc.com:$!   Julian   V2.2  01-feb-1989   add user jobfile input 
+./ulib/cmslib/doc.com:$!   Julian   V2.3  01-aug-1989   add -TIME object date checking
+./ulib/cmslib/doc.com:$!   Julian   V3.0  22-sep-1989   fix everything (this time for sure...) 
+./ulib/cmslib/doc.com:$! Author: Julian Carlisle  
+./ulib/cmslib/doc.com:	$ comp esi$src:xs*.*/lib=templib/do="mail sys$login:comp.bad julian"
+./ulib/cmslib/doc.com:    and the error file is mailed to julian upon completion of the procedure.
+./ulib/cmslib/file.c:/* *2    25-SEP-1990 05:59:42 JULIAN "(SPR -1) RMS file description language manipulation utility" */
+./ulib/cmslib/file.c:/* *1    25-SEP-1990 05:59:14 JULIAN "RMS file description language manipulation utility" */
+./ulib/cmslib/file.cld:! Julian Carlisle
+./ulib/cmslib/filestat.cld:! Julian Carlisle - April 9, 1989.
+./ulib/cmslib/filestat.pc:/* *2    25-SEP-1990 06:01:56 JULIAN "(SPR -1) fix select bug." */
+./ulib/cmslib/filestat.pc: * Author: Julian Carlisle 
+./ulib/cmslib/finstall.sh:# Julian Carlisle	-	Wed Sep 19 03:06:33 PDT 1990
+./ulib/cmslib/finst_argsplit.csh:# Julian 	-	Thu Feb  8 04:46:50 PST 1990
+./ulib/cmslib/finst_base.csh:# By Julian Carlisle  Mon Jul 23 12:01:49 PDT 1990
+./ulib/cmslib/finst_base.sh:# By Julian Carlisle  Mon Jul 23 12:01:49 PDT 1990
+./ulib/cmslib/finst_createdb.csh:# Julian Fri Aug 31 00:51:45 PDT 1990
+./ulib/cmslib/finst_createdb.sh:# Julian Fri Aug 31 00:51:45 PDT 1990
+./ulib/cmslib/finst_db.csh:# Julian 	-	Tue Jul 23 21:04:55 PDT 1990
+./ulib/cmslib/finst_db.sh:# Julian 	-	Tue Jul 23 21:04:55 PDT 1990
+./ulib/cmslib/finst_dot.csh:# Julian	-	Fri Aug 31 02:19:04 PDT 1990
+./ulib/cmslib/finst_getdef.csh:# Julian
+./ulib/cmslib/finst_getval.csh:# Author: Julian Carlisle	-  Tue Jul 24 01:06:00 PDT 1990
+./ulib/cmslib/finst_isroot.csh:# Julian.
+./ulib/cmslib/finst_menu.csh:# Author:  Julian Carlisle	-  Tue Jul 24 01:36:42 PDT 1990
+./ulib/cmslib/finst_putdef.csh:# Julian
+./ulib/cmslib/finst_src.csh:# Julian   28/aug/1990
+./ulib/cmslib/finst_src.sh:# Julian   28/aug/1990
+./ulib/cmslib/finst_yesno.csh:# Author: Julian Carlisle	-  Tue Jul 24 01:06:00 PDT 1990
+./ulib/cmslib/flink.csh:# Julian Carlisle -	Wed Feb  7 23:11:53 PST 1990
+./ulib/cmslib/futil.sh:# By Julian Carlisle  Mon Jul 23 12:01:49 PDT 1990
+./ulib/cmslib/futil.sh:# By Julian Carlisle  Mon Jul 23 12:01:49 PDT 1990
+./ulib/cmslib/futil.sh:# Julian 	-	Tue Jul 23 21:04:55 PDT 1990
+./ulib/cmslib/futil.sh:# Julian Fri Aug 31 00:51:45 PDT 1990
+./ulib/cmslib/futil.sh:# Julian   28/aug/1990
+./ulib/cmslib/futil.sh:# Julian   28/aug/1990
+./ulib/cmslib/futil.sh:#  Julian
+./ulib/cmslib/install_finder.csh:# By Julian Carlisle  Mon Jul 23 12:01:49 PDT 1990
+./ulib/cmslib/install_finder.sh:# By Julian Carlisle  Mon Jul 23 12:01:49 PDT 1990
+./ulib/cmslib/make_sed_script.csh:# julian
+./ulib/cmslib/midb.csh:# Julian
+./ulib/cmslib/sample.cshrc:# Julian - Sun May 13 03:16:55 PDT 1990
+./ulib/cmslib/sample.cshrc:#alias    print   'dcp -P \!* cookie/julian/nailuj::'
+./ulib/cmslib/sample.login:# Julian - Sun May 13 05:06:30 PDT 1990
+./ulib/cmslib/template.finder:# Julian 
+./ulib/cmslib/template.oracle:#  Julian Carlisle	-	Thu Mar  1 07:52:16 PST 1990
+./util/comp.cld:! Julian Carlisle
+./util/comp.com:$! *1    11-NOV-1990 03:00:06 JULIAN "doc"
+./util/doc.c:/* *1    11-NOV-1990 02:59:41 JULIAN "doc" */
+./util/doc.c:/* *3    25-SEP-1990 06:03:48 JULIAN "(SPR -1) run doc.com from esi$maint" */
+./util/doc.c:/* *2    25-SEP-1990 05:58:04 JULIAN "(SPR -1) General source compiler" */
+./util/doc.c:/* *1    25-SEP-1990 05:22:30 JULIAN "Compilation utiity for FGS sources." */
+./util/doc.c:* Julian Carlisle
+./util/doc.cld:! Julian Carlisle
+./util/doc.com:$! *1    11-NOV-1990 03:00:12 JULIAN "doc"
+./util/doc.com:$! *2    23-MAY-1990 11:08:42 VINCE "(SPR 1) Replace with a few bug fixes in global filename var. (julian) "
+./util/doc.com:$!   Julian   V1.0  05-feb-1988   Initial release. 
+./util/doc.com:$!   Julian   V2.0  11-Feb-1988	  Add Batch, libraries, SQL support.
+./util/doc.com:$!   Julian   V2.1  06-nov-1988   Add macro, rscomp, optimize
+./util/doc.com:$!   Julian   V2.2  01-feb-1989   add user jobfile input 
+./util/doc.com:$!   Julian   V2.3  01-aug-1989   add -TIME object date checking
+./util/doc.com:$!   Julian   V3.0  22-sep-1989   fix everything (this time for sure...) 
+./util/doc.com:$! Author: Julian Carlisle  
+./util/doc.com:	$ comp esi$src:xs*.*/lib=templib/do="mail sys$login:comp.bad julian"
+./util/doc.com:    and the error file is mailed to julian upon completion of the procedure.
+./util/file.c:/* *1    11-NOV-1990 02:59:09 JULIAN "file" */
+./util/file.c:/* *2    25-SEP-1990 05:59:42 JULIAN "(SPR -1) RMS file description language manipulation utility" */
+./util/file.c:/* *1    25-SEP-1990 05:59:14 JULIAN "RMS file description language manipulation utility" */
+./util/file.cld:! Julian Carlisle
+./util/filestat.cld:! Julian Carlisle - April 9, 1989.
+./util/filestat.pc:/* *1    11-NOV-1990 02:58:35 JULIAN "filestat" */
+./util/filestat.pc:/* *2    25-SEP-1990 06:01:56 JULIAN "(SPR -1) fix select bug." */
+./util/filestat.pc: * Author: Julian Carlisle 
+./util/head.c:/* *1    11-NOV-1990 02:56:32 JULIAN "head" */
+./util/ld_chelog.pc:/* *1    11-NOV-1990 03:05:29 JULIAN "Initial" */
+./util/ld_chelog.pc:*  Julian Carlisle   July 7,1990
+./util/ld_seis_horizons.pc:/* *1    11-NOV-1990 03:04:38 JULIAN "Initial" */
+./util/le_testit.c:/* *1    11-NOV-1990 03:05:46 JULIAN "Initial" */
+./util/load_meridian_codes.ctl:-- *1    11-NOV-1990 03:06:43 JULIAN "Initial"
+./util/lynx_clear.sql:/* *1    11-NOV-1990 03:06:26 JULIAN "Initial" */
+./util/makeutil.com:$! *2    11-NOV-1990 03:57:27 JULIAN "Use noportable flag "
+./util/makeutil.com:$! *1    11-NOV-1990 03:53:59 JULIAN "Util directory make file."
+./util/makeutil.com:$! Compile & Link Util dir.			- Julian
+./util/make_kit.com:$! *1    11-NOV-1990 03:00:50 JULIAN "make_kit"
+./util/make_kit.com:$! Julian Carlisle	09/25/89	 
+./util/make_kit.com:$! Julian Carlisle  Sep-28-1989
+./util/tail.c:/* *1    11-NOV-1990 02:56:43 JULIAN "tail" */

@@ -1,0 +1,115 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SL_FD_SEIS_NL.PC */
+/* *2    30-JUL-1990 17:23:47 PURNA "(SPR 0) add lynx,lease select_list" */
+/* *1    30-JUL-1990 17:15:06 PURNA "fedd seismic nlist" */
+/* DEC/CMS REPLACEMENT HISTORY, Element SL_FD_SEIS_NL.PC */
+#include "esi_sl.h"
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+
+publicdef INT sl_feed_seis_nl(sl_struct)
+SL_FEED_NL_STRUCT *sl_struct;
+{
+    INT status;
+    PROJECT_NAME project_name;
+    static UINT ndim=3;
+    static UINT dim_list[3];
+    static VOIDPTR value_list[3];
+
+    EXEC SQL BEGIN DECLARE SECTION;
+	VARCHAR select[1024];
+	int id;
+	int initial_cdp;
+	int final_cdp;
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO errpt;
+
+    qs_inq_c (QS_PROJECT_NAME, project_name, (INT *)0);
+
+    if (sl_struct->null_control)
+	{
+	if (sl_struct->null_sql)
+	    {
+            select.len = sprintf ((char *)select.arr,
+            "SELECT DISTINCT %s, 0, 0  FROM %s.%s ",
+		sl_struct->key_column, project_name,sl_struct->table_name);
+	    }
+	else
+	    {
+	    select.len = sprintf ((char *)select.arr,
+	    "SELECT DISTINCT %s, 0, 0 FROM %s.%s WHERE %s",
+		sl_struct->key_column,project_name, sl_struct->table_name,
+		sl_struct->sql_phrase);
+	    }
+	}
+    else
+	{
+	if (sl_struct->null_sql)
+	    {
+	    select.len = sprintf ((char *)select.arr, 
+	    "SELECT DISTINCT TEMP_SEISMIC_LISTS.LINE_ID,\
+NVL(TEMP_SEISMIC_LISTS.INITIAL_SHOT,0),\
+NVL(TEMP_SEISMIC_LISTS.FINAL_SHOT,0) \
+FROM %s.%s,TEMP_SEISMIC_LISTS \
+WHERE %s.%s.%s = TEMP_SEISMIC_LISTS.LINE_ID \
+AND TEMP_PROCESS_ID = USERENV('SESSIONID') \
+AND TEMP_LIST_NAME = '%s'", 
+		project_name, sl_struct->table_name,
+		project_name, sl_struct->table_name, sl_struct->key_column,
+		sl_struct->name);
+	    }
+	else
+	    {
+	    select.len = sprintf ((char *)select.arr, 
+	    "SELECT DISTINCT TEMP_SEISMIC_LISTS.LINE_ID,\
+NVL(TEMP_SEISMIC_LISTS.INITIAL_SHOT,0),\
+NVL(TEMP_SEISMIC_LISTS.FINAL_SHOT,0) \
+FROM %s.%s,TEMP_SEISMIC_LISTS \
+WHERE %s.%s.%s = TEMP_SEISMIC_LISTS.LINE_ID \
+AND TEMP_PROCESS_ID = USERENV('SESSIONID') \
+AND TEMP_LIST_NAME = '%s' AND (%s)", 
+		project_name, sl_struct->table_name,
+		project_name, sl_struct->table_name, sl_struct->key_column,
+		sl_struct->name, sl_struct->sql_phrase);
+	    }
+	}
+        /*  prepare the SQL.                */
+
+    EXEC SQL PREPARE S1 FROM : select;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1;
+    
+    dim_list[0] = 1, value_list[0] = (VOIDPTR) & id;
+    dim_list[1] = 2, value_list[1] = (VOIDPTR) & initial_cdp;
+    dim_list[2] = 3, value_list[2] = (VOIDPTR) & final_cdp;
+
+    FOREVER
+	{
+        EXEC SQL FETCH C1 INTO : id,  : initial_cdp,  : final_cdp;
+	if(OR_STATUS EQUALS OR_EOF) 
+	    break;
+
+        status = nl_add_points (sl_struct->nlist, 1, ndim, dim_list, value_list);
+	if(status != SUCCESS) return status;
+	}
+
+    EXEC SQL CLOSE C1;
+
+errpt :
+    return OR_STATUS;
+}
+

@@ -1,0 +1,468 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_RET_HDR.PC */
+/* *7    11-JUN-1991 11:14:37 KEE "(SPR 7247) Fix seismic line editor redisplay bug, case 1504" */
+/* *6     5-DEC-1990 15:03:33 PURNA "(SPR 6216) add return status" */
+/* *5     4-AUG-1990 13:08:36 SCD "(SPR 5747) Fix seismic surfaces form" */
+/* *4    18-JUN-1990 12:08:53 GILLESPIE "(SPR 1) Changes to allow 3-D lines to be handles as select list entryes (IES deltas)" */
+/* *3    16-NOV-1989 21:28:42 GILLESPIE "(SPR 1) fixes for seismic line editor" */
+/* *2     1-NOV-1989 14:08:57 PURNA "(SPR 30) splitting seism_tools.pc" */
+/* *1     1-NOV-1989 13:52:18 PURNA "seism_tools" */
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_RET_HDR.PC */
+#include "esi_se.h"
+#include "esi_c_lib.h"
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_HT_H
+#include "esi_ht.h"
+#endif
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_SE_ERR_H
+#include "esi_se_err.h"
+#endif
+
+#if USE_PROTOTYPES
+static INT sez_fill_line_hdr_str (FULL_LINE_NAME *seis_line,
+                                      LINE_HDR *p_hdr);
+#else
+static INT sez_fill_line_hdr_str ();
+#endif
+
+                             /* definition of the static structure used to
+                                store the data retrieved from the
+                                SEIS_LINE_HDR table - this structure is
+                                used by the applications of finder
+                                excluding interpret                         */
+
+static HASH_TABLE_P seis_index = (HASH_TABLE_P)0;
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+/**************************************************************************/
+
+#if USE_PROTOTYPES
+publicdef INT se_retrieve_header (FULL_LINE_NAME *seis_line, LINE_HDR **p_hdr)
+#else
+publicdef INT se_retrieve_header (seis_line, p_hdr)
+FULL_LINE_NAME *seis_line;
+LINE_HDR **p_hdr;
+#endif
+                             /* this routine is returning a pointer to the
+                                structure LINE_HDR containing the
+                                informations about the seis_line
+                                (structure storing line_name + survey )     */
+
+                             /* The ID field of the seis_line struct is set
+                                to the line id for the input seismic line
+                                and survey.  This helps detect subsequent
+                                requests for the same information.  If the
+                                id field is zero, then a read of the
+                                database is forced.                         */
+
+    {
+    INT status = SUCCESS;
+    static LINE_HDR *pline = (LINE_HDR *)0;
+    static INT last_id = -987;
+    PROJECT_NAME project;
+    static BOOL first = TRUE;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR stmt[255];
+        static int id;
+        static VARCHAR line_name[24];
+        static VARCHAR survey[24];
+    EXEC SQL END DECLARE SECTION;
+
+    if (last_id IS_NOT_EQUAL_TO seis_line -> id)
+	{
+	if (seis_index EQUALS (HASH_TABLE_P)0)
+	    {
+	    status = ht_init_hash_table(511, 10,
+		HT_INT_KEY, sizeof (SEIS_LINE_ID), sizeof (LINE_HDR *),
+		HT_SYSTEM_TABLE, &seis_index);
+	    }
+
+	EXEC SQL WHENEVER SQLERROR CONTINUE;
+	EXEC SQL WHENEVER NOT FOUND CONTINUE;
+
+	if (first)
+	    {
+	    qs_inq_c(QS_PROJECT_NAME, project, (INT *)0);
+	    stmt.len = sprintf((char *)stmt.arr,
+	    "SELECT LINE_ID FROM %s.SEIS_LINE_HDR \
+		WHERE LINE_NAME = :line AND SURVEY = :survey", project);
+	    EXEC SQL PREPARE S21 FROM :stmt;
+	    EXEC SQL DECLARE C21 CURSOR FOR S21;
+
+	    stmt.len = sprintf((char *)stmt.arr,
+	    "SELECT LINE_NAME, SURVEY FROM %s.SEIS_LINE_HDR \
+		WHERE LINE_ID = :id", project);
+	    EXEC SQL PREPARE S22 FROM :stmt;
+	    EXEC SQL DECLARE C22 CURSOR FOR S22;
+	    first = FALSE;
+	    }
+
+	if (ht_find(seis_index, &seis_line->id, &pline) IS_NOT_EQUAL_TO SUCCESS)
+	    {
+				 /* This line was not found in current table.
+				    If ID is zero, then look up line
+				    name/survey and try that ID.  If IT is a
+				    bad return, then the line does not exist.
+				    If it has not been loaded, perform a
+				    database retrieval and add the line to the
+				    index                                       */
+
+	    if (seis_line->id EQUALS 0)
+		{
+
+			     /*	In this case, the line ID is zero, which
+			     	implies that the line and survey name are
+			     	known, but the line_id is not.  Perform a
+			     	database lookup using the survey/line as
+			     	the key, and fill in the correct line id    */
+
+		V_FROMC(line_name, seis_line->line_name);
+		V_FROMC(survey, seis_line->survey);
+		EXEC SQL OPEN C21 USING :line_name, :survey;
+		EXEC SQL FETCH C21 INTO :id;
+				 /* NOTE: The seismic line ID CANNOT be zero    */
+				 /* for this algorithm to work                  */
+		if (OR_STATUS EQUALS SUCCESS)
+		    {
+                    last_id = seis_line->id;
+		    seis_line -> id = id;
+                    if (ht_find(seis_index, &seis_line->id, &pline) EQUALS SUCCESS)
+                      {
+                        ht_delete(seis_index, &seis_line->id);  
+                      }
+		    return se_retrieve_header(seis_line, p_hdr);
+		    }
+		else
+		    {
+		    status = OR_STATUS;
+		    }
+		}
+
+	    else
+		{                /* load the line information from              */
+				 /* SEIS_LINE_HDR table                         */
+
+		pline = ALLOCATE(LINE_HDR);
+		if (seis_line->id EQUALS -1)
+			     /*	This detects a special case used by software
+			     	that is LOADING a line from external
+			     	sources before it is placed into the
+			     	database.  the Flag of -1 for an ID is not
+			     	real, but a flag to this software to load
+			     	the line into the hash table for further
+			     	processing				    */
+		    {
+		    }
+		 else
+     		    {
+		             /* We get here if the line_id field is non-zero
+			        and the line has not yet been loaded in the cache.
+				We first make sure that the line name and survey
+				fields are filled in.  If not, we put them into
+				the structure... */
+
+		    if (IS_EMPTY_STRING(seis_line->line_name) OR
+		        IS_EMPTY_STRING(seis_line->survey))
+			{
+			id = seis_line -> id;
+			EXEC SQL OPEN C22 USING :id;
+			EXEC SQL FETCH C22 INTO :line_name, :survey;
+			status = OR_STATUS;
+			if (status EQUALS SUCCESS)
+			    {
+			    V_FROMV(seis_line->line_name, line_name);
+			    V_FROMV(seis_line->survey, survey);
+			    }
+			}
+
+		    if (status EQUALS SUCCESS)
+			{
+			status = sez_fill_line_hdr_str (seis_line, pline);
+			}
+		    }
+		if (status EQUALS SUCCESS)
+		    {
+		    status = ht_insert(seis_index, &seis_line->id, &pline);
+		    }
+		else
+		    {
+		    tc_free((VOIDPTR)pline);
+		    pline = (LINE_HDR *)0;
+		    last_id = -987;
+		    }
+		}
+	    }
+	}
+
+    if (status EQUALS SUCCESS)
+	{
+	*p_hdr = pline;
+	last_id = seis_line -> id;
+	}
+
+    return status;
+    }
+
+/* ********************************************************************** */
+
+static INT sez_fill_line_hdr_str (seis_line, p_hdr)
+FULL_LINE_NAME *seis_line;
+LINE_HDR *p_hdr;
+    {
+			     /*	first_head is boolean set to TRUE at the
+			     	beginning of the program and then set to
+			     	FALSE after the first prepare of SQL
+			     	statements				    */
+
+    static BOOL first_head = TRUE;
+
+                             /* routine used to fill the structure *p_hdr
+                                containing the informations taken in the
+                                table SEIS_LINE_HDR about the line
+                                described by the struct seis_line           */
+
+
+    EXEC SQL BEGIN DECLARE SECTION;
+    static double init_sp;
+    static double final_sp;
+    static double cdp_per_sp;
+    static double x1;
+    static double y1;
+    static double x2;
+    static double y2;
+    static double x3;
+    static double y3;
+    static double x4;
+    static double y4;
+    static double sp_spacing;
+    static int line_id;
+    static int init_cdp;
+    static int final_cdp;
+    static int regular;
+    static int seismic_flag;
+    VARCHAR select[512];
+    static VARCHAR line_name[24];
+    static VARCHAR survey[32];
+    static VARCHAR optim_xy_id[64];
+    static VARCHAR shot_label_id[64];
+    static VARCHAR shot_xy_id[64];
+    static VARCHAR nl_file[80];
+    static VARCHAR line_type[16];
+
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO errsql;
+
+    if (first_head)
+        {
+        PROJECT_NAME project;
+        TABLE_NAME table_name;
+
+        qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+        sez_table_name(SEIS_LINE_HDR_TABLE, table_name);
+
+                             /* prepare the SQL select clause only the      */
+                             /* first time                                  */
+
+        select.len = sprintf ((char *)select.arr,
+"SELECT LINE_ID,OPTIM_XY_ID,SHOT_LABELS_ID,INITIAL_CDP,FINAL_CDP,\
+    INITIAL_SHOT,FINAL_SHOT,CDPS_PER_SHOT_POINT,\
+    X1,Y1,X2,Y2,X3,Y3,X4,Y4,REGULAR, \
+    SHOT_POINT_SPACING,SEIS_ASSOC,SHOT_XY_ID,NLIST_FILE, \
+    LINE_TYPE \
+FROM %s.%s \
+WHERE LINE_NAME = :line_name AND SURVEY =:survey", project, table_name);
+
+        EXEC SQL PREPARE S11 FROM : select;
+
+        EXEC SQL DECLARE C11 CURSOR FOR S11;
+
+        first_head = FALSE;
+        }
+
+    EXEC SQL WHENEVER NOT FOUND GOTO errnofd;
+
+    V_FROMC (line_name, seis_line->line_name);
+    V_FROMC (survey, seis_line->survey);
+                             /* before fetching we need to reinitialise the */
+                             /* variables                                   */
+
+    V_CLEAR (optim_xy_id);
+    V_CLEAR (shot_label_id);
+    V_CLEAR (shot_xy_id);
+    V_CLEAR (nl_file);
+    V_CLEAR (line_type);
+    line_id = 0;
+    init_cdp = 0;
+    final_cdp = 0;
+    init_sp = 0;
+    final_sp = 0;
+    seismic_flag = 0;
+
+    EXEC SQL OPEN C11 USING : line_name,  : survey;
+    EXEC SQL FETCH C11 INTO : line_id, : optim_xy_id,  : shot_label_id,
+	: init_cdp,  : final_cdp,  : init_sp,  : final_sp,  : cdp_per_sp,
+	: x1,  : y1,  : x2,  : y2,  : x3,  : y3,  : x4,  : y4,
+	: regular,  : sp_spacing,  : seismic_flag,  : shot_xy_id,
+	: nl_file, : line_type;
+
+                             /* free nlist from the previous line           */
+
+    if (p_hdr->shot_label IS_NOT_EQUAL_TO NULL)
+        {
+        nl_free_nlist (p_hdr->shot_label);
+        p_hdr->shot_label = (NLIST_HEADER)0;
+        }
+
+                             /* free arrays from the previous line          */
+
+    if (p_hdr->array_cdp IS_NOT_EQUAL_TO (FLOAT *)NULL)
+        {
+        tc_free (p_hdr->array_cdp);
+        p_hdr->array_cdp = (FLOAT *)NULL;
+        }
+
+    if (p_hdr->array_x IS_NOT_EQUAL_TO (FLOAT *)NULL)
+        {
+        tc_free (p_hdr->array_x);
+        p_hdr->array_x = (FLOAT *)NULL;
+        }
+
+    if (p_hdr->array_y IS_NOT_EQUAL_TO (FLOAT *)NULL)
+        {
+        tc_free (p_hdr->array_y);
+        p_hdr->array_y = (FLOAT *)NULL;
+        }
+
+    p_hdr->line = *seis_line;
+
+    seis_line->id = p_hdr->line.id = line_id;
+    V_FROMV (p_hdr->optim_xy_id, optim_xy_id);
+    V_FROMV (p_hdr->shot_label_id, shot_label_id);
+    V_FROMV (p_hdr->shot_xy_id, shot_xy_id);
+    V_FROMV (p_hdr->nlist_file, nl_file);
+    p_hdr->cdp_per_sp = cdp_per_sp;
+    p_hdr->init_cdp = init_cdp;
+    p_hdr->final_cdp = final_cdp;
+    p_hdr->init_sp = init_sp;
+    p_hdr->final_sp = final_sp;
+    p_hdr->regular = (SEIS_SP_ORDER)regular;
+    p_hdr->sp_spacing = sp_spacing;
+    p_hdr->seismic_flag = (SEIS_ASSOCIATED_DATA)seismic_flag;
+
+    p_hdr->cur_index = 0;
+
+                             /* we test if the name of the nlist optim_xy
+                                is null or not if it is null this means
+                                that there is no position data for the line
+                                and we set nb_points to NO_POSITION_DATA
+                                and do not need to fill any of the xy
+                                coordinates arrays                          */
+
+
+    if (IS_EMPTY_STRING(p_hdr->optim_xy_id))
+        {
+        p_hdr->nb_points = NO_POSITION_DATA;
+        }
+    else
+        {
+        p_hdr->nb_points = 0;
+        p_hdr->rect[0] = x1;
+        p_hdr->rect[1] = x2;
+        p_hdr->rect[2] = x3;
+        p_hdr->rect[3] = x4;
+        p_hdr->rect[4] = y1;
+        p_hdr->rect[5] = y2;
+        p_hdr->rect[6] = y3;
+        p_hdr->rect[7] = y4;
+        }
+
+                             /* set the flag number of intersections on     */
+                             /* this line to not computed                   */
+
+    p_hdr->nb_inters = (INT)INTERS_NOT_COMPUTED;
+
+                             /* Now worry and fret over 3-D lines ... */
+    V_SETZERO(line_type);
+    if (ARE_SAME((char *)line_type.arr, "2D"))
+        {
+        p_hdr -> line_type = X_2D;
+        }
+    else if (ARE_SAME((char *)line_type.arr, "3DX")) /* 3-D 'In-line' */
+        {
+        p_hdr -> line_type = X_3D;
+        }
+    else if (ARE_SAME((char *)line_type.arr, "3DY")) /* 3-D Cross line */
+        {
+        p_hdr -> line_type = Y_3D;
+        }
+    else if (ARE_SAME((char *)line_type.arr, "3DR"))
+        {
+        p_hdr -> line_type = R_3D;
+        }
+    else if (ARE_SAME((char *)line_type.arr, "2DR"))
+        {
+        p_hdr -> line_type = R_2D;
+        }
+    else
+        {
+        p_hdr -> line_type = R_2D;
+        }
+    switch (p_hdr -> line_type) {
+    case X_3D:
+    case Y_3D:
+    case R_3D:
+#if 0
+        status = fetch_3d_survey();
+#endif
+        break;
+    default:
+        break;
+        }
+
+    return SUCCESS;
+
+    errnofd :
+        return SE_NO_DATA;
+    errsql :
+        return OR_STATUS;
+    }
+
+/******************************************************************************/
+
+			     /*	Remove the specified line id from the	    */
+			     /*	memory cache				    */
+#if USE_PROTOTYPES
+publicdef se_delete_index(INT id)
+#else
+publicdef se_delete_index(id)
+INT id;
+#endif
+{
+    INT status;
+    LINE_HDR *pline;
+
+    status = ht_find(seis_index, &id, &pline);
+    if (status EQUALS SUCCESS)
+	{
+	ht_delete(seis_index, &id);
+			     /*	NOT ADDRESSED: other dingle-balls hung off  */
+			     /*	pline					    */
+	tc_free((VOIDPTR)pline);
+	}
+
+    return status;
+}

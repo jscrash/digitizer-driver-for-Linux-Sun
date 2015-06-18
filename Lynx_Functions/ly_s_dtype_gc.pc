@@ -1,0 +1,160 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_S_DTYPE_GC.PC */
+/* *7    13-SEP-1991 12:29:26 LOEBL "(SPR 3951) Eliminate Core Dump and Performance Enhancements" */
+/*  5B1   3-OCT-1990 11:44:56 GILLESPIE "Change file type to stream" */
+/* *6    20-AUG-1990 17:07:57 KEE "(SPR -1) fixing compile error at sun" */
+/* *5    22-JUL-1990 21:59:56 GILLESPIE "(SPR 1) Simplify SQL - remove ts_quote - remove VARCHARs" */
+/* *4    19-JUL-1990 11:20:29 JESSIE "(SPR 5628) Make LYNX functions internally consistant" */
+/* *3    19-JUL-1990 10:20:06 VINCE "(SPR 5628) Make LYNX functions internally consistant" */
+/* *2    24-APR-1990 14:52:21 VINCE "(SPR 1) Initial Coding" */
+/* *1    23-APR-1990 18:19:46 VINCE "set the default bundle id and color override for a given data type." */
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_S_DTYPE_GC.PC */
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_ly.h"
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_LY_ERR_H
+#include "esi_ly_err.h"
+#endif
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+#ifndef ESI_LU_H
+#include "esi_lu.h"
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+    This routine will set a default bundle id and a default color override
+    for the given data_type in the approprate LYNX_DTYPE_class_GC table
+    based on the lynx_class.  If lynx_class is LYNX_ALL_CLASSES then all
+    such tables will be affected.
+    
+    If the data_type already exists in one or more tables the values in the
+    table will not be modified.
+
+Prototype:
+    publicdef INT ly_set_dtype_gc (CHAR *data_type,LYNX_CLASS   lynx_class,
+                                INT bundle_id,CHAR  *color_override);
+                                
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    data_type       -(CHAR*)
+    lynx_class      -(LYNX_CLASS)
+    bundle_id       -(INT)
+    color_override  -(CHAR *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT ly_set_dtype_gc (CHAR *data_type, LYNX_CLASS lynx_class, INT bundle_id,
+                               INT color_override) 
+#else
+publicdef INT ly_set_dtype_gc (data_type, lynx_class, bundle_id, color_override)
+CHAR *data_type;
+LYNX_CLASS lynx_class;
+INT bundle_id;
+INT color_override;
+#endif
+    {
+    CHAR table_name_class [20];
+    CHAR column_name_class [20];
+    PROJECT_NAME project;
+    INT project_len;
+    CHAR text_color[32];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[500];
+    EXEC SQL END DECLARE SECTION;
+    
+    if (IS_EMPTY_STRING(data_type))
+        return LY_NO_NAME_GIVEN;
+    
+    if (lynx_class == LYNX_ALL_CLASSES)
+        {
+        ly_set_dtype_gc (data_type, LYNX_NODE_CLASS, bundle_id, color_override);
+        ly_set_dtype_gc (data_type, LYNX_ARC_CLASS, bundle_id, color_override);
+        ly_set_dtype_gc (data_type, LYNX_REGION_CLASS, bundle_id, color_override);
+        ly_set_dtype_gc (data_type, LYNX_TEXT_CLASS, bundle_id, color_override);
+        return SUCCESS;
+        }
+
+    switch (lynx_class)
+        {
+    case LYNX_NODE_CLASS:
+        strcpy (table_name_class , "NODE");
+        strcpy (column_name_class , "SYMBOL");
+        break;
+    case LYNX_ARC_CLASS:
+        strcpy (table_name_class , "ARC");
+        strcpy (column_name_class , "LINE");
+        break;
+    case LYNX_REGION_CLASS:
+        strcpy (table_name_class , "REGION");
+        strcpy (column_name_class , "AREA");
+        break;
+    case LYNX_TEXT_CLASS:
+        strcpy (table_name_class , "TEXT");
+        strcpy (column_name_class , "TEXT");
+        break;
+    default:
+        return FAIL;
+        }
+    
+    lu_index_to_text("COLOR",text_color,color_override);
+
+    qs_inq_c (QS_PROJECT_NAME, project, &project_len);
+    if (project_len == 0)
+        return LY_NO_CURRENT_PROJECT;
+
+    stmt.len = sprintf ((char *)stmt.arr, 
+"INSERT INTO %s.LYNX_DTYPE_%s_GC (DATA_TYPE, %s_BUNDLE_ID, COLOR_OVERRIDE) \
+     VALUES ('%s', %d, '%s')",
+            project, table_name_class , 
+                     column_name_class , data_type, bundle_id, text_color);
+    
+    EXEC SQL EXECUTE IMMEDIATE : stmt;
+    
+    return SUCCESS;
+    }
+/* END:     */

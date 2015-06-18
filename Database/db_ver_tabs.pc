@@ -1,0 +1,545 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_VER_TABS.PC*/
+/* *24   17-SEP-1991 14:40:36 LOEBL "(SPR 4166) Resolved ORA-942 on DBA_USERS for non-dba accounts"*/
+/* *23    1-FEB-1991 16:17:14 VINCE "(SPR 6543) set the Oracle_Version QS for db_update_1_index to use"*/
+/* *22   10-JAN-1991 14:41:17 VINCE "(SPR 1) disabled the Z option"*/
+/* *21    4-JAN-1991 17:02:39 PURNA "(SPR 6091) add the -L option to add new logical names and create new directories"*/
+/* *20    7-DEC-1990 14:49:22 VINCE "(SPR 1) More error message changes"*/
+/* *19   14-NOV-1990 16:20:00 VINCE "(SPR 1) improved error messages"*/
+/* *18    1-NOV-1990 14:16:02 VINCE "(SPR 1) change password retrieval to use DBA_USERS view, also removed some redundant code"*/
+/* *17   26-JUL-1990 15:30:22 VINCE "(SPR 5700) removed Z option from help message; still available in code."*/
+/* *16   23-JUL-1990 11:52:53 VINCE "(SPR 1) final fixes for recursive logical names on Unix"*/
+/* *15   30-MAR-1990 17:03:43 GILLESPIE "(SPR 1) Change call to db_table_storage"*/
+/* *14   30-MAR-1990 12:39:49 GILLESPIE "(SPR 5130) Fix help text"*/
+/* *13   18-DEC-1989 16:45:53 PURNA "(SPR 5069) export facility mods"*/
+/* *12    3-NOV-1989 17:32:43 GILLESPIE "(SPR 5055) Finish the job on 5055, stupid!"*/
+/* *11    3-NOV-1989 16:53:25 GILLESPIE "(SPR 5055) Don't do FORMS for default_project"*/
+/* *10   14-OCT-1989 15:57:47 VINCE "(SPR -1) mods for new update schem"*/
+/* *9    25-SEP-1989 18:06:25 VINCE "(SPR -1) "*/
+/* *8    25-SEP-1989 15:53:50 VINCE "(SPR -1) added & to db_account in db_table_storage calls."*/
+/* *7    22-SEP-1989 17:06:39 VINCE "(SPR -1) added -u option and modified calling sequence of db_table_storage"*/
+/* *6    20-SEP-1989 16:51:25 GILLESPIE "(SPR 100) Gulf mods: change or_copy_forms arg"*/
+/* *5    19-SEP-1989 13:45:49 GILLESPIE "(SPR 100) GULF MODS"*/
+/* *4    14-SEP-1989 18:13:58 GORDON "(SPR -1) checkin from gulf"*/
+/* *3    25-AUG-1989 17:05:16 CONROY "(SPR 9999) moved forms creation from interactive process to here"*/
+/* *2    11-AUG-1989 13:39:14 CONROY "(SPR 9999) Mods for ORACLE V6"*/
+/* *1     1-JUL-1989 12:23:07 GILLESPIE ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_VER_TABS.PC*/
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+#ifndef ESI_DB_H
+#include "esi_db.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_OR_H
+#include "esi_or.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_FI_H
+#include "esi_fi.h"
+#endif
+
+#ifndef ESI_CTYPE_H
+#include "esi_ctype.h"
+#endif
+
+/*  This routine examines each account listed in ANALYST_CONFIGURATION
+    for consistency with the Finder Data Dictionary.
+	If necessary, a Finder Account is modified to bring it up to
+	date with the current dictionary.
+
+*/
+
+publicdef INT main(argc, argv)
+INT argc;
+CHAR **argv;
+
+    {
+    PROGNAME("DB_VERIFY_TABLES");
+	
+    INT status;
+    INT i;
+    CHAR *cp;
+    
+    DB_ACCOUNT_STRUCT db_account;
+    
+    DB_CREATE_FLAGS cf;
+    BOOL create_all;
+    BOOL create_forms;
+    BOOL load_defaults;
+    BOOL all_accounts;
+    BOOL update_tb_defs;
+    BOOL update_log_names;
+    CHAR environment[12];
+
+    EXEC SQL BEGIN DECLARE SECTION;
+	VARCHAR account_name[31];
+	VARCHAR account[62];
+	VARCHAR password[31];
+	VARCHAR home_account[62];
+	VARCHAR home_password[31];
+	VARCHAR original_password[31];
+	VARCHAR scope[8];
+	VARCHAR stmt[511];
+    EXEC SQL END DECLARE SECTION;
+
+
+#ifdef SUN4
+    strcpy (environment, "SUN4");
+#endif
+
+#ifdef SUN3
+    strcpy (environment, "SUN3");
+#endif
+
+#ifdef mips
+    strcpy (environment, "ULTRIXR");
+#endif
+
+#ifdef vms
+    strcpy (environment, "VMS");
+#endif
+
+#ifdef primos
+    strcpy (environment, "PRIMOS");
+#endif
+    qs_set_c (QS_ENVIRONMENT, environment, strlen (environment));
+
+#define IMPLEMENT_Z FALSE
+
+    /* initially set all options to false */
+    cf.create_tables	  = FALSE;
+    cf.create_indexes	  = FALSE;
+    cf.create_views	  = FALSE;
+    cf.create_constraints = FALSE;
+    cf.create_sequences	  = FALSE;
+    cf.create_synonyms	  = FALSE;
+    cf.grant_privileges	  = FALSE;
+    
+    create_all		  = FALSE;
+    update_tb_defs	  = FALSE;
+    update_log_names	  = FALSE;
+    create_forms	  = FALSE;
+    load_defaults	  = FALSE;
+    all_accounts	  = FALSE;
+
+    /* find the option list(s) and parse them */
+    for (i=argc-1; i>0; i--) {
+        cp = argv[i];
+	if (*cp == '-') {
+	    for (cp++; *cp; cp++) {
+	        switch (toupper(*cp)) {
+		    case 'C': cf.create_constraints = TRUE; break;
+		    case 'I': cf.create_indexes	    = TRUE; break;
+		    case 'S': cf.create_sequences   = TRUE; break;
+		    case 'T': cf.create_tables	    = TRUE; break;
+		    case 'V': cf.create_views	    = TRUE; break;
+		    case 'Y': cf.create_synonyms    = TRUE; break;
+		    case 'G': cf.grant_privileges   = TRUE; break;
+		    case 'F': create_forms	    = TRUE; break;
+		    case 'D': load_defaults	    = TRUE; break;
+		    case 'U': update_tb_defs	    = TRUE; break;
+		    case 'L': update_log_names	    = TRUE; break;
+		    case 'A': create_all	    = TRUE; break;
+#if IMPLEMENT_Z
+		    case 'Z': all_accounts	    = TRUE; break;
+#endif
+	        }
+	    }
+	}
+    }
+    
+    if (create_all) {
+	cf.create_constraints	= TRUE;
+	cf.create_indexes	= TRUE;
+	cf.create_sequences	= TRUE;
+	cf.create_tables	= TRUE;
+	cf.create_views		= TRUE;
+	cf.create_synonyms	= TRUE;
+	cf.grant_privileges	= TRUE;
+	create_forms		= TRUE;
+	load_defaults		= TRUE;
+    }
+
+    if (!cf.create_constraints	&&
+	!cf.create_indexes	&&
+	!cf.create_sequences	&&
+	!cf.create_tables	&&
+	!cf.create_views	&&
+	!cf.create_synonyms	&&
+	!cf.grant_privileges	&&
+	!create_forms		&&
+	!update_tb_defs		&&
+	!update_log_names	&&
+	!load_defaults)		{
+
+	printf ("\nUsage - db_ver_tabs {options} oracle_account/password\n\n");
+	printf ("\tOptions:\n");
+	printf ("\t  -c\tcreate constraints\n");
+	printf ("\t  -f\tcreate forms\n");
+	printf ("\t  -i\tcreate indexes\n");
+	printf ("\t  -s\tcreate sequences\n");
+	printf ("\t  -y\tcreate synonyms\n");
+	printf ("\t  -t\tcreate tables\n");
+	printf ("\t  -v\tcreate views\n\n");
+	printf ("\t  -g\tgrant privileges\n");
+	printf ("\t  -d\tload initial rows from DEFAULT_PROJECT tables\n\n");
+	printf ("\t  -a\tcreate all   (same as -cfisytvgd)\n");
+	printf ("\t  -u\tupdate the ACCOUNT_TB_DEFS table with all available\n");
+	printf ("\t    \t   tables in the current schema\n");
+	printf ("\t  -l\tupdate the LOGICAL_NAMES table with all available\n");
+	printf ("\t    \t   logical names in the current default project\n");
+	printf ("\t    \t   and create all the sub directories\n\n");
+#if IMPLEMENT_Z
+	printf ("\t  -z \tprocess the specified option on all accounts \n\n");
+#endif
+	printf ("\t  options may appear individually or as a single string\n");
+	printf ("\t  (i.e. -c -f -i   or  -cfi)\n\n");
+	exit (EXIT_SUCCESS);
+    }
+    
+    if (or_login(argc, argv) IS_NOT_EQUAL_TO SUCCESS)
+	{
+	exit(EXIT_FAILURE);
+	}
+
+    qs_inq_c(QS_FINDER_ACCOUNT, db_account.dba.name, (INT *) 0);
+    qs_inq_c(QS_FINDER_PASSWORD, db_account.dba.password, (INT *) 0);
+    qs_inq_c(QS_DATABASE, db_account.database, (INT *) 0);
+    
+    qs_set_i(QS_ORACLE_VERSION, 6);
+
+    strcpy (db_account.name,     db_account.dba.name);
+    strcpy (db_account.password, db_account.dba.password);
+
+    /* ------------------------------------------------------------ */
+    /* 'home' account is the one that was given on the command line */
+    /* it may not neccessarily be the actual DBA account.           */
+    /* ------------------------------------------------------------ */
+
+    V_FROMC (home_password, db_account.dba.password);
+    if (IS_STRING(db_account.database))
+	{
+	home_account.len = sprintf ((char *)home_account.arr, "%s@%s",
+				    db_account.dba.name,
+				    db_account.database);
+	}
+    else
+	{
+	V_FROMC (home_account,  db_account.dba.name);
+	}
+
+    if (all_accounts) 
+    {
+	stmt.len = sprintf((char *)stmt.arr,
+	    "SELECT ACCOUNT_NAME, TYPE \
+	     FROM   ESI.FINDER_ACCOUNTS \
+	     WHERE  ACCOUNT_NAME != 'SYSTEM' \
+	     ORDER BY TYPE DESC, ACCOUNT_NAME");
+    }
+    else {
+	stmt.len = sprintf((char *)stmt.arr,
+	    "SELECT ACCOUNT_NAME, TYPE \
+	     FROM   ESI.FINDER_ACCOUNTS \
+	     WHERE  ACCOUNT_NAME = '%s'", db_account.dba.name);
+    }
+
+    EXEC SQL PREPARE S1 FROM :stmt;
+    EXEC SQL DECLARE ACCOUNTS CURSOR FOR S1;
+	    
+    EXEC SQL OPEN ACCOUNTS;
+    
+    if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+	{
+	printf("No access to FINDER_ACCOUNTS table - aborting!!\n");
+	exit(EXIT_FAILURE);
+	}
+
+    
+
+    while (OR_STATUS EQUALS SUCCESS)
+	{
+	
+            EXEC SQL FETCH ACCOUNTS INTO :account_name, :scope;
+            
+            if (OR_STATUS != SUCCESS) 
+                   break;
+            
+            V_V_TO_C ( db_account.name, account_name);
+            V_V_TO_C ( db_account.scope, scope);
+
+
+	/* ----------------------------------------------------------- */
+	/* If the account to be processed is not the 'current' account */
+	/* then connect to the target account.                         */
+	/* ----------------------------------------------------------- */
+#if IMPLEMENT_Z
+	if (all_accounts && ARE_DIFFERENT(db_account.name, home_account.arr))
+	    {
+	    /* ----------------------------------------------------------- */
+	    /* the following uses non-standard techniques for retrieving   */
+	    /* the encoded password from the DBA_USERS view.  The password */
+	    /* is retrieved, changed and then restored intact.             */
+	    /* ----------------------------------------------------------- */
+
+	    /* --------------------------------------------- */
+	    /* retrieve the current password for the account */
+	    /* --------------------------------------------- */
+
+	    V_FROMC (account_name, db_account.name);
+	    EXEC SQL SELECT PASSWORD
+		INTO  :original_password
+		FROM  DBA_USERS
+		WHERE USERNAME = :account_name;
+
+	    V_SETZERO (original_password);
+
+	    if (OR_STATUS != SUCCESS)
+		{
+		printf ("Error retrieving password for ");
+		printf ("account %s... Continuing\n", account.arr);
+		printf("%-.70s\n", OR_MESSAGE);
+		continue;
+		}
+
+	    /* ------------------------------------------------------ */
+	    /* change the password to be the same as the account name */
+	    /* ------------------------------------------------------ */
+
+	    stmt.len = sprintf( (char *)stmt.arr,
+	    "GRANT CONNECT TO %s IDENTIFIED BY %s",
+	    account_name.arr, account_name.arr);
+
+	    V_FROMC(password, account_name.arr);
+	    EXEC SQL EXECUTE IMMEDIATE :stmt;
+
+	    if (OR_STATUS != SUCCESS)
+		{
+		printf ("Error setting a temporary password for ");
+		printf ("account %s... Continuing\n", account.arr);
+		printf("%-.70s\n", OR_MESSAGE);
+		continue;
+		}
+
+	    if (IS_STRING(db_account.database))
+		{
+		account.len = sprintf((char *)account.arr, "%s@%s",
+		    account_name.arr, db_account.database);
+		}
+	    else
+		{
+		V_FROMC (account, account_name.arr);
+		}
+
+	    /* --------------------------------------------------------- */
+	    /* commit all pending work, release the database and connect */
+	    /* as the new account.                                       */
+	    /* --------------------------------------------------------- */
+
+	    EXEC SQL COMMIT WORK RELEASE;
+	    EXEC SQL CONNECT :account IDENTIFIED BY :password;
+
+	    if (OR_STATUS != SUCCESS)
+		{
+		/* -------------------------------------------------------- */
+		/* if the connect failed we need to reconnect to the 'home' */
+		/* account and restore the password before continuing.      */
+		/* -------------------------------------------------------- */
+		printf ("Error connecting to ");
+		printf ("account %s... Continuing\n", account.arr);
+		printf ("%-.70s\n", OR_MESSAGE);
+		
+		EXEC SQL COMMIT WORK RELEASE;
+		EXEC SQL CONNECT :home_account IDENTIFIED BY :home_password;
+		if (OR_STATUS != SUCCESS)
+		    {
+		    printf ("Error reconnecting to the DBA ");
+		    printf ("account %s.\n", home_account.arr);
+		    printf("%-.70s\n", OR_MESSAGE);
+		    printf ("Fatal Error; Can't continue.\n\n");
+		    break;
+		    }
+
+		stmt.len = sprintf( (char *)stmt.arr,
+		"GRANT CONNECT TO %s IDENTIFIED BY VALUES '%s'",
+		account_name.arr, original_password.arr);
+
+		EXEC SQL EXECUTE IMMEDIATE :stmt;
+		if (OR_STATUS != SUCCESS)
+		    {
+		    printf ("Error restoring password for ");
+		    printf ("account %s... Continuing\n", account.arr);
+		    printf ("%-.70s\n", OR_MESSAGE);
+		    printf ("Password set to '%s'.\n", account.arr);
+		    continue;
+		    }
+		}
+	    /* ---------------------------------- */
+	    /* end of connect-to-new-account code */
+	    /* ---------------------------------- */
+	    }
+#endif      /* end of if IMPLEMENT_Z */ 
+
+
+	/* ---------------------------------------------- */
+	/* Update the ACCOUNT_TB_DEFS table, if requested */
+	/* ---------------------------------------------- */
+
+	if (update_tb_defs)
+	    {
+	    /* ------------------------------------------------- */
+	    /* don't update ACCOUNT_TB_DEFS for DEFAULT_PROJECT! */
+	    /* ------------------------------------------------- */
+
+	    if (ARE_DIFFERENT(db_account.name, "DEFAULT_PROJECT"))
+		{
+		db_table_storage (&db_account, TRUE);		
+		}
+	    }
+
+	/* ---------------------------------------------- */
+	/* Update the LOGICAL_NAMES tables ,if requested  */
+	/* ---------------------------------------------- */
+
+	if (update_log_names)
+	    {
+	    /* ------------------------------------------------- */
+	    /* don't update LOGICAL_NAMES for DEFAULT_PROJECT! */
+	    /* ------------------------------------------------- */
+
+	    if (ARE_DIFFERENT(db_account.name, "DEFAULT_PROJECT"))
+		{
+		status = dba_create_directories(&db_account,FALSE);
+		}
+	    }
+
+	/* ------------------------------------------------- */
+	/* perform the Oracle object updates and validations */
+	/* ------------------------------------------------- */
+
+	status = dba_update_account(&db_account, &cf);
+	status = dba_validate_account(&db_account, &cf);
+
+	/* ---------------------------------------------------------- */
+	/* load PROJECT or ANALYST tables with defaults, if requested */
+	/* ---------------------------------------------------------- */
+
+	if (load_defaults)
+	    {
+	    if (ARE_SAME(db_account.scope, "PROJECT") AND
+		ARE_DIFFERENT(db_account.name, "DEFAULT_PROJECT"))
+		{
+		db_copy_default_project(&db_account);
+		}
+	    else if (ARE_SAME(db_account.scope, "ANALYST"))
+		{
+		EXEC SQL
+		    INSERT INTO WELL_SOURCE_SEARCH_LIST (SOURCE, SEQ)
+		    VALUES (USER, 1);
+		}
+
+	    EXEC SQL COMMIT WORK;
+	    }
+		
+	/* ------------------------------------------- */
+	/* create project specific forms, if requested */
+	/* ------------------------------------------- */
+
+	if (create_forms AND ARE_SAME(db_account.scope, "PROJECT"))
+	    {
+	    /* -------------------------------------- */
+	    /* Don't create forms for DEFAULT_PROJECT */
+	    /* -------------------------------------- */
+	    if (ARE_DIFFERENT(db_account.name, "DEFAULT_PROJECT"))
+		{
+		qs_set_c (QS_PROJECT_NAME, db_account.name, 0);
+		finder_config_project(FALSE);
+		or_copy_forms (&db_account);
+		}
+	    }
+
+	/* ------------------------------------------------------------ */
+	/* If we changed accounts above we must connect back to the DBA */
+	/* account to continue.                                         */
+	/* ------------------------------------------------------------ */
+
+#if IMPLEMENT_Z
+	if (ARE_DIFFERENT(db_account.name, db_account.dba.name))
+	    {
+	    /* ---------------------------------------------------- */
+	    /* commit the previous work and connect back to the DBA */
+	    /* ---------------------------------------------------- */
+
+	    EXEC SQL COMMIT WORK RELEASE;
+	    EXEC SQL CONNECT :home_account IDENTIFIED BY :home_password;
+
+	    if (OR_STATUS != SUCCESS)
+		{
+		printf ("Error reconnecting to the DBA ");
+		printf ("account %s.\n", home_account.arr);
+		printf ("%-.70s\n", OR_MESSAGE);
+		printf ("Fatal Error; Can't continue.\n\n");
+		break;
+		}
+
+	    /* ----------------------------------------------------------- */
+	    /* restore the original password on the account just processed */
+	    /* (the BY VALUES is the non-standard part refered to above)   */
+	    /* ----------------------------------------------------------- */
+
+	    stmt.len = sprintf( (char *)stmt.arr,
+	    "GRANT CONNECT TO %s IDENTIFIED BY VALUES '%s'",
+	    account_name.arr, original_password.arr);
+
+	    EXEC SQL EXECUTE IMMEDIATE :stmt;
+	    if (OR_STATUS != SUCCESS)
+		{
+		printf ("Error restoring password for ");
+		printf ("account %s... Continuing\n", account.arr);
+		printf ("%-.70s\n", OR_MESSAGE);
+		printf ("Password set to '%s'.\n", account.arr);
+
+		/* we're at the bottom of the loop anyway but make it */
+		/* offical with a "continue"			      */
+		continue;
+		}
+	    }  
+#endif       /* end of #if IMPLEMENT_Z */
+	}   /* end of loop */
+
+    return EXIT_SUCCESS;
+    }

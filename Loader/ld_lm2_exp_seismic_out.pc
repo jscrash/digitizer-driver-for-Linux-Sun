@@ -1,0 +1,387 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_EXP_SEISMIC_OUT.PC */
+/* *3    14-AUG-1991 11:58:54 KEE "(SPR -1) Put in File Lock/Unlock logic" */
+/* *2     1-MAY-1991 21:58:29 KEE "(SPR -1) Landmark Export" */
+/* *1     1-MAY-1991 21:07:11 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_EXP_SEISMIC_OUT.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* ************************************************************************
+
+   NAME: LD_LM2_EXP_SEISMIC_OUT.PC
+
+   AUTHOR: Rod Hanks
+   DATE:   June 15th, 1990
+   DESCRIPTION: Unload seismic information (lines, shots with x/y's, traces)
+		from a particular map overlay in Finder.
+
+   ************************************************************************ */
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+#ifndef ESI_SE_H
+#include "esi_se.h"
+#endif
+#ifndef LD_LM2_EXP_WORK_H
+#include "ld_lm2_exp_work.h"
+#endif
+
+#if USE_PROTOTYPES
+publicdef VOID ld_lm2_exp_seismic_out (CHAR *selectPhrase, CHAR *selectList, 
+		   BOOL *firstIteration, FILE **trfile, FILE **spfile,
+		   CHAR *mapName, PROJECT_NAME projectName, 
+		   DOUBLE lowerLeftX, DOUBLE lowerLeftY,
+		   DOUBLE upperRightX, DOUBLE upperRightY,
+		   FILENAME fileName1, FILENAME fileName2, BOOL convertProj, 
+		   PROJECTION_STRUCTURE *defaultProj, 
+	           PROJECTION_STRUCTURE *inputProj)
+#else
+publicdef VOID ld_lm2_exp_seismic_out (selectPhrase, selectList,
+			firstIteration, trfile, spfile,
+			mapName, projectName, 
+		   	lowerLeftX, lowerLeftY, upperRightX, upperRightY,
+		   	fileName1, fileName2,
+		   	convertProj, defaultProj, inputProj)
+CHAR		*selectPhrase;
+CHAR		*selectList;
+BOOL		*firstIteration;
+FILE		**trfile;
+FILE		**spfile;
+CHAR		*mapName;
+PROJECT_NAME	projectName;
+DOUBLE		lowerLeftX;
+DOUBLE		lowerLeftY;
+DOUBLE		upperRightX;
+DOUBLE		upperRightY;
+FILENAME	fileName1;
+FILENAME	fileName2;
+BOOL	             convertProj;
+PROJECTION_STRUCTURE *defaultProj;
+PROJECTION_STRUCTURE *inputProj;
+#endif
+    {
+/****************************************************************************
+
+	V a r i a b l e   D e c l a r a t i o n s .
+
+******************************************************************************/
+
+    INT 	   status;
+    CHAR	   myLineName[21];
+    NLIST_HEADER   lineList = (NLIST_HEADER) 0;
+    INT		   lineCount;
+    INT		   lineLoop;
+    UINT           ndim;
+    UINT           dim_list[1];
+    VOIDPTR        value_list[1];
+    DOUBLE  	   x,y;
+    FLOAT          Fx, Fy;
+    UINT	   col_list[3];
+    VOIDPTR	   xy_list[3];
+    INT            select_line_id;
+    INT		   shotNumber;
+    INT		   cdpNumber;
+    SP             thisShot;
+    CDP            thisCdp;
+    FULL_LINE_NAME line_name;
+    FILENAME	   nlist_file;
+    FILENAME	   full_filename;
+    NLIST_HEADER   nlist = (NLIST_HEADER) 0;
+    NLIST_ID	   nl_xy_id;
+/*
+				General variable declarations.
+*/
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[400];
+	VARCHAR shot_xy_id[61];
+	int	line_id;
+	VARCHAR the_name[24];
+	VARCHAR	the_survey[24];
+	double	first_sp;
+	double	last_sp;
+	double	first_trace;
+	double	last_trace;
+    EXEC SQL END DECLARE SECTION;
+/*
+				Oracle variable declarations.
+*/
+/****************************************************************************
+
+	I n i t i a l i z a t i o n .
+
+******************************************************************************/
+    if (*firstIteration)
+	{
+	printf("Processing seismic for map %s\n", mapName);
+	printf("UKOOA-style line_id, shot, x, y file is %s\n", fileName1);
+	printf("Line_ID, shot, trace file is %s\n", fileName2);
+	*trfile = ho_open(fileName1, "w", NULL);
+	status = ho_lock (*trfile, ON);
+	if (status != SUCCESS)
+	  {
+	    *trfile = (FILE *)NULL;
+          }
+	fprintf(*trfile, "\
+Line id      format        :  (0x,a12)            \n\
+Shot point   format        :  (13X,F11.2)         \n\
+X coordinate format        :  (25X,F11.0)         \n\
+Y coordinate format        :  (37X,F11.0)         \n");
+	*spfile = ho_open(fileName2, "w", NULL);
+	status = ho_lock(*spfile, ON);
+	if (status != SUCCESS)
+	  {
+	    *spfile = (FILE *)NULL;
+          }
+	fprintf(*spfile, "\
+Line id      format        :  (0x,a12)\n\
+Shot point   format        :  (13X,F11.2)\n\
+Trace        format        :  (25X,F11.2)\n");
+        if (*trfile == (FILE *)NULL || *spfile == (FILE *)NULL)
+	    {
+            if (*trfile == (FILE *)NULL)
+	        {
+		printf("Unable to open file -- %s\n", fileName1);
+		}
+            if (*spfile == (FILE *)NULL)
+		{
+		printf("Unable to open file -- %s\n", fileName2);
+		}
+	    }
+	*firstIteration = FALSE;
+	}
+/*****************************************************************************
+
+	M a i n   L o g i c .
+
+*****************************************************************************/
+
+    if (*trfile != (FILE *)NULL && *spfile != (FILE *)NULL)
+	{
+	lineCount = 0;
+	ld_lm2_seis_list(selectPhrase, selectList, 
+		            lowerLeftX, lowerLeftY, 
+			    upperRightX, upperRightY,
+			    &lineCount, &lineList);
+/*
+				Get a list of seismic lines which match our
+				list and phrase criteria.
+*/
+	if (lineCount <= 0)
+	    {
+	    printf("Null seismic information found for map %s\n", mapName);
+	    }
+	else
+	    {
+	    select_line_id = 0;
+	    ndim = 1;
+	    dim_list[0] = 1;
+	    value_list[0] = (VOIDPTR) &select_line_id;
+            nl_first_row(lineList,ndim,dim_list,value_list);
+/*
+				Initialize to take a trip thru the NLIST
+				of lines for this map.
+*/
+	    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT SHOT_XY_ID, LINE_NAME, SURVEY \
+FROM %s.SEIS_LINE_HDR \
+WHERE LINE_ID = :line_id", projectName);
+
+	    EXEC SQL PREPARE S2 FROM :sqlstmt;
+    	    EXEC SQL DECLARE XY_CUR CURSOR FOR S2;
+/*
+				Setup an SQL statement to return information
+				we need to read the nlist of shotpoints and
+				their x,y's.
+*/
+	    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT VENDOR_LINE_NAME \
+FROM %s.SEIS_LINE_XREF \
+WHERE FINDER_LINE_NAME = :line_name AND FINDER_SURVEY = :survey \
+AND VENDOR = 'LANDMARK'", projectName);
+
+	    EXEC SQL PREPARE S8 FROM :sqlstmt;
+    	    EXEC SQL DECLARE LAND_CUR CURSOR FOR S8;
+/*
+				Setup an SQL statement to return the original
+				line name from landmark.
+*/
+	    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT FIRST_TRACE, LAST_TRACE, FIRST_SP, LAST_SP \
+FROM %s.SEIS_TRACE_HDR \
+WHERE LINE_ID = :line_id", projectName);
+
+	    EXEC SQL PREPARE S3 FROM :sqlstmt;
+    	    EXEC SQL DECLARE TRACE_CUR CURSOR FOR S3;
+/*
+				Setup an SQL statement to return information
+				we need to re-generate the trace numbers.
+*/
+	    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT INITIAL_CDP, FINAL_CDP, INITIAL_SHOT, FINAL_SHOT \
+FROM %s.SEIS_LINE_HDR \
+WHERE LINE_ID = :line_id", projectName);
+
+	    EXEC SQL PREPARE S4 FROM :sqlstmt;
+    	    EXEC SQL DECLARE C4 CURSOR FOR S4;
+	    for (lineLoop = 1; lineLoop <= lineCount; lineLoop++)
+		{
+		line_id = select_line_id;
+                EXEC SQL OPEN XY_CUR USING :line_id;
+		if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "OPEN XY");
+                EXEC SQL FETCH XY_CUR INTO :shot_xy_id,
+				:the_name, :the_survey;
+		if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "FETCH XY");
+		EXEC SQL CLOSE XY_CUR;
+		if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "CLOSE XY");
+/*
+					Using the unique ID, get the line
+					name and survey.
+*/
+	        strncpy(nl_xy_id, (CHAR *) shot_xy_id.arr, shot_xy_id.len);
+	        nl_xy_id[shot_xy_id.len]=0;
+	        strncpy(line_name.line_name, (CHAR *)the_name.arr, the_name.len);
+	        line_name.line_name[the_name.len]=0;
+	        strncpy(line_name.survey, (CHAR *)the_survey.arr, the_survey.len);
+	        line_name.survey[the_survey.len]=0;
+		line_name.id = (long) line_id;
+		EXEC SQL OPEN LAND_CUR using :the_name, :the_survey;
+		if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, 
+								"OPEN LAND");
+		EXEC SQL FETCH LAND_CUR INTO :the_name;
+		if (OR_STATUS < SUCCESS) ld_show_error(OR_STATUS, 
+								"FETCH LAND");
+		EXEC SQL CLOSE LAND_CUR;
+		if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, 
+								"CLOSE LAND");
+/*
+					If it has been changed, use the xref
+					to get back to the original line name
+					used in landmark.
+*/
+		V_V_TO_C(myLineName, the_name);
+		printf("Line: %s\n", myLineName);
+		while (strlen(myLineName) < 12)
+		    {
+		    strcat(myLineName, " ");
+		    }
+		myLineName[12-1] = ' ';
+		myLineName[12] = 0;
+/*
+				Get the nlist name for the shot x, y nlist
+				from the header.
+*/
+                EXEC SQL OPEN TRACE_CUR USING :line_id;
+		first_sp = last_sp = first_trace = last_trace = 0.0;
+                EXEC SQL FETCH TRACE_CUR INTO :first_trace,
+						  :last_trace,
+						  :first_sp,
+						  :last_sp;
+		EXEC SQL CLOSE TRACE_CUR;
+
+	        if (first_trace == 0.0 && last_trace == 0.0 && 
+	            first_sp == 0.0 && last_sp == 0.0) 
+                  {
+                  EXEC SQL OPEN C4 USING :line_id;
+                  EXEC SQL FETCH C4 INTO :first_trace,
+	  					    :last_trace,
+						    :first_sp,
+						    :last_sp;
+		  EXEC SQL CLOSE C4;
+                  }
+		fprintf(*spfile, "%s %11.2lf %11.2lf\n", myLineName,
+						first_sp, first_trace);
+		fprintf(*spfile, "%s %11.2lf %11.2lf\n", myLineName,
+						last_sp, last_trace);
+/*
+				Retrieve the information we need to re-generate
+				trace numbers.  Write them out.
+*/
+		nlist_file[0] = 0;
+		full_filename[0] = 0;
+                status = se_bld_nlist_ids(&line_name, (VOIDPTR)0,
+			            SEIS_LOCATION_DATA, nl_xy_id,
+			            nlist_file, full_filename);
+                if (status EQUALS SUCCESS)
+                    {
+                    status = nl_read_nlist (&nlist, 
+						full_filename, 
+						nl_xy_id);
+		    if (status < 0)
+			{
+			printf("Error reading NLIST %s\n", 
+					mg_message(status));
+			}
+  		    xy_list[0] = (VOIDPTR)&cdpNumber;
+                    xy_list[1] = (VOIDPTR)&Fx;
+		    xy_list[2] = (VOIDPTR)&Fy;
+    		    col_list[0] = 1;
+		    col_list[1] = 2;
+		    col_list[2] = 3;
+                    for (status = nl_first_row(nlist,3,col_list,xy_list);
+	                status >= 0 AND NOT (status & NL_EOL);
+	                status = nl_next_row(nlist,3,col_list,xy_list))
+			{
+			x = (DOUBLE) Fx;
+			y = (DOUBLE) Fy;
+		        if (convertProj)
+			    {
+		            ct_transform_point(x, y, defaultProj,
+					  &x, &y, inputProj);
+			    }
+
+			thisCdp = (CDP) cdpNumber;
+			status = se_sp_from_cdp(&line_name, thisCdp, &thisShot);
+			shotNumber = (INT) thisShot;
+			fprintf(*trfile, "%s %8d.00 %10.0lf. %10.0lf.\n", myLineName, 
+						shotNumber, x, y);
+			}
+			nl_free_nlist(nlist);
+                    }
+                nl_next_row(lineList,ndim,dim_list,value_list);
+		}
+	    nl_free_nlist(lineList);
+	    }
+        if (lineList IS_NOT_EQUAL_TO (NLIST_HEADER)0)
+	    {
+	    nl_free_nlist(lineList);
+	    }
+	}
+/*****************************************************************************
+
+	C l e a n   U p   A n d   E x i t .
+
+******************************************************************************/
+    return;
+    }
+
+
+
+
+
+
+
+

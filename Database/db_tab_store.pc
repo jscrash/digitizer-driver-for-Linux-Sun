@@ -1,0 +1,178 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_TAB_STORE.PC */
+/* *7    14-AUG-1990 13:10:32 VINCE "(SPR 5644) Header Standardization" */
+/* *6    30-MAR-1990 16:42:23 GILLESPIE "(SPR 1) Remove oracle form call (push up to caller)" */
+/* *5    22-SEP-1989 17:05:16 VINCE "(SPR -1) modified calling sequence of db_table_storage" */
+/* *4    21-SEP-1989 14:38:41 GILLESPIE "(SPR 101) FIX UP SQL STATEMENT FOR INDEXES" */
+/* *3    19-SEP-1989 13:36:02 GILLESPIE "(SPR 100) GULF MODS" */
+/* *2    11-AUG-1989 13:52:46 CONROY "(SPR 9999) Initial checkin" */
+/* *1    11-AUG-1989 13:26:39 CONROY "Get storage parameters from user" */
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_TAB_STORE.PC */
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_db.h"
+
+#ifndef ESI_C_LIB_H
+
+#include "esi_c_lib.h"
+
+#endif
+
+#include "esi_oracle.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+    Routine to get the table storage parameters from the user.
+
+Prototype:
+    publicdef INT db_table_storage(DB_ACCOUNT_STRUCT *db_account, BOOL load_table);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) db_account  -(DB_ACCOUNT_STRUCT *) Account structure.
+    (I) load_table  -(BOOL) Do we load a table or not?
+
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT db_table_storage (DB_ACCOUNT_STRUCT *db_account, BOOL load_table) 
+#else
+publicdef INT db_table_storage (db_account, load_table)
+DB_ACCOUNT_STRUCT *db_account;
+BOOL load_table;
+#endif
+/* * VARIABLE LIST * */
+/* ----------------- */
+    {
+    BOOL s1_defined = FALSE;
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[1500];
+    VARCHAR table[31];
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ********************************************************************** */
+    
+    /* * LOAD ACCOUNT_TB_DEFS TABLE * */
+    /* ------------------------------ */
+    
+    if (load_table)
+        {
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"INSERT INTO ACCOUNT_TB_DEFS \
+     (TABLE_NAME, TYPE, TABLESPACE_NAME, \
+      PCT_FREE, PCT_USED, INI_TRANS, \
+      MAX_TRANS, INITIAL_EXTENT, NEXT_EXTENT, MIN_EXTENTS, \
+      MAX_EXTENTS, \
+      PCT_INCREASE) \
+    SELECT TNAME, 'DATA', NULL, \
+      PCT_FREE,PCT_USED,INI_TRANS, \
+      MAX_TRANS, INITIAL_ALLOC, NEXT_ALLOC, MINEXTENTS_ALLOC,\
+      MAXEXTENTS_ALLOC, PCTINCREASE_ALLOC \
+    FROM ESI.FINDER_TABLE_SPACE A, \
+         ESI.FINDER_TABLES B \
+    WHERE A.ONAME = B.TNAME \
+    AND B.SCOPE = '%s' \
+    AND B.TNAME NOT IN \
+      (SELECT TABLE_NAME FROM ACCOUNT_TB_DEFS)"
+                , db_account->scope);
+        EXEC SQL EXECUTE IMMEDIATE : sqlstmt;
+        
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"INSERT INTO ACCOUNT_TB_DEFS \
+     (TABLE_NAME, TYPE, TABLESPACE_NAME, \
+      PCT_FREE, PCT_USED, INI_TRANS, \
+      MAX_TRANS, INITIAL_EXTENT, NEXT_EXTENT, MIN_EXTENTS, MAX_EXTENTS, \
+      PCT_INCREASE) \
+    SELECT DISTINCT INAME, 'INDEX', NULL, \
+      PCT_FREE, PCT_USED, INI_TRANS, \
+      MAX_TRANS, INITIAL_ALLOC, NEXT_ALLOC, MINEXTENTS_ALLOC, \
+      MAXEXTENTS_ALLOC,PCTINCREASE_ALLOC \
+    FROM ESI.FINDER_TABLE_SPACE A, \
+         ESI.FINDER_TABLES B, \
+         ESI.FINDER_COLUMN_INDEXES C \
+    WHERE A.ONAME = C.INAME \
+    AND B.TNAME = C.TNAME \
+    AND B.SCOPE = '%s' \
+    AND INAME NOT IN \
+      (SELECT TABLE_NAME FROM ACCOUNT_TB_DEFS)"
+                , db_account->scope);
+        EXEC SQL EXECUTE IMMEDIATE : sqlstmt;
+        
+        ts_sto_upper (db_account->name);
+        
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"INSERT INTO ACCOUNT_TB_DEFS \
+    (TABLE_NAME, TYPE, TABLESPACE_NAME) \
+     VALUES \
+        (:v, 'TBSPC', '%s')"
+                , db_account->name);
+        
+        EXEC SQL SELECT NULL FROM ACCOUNT_TB_DEFS WHERE TABLE_NAME =
+                                                                     'XXX_DEFAULT_TABLESPACE'
+                                                                     ;
+        
+        if (OR_STATUS EQUALS OR_EOF)
+            {
+            EXEC SQL PREPARE S1 FROM : sqlstmt;
+            s1_defined = TRUE;
+            
+            V_FROMC (table, "XXX_DEFAULT_TABLESPACE");
+            EXEC SQL EXECUTE S1 USING : table;
+            }
+        EXEC SQL SELECT NULL FROM ACCOUNT_TB_DEFS WHERE TABLE_NAME =
+                                                                     'XXX_INDEX_TABLESPACE'
+                                                                     ;
+        
+        if (OR_STATUS EQUALS OR_EOF)
+            {
+            if (NOT s1_defined)
+                {
+                EXEC SQL PREPARE S1 FROM : sqlstmt;
+                }
+            V_FROMC (table, "XXX_INDEX_TABLESPACE");
+            EXEC SQL EXECUTE S1 USING : table;
+            }
+        EXEC SQL SELECT NULL FROM ACCOUNT_TB_DEFS WHERE TABLE_NAME =
+                                                                     'XXX_TEMPORARY_TABLESPACE'
+                                                                     ;
+        
+        if (OR_STATUS EQUALS OR_EOF)
+            {
+            if (NOT s1_defined)
+                {
+                EXEC SQL PREPARE S1 FROM : sqlstmt;
+                }
+            V_FROMC (table, "XXX_TEMPORARY_TABLESPACE");
+            EXEC SQL EXECUTE S1 USING : table;
+            }
+        EXEC SQL COMMIT WORK;
+        }
+    return SUCCESS;
+    }
+/* END:     */

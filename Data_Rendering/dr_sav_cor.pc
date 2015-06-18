@@ -1,0 +1,99 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_SAV_COR.PC*/
+/* *3    19-JUL-1990 17:53:56 GILLESPIE "(SPR 5411) Support for fault traces"*/
+/* *2    18-JUL-1990 07:19:12 GILLESPIE "(SPR 1) Add esi_dr_err.h"*/
+/* *1    19-JUN-1989 12:31:21 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_SAV_COR.PC*/
+
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/******************************************************************************
+
+NAME:          dr_save_correlation 
+
+DESCRIPTION:   Build correlations between a graphics object and its repective
+               elements 
+
+     Input:    object_id_in - the graphic object id
+               this_object - the item structure 
+
+     Output:   None
+
+     Status:   status from oracle
+
+******************************************************************************/
+
+#include    "esi_dr.h"
+#include    "esi_qs.h"
+#include    "esi_oracle.h"
+#include    "esi_dr_err.h"
+
+#if USE_PROTOTYPES
+publicdef INT dr_save_correlation(INT  object_id, OBJECT_STRUCTURE *this_object)
+#else
+publicdef INT dr_save_correlation(object_id,this_object)
+INT object_id;
+OBJECT_STRUCTURE *this_object;
+#endif
+{
+    INT status;
+    PROJECT_NAME project;
+    INT item_id;
+    CHAR item_class[10];
+
+/*  SQL Definitions   */
+
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[250];
+    EXEC SQL END DECLARE SECTION;
+
+/*  Build the INSERT statement   */
+
+    switch(this_object->object_type)
+    {
+        case DR_LINE_OBJECT:   /*  Line  */
+            item_id = this_object->object_ptr.current_line->line_id;
+            strcpy(item_class,LINE_TYPE);
+            break;
+
+        case DR_TEXT_OBJECT:   /* Text   */
+            item_id = this_object->object_ptr.current_text->text_id;
+            strcpy(item_class,TEXT_TYPE);
+            break;
+            
+        case DR_FAULT_OBJECT:
+            item_id = this_object->object_ptr.current_line->line_id;
+            strcpy(item_class,FAULTS_TYPE);
+            break;
+		default:
+            return DR_BAD_ID;
+            break;
+    }
+
+    qs_inq_c(QS_PROJECT_NAME,project, (INT *)0);
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"INSERT INTO %s.GRAPHIC_OBJECT_CORRELATIONS (OBJECT_ID,ITEM_ID,ITEM_CLASS) \
+VALUES (%d,%d,'%s')", project, object_id, item_id, item_class);
+
+    EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+
+    return OR_STATUS;
+}

@@ -1,0 +1,335 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element TO_DRW_CMP.PC */
+/*  16   13-FEB-1992 17:06:20 PURNA "(SPR 1347) added ho_add_path" */
+/* *15    6-NOV-1990 15:31:08 PURNA "(SPR 6156) township & section labels mods" */
+/* *14   14-AUG-1990 16:45:36 GILLESPIE "(SPR 2001) Use LINE_GC" */
+/* *13   20-JUL-1990 13:47:58 PURNA "(SPR 0) fix compiling errors" */
+/* *12   19-JUL-1990 18:49:13 GILLESPIE "(SPR 1) Change esi_ly.x to esi_ly.h" */
+/* *11   18-JUL-1990 18:49:00 JESSIE "(SPR 1) change include files" */
+/* *10   30-MAY-1990 17:13:57 GILLESPIE "(SPR 1) Fix column number enteries (different for text, lines)" */
+/* *9    28-MAY-1990 09:20:45 SCD "(SPR 1) Add text alignment overrides, and fix handling of clipping status." */
+/* *8     3-APR-1990 15:11:40 PURNA "(SPR 0) move tc_zeroes of line gc struct" */
+/* *7    29-MAR-1990 14:33:43 PURNA "(SPR 0) fix text size problem" */
+/* *6    27-MAR-1990 13:56:45 VINCE "(SPR 1) panic fixes" */
+/* *5    27-MAR-1990 01:41:43 PURNA "(SPR 1) Juggle methods" */
+/* *4    26-MAR-1990 23:25:26 PURNA "(SPR 5095) text bundle mods" */
+/* *3    25-MAR-1990 22:46:10 SCD "(SPR 1) Getting close" */
+/* *2    25-MAR-1990 12:02:47 SCD "(SPR 1) Initial checkin." */
+/* *1    24-MAR-1990 17:58:15 SCD "Draw composite LYNX objects." */
+/* DEC/CMS REPLACEMENT HISTORY, Element TO_DRW_CMP.PC */
+/* DEC/CMS REPLACEMENT HISTORY, Element TO_DRW_CMP.PC*/
+/* *1    13-AUG-1990 17:16:32 SYSTEM "Finder 6.1"*/
+/* DEC/CMS REPLACEMENT HISTORY, Element TO_DRW_CMP.PC*/
+/******************************************************************************
+
+                Copyright FINDER Graphics Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  && MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+            FINDER Graphics Systems, Inc.
+            201 Tamal Vista
+            Corte Madera, CA 94925
+            415/927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+
+
+
+
+/*************************************************************/
+/*                                                           */
+/* Function :       to_draw_composite_objects                */
+/*                                                           */
+/* Description :    Draw all composite objects of the        */
+/*                  the specified data type.                 */
+/* Author :         S. C. Darden (Mar 24,1990)               */
+/*************************************************************/
+
+/* Include Files */
+
+#include "esi_ly.h"                      /* graphics overlay */
+
+#ifndef ESI_TO_H
+#include "esi_to.h"
+#endif
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"                  /* oracle sql */
+#endif
+
+#ifndef ESI_AM_H
+#include "esi_am.h"                      /* application manager */
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_MP_H
+#include "esi_mp.h"
+#endif
+
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#include "esi_nl_meth_hdr.h"
+#include "esi_nl_methods.h"
+
+#if USE_PROTOTYPES
+publicdef INT to_draw_composite_objects (CHAR *data_type,
+                                     TO_STRUCT *values)
+#else
+publicdef INT to_draw_composite_objects (data_type, values)
+CHAR *data_type;
+TO_STRUCT *values;
+#endif
+    {
+
+    INT status = SUCCESS;
+    size_t n_bytes;
+    INT i;
+    PROJECT_NAME project;
+    DOUBLE minx, miny, maxx, maxy;
+    MAP_STRUCTURE *mapdef;
+    int total_lynx;
+    NLIST_HEADER nlist,nl_dump;
+    UINT dim_list[2];
+
+    INT bundle_id;
+    LINE_GC line;
+    TEXT_GC text;
+    VOIDPTR draw_hdr;       /* This will be changed to NLM_DRAW_HEADER */
+                            /* once that is implemented for all draw   */
+                            /* methods                                 */
+
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[1000];
+    long lynx_id_ptr[100];
+    VARCHAR nlist_files[100][81];
+    VARCHAR nlist_ids[100][62];
+    int n_rows;
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO ora_error;
+
+
+    /* ----------------------------------------------------- */
+    /* Get Project and Map structure to determine map window */
+    /* ----------------------------------------------------- */
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+
+    status = mp_get_current_map (&mapdef);
+    if (status != SUCCESS)
+        {
+        return status;
+        }
+
+    /* ----------------------------------------------------- */
+    /* Convert map window to project coord so we can fetch   */
+    /* only the objects intersecting the map                 */
+    /* ----------------------------------------------------- */
+
+    ct_project_xy (mapdef->lower_left_xy.x, mapdef->lower_left_xy.y, &minx,
+                   &miny);
+    ct_project_xy (mapdef->upper_right_xy.x, mapdef->upper_right_xy.y, &maxx,
+                   &maxy);
+#if 0
+    /* ----------------------------------------------------- */
+    /* Set up clipping structure to the map window           */
+    /* ----------------------------------------------------- */
+    clip.minList[0] = mapdef->lower_left_xy.x;
+    clip.minList[1] = mapdef->lower_left_xy.y;
+    clip.maxList[0] = mapdef->upper_right_xy.x;
+    clip.maxList[1] = mapdef->upper_right_xy.y;
+#endif
+
+    /* -------------------------------------------------- */
+    /* Select only the composite objects of the specified */
+    /* DATA_TYPE which intersect the map window           */
+    /* -------------------------------------------------- */
+
+    sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"SELECT C.LYNX_ID,DIGITAL_REF_VOLUME,DIGITAL_REF FROM \
+%s.LYNX_CULTURE C, %s.LYNX_OBJECTS O \
+WHERE DATA_TYPE||'' = '%s' \
+AND C.LYNX_ID = O.LYNX_ID \
+AND MINX < %lf AND MINY < %lf AND MAXX > %lf AND MAXY > %lf"
+            , project, project, data_type, maxx, maxy, minx, miny);
+
+    EXEC SQL PREPARE S_OBJ FROM : sqlstmt;
+    EXEC SQL DECLARE C_OBJ CURSOR FOR S_OBJ;
+    EXEC SQL OPEN C_OBJ;
+
+    total_lynx = 0;
+    FOREVER
+        {
+
+        EXEC SQL FETCH C_OBJ INTO : lynx_id_ptr,  : nlist_files,  : nlist_ids;
+        n_rows = OR_ROWCOUNT - total_lynx;
+        if (n_rows EQUALS 0)
+            {
+            break;
+            }
+
+	total_lynx = OR_ROWCOUNT;
+
+        /* draw the composite n-lists */
+        for (i = 0; i < n_rows; i++)
+            {
+            V_SETZERO (nlist_files[i]);
+            V_SETZERO (nlist_ids[i]);
+
+                /* --------------------------------------------------- */
+                /* Draw the clipped nlist. The proper drawing method   */
+                /* should be already attached to the n-list so that we */
+                /* handle either lines, text, symbols, etc.            */
+                /* --------------------------------------------------- */
+
+	    if (ARE_SAME (data_type, "C_SECTION_LABEL"))
+                {
+                dim_list[0] = 3, dim_list[1] = 4;
+
+                status = ct_get_nlist (&nlist, (CHAR *)nlist_files[i].arr,
+                                   (CHAR *)nlist_ids[i].arr, dim_list,
+                                   0.0);
+                if (status != SUCCESS)
+		    continue;
+
+                    /* ------------------------------------------ */
+                    /* Make darn sure there is a method           */
+                    /* Can remove this when other code cleaned up */
+                    /* ------------------------------------------ */
+
+                status = nl_set_nlist_method (nlist, NL_CLIP_METHOD,
+                                                  "NLM_WINDOW_CLIP_TEXT",
+                                                  nlm_window_clip_text);
+
+		/* clipping is removed here. it isn't necessary, since
+		the drawing tool will do the clipping 
+		(purna-10/16/90) */
+#if 0
+                clip.Col_List[0] = 3;
+                clip.Col_List[1] = 4;
+
+                    /* ----------------------------- */
+                    /* Clip the nlist before drawing */
+                    /* ----------------------------- */
+
+                status = nl_invoke_nlist_method (nlist,
+                                                     NL_CLIP_METHOD,
+                                                     &clip);
+                if (status != SUCCESS)
+		    continue;
+
+		nl_free_nlist(nlist);
+                nlist = clip.outNlist;
+#endif
+
+                tc_zeroes (&text, sizeof(TEXT_GC));
+
+                        /* Apply user overrides from the overlay */
+
+                text.text_color = values->text_color;
+                text.char_height = values->text_height;
+                text.char_spacing = values->text_spacing;
+                text.text_font = values->text_font;
+                text.string_h_just = values->text_h_just;
+                text.string_v_just = values->text_v_just;
+
+                nl_set_nlist_method (nlist, NL_DRAW_METHOD,
+                                     "TO_DRAW_TEXT_METHOD",
+                                      to_draw_text_method);
+                nl_invoke_nlist_method (nlist, NL_DRAW_METHOD,
+                                       (VOIDPTR) & text);
+                }
+            else    /* Assume must be line type C_TOWNSHIP, C_SECTION for now */
+                {
+                dim_list[0] = 1, dim_list[1] = 2;
+
+                status = ct_get_nlist (&nlist, (CHAR *)nlist_files[i].arr,
+                                   (CHAR *)nlist_ids[i].arr, dim_list,
+                                   0.0);
+                if (status != SUCCESS)
+		    continue;
+
+                    /* ------------------------------------------ */
+                    /* Make darn sure there is a method           */
+                    /* Can remove this when other code cleaned up */
+                    /* ------------------------------------------ */
+
+                status = nl_set_nlist_method (nlist, NL_CLIP_METHOD,
+                                                 "NLM_WINDOW_CLIP_BREAK",
+                                                  nlm_window_clip_break);
+		    /* clipping is removed. the drawing tool will do
+		       the job (purna - oct-16-1990) */
+#if 0
+                clip.Col_List[0] = 1;
+                clip.Col_List[1] = 2;
+
+                    /* ----------------------------- */
+                    /* Clip the nlist before drawing */
+                    /* ----------------------------- */
+
+                status = nl_invoke_nlist_method (nlist,
+                                                     NL_CLIP_METHOD,
+                                                     &clip);
+                if (status != SUCCESS)
+		    continue;
+
+		nl_free_nlist(nlist);
+                nlist = clip.outNlist;
+#endif
+
+                status = nl_inq_nlist_user_struct (nlist, sizeof(INT),
+                                                  (VOIDPTR) &
+                                                   bundle_id,
+                                                   &n_bytes);
+
+                tc_zeroes (&line, sizeof(LINE_GC));
+
+                status = ly_get_arc_bundle (NULL, 0, bundle_id,
+                                            &line);
+
+                /* Apply user overrides from the overlay */
+                if (values->line.color >= 0)
+                    line.line.color = values->line.color;
+                if (values->line.style >= 0)
+                    line.line.style = values->line.style;
+                if (values->line.width >= 0)
+                    line.line.width = values->line.width;
+
+                nl_set_nlist_method (nlist, NL_DRAW_METHOD,
+                                     "TO_DRAW_LINE_METHOD",
+                                      to_draw_line_method);
+                nl_invoke_nlist_method (nlist, NL_DRAW_METHOD,
+                                        (VOIDPTR) & line);
+                }
+            nl_free_nlist (nlist);
+            }
+
+        if (n_rows < 100)
+            break;
+        }
+
+    return status;
+
+ora_error:
+    return OR_STATUS;
+    }
+

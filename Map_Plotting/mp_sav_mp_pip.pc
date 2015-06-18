@@ -1,0 +1,372 @@
+/*  DEC/CMS REPLACEMENT HISTORY, Element MP_SAV_MP_PIP.PC*/
+/*  *5    17-AUG-1990 22:09:13 VINCE "(SPR 5644) Code Cleanup"*/
+/*  *4    15-FEB-1990 10:45:35 WALTERS "(SPR 0) Changes in map setup dialog"*/
+/*  *3    10-OCT-1989 17:01:05 CONROY "(SPR 5028) Mods for new plotting capability"*/
+/*  *2    26-JUN-1989 11:00:14 GILLESPIE "(SPR 20) Fix castings"*/
+/*  *1    19-JUN-1989 12:35:02 SYSTEM ""*/
+/*  DEC/CMS REPLACEMENT HISTORY, Element MP_SAV_MP_PIP.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+
+#ifndef ESI_GL_DEFS_H
+
+#include "esi_gl_defs.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_MP_H
+
+#include "esi_mp.h"
+
+#endif
+
+#ifndef ESI_MD_DEFS_H
+
+#include "esi_md_defs.h"
+
+#endif
+
+#ifndef ESI_MD_MSG_H
+
+#include "esi_md_msg.h"
+
+#endif
+
+#ifndef ESI_MD_ERR_H
+
+#include "esi_md_err.h"
+
+#endif
+
+#ifndef ESI_AM_H
+
+#include "esi_am.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+
+#ifndef ESI_AS_SAVE_H
+
+#include "esi_as_save.h"
+
+#endif
+
+#ifndef ESI_ASP_YESNO_H
+
+#include "esi_asp_yesno.h"
+
+#endif
+
+#ifndef ESI_WI_H
+
+#include "esi_wi.h"
+
+#endif
+
+#ifndef ESI_MG_H
+
+#include "esi_mg.h"
+
+#endif
+
+#include "md_mapdef.rh"
+
+/* Function Description -----------------------------------------------------
+Description:
+    Routine to save the currently active map definition
+    to the data base.
+
+Prototype:
+    publicdef INT mp_save_map_pipe();
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+    
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT mp_save_map_pipe ()
+#else
+publicdef INT mp_save_map_pipe ()
+#endif
+    {
+    
+    INT status = SUCCESS;
+    AS_SAVE_WORKSPACE save;
+    ASP_YESNO_WORKSPACE yesno;
+    MAP_STRUCTURE *mapdef;
+    MD_DISPLAY *display;
+    MD_COMPILED_MAPDEF *compiled;
+    MD_COMPILED_VERB *verb_ptr;
+    INT req_ndx;
+    INT i;
+    INT row;
+    PROJECT_NAME project;
+    CHAR or_msg[70];
+    CHAR msg[200];
+    BOOL select_opened = FALSE;
+    MAP_NAME dflt_name;
+    RESOURCE_ID *cdlg_id;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR map_name[41];
+    VARCHAR map_projection[16];
+    VARCHAR map_coordinate_system[16];
+    float lower_left_x;
+    float lower_left_y;
+    float upper_right_x;
+    float upper_right_y;
+    VARCHAR lower_left_str[21];
+    VARCHAR upper_right_str[21];
+    float map_scale;
+    VARCHAR map_scale_unit[21];
+    long display_lines;
+    long overlays;
+    VARCHAR title_block_name[41];
+    long verb_code;
+    long key_code;
+    long seq_no;
+    VARCHAR parameter[1000];
+    VARCHAR verb[26];
+    VARCHAR keyword[26];
+    VARCHAR sqlstmt[500];
+    long scale_sizes_for_plotting;
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ********************************************************************** */
+    
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    
+    am_open_workspace ("MAPDEF", AM_APPLICATION, (VOIDPTR *) & mapdef);
+    display = mapdef->display;
+    compiled = mapdef->compiled;
+    
+    am_open_workspace ("CDLG", AM_APPLICATION, (VOIDPTR *) & cdlg_id);
+    wi_query_dialog_item (cdlg_id->overlays_id, MD_MAP_NAME, &i, dflt_name);
+    strcpy (save.filename, dflt_name);
+    save.cancel = TRUE;
+    strcpy (save.message, mg_message (MD_SAVE_FILE_MSG));
+    
+    FOREVER
+        {
+        asp_save (&save);
+        if (save.status != SUCCESS)
+            {
+            break;
+            }
+        /* CHECK MAP NAME */
+        
+        else
+            {
+            if (ho_chk_fname (save.filename, strlen (save.filename)) != SUCCESS)
+                {
+                am_message (AM_ALERT, mg_message (MD_MAP_NOT_FOUND));
+                }
+            /* CHECK MAP EXISTENCE IN DATA BASE */
+            else
+                {
+                if (NOT select_opened)
+                    {
+                    sqlstmt.len = sprintf ((char *)sqlstmt.arr,
+                                  "SELECT OVERLAYS FROM %s.MAP_DEFINITIONS WHERE MAP_NAME = :x"
+                                           , project);
+                    EXEC SQL PREPARE S5 FROM : sqlstmt;
+                    EXEC SQL DECLARE C1 CURSOR FOR S5;
+                    select_opened = TRUE;
+                    }
+                V_C_TO_V (map_name, ts_sto_upper (save.filename));
+                EXEC SQL OPEN C1 USING : map_name;
+                EXEC SQL FETCH C1 INTO : overlays;
+                if (OR_STATUS EQUALS OR_EOF)
+                    {
+                    break;
+                    }
+                strcpy (yesno.question, mg_message (MD_EXISTS_CONTINUE));
+                yesno.cancel = FALSE;
+                asp_yesno (&yesno);
+                if (yesno.answer EQUALS 1)
+                    {
+                    break;
+                    }
+                }
+            }
+        }
+    /* * INITIALIZE ORACLE VARIABLES * */
+    /* ------------------------------- */
+    
+    if (save.status EQUALS SUCCESS)
+        {
+        V_C_TO_V (map_projection, mapdef->map_projection);
+        V_C_TO_V (map_coordinate_system, mapdef->map_coordinate_system);
+        lower_left_x = mapdef->lower_left_xy.x;
+        lower_left_y = mapdef->lower_left_xy.y;
+        upper_right_x = mapdef->upper_right_xy.x;
+        upper_right_y = mapdef->upper_right_xy.y;
+        V_C_TO_V (lower_left_str, mapdef->lower_left_str);
+        V_C_TO_V (upper_right_str, mapdef->upper_right_str);
+        map_scale = mapdef->map_scale;
+        V_C_TO_V (map_scale_unit, mapdef->map_scale_uom);
+        V_C_TO_V (title_block_name, mapdef->title_block_name);
+        scale_sizes_for_plotting = mapdef->scale_sizes_for_plotting;
+        display_lines = display->last_row_used;
+        overlays = 1;
+        for (i = 0; i < display->last_row_used; i++)
+            {
+            if (display->verb_ndx[i] EQUALS - 1)
+                {
+                overlays++;
+                }
+            }
+        /* * DELETE OLD MAPDEF RECORDS (IF ANY) * */
+        /* -------------------------------------- */
+        
+        EXEC SQL COMMIT;
+        
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr,
+                               "DELETE FROM %s.MAP_DEFINITIONS WHERE MAP_NAME = :v1",
+                               project);
+        
+        EXEC SQL PREPARE S1 FROM : sqlstmt;
+        EXEC SQL EXECUTE S1 USING : map_name;
+        
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr,
+                               "DELETE FROM %s.MAP_OVERLAYS WHERE MAP_NAME = :v1",
+                               project);
+        
+        EXEC SQL PREPARE S2 FROM : sqlstmt;
+        EXEC SQL EXECUTE S2 USING : map_name;
+        
+        /* * INSERT NEW MAPDEF * */
+        /* --------------------- */
+        
+        EXEC SQL WHENEVER SQLERROR GOTO orcerr;
+        
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"INSERT INTO %s.MAP_DEFINITIONS (MAP_NAME,PROJECTION, \
+COORDINATE_SYSTEM,LOWER_LEFT_X,LOWER_LEFT_Y,UPPER_RIGHT_X, \
+UPPER_RIGHT_Y,LOWER_LEFT_STR,UPPER_RIGHT_STR,MAP_SCALE,MAP_SCALE_UNIT, \
+DISPLAY_LINES,OVERLAYS,TITLE_BLOCK_NAME,SCALE_SIZES_FOR_PLOTTING) \
+VALUES (:v1,:v2,:v3,:v4,:v5,:v6,:v7,:v8,:v9,:v10,:v11,:v12,:v13,:v14,:v15)"
+                , project);
+        
+        EXEC SQL PREPARE S3 FROM : sqlstmt;
+        EXEC SQL EXECUTE S3 USING : map_name,  : map_projection,
+            : map_coordinate_system,  : lower_left_x,  : lower_left_y,
+            : upper_right_x,  : upper_right_y,  : lower_left_str,  : upper_right_str,
+            : map_scale,  : map_scale_unit,  : display_lines,  : overlays,
+            : title_block_name,  : scale_sizes_for_plotting;
+        
+        /*  Write the overlay strings                       */
+        
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"INSERT INTO %s.MAP_OVERLAYS (MAP_NAME, VERB_CODE, KEY_CODE, \
+    VERB, KEYWORD, PARAMETER, SEQ_NO) VALUES(:v1,:v2,:v3,:v4,:v5,:v6,:v7)"
+                , project);
+        
+        EXEC SQL PREPARE S4 FROM : sqlstmt;
+        
+        for (seq_no = 0; seq_no < display->last_row_used; seq_no++)
+            {
+            V_C_TO_V (parameter, display->parameters[seq_no]);
+            V_C_TO_V (keyword, display->keywords[seq_no]);
+            V_C_TO_V (verb, display->verbs[seq_no]);
+            
+            row = display->compiled_row[seq_no];
+            if (display->verb_ndx[seq_no] != -1)
+                {
+                verb_code = compiled->verb_code[row];
+                verb_ptr = compiled->verb_ptr[row];
+                }
+            else
+                {
+                verb_code = -1;
+                }
+            key_code = (display->key_ndx[seq_no] != -1) ?
+                       verb_ptr->key_code[display->key_ndx[seq_no]] :  - 1;
+            
+            EXEC SQL EXECUTE S4 USING : map_name,  : verb_code,  : key_code,  : verb,
+                : keyword,  : parameter,  : seq_no;
+            }
+        EXEC SQL COMMIT;
+        
+        if (strcmp (mapdef->map_name, save.filename) != 0)
+            {
+            strcpy (mapdef->map_name, save.filename);
+            wi_set_dialog_text (cdlg_id->overlays_id, MD_MAP_NAME, mapdef->map_name);
+            if (mapdef->map_window_id != 0)
+                {
+                mp_window_header ();
+                }
+            }
+        mapdef->change_flag = FALSE;
+        goto finished;
+        
+        /* * ORACLE ERROR ON INSERT * */
+        /* -------------------------- */
+        
+    orcerr:
+        
+        strncpy (or_msg, OR_MESSAGE, 70);
+        or_msg[70] = '\0';
+        ts_snowhite (or_msg);
+        sprintf (msg, "%s: %s", mg_message (MD_ORACLE_ERROR), or_msg);
+        am_message (AM_ALERT, msg);
+        status = MD_ORACLE_ERROR;
+        EXEC SQL WHENEVER SQLERROR CONTINUE;
+        EXEC SQL ROLLBACK;
+        }
+finished:
+    if (select_opened)
+        {
+        EXEC SQL CLOSE C1;
+        }
+    return status;
+    }
+/* END:     */

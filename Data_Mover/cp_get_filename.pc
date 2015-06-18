@@ -1,0 +1,408 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element CP_GET_FILENAME.PC */
+/* *4     6-MAY-1991 16:40:53 PURNA "(SPR 0) init change" */
+/* *3    31-JUL-1990 17:14:02 PURNA "(SPR 0) remove include esi_qs.h" */
+/* *2    30-JUN-1990 00:00:58 PURNA "(SPR 0) init changes" */
+/* *1    29-JUN-1990 16:01:44 PURNA "cp files" */
+/* DEC/CMS REPLACEMENT HISTORY, Element CP_GET_FILENAME.PC */
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+#ifndef ESI_GL_DEFS_H
+#include "esi_gl_defs.h"
+#endif
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_GL_VCHAR_H
+#include "esi_gl_vchar.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+/***************************************************************************/
+/*									   */
+/*	This routine uses the database table FILE_INFO to construct the    */
+/*	directory, file name, and nlist id for any nlist file created or   */
+/*	used by FINDER.  The table is defined as follows:		   */
+/*									   */
+/*		------------------------------------------------	   */
+/*		 tname   cname   cvalue   nldir   nlfile   nlid		   */
+/*		-------------------------------------------------	   */
+/*									   */
+/*	The primary key to this table is the column combination:	   */
+/*									   */
+/*			tname, cname, and cvalue			   */
+/*									   */
+/*	where tname is the name of the table, cname is the name of the	   */
+/*	column that specify where the naming information can be located.   */
+/*									   */
+/*	nldir contains the name of the directory where the FINDER file	   */
+/*	is stored.  If nldir is null then nlfile contains the full	   */
+/*	directory path for the file.  nlfile contains the name of the	   */
+/*	file the nlist is stored in.  nlid contains the nlist id	   */
+/*	stored within the file.						   */
+/*									   */
+/*	If nldir, nlfile, or nlid's first character is an '@' the	   */
+/*	characters that follow indicate the name of the column within	   */
+/*	tname which contains the needed information.			   */
+/*									   */
+/*	For example, if the FM_HDR, FILE_TYPE, GRID, null, @OS_PATHNAME,   */
+/*	GRID correspond to tname, cname, cvalue, nldir, nlfile, nlid	   */
+/*	respectively, then the name of the file is found in the table	   */
+/*	FM_HDR column OS_PATHNAME for the specified ORACLE ROWID and the   */
+/*	nlist id is GRID.						   */
+/*									   */
+/*	INPUTS:		row_id  an ORACLE ROWID				   */
+/*			tname	ORACLE table name being dealt with	   */
+/*			cname	ORACLE column name (within tname)	   */
+/*			cvalue	the value in cname at row row_id	   */
+/*									   */
+/*	OUTPUTS:	nl_dir	the directory in which the file is stored  */
+/*			nl_file	the name of the file			   */
+/*			nl_id	the nlist id stored in the file		   */
+/*									   */
+/***************************************************************************/
+/* EXEC ORACLE OPTION (REBIND = NO); */
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+#if USE_PROTOTYPES
+static INT cpz_get_info (CHAR *row_id, CHAR *tname,	CHAR *cname,
+	CHAR *cvalue, CHAR *nl_dir,CHAR *nl_file,CHAR *nl_id,CHAR *data_type);
+static INT cpz_get_col_list(CHAR *data_type,INT col[2]);
+#else
+static INT cpz_get_info ();
+static INT cpz_get_col_list();
+#endif
+
+publicdef INT cp_get_filename(row_id,project,tname,cname,cvalue,nl_dir,nl_file,
+	nl_id,col)    
+char *row_id,*project, *tname, *cname, *cvalue, *nl_dir, *nl_file, *nl_id;
+INT col[2];
+{
+    INT status;
+    CHAR data_type[30];
+
+    EXEC SQL BEGIN DECLARE SECTION;
+	VARCHAR sqlstmt[500];
+	static VARCHAR nlist_file[241];
+	static VARCHAR nlist_id[81];
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO ora_error;
+
+    status=cpz_get_info (row_id,tname,cname,cvalue,nl_dir,nl_file,nl_id,
+	    data_type);
+    if(status != SUCCESS) return status;
+
+    status=cpz_get_col_list(data_type,col);
+    if(status != SUCCESS) 
+	{
+	col[0]=0;
+	col[0]=0;
+	}
+
+     if(nl_file[0] == '@' AND nl_id[0] == '@')
+	{
+	sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+   	"SELECT %s,%s FROM %s.%s WHERE ROWID='%s'",nl_file+1,
+	    nl_id+1,project,tname,row_id);
+	}
+    else if (nl_file[0] == '@')
+	{
+	sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+	"SELECT %s FROM %s.%s WHERE ROWID='%s'",nl_file+1,
+	    project,tname,row_id);
+	}
+    else if (nl_id[0] == '@')
+	{
+	sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+	"SELECT %s FROM %s.%s WHERE ROWID='%s'",nl_id+1,
+            project,tname,row_id);
+        }
+
+    EXEC SQL PREPARE FILE_S FROM :sqlstmt;
+    EXEC SQL DECLARE FILE_C CURSOR FOR FILE_S;
+    EXEC SQL OPEN FILE_C;
+    
+    if(nl_file[0] == '@' AND nl_id[0] == '@')
+	{
+	EXEC SQL FETCH FILE_C INTO :nlist_file,:nlist_id;
+	V_SETZERO(nlist_file);
+	V_SETZERO(nlist_id);
+	V_FROMV(nl_file,nlist_file);
+	V_FROMV(nl_id,nlist_id);
+	}
+    else if (nl_file[0] == '@')
+	{
+	EXEC SQL FETCH FILE_C INTO :nlist_file;
+	V_SETZERO(nlist_file);
+	V_FROMV(nl_file,nlist_file);
+	}
+    else if (nl_id[0] == '@')
+	{
+	EXEC SQL FETCH FILE_C INTO :nlist_id;
+	V_SETZERO(nlist_id);
+	V_FROMV(nl_id,nlist_id);
+	}
+    EXEC SQL CLOSE FILE_C;
+    
+
+    return SUCCESS;
+
+ora_error:
+    return OR_STATUS;
+}
+       
+static INT cpz_get_info (row_id, tname, cname, cvalue, nl_dir, 
+		    nl_file, nl_id,d_type)
+char *row_id, *tname, *cname, *cvalue, *nl_dir, *nl_file, *nl_id,*d_type;
+{
+    int status;				/* return status indicator */
+    int add_punct;			/* add comma to sql if 1 */
+    int number_columns_selected;	/* # of columns in select statement */
+
+    EXEC SQL BEGIN DECLARE SECTION;
+	static VARCHAR table_name[30];		/* ORACLE table name to query */
+	static VARCHAR column_name[30];	/* column name to query */
+	static VARCHAR column_value[30];	/* column value within table & column */
+	static VARCHAR data_type[30];	
+
+	static VARCHAR nlist_dir[240];		/* result from query */
+	static VARCHAR nlist_file[240];	/* result from query */
+	static VARCHAR nlist_id[80];		/* result from query */
+
+	VARCHAR sqlstmt[400];		/* SQL statement to execute */
+	static VARCHAR v_1[240];		/* output from SQL statement */
+	static VARCHAR v_2[240];		/* output from SQL statement */
+	static VARCHAR v_3[240];		/* output from SQL statement */
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO :ora_error;
+    EXEC SQL WHENEVER NOT FOUND GOTO :ora_error;
+    /* initialize for query to ESI.FINDER_NLIST_MAPPING table		 */
+    /* by copying input strings to ORACLE host variables */
+
+    V_FROMC(table_name,tname);
+    V_FROMC(column_name,cname);
+
+    if(ARE_SAME(cvalue,""))
+	{
+	EXEC SQL SELECT DIRECTORY,FILE_NAME,NLIST_ID,DATA_TYPE
+	     INTO :nlist_dir, :nlist_file ,:nlist_id, :data_type
+	     FROM ESI.FINDER_NLIST_MAPPING 
+	     WHERE TNAME = :table_name AND
+		   CNAME = :column_name;
+
+	V_SETZERO (nlist_dir);
+	V_SETZERO (nlist_file);
+	V_SETZERO (nlist_id);
+	V_SETZERO (data_type);
+
+	V_FROMV (nl_dir, nlist_dir);
+	V_FROMV (nl_file, nlist_file);
+	V_FROMV (nl_id, nlist_id);
+	V_FROMV (d_type,data_type);	
+
+	return SUCCESS;
+        }		
+		
+    V_FROMC(column_value,cvalue);	
+
+    EXEC SQL SELECT DIRECTORY,FILENAME,NLIST_ID,DATA_TYPE
+	     INTO :nlist_dir, :nlist_file, :nlist_id, :data_type
+	     FROM ESI.FINDER_NLIST_MAPPING 
+	     WHERE TNAME = :table_name AND
+		   CNAME = :column_name AND
+		   CVALUE = :column_value;
+
+    /* if a record was found prepare the output fields */
+
+    if (!OR_STATUS)
+    {
+	V_SETZERO (nlist_dir);
+	V_SETZERO (nlist_file);
+	V_SETZERO (nlist_id);
+	V_SETZERO (data_type);
+
+	if (nlist_dir.arr[0] == '@' ||		/* if an indirection character is */
+	    nlist_file.arr[0] == '@' ||		/* the prepare the SQL statement and */
+	    nlist_id.arr[0] == '@')		/* retrieve the needed columns */
+	{
+	    add_punct = 0;
+	    number_columns_selected = 0;
+	    strcpy ((char *)sqlstmt.arr, "SELECT ");
+
+	    if (nlist_dir.arr[0] == '@')	/* directory contains indirection */
+	    {
+		strcat ((char *)sqlstmt.arr, (char *)nlist_dir.arr+1);
+		add_punct = 1;
+		number_columns_selected++;
+	    }
+
+	    if (nlist_file.arr[0] == '@')	/* file contains indireciton */
+	    {
+		if (add_punct)	/* add a comma to SQL if directory is selected */
+		{
+		    strcat ((char *)sqlstmt.arr, ",");
+		    add_punct = 0;
+		}
+		strcat ((char *)sqlstmt.arr, (char *)nlist_file.arr+1);
+		add_punct = 1;
+		number_columns_selected++;
+	    }
+
+	    if (nlist_id.arr[0] == '@')		/* id contains indirection */
+	    {
+		if (add_punct)	/* add a comma to SQL if dir or file is selected */
+		{
+		    strcat ((char *)sqlstmt.arr, ",");
+		}
+		strcat ((char *)sqlstmt.arr, (char *)nlist_id.arr+1);
+		number_columns_selected++;
+	    }
+
+	    /* add the FROM and WHERE clause to SQL statement */
+
+	    sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+				   "%s FROM %s WHERE ROWID = '%s'",
+				   (char *)sqlstmt.arr, tname, row_id);
+
+	    /* PREPARE and DECLARE sql cursor */
+
+	    EXEC SQL WHENEVER SQLERROR goto ora_error;
+	    EXEC SQL PREPARE S1 FROM :sqlstmt;
+	    EXEC SQL DECLARE C1 CURSOR FOR S1;
+	    EXEC SQL OPEN C1;
+
+	    switch (number_columns_selected)	/* select the FETCH with the  */
+	    {					/* correct # of returned cols */
+	        case 1:		/* SQL statement returns 1 column */
+		    EXEC SQL FETCH C1 INTO :v_1;
+
+		    /* Copy the SQL output to the variable that */
+		    /* contained the indirection		*/
+
+		    if (nlist_dir.arr[0] == '@')
+		    {				
+			V_FROMV (nl_dir, v_1);
+			V_FROMV (nl_file, nlist_file);
+			V_FROMV (nl_id, nlist_id);
+		    }
+		    else if (nlist_file.arr[0] == '@')
+			 {			
+			     V_FROMV (nl_dir, nlist_dir);
+			     V_FROMV (nl_file, v_1);
+			     V_FROMV (nl_id, nlist_id);
+			 }
+			 else if (nlist_id.arr[0] == '@')
+			      {			
+				  V_FROMV (nl_dir, nlist_dir);
+				  V_FROMV (nl_file, nlist_file);
+			          V_FROMV (nl_id, v_1);
+			      }
+		    break;
+
+	        case 2:		/* SQL statement returns 2 columns */
+		    EXEC SQL FETCH C1 INTO :v_1, :v_2;
+
+		    /* Copy the SQL output to the variables that */
+		    /* contained the indirections		 */
+
+		    if (nlist_dir.arr[0] == '@' && nlist_file.arr[0] == '@')
+		    {
+			V_FROMV (nl_dir, v_1);
+			V_FROMV (nl_file, v_2);
+			V_FROMV (nl_id, nlist_id);
+		    }
+
+		    if (nlist_dir.arr[0] == '@' && nlist_id.arr[0] == '@')
+		    {
+			V_FROMV (nl_dir, v_1);
+			V_FROMV (nl_file, nlist_file);
+			V_FROMV (nl_id, v_2);
+		    }
+
+		    if (nlist_file.arr[0] == '@' && nlist_id.arr[0] == '@')
+		    {
+			V_FROMV (nl_dir, nlist_dir);
+			V_FROMV (nl_file, v_1);
+			V_FROMV (nl_id, v_2);
+		    }
+		    break;
+
+	        case 3:		/* SQL statement returns 3 columns */
+		    EXEC SQL FETCH C1 INTO :nlist_dir, :nlist_file, :nlist_id;
+		    
+		    /* Copy the SQL output to the variables that */
+		    /* contained the indirections		 */
+
+		    V_FROMV (nl_dir, nlist_dir);
+		    V_FROMV (nl_file, nlist_file);
+		    V_FROMV (nl_id, nlist_id);
+		    break;
+	    }
+
+	    EXEC SQL WHENEVER SQLERROR CONTINUE;
+	    EXEC SQL CLOSE C1;
+	}
+	else
+	{
+                             /* Since no indirection existed copy the output
+                             from the ESI.FINDER_NLIST_MAPPING query to
+                             the functions output variables.    */
+
+	    V_FROMV (nl_dir, nlist_dir);
+	    V_FROMV (nl_file, nlist_file);
+	    V_FROMV (nl_id, nlist_id);
+	}
+
+	V_FROMV (d_type,data_type);
+
+	return SUCCESS;
+    }
+    else
+    {
+	return OR_STATUS;
+    }
+ora_error:
+    status = OR_STATUS;
+    EXEC SQL CLOSE C1;
+    return status;
+}
+
+static INT cpz_get_col_list(data_type,col)
+CHAR *data_type;
+INT col[2];
+{
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+	static VARCHAR tabname[31];
+	static int col1,col2;
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO ora_error;
+    EXEC SQL WHENEVER NOTFOUND GOTO ora_error;
+
+    V_FROMC(tabname,data_type);
+    EXEC SQL 
+	SELECT C.COLNUM,D.COLNUM 
+	INTO :col1, :col2
+        FROM ESI.FINDER_COLUMN_COUPLING A,ESI.FINDER_COLUMNS C,
+	     ESI.FINDER_COLUMN_COUPLING B,ESI.FINDER_COLUMNS D
+        WHERE A.CNAME=C.CNAME AND A.COUPLE_ID=B.COUPLE_ID AND
+              A.TNAME=:tabname AND B.TNAME=:tabname	AND
+              C.TNAME=:tabname	    AND D.TNAME=:tabname	AND
+              B.CNAME=D.CNAME AND C.DOMAIN=40 AND D.DOMAIN=41 AND
+	      A.COUPLE_TYPE='COORD';
+
+    col[0]=col1;
+    col[1]=col2;   
+ 
+    return SUCCESS;
+ora_error:
+    return OR_STATUS;
+}

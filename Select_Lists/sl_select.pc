@@ -1,0 +1,409 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SL_SELECT.PC*/
+/* *10    2-AUG-1991 17:25:56 PURNA "(SPR 3507) SEIS_TIE table retrieval fix"*/
+/* *9    31-JUL-1990 10:48:47 PURNA "(SPR 0) add lynx and lease select list"*/
+/* *8    26-JUL-1990 11:15:24 VINCE "(SPR 5644) Fixed compile errors introduced by the Header change."*/
+/* *7    25-JUL-1990 20:08:21 VINCE "(SPR 5644) Header Standardization"*/
+/* *6     4-DEC-1989 14:05:08 PURNA "(SPR 0) make slz_get_key_column publicdef"*/
+/* *5    31-OCT-1989 14:47:35 PURNA "(SPR 5039) mod slz_get_key_column"*/
+/* *4    30-OCT-1989 14:38:23 PURNA "(SPR 5039) Seismic Select List Mods"*/
+/* *3    13-AUG-1989 00:21:00 GILLESPIE "(SPR 5) Some minor cleanup"*/
+/* *2    25-JUL-1989 20:03:59 GILLESPIE "(SPR 50) Seismic system revamp"*/
+/* *1    19-JUN-1989 12:41:15 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element SL_SELECT.PC*/
+
+
+
+/******************************************************************************
+
+        Copyright Exploration Systems, Inc. 1989
+           Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+            Exploration Systems, Inc.
+            579 Market Street
+            San Francisco, CA  USA 94105
+            (415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+
+
+#include "esi_sl.h"
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_SL_METH_X
+#include "esi_sl_meth.x"
+#endif
+#ifndef ESI_SL_ERR_H
+#include "esi_sl_err.h"
+#endif
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+publicdef INT slz_get_key_column ();
+/*
+#if USE_PROTOTYPES
+static INT slz_get_key_column  (SL_DATA_TYPE data_type,
+				    TABLE_NAME table_name,
+				    COLUMN_NAME key_column);
+#else 
+static INT slz_get_key_column();
+#endif
+*/
+/* File Description ---------------------------------------------------------
+Overview:
+
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT sl_select (NLIST_HEADER control_list, TABLE_NAME table_name, 
+			    CHAR *sql_phrase,NLIST_HEADER *select_list,
+			    INT *num_items);
+
+    publicdef INT slz_get_key_column(TABLE_NAME data_type,COLUMN_NAME table_name,
+        SL_DATA_TYPE key_column );
+
+Private_Functions:
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+    Similar to the db_select() in the FINDER V4.  This routine will
+    retrieve rows of record from the data base, according to the given
+    SQL select phrase, only retruns those objects also included in the
+    control list.
+
+Prototype:
+    publicdef INT sl_select (NLIST_HEADER control_list, TABLE_NAME table_name, 
+			    CHAR *sql_phrase,NLIST_HEADER *select_list,INT *num_items);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) control_list    -(NLIST_HEADER) The given control list.
+    (I) table_name      -(CHAR []) The name of searched table.
+    (I) sql_phrase      -(CHAR []) The SQL selecing phrase.
+    (I) select_list     -(NLIST_HEADER *) The returned select list.
+    (I) num_items       -(INT *) The returned total number of retrieved items.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    SL_INVALID_DATA_TYPE
+    OR_STATUS
+
+Scope:
+    PUBLIC
+
+Limitations/Assumptions:
+    The inputed SQL phrase must have 'a.' in the front of columns of
+    given table.
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT sl_select (NLIST_HEADER control_list, TABLE_NAME table_name,
+                         CHAR *sql_phrase, NLIST_HEADER *select_list, 
+			 INT *num_items)
+#else
+publicdef INT sl_select (control_list, table_name, sql_phrase, select_list,
+                         num_items)
+NLIST_HEADER control_list;
+TABLE_NAME table_name;
+CHAR *sql_phrase;
+NLIST_HEADER *select_list;
+INT *num_items;
+#endif
+    {
+    INT status = SUCCESS;   /*return status.                           */
+    size_t nbytes;
+    UINT total_keys;
+    INT i, len;
+    UINT stroke;
+    SL_DATA_TYPE data_type;
+    BOOL null_control = FALSE;
+    BOOL null_sql = FALSE;
+    CHAR text[STMAX];
+    PROJECT_NAME project_name;
+    CHAR *project;
+    CHAR data_type_name[32];
+    SELECT_STRUCT select_struct, rtn_select_struct;
+    SL_OR_LOAD_STRUCT sl_ols;
+    SL_FEED_NL_STRUCT sl_fns;
+    /* ************************************************************************* */
+
+    sl_fns.table_name = (CHAR *)0;
+    sl_fns.sql_phrase = (CHAR *)0;
+        
+    if (table_name EQUALS (CHAR *)0)
+        {
+        return SL_INVALID_TABLE_NAME;
+        }
+    ts_sto_upper (table_name);
+    sl_fns.table_name = (CHAR *)tc_zalloc(sizeof(CHAR) * 
+					(strlen (table_name)+1));
+    strcpy (sl_fns.table_name, table_name);
+
+    /*  construct the table name.           */
+
+    *select_list = (NLIST_HEADER)0;
+    project = (CHAR *)0;
+    qs_inq_c (QS_PROJECT_NAME, project_name, (INT *)0);
+    status = slz_spt_project_table (&sl_fns.table_name, &project);
+    if (IS_STRING(project) AND strcmp (project, project_name))
+        {
+        sprintf (text,
+                 "The current project is %s, but retrieved project is %s",
+                 project_name, project);
+        am_message (AM_ALERT, text);
+        strcpy (project_name, project);
+        am_free (project);
+        }
+
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+        goto ernfd;
+        }
+
+    /*  If the SQL is NULL...  If the control_list  */
+    /*  is NULL...                  */
+
+    if (control_list EQUALS (NLIST_HEADER)0)
+        {
+        /*  construct the scratch table name by the     */
+        /*  first 4 character of the given table name.  */
+
+	status = sl_assign_data_type(sl_fns.table_name,&data_type);
+	if(status != SUCCESS) 
+	    return status;
+	status = slz_get_key_column (data_type,sl_fns.table_name, sl_fns.key_column);
+        if (status)
+	    {
+            goto ernfd;
+            }
+        /*  construct the SQL selecting phrase.     */
+        null_control = TRUE;
+        }
+    else
+        {
+        /*  inquire the data type.              */
+
+        status = nl_inq_nlist_user_struct (control_list,
+                                           sizeof(SELECT_STRUCT),
+                                           &select_struct, &nbytes);
+        data_type = select_struct.data_type;
+        status = nl_inq_nlist_int (control_list, NL_NLIST_NPOINTS,
+                                   (INT *)&total_keys);
+        if (status)
+            {
+            goto ernfd;
+            }
+        if (total_keys <= 0)
+            {
+            null_control = TRUE;
+            }
+        else
+            {
+	    status = slz_get_key_column (data_type,sl_fns.table_name, sl_fns.key_column);
+	    if (status)
+		{
+                goto ernfd;
+                }
+
+	    strcpy(sl_ols.unique_name,select_struct.name);
+	    sl_ols.nlist=control_list;
+	    status = sl_call_method(data_type,"OR_LOAD_LISTS",(VOIDPTR)&sl_ols);
+            }
+        }
+
+    /*  initialize the returned select list.        */
+
+    status = sl_init_select_list( data_type, select_list );
+    if (status)
+        {
+        goto ernfd;
+        }
+
+    /*  inquire the returned select list user       */
+    /*  structure.                  */
+
+    status = nl_inq_nlist_user_struct (*select_list, sizeof(SELECT_STRUCT),
+                                       &rtn_select_struct, &nbytes);
+
+    status = nl_start_stroke (*select_list, &stroke);
+    if (status)
+        {
+        return status;
+        }
+
+
+    /*  constructs the SQL select phrase.       */
+    if (IS_EMPTY_STRING(sql_phrase))
+        {
+        null_sql = TRUE;
+        }
+    else
+        {
+        sl_fns.sql_phrase = (CHAR *)tc_alloc(sizeof(CHAR)*
+					    (strlen (sql_phrase) + 2));
+        strcpy (sl_fns.sql_phrase, sql_phrase);
+        slz_del_where (&sl_fns.sql_phrase);
+        strcpy (rtn_select_struct.select_phrase, sql_phrase);
+        null_sql = FALSE;
+        }
+
+    /*  if the control list is not NULL, copy the   */
+    /*  control list name.              */
+    if (!null_control)
+        {
+        strcpy (rtn_select_struct.control_list, select_struct.name);
+        }
+
+    /*  copy the table name to the parent_file.     */
+    strcpy (rtn_select_struct.parent_file, table_name);
+
+    status = nl_set_nlist_user_struct (*select_list, &rtn_select_struct,
+                                       sizeof(SELECT_STRUCT));
+
+    sl_fns.null_control = null_control;
+    sl_fns.null_sql = null_sql;
+    strcpy(sl_fns.name,select_struct.name);
+    sl_fns.nlist = *select_list;
+    
+    status = sl_call_method(data_type,"SL_FEED_NLIST",(VOIDPTR)&sl_fns);
+
+ernfd:
+
+    if(sl_fns.table_name != (CHAR *)0)
+	tc_free (sl_fns.table_name);
+
+    if(sl_fns.sql_phrase != (CHAR *)0)
+	tc_free (sl_fns.sql_phrase);
+
+    if (nl_inq_nlist_int (*select_list, NL_NLIST_NPOINTS,
+                          num_items) != SUCCESS)
+        {
+        *num_items = 0;
+        }
+
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    To decide the data type of the table then retrieve the domain from
+    the FINDER_DATA_TYPES.  Finally, use the table_name and the domain
+    to retrieve the key column from the FINDER_COLUMNS.
+
+Prototype:
+static INT slz_get_key_column (SL_DATA_TYPE data_type,
+                                   TABLE_NAME table_name,
+                                   COLUMN_NAME key_column);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) data_type       -(SL_DATA_TYPE)
+    (I) table_name      -(TABLE_NAME)  The name of scratch table.
+    (I) key_column      -(COLUMN_NAME) The name of key column of the requested 
+					table.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    SL_KEY_COLUMN_NOT_FOUND
+    SL_INVALID_TABLE_NAME
+    SL_INVALID_DATA_TYPE
+    OR_STATUS
+
+Scope:
+    PUBLIC
+
+Limitations/Assumptions:
+
+----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT slz_get_key_column (SL_DATA_TYPE data_type,
+                                   TABLE_NAME table_name,
+                                   COLUMN_NAME key_column)
+#else
+publicdef INT slz_get_key_column (data_type, table_name, key_column)
+TABLE_NAME table_name;
+COLUMN_NAME key_column;
+SL_DATA_TYPE data_type;
+#endif
+    {
+
+    SL_DOMAIN_HEADER *sDomain;
+
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR column_name[31];
+    VARCHAR tname[31];
+    int column_domain;
+EXEC SQL END DECLARE SECTION;
+/* ************************************************************************* */
+
+    V_FROMC(tname,table_name);
+
+    EXEC SQL WHENEVER SQLERROR GOTO errpt;
+    EXEC SQL WHENEVER NOT FOUND GOTO ernfc;
+
+    for(sDomain= sl_column_domain;
+        sDomain->data_type IS_NOT_EQUAL_TO NULL_DATA_TYPE; sDomain++)
+        if (sDomain->data_type == data_type )
+            {
+	    column_domain = sDomain->domain;
+	    break;
+            }
+
+    if(sDomain->data_type == NULL_DATA_TYPE)
+	return SL_INVALID_DATA_TYPE;
+
+    /* go througth each domain to find  */
+    /* the column name in the           */
+    /* ESI.FINDER_COLUMNS.              */
+
+    EXEC SQL DECLARE C1 CURSOR FOR
+    	SELECT CNAME FROM ESI.FINDER_COLUMNS
+        WHERE TNAME = :tname AND
+        DOMAIN = :column_domain;
+    EXEC SQL OPEN C1;
+    EXEC SQL FETCH C1 INTO :column_name;
+
+    V_FROMV(key_column, column_name);
+    return SUCCESS;
+    /* the key column can not be found  */
+    /* by the given table name and domain*/
+    /* go for the next domain.           */
+ernfc:
+    /* there is no column found in those */
+    /* available domains.               */
+    return SL_KEY_COLUMN_NOT_FOUND;
+
+errpt:
+    return OR_STATUS;
+    }
+/* END:     */
+

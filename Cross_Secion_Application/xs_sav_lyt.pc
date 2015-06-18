@@ -1,0 +1,465 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element XS_SAV_LYT.PC*/
+/* *4    17-AUG-1990 22:43:46 VINCE "(SPR 5644) Code Cleanup"*/
+/* *3    29-DEC-1989 10:26:10 SCD "(SPR 100) Fix X problems with as_save server by reorg to use asp_save()."*/
+/* *2    26-JUN-1989 11:06:59 GILLESPIE "(SPR 20) Fix castings"*/
+/* *1    19-JUN-1989 12:42:45 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element XS_SAV_LYT.PC*/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_xs_defs.h"
+
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+
+#ifndef ESI_AS_YESNO_H
+#include "esi_as_yesno.h"
+#endif
+
+#ifndef ESI_WI_H
+#include "esi_wi.h"
+#endif
+
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_FI_H
+#include "esi_fi.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_AS_SAVE_H
+#include "esi_as_save.h"
+#endif
+
+#ifndef ESI_XS_MGS_H
+#include "esi_xs_msg.h"
+#endif
+
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+
+#ifndef XS_CDLGS_RH
+#include "xs_cdlgs.rh"
+#endif
+
+#define AS_YESNO_YES   1
+#define AS_YESNO_NO    0
+
+#if USE_PROTOTYPES
+static INT xs_save_user_interface (AS_SAVE_WORKSPACE *pswk);
+static INT xs_save_the_layout (XS_STRUCT *pxs, AS_SAVE_WORKSPACE *pswk);
+static INT xs_query_overwrite (AS_SAVE_WORKSPACE *pswk);
+static INT xs_query_layout_exists (AS_SAVE_WORKSPACE *pswk, INT *if_exists);
+
+#else       /* no prototypes */
+static INT xs_save_user_interface ();
+static INT xs_save_the_layout ();
+static INT xs_query_overwrite ();
+static INT xs_query_layout_exists ();
+
+#endif      /* of #if USE_PROTOTYPES */
+
+/* File Description ---------------------------------------------------------
+Overview:
+    "Save Server" routines.
+    
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT xs_save_init (XS_STRUCT *pxs);
+
+Private_Functions:
+    static INT xs_save_user_interface (AS_SAVE_WORKSPACE *pswk);
+
+    static INT xs_save_the_layout (XS_STRUCT *pxs, AS_SAVE_WORKSPACE *pswk);
+    
+    static INT xs_query_overwrite (AS_SAVE_WORKSPACE *pswk);
+    
+    static INT xs_query_layout_exists (AS_SAVE_WORKSPACE *pswk, INT *if_exists);
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+    Set up the "Save Server", start it and tell it where to go.          
+
+Prototype:
+    publicdef INT xs_save_init (XS_STRUCT *pxs);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    pxs             -(XS_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT xs_save_init (XS_STRUCT *pxs)
+#else
+publicdef INT xs_save_init (pxs)
+XS_STRUCT *pxs;
+#endif
+    {
+    INT status;
+    AS_SAVE_WORKSPACE *pswk;
+    
+    pswk = ALLOCATE (AS_SAVE_WORKSPACE);
+    pswk->cancel = TRUE;
+    strcpy (pswk->message, mg_message (XS_SAVE_LAY_AS));
+    strcpy (pswk->filename, pxs->layout_name);
+    
+    xs_save_user_interface (pswk);
+    
+    tc_free (pswk);
+    
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Save the layout.                                                      
+
+Prototype:
+    static INT xs_save_user_interface (AS_SAVE_WORKSPACE *pswk);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    pswk            -(AS_SAVE_WORKSPACE *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE to <xs_sav_lyt.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT xs_save_user_interface (AS_SAVE_WORKSPACE *pswk)
+#else
+static INT xs_save_user_interface (pswk)
+AS_SAVE_WORKSPACE *pswk;
+#endif
+    {
+    INT status;
+    XS_STRUCT *pxs;
+    CHAR squote = '\'';
+    CHAR dquote = '"';
+    CHAR percnt = '%';
+    CHAR atsign = '@';
+    CHAR underscore = '_';
+    INT name_length = 30;
+    INT if_exists;
+    INT done = FALSE;
+    
+    status = am_open_workspace (XS_WORKSPACE, AM_GLOBAL, (VOIDPTR *)(VOIDPTR *) & pxs);
+    
+    while (!done)
+        {
+        asp_save (pswk);
+        
+        if (pswk->status == SUCCESS)
+            {
+            /*  Validate layout name length. */
+            if (strlen (pswk->filename) > name_length)
+                pswk->filename[name_length] = '\0';
+            
+            /*  Eliminate bogus characters.  */
+            ts_str_convert (pswk->filename, name_length, squote, underscore);
+            ts_str_convert (pswk->filename, name_length, dquote, underscore);
+            ts_str_convert (pswk->filename, name_length, percnt, underscore);
+            ts_str_convert (pswk->filename, name_length, atsign, underscore);
+            
+            /*  Check to see if it exists.   */
+            status = xs_query_layout_exists (pswk, &if_exists);
+            if (status != SUCCESS)
+                {
+                return FAIL;
+                }
+            if (!if_exists)
+                {
+                status = xs_save_the_layout (pxs, pswk);
+                done = TRUE;
+                }
+            else
+                {
+                /* -------------------------------- */
+                /* If user verifies the overwrite,  */
+                /* save it and we are done.         */
+                /* Else continue loop so user can   */
+                /* choose another filename.         */
+                /* -------------------------------- */
+                status = xs_query_overwrite (pswk);
+                if (status == SUCCESS)
+                    {
+                    status = xs_delete_layout (pswk->filename);
+                    status = xs_save_the_layout (pxs, pswk);
+                    done = TRUE;
+                    }
+                }
+            }
+        else                        /* Cancel...Don't save!     */
+            {
+            am_message (AM_STATUS, mg_message (XS_SAVE_LAYOUT_CANCELED));
+            done = TRUE;
+            }
+        }
+    if (pxs->quit_flag == TRUE)     /*  <<<=== ALERT!  ALERT!   */
+        status = xs_term (pxs);     /*  <<<=== TEST & TERMINATE */
+    
+    return SUCCESS;
+    
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Save the layout.                                                      
+
+Prototype:
+    static INT xs_save_the_layout (XS_STRUCT *pxs, AS_SAVE_WORKSPACE *pswk);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    pxs             -(XS_STRUCT *)
+    pswk            -(AS_SAVE_WORKSPACE *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE to <xs_sav_lyt.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT xs_save_the_layout (XS_STRUCT *pxs, AS_SAVE_WORKSPACE *pswk)
+#else
+static INT xs_save_the_layout (pxs, pswk)
+XS_STRUCT *pxs;
+AS_SAVE_WORKSPACE *pswk;
+#endif
+    {
+    INT status;
+    CHAR message[80];
+    
+    sprintf (message, "%s  %s", mg_message (XS_SAVING_LAYOUT), pswk->filename);
+    wiscdt (pxs->msg_cdlg_id, XS_MESSAGE1, message);
+    status = xs_put_layout (pxs, pswk->filename);
+    if (status == SUCCESS)
+        {
+        pxs->changed_since_save = FALSE;
+        strcpy (pxs->layout_name, pswk->filename);
+        sprintf (message, "%s  %s", mg_message (XS_LAYOUT_IS), pswk->filename);
+        wiscdt (pxs->msg_cdlg_id, XS_MESSAGE2, message);
+        }
+    else
+        {
+        am_message (AM_ALERT, mg_message (XS_LAYOUT_NOT_SAVED));
+        er_log (mg_message (XS_LAYOUT_NOT_SAVED));
+        }
+    wiscdt (pxs->msg_cdlg_id, XS_MESSAGE1, mg_message (XS_PICK_MENU_ITEM));
+    
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Query database to determine if a Cross Section Layout exists.
+
+Prototype:
+    static INT xs_query_layout_exists (AS_SAVE_WORKSPACE *pswk, INT *if_exists);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    pswk            -(AS_SAVE_WORKSPACE *) Pointer to save workspace.                    
+    if_exists       -(INT *) TRUE if layout exists, else FALSE.
+
+Return Value/Status:
+    SUCCESS - If query succeeded,                                    
+    FAIL - If Oracle error encountered                             
+
+Scope:
+    PRIVATE to <xs_sav_lyt.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT xs_query_layout_exists (AS_SAVE_WORKSPACE *pswk, INT *if_exists)
+#else
+static INT xs_query_layout_exists (pswk, if_exists)
+AS_SAVE_WORKSPACE *pswk;
+INT *if_exists;
+#endif
+    {
+    INT len;
+    CHAR message[80];
+    PROJECT_NAME project;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR layout_name[32];
+    VARCHAR stmt[255];
+    int n_verbs;
+    EXEC SQL END DECLARE SECTION;
+    
+    *if_exists = FALSE;
+    len = 0;
+    qs_inq_c (QS_PROJECT_NAME, project, &len);
+    
+    V_FROMC (layout_name, pswk->filename);
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT COUNT\( VERB \) FROM %s.CROSS_SECTION_LAYOUTS \
+        WHERE LAYOUT_NAME = :layout_name AND SOURCE = USER"
+            , project);
+    
+    EXEC SQL WHENEVER SQLERROR GOTO errrpt;
+    
+    EXEC SQL PREPARE S1 FROM : stmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1 USING : layout_name;
+    EXEC SQL FETCH C1 INTO : n_verbs;
+    EXEC SQL CLOSE C1;
+    *if_exists = ((n_verbs > 0) ? TRUE : FALSE);
+    return SUCCESS;
+    
+errrpt:                             /*  SQL ERROR HANDLER  */
+    sprintf (message, "%.70s", OR_MESSAGE);
+    am_message (AM_ALERT, message);
+    er_log (message);
+    return FAIL;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    To ask permission to overwrite a Cross Section Layout.      
+
+Prototype:
+    static INT xs_query_overwrite (AS_SAVE_WORKSPACE *pswk);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    pswk            -(AS_SAVE_WORKSPACE *) Pointer to save workspace.
+
+Return Value / Status :
+    SUCCESS-Successful completion
+    FAIL-Unsuccessful completion
+Scope :
+    PRIVATE to <xs_sav_lyt.pc >
+
+Limitations / Assumptions :
+-----------------------------------------------------------------------------*/ 
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT xs_query_overwrite (AS_SAVE_WORKSPACE *pswk)
+#else
+static INT xs_query_overwrite (pswk)
+AS_SAVE_WORKSPACE *pswk;
+#endif
+    {
+    INT status;
+    INT class ;
+    INT id;                         /* Id of defined dialog.           */
+    INT ev_id;                      /* Id of resource generating event.*/
+    INT item;
+    
+    status = fi_push ();            /*  Push FINDER Environment  */
+    
+    pswk->status = FAIL;            /*  Assume no overwrite.     */
+    
+    status = am_define_resource (AM_DIALOG, /* Display Query CDLG.   */
+            XS_CDLGS_FILE, XS_FILEEXIST, NULL_FUNCTION_PTR, &id, pswk);
+    
+    status = wiscdt (id, XS_FILEEXIST_TEXT1, mg_message (XS_INQ_REPLACE_LAYOUT));
+    status = wiscdt (id, XS_FILEEXIST_FILENAME, pswk->filename);
+    status = wiopcd (id);
+    
+    if (status == SUCCESS)
+        {
+        for (status = FAIL; status != SUCCESS; )
+            {                       /* Request an event.  */
+            status = wirqevt (0, &class , &ev_id, &item);
+            /* Is it from dialog? */
+            if (ev_id == id)
+                {
+                status = SUCCESS;
+                switch (item)
+                    {               /* Service the event. */
+                case XS_FILEEXIST_OK:
+                    pswk->status = SUCCESS;
+                    break;
+                case XS_FILEEXIST_CANCEL:
+                    pswk->status = FAIL;
+                    break;
+                default:
+                    status = FAIL;
+                    break;
+                    }
+                }
+            else                    /* Event from wrong resource */
+                {
+                wibeep (1);
+                }
+            }
+        status = am_release_resource (id);  /* Remove the CDLG.      */
+        }
+    status = fi_pop ();             /*  Pop back to FINDER Env.   */
+    status = pswk->status;          /*  Set the return code.      */
+    return status;
+    }
+/* END:     */

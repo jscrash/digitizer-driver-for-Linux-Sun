@@ -1,0 +1,464 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element GQZ_PT_FTRC.PC*/
+/* *5    18-JUN-1991 12:40:32 PURNA "(SPR 0) geoquest mods"*/
+/* *4    11-DEC-1990 14:31:59 VINCE "(SPR 1) fixed a compile problem."*/
+/* *3     7-DEC-1990 14:50:10 VINCE "(SPR 1) Added inquiry of Z_NULL from the nList"*/
+/* *2    20-JUL-1990 11:52:24 VINCE "(SPR 5644) Header Standardization"*/
+/* *1    21-JUN-1990 19:23:08 GILLESPIE "Geoquest Link"*/
+/* DEC/CMS REPLACEMENT HISTORY, Element GQZ_PT_FTRC.PC*/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_oracle.h"
+#include "esi_am.h"
+#include "esi_mg.h"
+#include "esi_qs.h"
+#include "esi_ly.h"
+
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+#ifndef ESI_MATH_H
+#include "esi_math.h"
+#endif
+
+#include "fgs_gq_ies.h"
+#include "esi_wi.h"
+#include "interface.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+    Function called by Finder to export a set of fault traces to GeoQuest.
+
+Prototype:
+    publicdef INT gqz_put_ftrace(IES_STRUCT *pIES);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) pIES    - (IES_STRUCT *)
+
+Return Value/Status:
+    SUCCESS   - Successful completion.
+    OR_STATUS
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT gqz_put_ftrace (IES_STRUCT *pIES)
+#else
+publicdef INT gqz_put_ftrace (pIES)
+IES_STRUCT *pIES;
+#endif
+    {
+    INT    i, j;
+    DOUBLE null_x, null_y, null_z;
+    SEISMIC_FTRACE ftrace_struc;
+    F_HORIZON *pHorizon;
+    SEISMIC_FT_TRACE *pTrace;
+    FT_POINT *pPoint;
+    CHAR last_hor_code[32];
+    PROJECT_NAME project;
+    NLIST_HEADER nlist;
+    UINT nCol = 3;
+    VOIDPTR Var_List[3];
+    UINT Col_List[3];
+    INT Data_Types[3];
+    size_t Data_Widths[3];
+    INT Units[3];
+    UINT nrows;
+    INT points;
+    INT tables;
+    INT status;
+    BOOL new_hor;
+    FILENAME filename;
+    INT hor_mem_alloc;
+    INT fault_mem_alloc;
+    CHAR message[133];
+
+#ifdef DEBUG
+    DOUBLE jexp;
+    INT jmax;
+    INT k;
+    FILE *output;                   /* for testing - please delete */
+#endif
+
+    EXEC SQL BEGIN DECLARE SECTION;
+	VARCHAR stmt[1000];
+	VARCHAR hor_code[32];
+	VARCHAR fault_code[32];
+	VARCHAR digital_ref_volume[82];
+	VARCHAR digital_ref[63];
+	int	data_type;
+	int	seq;
+    EXEC SQL END DECLARE SECTION;
+    
+    last_hor_code[0] = 0;
+
+    Data_Types[0]  = Data_Types[1]  = Data_Types[2]  = FLOAT_TYPE;
+    Data_Widths[0] = Data_Widths[1] = Data_Widths[2] = sizeof(dp_t);
+    Col_List[0] = 1;
+    Col_List[1] = 2;
+    Col_List[2] = 3;
+
+    tc_zeroes ((VOIDPTR) &ftrace_struc, sizeof ftrace_struc);
+    ftrace_struc.int_null = -99999;
+    
+    /* load up the projection information */
+    
+    gqz_init_carto (&ftrace_struc.proj, &ftrace_struc.gd);
+    
+    ftrace_struc.f_horizon.vector_pointer = 
+	(void *)tc_zalloc (sizeof(F_HORIZON));
+
+    pHorizon      = (F_HORIZON *)ftrace_struc.f_horizon.vector_pointer;
+    hor_mem_alloc = 1;
+
+    ftrace_struc.f_horizon.number_elements = 1;
+    ftrace_struc.f_horizon.element_size    = sizeof(F_HORIZON);
+    ftrace_struc.f_horizon.element_format  = VEC_TYPE_F_HORIZON;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO err;
+    
+    /* get all info */
+
+    /* digital_ref_volume is the nlist_filename, */
+    /* digital_ref is the nlist_id               */
+
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+
+    stmt.len = sprintf ((CHAR *)stmt.arr, 
+    "SELECT HOR_CODE, FAULT_CODE, SEQ, \
+	    DIGITAL_REF_VOLUME, DIGITAL_REF, \
+	    DATA_TYPE \
+     FROM   %s.SEIS_FAULT_TRACE \
+     ORDER BY HOR_CODE, FAULT_CODE",
+    project);
+    
+    EXEC SQL PREPARE S1 FROM :stmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1;
+    
+    EXEC SQL FETCH C1 INTO 
+	:hor_code, :fault_code, :seq,
+	:digital_ref_volume, :digital_ref,
+	:data_type;
+    
+    while (OR_STATUS == SUCCESS)
+        {
+        V_SETZERO (hor_code);
+        V_SETZERO (fault_code);
+        V_SETZERO (digital_ref_volume);
+        V_SETZERO (digital_ref);
+
+        if (ARE_DIFFERENT (last_hor_code, (CHAR *)hor_code.arr))
+            {                       /* new horizon name ? */
+            sprintf (message, "Preparing faults for horizon %s",
+		     (char *)hor_code.arr);
+
+            wi_set_dialog_text (pIES->cdlg_id, pIES->message_field,
+				message);
+
+            if (IS_EMPTY_STRING (last_hor_code) == FALSE)
+                {                   /* not the first horizon ? */
+                if (ftrace_struc.f_horizon.number_elements == hor_mem_alloc)
+                    {               /* more horizon memory needed */
+                    hor_mem_alloc *= 2;
+                    ftrace_struc.f_horizon.vector_pointer =
+			    tc_realloc (ftrace_struc.f_horizon.vector_pointer,
+					sizeof(F_HORIZON) * hor_mem_alloc);
+
+                    /* get the horizon pointer */
+                    pHorizon =
+			(F_HORIZON *)ftrace_struc.f_horizon.vector_pointer +
+				ftrace_struc.f_horizon.number_elements;
+
+                    ftrace_struc.f_horizon.number_elements++;
+                    /* update number of horizon */
+                    }
+                else
+                    {               /* no memory allocation needed */
+                    pHorizon++;     /* get the horizon pointer */
+                    }
+                }
+
+            tc_zeroes ((VOIDPTR)pHorizon, sizeof(F_HORIZON));
+            V_FROMV (pHorizon->horizon_name, hor_code);
+            
+            /* initialize,update fault of the horizon */
+            
+            pHorizon->seismic_ft_trace.vector_pointer =
+			(void *)tc_alloc (sizeof(SEISMIC_FT_TRACE));
+
+            pTrace = (SEISMIC_FT_TRACE *)pHorizon->seismic_ft_trace.vector_pointer;
+
+            fault_mem_alloc = pHorizon->seismic_ft_trace.number_elements = 1;
+
+            pHorizon->seismic_ft_trace.element_size = sizeof(SEISMIC_FT_TRACE);
+            pHorizon->seismic_ft_trace.element_format = VEC_TYPE_FT_TRACE;
+            
+            new_hor = TRUE;
+            }
+        else
+            {
+            new_hor = FALSE;
+            }
+
+        status = ho_add_path ("ESI$FAULT_TRACE",
+			      (CHAR *)digital_ref_volume.arr,
+                              sizeof(filename), filename);
+
+        status = nl_read_nlist (&nlist, filename, (CHAR *)digital_ref.arr);
+
+	/* ----------------------------------------- */
+	/* inquire the number of tables in the nlist */
+	/* ----------------------------------------- */
+
+        nl_inq_nlist_int (nlist, NL_NLIST_NTABLES, &tables);
+
+	/* --------------------------------------------------- */
+	/* get the column null values from the nList and put   */
+	/* it in the fault trace structure                     */
+	/* --------------------------------------------------- */
+	/* NOTE: get the values from the first table, the rest */
+	/*	 should be identical.                          */
+	/* --------------------------------------------------- */
+
+	Var_List[0] = (VOIDPTR)&null_x;
+	Var_List[1] = (VOIDPTR)&null_y;
+	Var_List[2] = (VOIDPTR)&null_z;
+
+	nl_inq_table_info (nlist, 1, NL_NLIST_NULL_VALUE, nCol,
+			   Col_List, Var_List);
+
+	ftrace_struc.dp_null = null_z;
+
+	/* ------------------------------------------------------------ */
+	/* create a fault trace element for each table in the nList and */
+	/* move the point data into the structure.			*/
+	/* ------------------------------------------------------------ */
+
+        for (i = 1; i <= tables; i++)
+            {
+            if (new_hor == FALSE)
+                {
+		/* -------------------------------------------------- */
+                /* fault memory allocation and update same as horizon */
+		/* shown above                                        */
+		/* -------------------------------------------------- */
+
+                if (pHorizon->seismic_ft_trace.number_elements == fault_mem_alloc)
+                    {
+                    fault_mem_alloc *= 2;
+                    pHorizon->seismic_ft_trace.vector_pointer =
+			tc_realloc (pHorizon->seismic_ft_trace.vector_pointer,
+				    sizeof(SEISMIC_FT_TRACE) * fault_mem_alloc);
+
+                    }
+
+                pTrace = (SEISMIC_FT_TRACE *)
+                         pHorizon->seismic_ft_trace.vector_pointer +
+                         pHorizon->seismic_ft_trace.number_elements;
+
+                pHorizon->seismic_ft_trace.number_elements++;
+                }
+
+            tc_zeroes ((VOIDPTR)pTrace, sizeof(SEISMIC_FT_TRACE));
+            V_FROMV (pTrace->fault_name, fault_code);
+
+	    /* ---------------------------------------------- */
+	    /* set the segment id equal to the element number */
+	    /* ---------------------------------------------- */
+
+            pTrace->ft_seg_id = pHorizon->seismic_ft_trace.number_elements;
+
+	    /* -------------------------------------- */
+	    /* get the number of points in the table. */
+	    /* -------------------------------------- */
+
+            nl_inq_table_int (nlist, i, NL_TABLE_NROWS, &points);
+            
+	    /* ------------------------------------ */
+            /* initialize, update ft_point of fault */
+	    /* ------------------------------------ */
+            
+            pTrace->ft_point.vector_pointer =
+		(FT_POINT *)tc_zalloc (sizeof(FT_POINT) * points);
+
+            pTrace->ft_point.number_elements = points;
+            pTrace->ft_point.element_size    = sizeof(FT_POINT);
+            pTrace->ft_point.element_format  = VEC_TYPE_FT_POINT;
+            
+	
+            switch (data_type)
+                {
+                case 1:
+                default:
+                    pTrace->z_value_code = Z_VALUE_TIME;
+                    break;
+                case 2:
+                    pTrace->z_value_code = Z_VALUE_DEPTH;
+                    break;
+                case 3:
+                    pTrace->z_value_code = Z_VALUE_UNSNAPPED_TIME;
+                    break;
+                }
+
+            nl_set_current_row (nlist, 1, i);
+            
+            for (j = 0, pPoint = (FT_POINT *)pTrace->ft_point.vector_pointer;
+                 j < points; j++, pPoint++)
+                {
+                Var_List[0] = (VOIDPTR) &pPoint->x;
+                Var_List[1] = (VOIDPTR) &pPoint->y;
+                Var_List[2] = (VOIDPTR) &pPoint->z;
+
+                nl_get_rows_convert (nlist, 1, nCol, Col_List, Var_List, Units,
+                                     Data_Widths, Data_Types, &nrows);
+
+                if (pPoint->z == null_z)
+                    {
+                    pPoint->valid = VALID_X | VALID_Y;
+                    }
+                else
+                    {
+                    pPoint->valid = VALID_X | VALID_Y | VALID_Z;
+                    }
+                }
+            }
+
+        nl_free_nlist (nlist);
+        V_FROMV (last_hor_code, hor_code);
+
+        EXEC SQL FETCH C1 INTO 
+	    :hor_code, :fault_code, :seq,
+	    :digital_ref_volume, :digital_ref,
+	    :data_type;
+        }
+
+    EXEC SQL CLOSE C1;
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL COMMIT WORK;
+    
+    if (ftrace_struc.f_horizon.number_elements > 0)
+        {
+#ifdef DEBUG
+	output = ho_open ("test.out", "w", NULL);
+        fprintf (output, " --- num_hor %d hor_mem_alloc %d ---\n",
+                 ftrace_struc.f_horizon.number_elements, hor_mem_alloc);
+
+        for (i = 0, pHorizon = (F_HORIZON *)ftrace_struc.f_horizon.vector_pointer;
+             i < hor_mem_alloc;
+	     i++, pHorizon++)
+            {
+            if (i < ftrace_struc.f_horizon.number_elements)
+                {
+                jexp = log10((DOUBLE)pHorizon->seismic_ft_trace.number_elements)
+			/ log10((DOUBLE)2);
+                jmax = ldexp ((DOUBLE)1, (INT)ceil(jexp));
+
+                fprintf (output,
+                         "hor_code : %s, num_fault : %d fault_mem_alloc : %d\n",
+                         pHorizon->horizon_name,
+                         pHorizon->seismic_ft_trace.number_elements, jmax);
+
+                for (j = 0, pTrace = (SEISMIC_FT_TRACE *)
+				    pHorizon->seismic_ft_trace.vector_pointer;
+                     j < jmax;
+		     j++, pTrace++)
+                    {
+                    if (j < pHorizon->seismic_ft_trace.number_elements)
+                        {
+                        fprintf (output,
+                                 "  fault_code : %s, seg_id : %d points : %d \n",
+                                 pTrace->fault_name, pTrace->ft_seg_id,
+                                 pTrace->ft_point.number_elements);
+
+                        for (k = 0, pPoint = (FT_POINT *)
+						pTrace->ft_point.vector_pointer;
+                             k < pTrace->ft_point.number_elements;
+			     k++, pPoint++)
+                            {
+                            fprintf (output, "    points x : %f, y : %f \n",
+				     pPoint->x, pPoint->y);
+                            }
+
+                        tc_free (pTrace->ft_point.vector_pointer);
+                        }
+                    }
+
+                tc_free (pHorizon->seismic_ft_trace.vector_pointer);
+                }
+
+            tc_free (ftrace_struc.f_horizon.vector_pointer);
+            }
+
+        fclose (output);
+#else
+        strcpy (message, "Sending fault traces to IES");
+        wi_set_dialog_text (pIES->cdlg_id, pIES->message_field, message);
+
+        c_put_ftrace_ies (&ftrace_struc, (opt_list_t *)0, &status);
+
+        for (i = 0, pHorizon = (F_HORIZON *)
+				ftrace_struc.f_horizon.vector_pointer;
+             i < ftrace_struc.f_horizon.number_elements;
+	     i++, pHorizon++)
+            {
+            for (j = 0, pTrace = (SEISMIC_FT_TRACE *)
+				    pHorizon->seismic_ft_trace.vector_pointer;
+                 j < pHorizon->seismic_ft_trace.number_elements;
+		 j++, pTrace++)
+                {
+                tc_free (pTrace->ft_point.vector_pointer);
+                }
+
+            tc_free (pHorizon->seismic_ft_trace.vector_pointer);
+            }
+
+        tc_free (ftrace_struc.f_horizon.vector_pointer);
+#endif
+        }
+    else
+        {
+        strcpy (message, "The SEIS_FAULT_TRACE table is empty.");
+        wi_set_dialog_text (pIES->cdlg_id, pIES->message_field, message);
+        }
+
+    return SUCCESS;
+        
+err:
+    printf ("\n %.70s\n", OR_MESSAGE);
+    return OR_STATUS;
+    }
+/* END:     */

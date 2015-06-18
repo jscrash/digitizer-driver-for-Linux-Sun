@@ -1,0 +1,184 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SX_SV_DISPOPT.PC*/
+/* *4    17-AUG-1990 22:23:00 VINCE "(SPR 5644) Code Cleanup"*/
+/* *3     1-SEP-1989 14:41:13 CONROY "(SPR 9999) MODS FOR NEW FULL_LINE_STRUCT"*/
+/* *2    25-JUL-1989 20:15:25 GILLESPIE "(SPR 50) Seismic system revamp"*/
+/* *1    19-JUN-1989 12:41:44 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element SX_SV_DISPOPT.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_sx.h"
+#include "esi_oracle.h"
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+    Save the seis map disp opt record.
+
+Prototype:
+    publicdef INT sx_save_disp_opt(SX_STRUCT *psx);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    psx             -(SX_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    OR_STATUS
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT sx_save_disp_opt (SX_STRUCT *psx)
+#else
+publicdef INT sx_save_disp_opt (psx)
+SX_STRUCT *psx;
+#endif
+    {
+    INT status;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    
+    int count;
+    VARCHAR select[1024];
+    VARCHAR line_name[21];
+    VARCHAR survey[21];
+    short isurvey;
+    VARCHAR connect_shot_points[2];
+    float first_line_label_angle;
+    int first_line_label_paraperp;
+    float last_line_label_angle;
+    int last_line_label_paraperp;
+    VARCHAR shot_symbol_trigger[2];
+    int shot_symbol_value;
+    VARCHAR shot_label_trigger[2];
+    int shot_label_value;
+    VARCHAR zvalue_trigger[2];
+    int zvalue_value;
+    float shot_label_angle;
+    int shot_label_paraperp;
+    int shot_symbol_code;
+    VARCHAR shot_label_format[21];
+    short ishot;
+    VARCHAR shot_label_nlist_id[62];
+    
+    EXEC SQL END DECLARE SECTION;
+    
+    /* start program */
+    /* if a record exists delete it */
+    
+    select.len = sprintf ((char *)select.arr,
+                 "DELETE FROM SEIS_MAP_DISP_OPT WHERE LINE_NAME = '%s' AND SURVEY = '%s'"
+                          , psx->pso->current_line.line_name,
+                          psx->pso->current_line.survey);
+    
+    EXEC SQL PREPARE S1 FROM : select;
+    EXEC SQL EXECUTE S1;
+    
+    /* add new record */
+    
+    select.len = sprintf ((char *)select.arr, 
+"INSERT INTO SEIS_MAP_DISP_OPT  \
+VALUES (:line_name, :survey:isurvey, :connect_shot_points, \
+:first_line_label_angle, :first_line_label_paraperp, \
+:last_line_label_angle, :last_line_label_paraperp, \
+:shot_symbol_trigger, :shot_symbol_value, :shot_label_trigger, \
+:shot_label_value, :zvalue_trigger, :zvalue_value, \
+:shot_label_angle, :shot_label_paraperp, :shot_symbol_code, \
+:shot_label_format, :shot_label_nlist_id:ishot)"
+            );
+    
+    /* build insert variables */
+    
+    V_FROMC (line_name, psx->pso->current_line.line_name);
+    V_FROMC (survey, psx->pso->current_line.survey);
+    if (IS_STRING (psx->pso->current_line.survey))
+        {
+        isurvey = 0;
+        }
+    else
+        {
+        isurvey = -1;
+        }
+    V_FROMC (connect_shot_points, psx->pso->disp_opt.connect_shot_points);
+    first_line_label_angle = psx->pso->disp_opt.first_line_label_angle;
+    first_line_label_paraperp = psx->pso->disp_opt.first_line_label_paraperp;
+    last_line_label_angle = psx->pso->disp_opt.last_line_label_angle;
+    last_line_label_paraperp = psx->pso->disp_opt.last_line_label_paraperp;
+    V_FROMC (shot_symbol_trigger, psx->pso->disp_opt.line.shot_symbol_trigger);
+    shot_symbol_value = psx->pso->disp_opt.line.shot_symbol_value;
+    V_FROMC (shot_label_trigger, psx->pso->disp_opt.line.shot_label_trigger);
+    shot_label_value = psx->pso->disp_opt.line.shot_label_value;
+    V_FROMC (zvalue_trigger, psx->pso->disp_opt.line.zvalue_trigger);
+    zvalue_value = psx->pso->disp_opt.line.zvalue_value;
+    shot_label_angle = psx->pso->disp_opt.shot_label_angle;
+    shot_label_paraperp = psx->pso->disp_opt.shot_label_paraperp;
+    shot_symbol_code = psx->pso->disp_opt.shot_symbol_code;
+    V_FROMC (shot_label_format, psx->pso->disp_opt.shot_label_format);
+    V_FROMC (shot_label_nlist_id, psx->pso->disp_opt.shot_label_nlist_id);
+    if (strlen (psx->pso->disp_opt.shot_label_nlist_id) != 0)
+        {
+        ishot = 0;
+        }
+    else
+        {
+        ishot = -1;
+        }
+    /* insert new record */
+    
+    EXEC SQL WHENEVER SQLERROR GOTO errrpt;
+    
+    EXEC SQL PREPARE S1 FROM : select;
+    EXEC SQL EXECUTE S1 USING : line_name,  : 
+survey:
+    isurvey,  : connect_shot_points,  : first_line_label_angle,
+        : first_line_label_paraperp,  : last_line_label_angle,
+        : last_line_label_paraperp,  : shot_symbol_trigger,  : shot_symbol_value,
+        : shot_label_trigger,  : shot_label_value,  : zvalue_trigger,  : zvalue_value,
+        : shot_label_angle,  : shot_label_paraperp,  : shot_symbol_code,
+        : shot_label_format,  : 
+shot_label_nlist_id:
+    ishot;
+    
+    EXEC SQL COMMIT WORK;
+    
+    status = SUCCESS;
+    SX_RETURN;
+    
+    /* something is wrong */
+    
+errrpt:
+    status = OR_STATUS;
+    SX_RETURN;
+    }
+/* END:     */

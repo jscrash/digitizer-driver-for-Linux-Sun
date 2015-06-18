@@ -1,0 +1,313 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SEF_READ_OPT.PC */
+/* *5    20-AUG-1990 17:10:55 KEE "(SPR -1) fixing compile error at sun" */
+/* *4    17-AUG-1990 22:15:01 VINCE "(SPR 5644) Code Cleanup" */
+/* *3    29-JUN-1990 19:03:19 GILLESPIE "(SPR 1) Changes for fault posting; removal of underbrush" */
+/* *2    30-MAY-1990 15:03:50 PURNA "(SPR 0) add gulf change" */
+/* *1    30-MAY-1990 15:02:27 PURNA "se files" */
+/* DEC/CMS REPLACEMENT HISTORY, Element SEF_READ_OPT.PC */
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Finder Graphics Systems, Inc.
+			201 Tamal Vista Blvd
+			Corte Madera, CA  USA 94925
+			(415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#ifndef ESI_SE_H
+#include "esi_se.h"
+#endif
+#ifndef ESI_HT_H
+#include "esi_ht.h"
+#endif
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#define NDIM 3
+static INT datatype[NDIM] =
+    {
+    FLOAT_TYPE, FLOAT_TYPE, FLOAT_TYPE
+    };
+
+static size_t width[NDIM] =
+    {
+    sizeof(FLOAT), sizeof(FLOAT), sizeof(FLOAT)
+    };
+
+static INT units[NDIM] =
+    {
+    0, 0, 0
+    };
+
+static INT valueinc[NDIM] =
+    {
+    VALUE_LIST, VALUE_LIST, VALUE_LIST
+    };
+
+static VOIDPTR value_list[NDIM];
+static UINT dimlist[NDIM] =
+    {
+    1, 2, 3
+    };
+#if USE_PROTOTYPES
+static INT sez_get_nlist(LINE_HDR *p_hdr,NLIST_HEADER *nlist);
+#else
+static INT sez_get_nlist();
+#endif
+
+/*****************************************************************************/
+
+publicdef INT sef_read_optim (p_hdr)
+LINE_HDR *p_hdr;
+                             /* this function is used to read the nlist
+                                optim_xy corresponding to the given line
+                                and to fill the structure p_hdr with the
+                                information on this nlist                   */
+
+    {
+    INT status;
+    UINT tot_points, nb;
+    COORD x, y;
+    CDP cdp_num;
+    NLIST_HEADER nlist;
+    
+			    /* get nlist */
+
+    status=sez_get_nlist(p_hdr,&nlist);
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+	return status;
+        }    
+			     			     
+                             /* inquire the total number of points in the   */
+                             /* nlist                                       */
+
+    status = nl_inq_nlist_int (nlist, NL_NLIST_NPOINTS,
+                                   (INT *)&tot_points);
+
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+	{
+	nl_free_nlist (nlist);
+	return status;
+	}
+
+                             /* allocate memory for the arrays used to      */
+                             /* store the points                            */
+
+    p_hdr->array_cdp = (FLOAT *)tc_zalloc (tot_points * sizeof(FLOAT));
+    p_hdr->array_x = (FLOAT *)tc_zalloc (tot_points * sizeof(FLOAT));
+    p_hdr->array_y = (FLOAT *)tc_zalloc (tot_points * sizeof(FLOAT));
+
+                             /* perform a loop on the points to fill the    */
+                             /* array get the first point of the nlist      */
+
+    value_list[0] = (VOIDPTR)p_hdr->array_cdp;
+    value_list[1] = (VOIDPTR)p_hdr->array_x;
+    value_list[2] = (VOIDPTR)p_hdr->array_y;
+
+                             /* set current point to first point of the
+                                nlist and call nl_get_converts_points to
+                                read the all nlist and convert the cdp from
+                                int to float                                */
+
+    status = nl_set_current_point (nlist, 1, 1);
+
+    status = nl_get_points_convert (nlist, tot_points, NDIM, dimlist,
+				    value_list, units, width, datatype,
+				    &nb);
+
+                             /* free the memory allocated for the nlist     */
+
+    status = nl_free_nlist (nlist);
+
+    p_hdr->nb_points = tot_points;
+
+    if (tot_points EQUALS 0)
+	{
+                             /* set nb_points to no_position data           */
+
+	p_hdr->nb_points = NO_POSITION_DATA;
+	return SUCCESS;
+	}
+    else
+	{
+                             /* lower cdp in the list                       */
+
+	p_hdr->low_cdp_coord = *(p_hdr->array_cdp);
+			     /*	upper cdp in the list			    */
+
+	p_hdr->up_cdp_coord = *(p_hdr->array_cdp + p_hdr->nb_points - 1);
+        return SUCCESS;
+        }
+}
+
+
+/**************************************************************************
+    function : sez_get_nlist
+    
+    description :
+    first we test that the nlist name is not null if it is null :
+    if GULf then build nlist from table p.seismic markstn
+    else return FAIL               
+
+****************************************************************************/
+
+static INT sez_get_nlist(p_hdr,nlist)
+LINE_HDR *p_hdr;
+NLIST_HEADER *nlist;
+{
+    INT status;
+    FILENAME nlist_file;
+    PROJECT_NAME project;
+    FILENAME full_filename;
+    BOOL first_pass=TRUE;
+    UINT table_num;
+    COORD x,y;
+    PROJECTION_ID proj_proj;
+    PROJECTION_STRUCTURE *proj_projection;
+    PROJECTION_STRUCTURE *geo_projection;
+    HASH_TABLE *stn_table=(HASH_TABLE *)0;
+    
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[256];
+    static int cdp;
+    static double lat,lon;    
+EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO :sqlerr;
+
+    *nlist=(NLIST_HEADER)0;
+
+    if (IS_STRING(p_hdr->optim_xy_id))
+	{			     
+                             /* the nlist file name is taken in the structure
+                             and se_bld_nlist_ids is used to prepend the logical
+                             used for seismic nlist  */
+	strcpy (nlist_file, p_hdr->nlist_file);
+
+	status = se_bld_nlist_ids (&p_hdr -> line, (VOIDPTR)0,
+				    SEIS_OPTIM_XY_DATA, p_hdr->optim_xy_id,
+				    nlist_file, full_filename);
+
+                             /* read the nlist and store the first and last
+                             values of the cdp in this nlist             */
+	if (status EQUALS SUCCESS)
+	    status = nl_read_nlist (nlist, full_filename, p_hdr->optim_xy_id);
+
+                             /* set nb_points to no_position data           */
+	if (status IS_NOT_EQUAL_TO SUCCESS)
+	    {
+	    p_hdr->nb_points = NO_POSITION_DATA;
+	    return status;
+	    }
+
+	return SUCCESS;
+	}
+    else
+	{
+
+#ifdef GULF
+	sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+	"SELECT DISTINCT STN_NO,LATDE_NO,LNGTDE_NO \
+FROM PURNA.SEISMIC_MARKSTN \
+WHERE SMIC_LINE_IDNTR=%d AND MKR_NM='DUMMY'",p_hdr->line.id);
+	EXEC SQL PREPARE S1 FROM :sqlstmt;
+	EXEC SQL DECLARE C1 CURSOR FOR S1;
+	EXEC SQL OPEN C1;
+
+
+	EXEC SQL FETCH C1 INTO :cdp,:lat,:lon;
+                             /* no nlist with coordinates x y               */
+	if(OR_STATUS EQUALS OR_EOF)
+	    {			     
+	    status=FAIL;
+	    goto finished;
+	    }
+
+	value_list[0] = (VOIDPTR)&cdp;
+	value_list[1] = (VOIDPTR)&x;
+	value_list[2] = (VOIDPTR)&y;
+
+	status=	nl_init_nlist(nlist,NDIM,units,width,datatype,valueinc,500)
+		OR
+		ht_init_hash_table(100,10,HT_INT_KEY,sizeof(INT),0,
+                                HT_APPLICATION_TABLE,&stn_table)
+		OR
+		nl_start_table(*nlist,&table_num);
+
+                             /* no nlist with coordinates x y               */
+	if(OR_STATUS EQUALS OR_EOF)
+            goto finished;
+
+	qs_inq_c(QS_PROJECT_PROJECTION,proj_proj,0);
+	status=	ct_get_projection("GEODETIC",&geo_projection)
+		OR
+		ct_get_projection(proj_proj,&proj_projection);
+                             /* no nlist with coordinates x y               */
+        if(OR_STATUS EQUALS OR_EOF)
+            goto finished;
+
+	FOREVER 
+	    {
+	    if((status=ht_find(stn_table,(VOIDPTR)&cdp,0)) != SUCCESS)
+		{
+		status= ct_transform_point(lon,lat,geo_projection,
+					   &x,&y,proj_projection);
+		if(OR_STATUS EQUALS OR_EOF)
+		    goto finished;
+
+		status=	nl_add_points(*nlist,1,NDIM,dimlist,value_list);
+		if(OR_STATUS EQUALS OR_EOF)
+		    goto finished;
+
+		status= ht_insert(stn_table,(VOIDPTR)&cdp,0);			    		
+		if(OR_STATUS EQUALS OR_EOF)
+		    goto finished;
+		}
+	    EXEC SQL FETCH C1 INTO :cdp,:lat,:lon;
+	    if(OR_STATUS EQUALS OR_EOF)
+		break;
+	    }
+	ht_free_table(&stn_table);
+	return SUCCESS;
+#endif
+	p_hdr->nb_points = NO_POSITION_DATA;
+	return FAIL;
+	}
+
+    return FAIL;    
+
+sqlerr :
+    status=OR_STATUS;
+finished :
+    p_hdr->nb_points = NO_POSITION_DATA;
+    if(*nlist != (NLIST_HEADER)0)
+	nl_free_nlist(*nlist);	
+    if(stn_table != (HASH_TABLE *)0)
+	ht_free_table(&stn_table);
+    return status;
+}

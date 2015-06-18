@@ -1,0 +1,264 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element FI_CNFG_TRM.PC*/
+/* *5    14-AUG-1990 22:50:22 GILLESPIE "(SPR 5644) Fix problems with last checkin"*/
+/* *4    14-AUG-1990 13:13:15 VINCE "(SPR 5644) Header Standardization"*/
+/* *3    18-JUL-1989 09:54:16 GORDON "(SPR 100) merge changes"*/
+/* *2    26-JUN-1989 10:43:45 GILLESPIE "(SPR 20) Fix castings"*/
+/* *1    19-JUN-1989 12:31:48 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element FI_CNFG_TRM.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_fi.h"
+#include "esi_am_int.h"
+
+#ifndef ESI_C_LIB_H
+
+#include "esi_c_lib.h"
+
+#endif
+
+#ifndef ESI_HO_H
+
+#include "esi_ho.h"
+
+#endif
+
+#ifndef ESI_TC_H
+
+#include "esi_tc.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_FI_MSG_H
+
+#include "esi_fi_msg.h"
+
+#endif
+
+#ifndef ESI_CONF_WS_H
+
+#include "esi_conf_ws.h"
+
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+    FINDER_CONFIG_TERMINAL is part of the Finder configuration process.
+    Each physical terminal line has associated with it a type of terminal,
+    and a workstation key which indicates the other (graphics) equipment
+    associated with that terminal.
+
+    For the configuration to occur for a particular terminal line, an
+    entry must exist, for that line, in the file "terminal.configuration".
+    Moreover, the file "terminal.configuration" must exist, or the
+    process will fail.
+
+    Information about the terminal line is placed in the CONFIGURATION
+    global workspace.
+
+    It is a system management function, outside the scope of the terminal
+    configuration process, to set up the terminal line records for each
+    line.
+
+Prototype:
+    publicdef INT finder_config_terminal();
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+    
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT finder_config_terminal () 
+#else
+publicdef INT finder_config_terminal ()
+#endif
+    {
+    INT status;                     /* Completion status */
+    BOOL cursor_open;               /* cursor open flag */
+    CHAR text[100];                 /* Messages */
+    CHAR node[17];                  /* network node name */
+    CONFIGURATION_WORKSPACE *c;     /* Pointer to CONFIGURATION workspace */
+    CONFIGURATION_WORKSPACE c4;     /* Only needed for version 4 */
+    CHAR *terminal_name;            /* terminal name/id */
+    CHAR *pnode;                    /* character pointer */
+    CHAR **tcp;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    
+    VARCHAR stmt[128];              /* SQL statement */
+    VARCHAR workstation_name[31];   /* Workstation name */
+    VARCHAR terminal_type[8];       /* terminal type */
+    
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ********************************************************************** */
+    
+    /*   Access CONFIGURATION global workspace. */
+    
+    if (am_static ()->initialized)
+        {
+        am_open_workspace ("CONFIGURATION", AM_GLOBAL, (VOIDPTR *) & c);
+        }
+    else
+        {
+        tc_zeroes ((VOIDPTR) & c4, sizeof(CONFIGURATION_WORKSPACE));
+        c = &c4;
+        }
+    /*   Get terminal line identifier and place
+         in CONFIGURATION workspace. */
+    
+    terminal_name = ho_terminal (c->terminal_line_id);
+    strcpy (text, terminal_name);   /* copy the name ... */
+
+#ifdef vms
+    /* Get the current node name */
+    /* name is in the form _xxxxxx:: */
+    strcpy (node, "");
+    status = ho_translate_symbol ("SYS$NODE", &tcp);
+    strcpy (node, tcp[0]);
+    
+    /*   use textbuffer to build 'likename' */
+    
+    if (text[0] == '_')
+        {                           /* if 1st char is '_', make '%' */
+        text[0] = '%';
+        }
+    else
+        {
+        text[0] = '%';
+        strcpy (&text[1], terminal_name);
+        }
+    if (text[(strlen (text) - 1)] == ':')
+        {                           /* if last char is ':', make '%' */
+        text[(strlen (text) - 1)] = '%';
+        }
+    else
+        {
+        strcat (text, "%");
+        }
+    if (status != SUCCESS OR strlen (node) EQUALS 0)
+        {
+        stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT TERMINAL_TYPE, WORKSTATION_NAME \
+FROM ESI.TERMINAL_CONFIGURATION \
+WHERE TERMINAL_NAME LIKE '%s'"
+                , text);
+        }
+    else
+        {                           /* VMS NODE NAMES LOOK LIKE _ABC:: - convert to ABC */
+        pnode = node + strlen (node) - 1;
+        while (*pnode EQUALS ':')
+            {
+            *pnode-- = 0;
+            }
+        pnode = node[0] EQUALS '_' ? node + 1 : node;
+        stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT TERMINAL_TYPE, WORKSTATION_NAME \
+FROM ESI.TERMINAL_CONFIGURATION \
+WHERE TERMINAL_NAME LIKE '%s' AND NODE = '%s'"
+                , text, pnode);
+        }
+#else
+    stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT TERMINAL_TYPE, WORKSTATION_NAME \
+FROM ESI.TERMINAL_CONFIGURATION \
+WHERE TERMINAL_NAME = '%s'"
+            , text);
+#endif
+    cursor_open = FALSE;
+    EXEC SQL WHENEVER SQLERROR GO TO BAD_TABLE_ACCESS;
+    EXEC SQL PREPARE S1 FROM : stmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1;
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    cursor_open = TRUE;
+    EXEC SQL FETCH C1 INTO : terminal_type,  : workstation_name;
+    
+    if (OR_STATUS EQUALS SUCCESS)
+        {
+        V_FROMV (c->terminal_type, terminal_type);
+        }
+    else
+    BAD_TABLE_ACCESS:
+        /*   TERMINAL_CONFIGURATION record not found
+             for this terminal. If the operator didn't
+             specify a workstation name, then assume
+             Mac only. Assume ESITERM Mac. */
+        {
+        if (!c->workstation_name[0])
+            {
+            c->maconly = TRUE;
+            }
+        strcpy (c->terminal_type, "ESITERM");
+        }
+    if (cursor_open)
+        {
+        EXEC SQL CLOSE C1;
+        }
+    status = SUCCESS;
+    
+    /*   If user asked for maconly on the command
+         line, forget about what the file says
+         that the workstation should be. */
+    
+    if (c->maconly)
+        c->workstation_name[0] = 0;
+    
+    /*   If user did not override the workstation
+         name on the command line, then set it
+         according to the line record. */
+    
+    else
+        {
+        if (!c->workstation_name[0])
+            V_FROMV (c->workstation_name, workstation_name);
+        }
+    /*   For V4 only */
+    
+    qs_set_c (QS_WORKSTATION_NAME, c->workstation_name, strlen (c->workstation_name));
+    qs_set_c (QS_TERMINAL_TYPE, c->terminal_type, strlen (c->terminal_type));
+    
+    return status;
+    }
+/* END:     */

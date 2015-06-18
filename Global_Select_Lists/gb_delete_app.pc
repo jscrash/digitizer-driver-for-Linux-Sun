@@ -1,0 +1,524 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element GB_DELETE_APP.PC*/
+/*  11   20-FEB-1992 16:25:14 LOEBL "(SPR 6138) Change to ZZ_ prefix for temp names"*/
+/*  10   13-FEB-1992 15:48:37 PURNA "(SPR 5101) added data type in the delete phrase where clause"*/
+/* *9    30-JUL-1990 17:22:10 PURNA "(SPR 0) add lynx,lease select_list"*/
+/* *8    28-MAY-1990 12:22:24 SCD "(SPR 1) Fix bug displaying N-1 list deleted."*/
+/* *7    29-DEC-1989 14:29:14 SCD "(SPR 100) Fix problem with duplicate frees of tcp and list_array."*/
+/* *6    16-DEC-1989 16:20:53 JULIAN "(SPR 100) Reorganize server/modal event loop logic"*/
+/* *5     6-DEC-1989 12:15:29 GORDON "(SPR 0) fix type of confirm_server function"*/
+/* *4     1-NOV-1989 09:21:55 GILLESPIE "(SPR 30) REMOVE REFS TO GRAPHIC OBJECT SELECTS"*/
+/* *3    13-AUG-1989 15:16:20 CONROY "(SPR 0) Correct SQL exclusion of $$ named lists"*/
+/* *2    12-AUG-1989 21:26:10 CONROY "(SPR 0) Revised SL convention of $$ hidden lists"*/
+/* *1    19-JUN-1989 12:32:21 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element GB_DELETE_APP.PC*/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Finder Graphics Systems, Inc.
+			201 Tamal Vista Blvd
+			Corte Madera, CA  USA 94925
+			(415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+/****************************************************************
+
+ This file contains the necessary routines which implement the
+ Delete List function in the Global "Make or Highlight List"
+ dialog box.
+
+ Author : Caroline Heng
+
+ Date : August 1988
+
+*******************************************************************/
+
+#include "esi_gb.h"
+#include "esi_c_lib.h"
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_WI_MAC_H
+#include "esi_wi_mac.h"
+#endif
+#ifndef ESI_SL_H
+#include "esi_sl.h"
+#endif
+#ifndef ESI_GB_MSG_H
+#include "esi_gb_msg.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+#ifndef ESI_MG_H
+#include    "esi_mg.h"
+#endif
+
+#if USE_PROTOTYPES
+
+static INT check_selection(INT *numlist, INT nitems);
+static INT confirm_dialog_init(INT *id, CHAR **tcp, INT numlist);
+static INT confirm_server(INT id, INT item, CHAR **tcp);
+static INT delete_app_init(CHAR *data_type, CHAR ***tcp);
+static INT delete_server(INT id, INT item, CHAR **tcp);
+static INT process_delete(CHAR **tcp);
+static INT retrieve_list(ANALYST_NAME user, PROJECT_NAME project,
+    CHAR ***tcp, CHAR *data_type);
+static INT sort_list (INT *list);
+
+#else
+
+static INT check_selection();
+static INT confirm_dialog_init();
+static INT confirm_server();
+static INT delete_app_init();
+static INT delete_server();
+static INT process_delete();
+static INT retrieve_list();
+static INT sort_list();
+
+#endif
+
+/*
+---------------------------------------------------------
+|        Dummy Declaration ( Pro*C Compiler )           |
+---------------------------------------------------------
+*/
+EXEC SQL BEGIN DECLARE SECTION;
+
+EXEC SQL END DECLARE SECTION;
+
+/*
+----------------------------------------------------------
+|        Resource Include Files                          |
+----------------------------------------------------------
+*/
+#include "gb_dlist_cdlg.rh"
+#include "gb_dlist_con_cdlg.rh"
+
+/*
+-----------------------------------------------------------
+|        Global Variables                                |
+-----------------------------------------------------------
+*/
+static INT *list_array = 0;	/* contain the position number of the selected list */
+static INT cdlg_id;		/* the Delete List dialog id  */
+#define ALL_DONE 1000		/* the flag for application's events */
+
+
+/******************************************************************
+
+ Routine : SORT_LIST
+
+ Purpose : Sorting the list in descending order.
+
+*********************************************************************/
+
+static INT sort_list ( list )
+INT *list;
+{
+  INT i,j;
+  INT temp;
+
+  for (i=0; list[i]; i++)
+    for (j=i+1; list[j]; j++)
+       if ( list[i] < list[j] )
+	 {
+	    temp = list[i];
+	    list[i] = list[j];
+	    list[j] = temp;
+	 }
+ return SUCCESS;
+}
+
+
+/*************************************************************
+
+ Routine : PROCESS_DELETE
+
+ Purpose : Delete the list(s) which are selected by the user
+	   from database.
+
+***************************************************************/
+
+static INT process_delete (tcp)
+CHAR **tcp;
+
+{
+   PROJECT_NAME project;
+   ANALYST_NAME username;
+   INT i,offset;
+   INT status;
+   EXEC SQL BEGIN DECLARE SECTION;
+     VARCHAR string[31];
+     VARCHAR stmt2[255];
+   EXEC SQL END DECLARE SECTION;
+
+   qs_inq_c (QS_FINDER_ACCOUNT, username, (INT *) 0);
+   qs_inq_c (QS_PROJECT_NAME, project, (INT *) 0);
+   stmt2.len = sprintf((char *)stmt2.arr, "DELETE FROM %s.SLIST_HDR WHERE \
+     SOURCE = '%s' AND NAME= :string ", project, username);
+   EXEC SQL PREPARE S2 FROM :stmt2;
+   sort_list ( list_array );
+   for (i=0; list_array[i]; i++)
+    {
+      offset = list_array[i] -1 ;
+      strcpy ( (char *)string.arr, tcp[offset] );
+      string.len = strlen ( (char *)string.arr );
+      EXEC SQL EXECUTE S2 USING :string;
+      ts_tcp_delete (tcp, list_array[i]);
+    }
+   EXEC SQL COMMIT WORK;
+   return SUCCESS;
+}
+
+
+/****************************************************************
+
+ Routine : CONFIRM_SERVER
+
+ Purpose : The server routine for confirmation dialog.
+
+*****************************************************************/
+
+static INT confirm_server (id, item, tcp)
+INT id;
+INT item;
+CHAR **tcp;
+
+{
+  INT status= SUCCESS;
+  INT nitems;
+
+
+  switch (item)
+    {
+      case CDLG_200_DELETE:
+	   status = process_delete(tcp);
+	   nitems = ts_tcp_len (tcp);
+	   if (nitems)
+	      status = wisselt (cdlg_id, CDLG_100_SELECTOR, CDLG_100_VSCROLL,
+				nitems, nitems, tcp);
+	   break;
+      case CDLG_200_NOT_DELETE:
+	   break;
+      default:
+	   status = FAIL;
+	   break;
+    }
+  am_release_resource(id);
+  return status;
+}
+
+
+/******************************************************************
+
+ Routine : CONFIRM_DIALOG_INIT
+
+ Purpose : Initialize the comfirmation dialog to confirm the
+	   user's intention.
+
+*********************************************************************/
+
+static INT confirm_dialog_init ( id, tcp, numlist )
+
+INT *id;
+CHAR **tcp;
+INT numlist;
+
+{
+  static CHAR CONFIRM_RESOURCE[]= "GB_DLIST_CON_CDLG";
+					    /* resource filename */
+  INT status;
+  INT nitems;
+  CHAR message[200];
+
+  status = am_define_resource (AM_DIALOG, CONFIRM_RESOURCE,CONFIRM_CDLG,
+			       NULL_FUNCTION_PTR, id, (VOIDPTR)0);
+  if (status == SUCCESS)
+     {
+	nitems = ts_tcp_len (tcp);
+	sprintf (message, mg_message(GB_CONFIRM_DELETES), numlist, nitems);
+	status = wi_set_dialog_text (*id, CDLG_200_MESSAGE, message);
+     }
+  else
+	am_message (AM_ALERT, mg_message(GB_NO_RESOURCE));
+  return status;
+}
+
+
+/***********************************************************************
+
+ Routine : CHECK_SELECTION
+
+ Purpose : To query the selections from the selector box within the
+	   Delete List dialog.
+
+*************************************************************************/
+
+static INT check_selection (numlist, nitems)
+INT *numlist;
+INT nitems;
+
+{
+  INT i;
+
+  for( i=0; i < (nitems+1); i++)
+     list_array[i] = 0;
+  wi_query_selections ( cdlg_id, CDLG_100_SELECTOR, numlist, list_array);
+  return SUCCESS;
+}
+
+
+/*******************************************************************
+
+ Routine : DELETE_SERVER
+
+ Purpose : The server routine for the Delete List dialog.
+
+********************************************************************/
+
+static INT delete_server (id, item, tcp)
+INT id;
+INT item;
+CHAR **tcp;
+
+{
+   INT status=SUCCESS;
+   INT numlist;
+   INT nitems;
+   INT cid;
+   INT i;
+   INT temp_id;
+   INT temp_item;
+   INT value;
+   CHAR text[81];
+
+   nitems = ts_tcp_len(tcp);
+   switch (item)
+   {
+     case CDLG_100_SELECT_ALL:
+	  check_selection (&numlist, nitems);
+	  for ( i = 0; i < nitems; i++ )
+	      wi_set_default_sel (cdlg_id, CDLG_100_SELECTOR, i+1);
+	  break;
+     case CDLG_100_DELETE:
+	  check_selection (&numlist, nitems);
+	  if ( numlist == 0 )
+	    {
+	       am_message (AM_ALERT, mg_message(GB_NO_SLIST) );
+	     }
+	  else
+	     {
+		status = confirm_dialog_init ( &cid, tcp, numlist);
+		if (status == SUCCESS)
+		 {
+		    status = wi_open_dialog (cid);
+		    status = wirqcdi (&temp_id, &temp_item, &value, text);
+		    if ( temp_id == cid )
+		       status = confirm_server (temp_id, temp_item, tcp);
+		 }
+	      }
+	  nitems = ts_tcp_len(tcp);
+	  if (nitems) break;
+     case CDLG_100_DONE:
+	  am_release_resource(id);
+	  status = ALL_DONE;
+	  break;
+     default:
+	  break;
+    }
+   return status;
+}
+
+
+/****************************************************************
+
+ Routine : RETRIEVE_LIST
+
+ Purpose : Retrieve the lists for the current FINDER user from
+	   database.
+
+
+******************************************************************/
+
+static INT retrieve_list (user, project, tcp, data_type)
+
+ANALYST_NAME user;
+PROJECT_NAME project;
+CHAR ***tcp;
+CHAR data_type[];
+
+{
+   CHAR **local_tcp;
+
+   EXEC SQL BEGIN DECLARE SECTION;
+     VARCHAR list_name[31];
+     VARCHAR stmt[255];
+   EXEC SQL END DECLARE SECTION;
+
+   stmt.len = sprintf((char *)stmt.arr, 
+"SELECT NAME FROM %s.SLIST_HDR WHERE \
+DATA_TYPE = '%s' AND NAME NOT LIKE '$$%%' \
+AND SOURCE = '%s' ORDER BY NAME",
+    project, data_type,
+    user );
+
+   EXEC SQL PREPARE S1 FROM :stmt;
+   EXEC SQL DECLARE C1 CURSOR FOR S1;
+   EXEC SQL OPEN C1;
+   EXEC SQL WHENEVER SQLERROR CONTINUE;
+   EXEC SQL FETCH C1 INTO :list_name;
+
+   local_tcp = ts_tcp_alloc(1);
+   while  ( OR_STATUS == SUCCESS )
+    {
+       list_name.arr [ list_name.len ] = '\0';
+       ts_tcp_append ( &local_tcp, (char *)list_name.arr );
+       EXEC SQL FETCH C1 INTO :list_name;
+     }
+   *tcp = local_tcp;
+   EXEC SQL CLOSE C1;
+   return SUCCESS;
+}
+
+
+/************************************************************
+
+ Routine : DELETE_APP_INIT
+
+ Purpose : To initialize the "Delete List" dialog.
+
+****************************************************************/
+
+static INT delete_app_init(data_type,tcp)
+CHAR data_type[];
+CHAR ***tcp;
+{
+   PROJECT_NAME project;
+   ANALYST_NAME username;
+   static CHAR DLIST_RESOURCE[] = {"GB_DLIST_CDLG"};
+					    /* resource filename */
+   CHAR **local_tcp;
+   CHAR message[80];
+   INT status;
+   INT id;
+   INT nitems=0;
+
+
+   qs_inq_c (QS_FINDER_ACCOUNT, username, (INT *) 0);
+   qs_inq_c (QS_PROJECT_NAME, project, (INT *) 0);
+   retrieve_list (username, project, &local_tcp, data_type);
+   sprintf ( message, mg_message(GB_DELETE_LIST), username );
+   status = am_define_resource (AM_DIALOG, DLIST_RESOURCE, DLIST_CDLG,
+				NULL_FUNCTION_PTR, &id, (VOIDPTR)0 );
+   if (status == SUCCESS)
+     {
+       status = wi_set_dialog_text(id,CDLG_100_MESSAGE,message);
+       nitems = ts_tcp_len (local_tcp);
+       if (nitems)
+	  {
+	     status = wisselt (id, CDLG_100_SELECTOR, CDLG_100_VSCROLL,
+			       nitems, nitems, local_tcp);
+	     list_array = ( INT * ) tc_zalloc ( (nitems + 1) * sizeof (INT));
+	     cdlg_id = id;
+	     *tcp = local_tcp;
+	     status = wi_open_dialog (id);
+	  }
+       else
+	  {
+	     status = FAIL;
+	     am_message (AM_ALERT, mg_message(GB_NO_DLIST));
+	  }
+      }
+   else am_message (AM_ALERT, mg_message(GB_NO_RESOURCE));
+   return status;
+}
+
+
+/*******************************************************************
+*                                                                  *
+*            APPLICATION ENTRY POINT                               *
+*                                                                  *
+********************************************************************
+  This routine is invoked from "Make or Highlight List" dialog box
+  in the Global Section.  Under the context of Global Section, each
+  application must service its own events.
+								   */
+
+INT gb_delete_list (data_type)
+SL_DATA_TYPE data_type;
+{
+    INT status = SUCCESS;
+    CHAR dtype[16];
+    CHAR **tcp;
+    INT class;
+    INT id;
+    INT item;
+    INT normal;
+
+    status = sl_inq_dtype_string("DATA_TYPE_NAME",data_type,dtype);
+    if(status != SUCCESS)
+	strcpy(dtype, "OTHER");
+
+    status = fi_push();
+    status = delete_app_init (dtype,&tcp);
+    if (status == SUCCESS)
+    {
+      do {
+	    status = wirqevt(0, &class, &id, &item);
+	    if ( id != cdlg_id )
+	      {
+		 normal = FALSE;
+		 wibeep(1);
+	      }
+	    else
+	      {
+		 status = delete_server(id, item, tcp);
+		 if ( status == ALL_DONE )
+		    normal= TRUE;
+		 else
+		    normal = FALSE;
+	      }
+	 } while ( !normal );
+	 /*--------------------------------*/
+	 /* free the tcp of list names and */
+	 /* the global ptr list_array      */
+	 /* NOTE: status returned is not   */
+	 /* sufficiently specified to know */
+	 /* whether memory was actually    */
+	 /* allocated SCD 12/16/89         */
+	 /*--------------------------------*/
+	 if (tcp != (CHAR **)0)
+		{
+		ts_tcp_free( tcp );
+		}
+	 if (list_array != (INT *)0)
+		{
+		tc_free( list_array );
+		}
+   }
+   status = fi_pop();
+   return SUCCESS;
+}
+
+                             

@@ -1,0 +1,191 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LG_DM_I_T_S.PC*/
+/*  8    27-FEB-1992 09:20:17 JESSIE "(SPR 6180) add TVD display of traces and tops"*/
+/* *7    23-AUG-1990 17:44:24 JESSIE "(SPR 1) fix include files"*/
+/* *6    14-SEP-1989 16:16:49 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *5    13-AUG-1989 03:02:56 GILLESPIE "(SPR 5) CHANGE SHARED TO SHARED_TRACE"*/
+/* *4    13-AUG-1989 01:46:52 GILLESPIE "(SPR 5) Change WLL_LOG_TRACE_HDR to WELL_LOG_CURVE; always release cursor"*/
+/* *3     4-AUG-1989 17:55:38 VINCE "(SPR -1) added Gulf mods; static in sql declare section"*/
+/* *2    19-JUL-1989 08:02:49 GORDON "(SPR 100) Add mods from Sun port"*/
+/* *1    19-JUN-1989 12:33:26 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element LG_DM_I_T_S.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_lg_ldefs.h"
+#include "esi_qs.h"
+#include "esi_ho.h"
+#include "esi_ts.h"
+#include "esi_oracle.h"
+#include "esi_lg_err.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT lg_ltdm_inq_trace_struct(UWI inputUwi, CHAR traceName[], 
+                                CHAR depthType[], LOG_TRACE_STRUCT *traceStruct);
+                                
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) inputUwi    -(UWI) The requested UWI.    
+    (I) traceName   -(CHAR []) The specified trace composite name.
+    (I) depthType   -(CHAR [])
+    (I) traceStruct -(LOG_TRACE_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    LG_TRACE_NOT_FOUND
+    OR_STATUS - Status returned by Oracle.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lg_ltdm_inq_trace_struct (UWI inputUwi, CHAR traceName[],
+                                        CHAR depthType[],
+                                        LOG_TRACE_STRUCT *traceStruct) 
+#else
+publicdef INT lg_ltdm_inq_trace_struct (inputUwi, traceName, depthType, traceStruct)
+UWI inputUwi;
+CHAR traceName[];
+CHAR depthType[];
+LOG_TRACE_STRUCT *traceStruct;
+#endif
+    {
+    PROJECT_NAME current_project_name;
+    INT status = SUCCESS;
+    INT i;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR select[1024];
+    int trace_id;
+    double top;
+    double base;
+    double dinc;
+    VARCHAR depth_uom[21];
+    VARCHAR depth_type[3];
+    double trace_min;
+    double trace_max;
+    VARCHAR trace_uom[21];
+    VARCHAR comments[241];
+    VARCHAR nlist_id[64];
+    VARCHAR filename[81];
+    EXEC SQL END DECLARE SECTION;
+    /* ************************************************************************** */
+    
+    /* error checking.                          */
+    
+    if (lgz_check_exist (inputUwi)OR lgz_check_exist (traceName))
+        return LG_INVALID_POINTER;
+    
+    hoblockmove (inputUwi, traceStruct->uwi, sizeof(UWI));
+    hoblockmove (traceName, traceStruct->trace_name, sizeof(LOG_TRACE_NAME));
+    
+    /* disassemble the traceName.            */
+    
+    status = lg_ltdm_parser (traceStruct);
+    if (status)
+        return status;
+    
+    /*   get the nlist name and the pathname of  */
+    /*   the trace file.                         */
+    
+    if (traceStruct->version <= 0)
+        {
+        /* If there is no version specified, we 
+        check for the depth type, by default,
+        the depth type will be 
+                DEPTH_IN_DISTANCE .*/
+        if (IS_STRING (depthType)AND (depthType[0] == 'T'OR depthType[0] == 't'))
+            {
+            traceStruct->depth_type = DEPTH_IN_TIME;
+            }
+        status = lgz_inq_last_version (traceStruct, FALSE);
+        if (status)
+            return status;
+        }
+    EXEC SQL WHENEVER SQLERROR GOTO errrpt;
+    EXEC SQL WHENEVER NOT FOUND GOTO errnfd;
+    
+    /* construct the dynamic selecting phrase. */
+    
+    qs_inq_c (QS_PROJECT_NAME, current_project_name, (INT *)0);
+    select.len = sprintf ((char *)select.arr, 
+"SELECT TRACE_ID, TOP, BASE, DEPTH_INC, DEPTH_UNIT, DEPTH_TYPE, TRACE_MIN, \
+TRACE_MAX, TRACE_UNIT, TRACE_REMARKS, DIGITAL_REF, DIGITAL_REF_VOLUME \
+FROM %s.WELL_LOG_CURVE_HDR WHERE \
+UWI = '%s' AND TRACE_TYPE = '%s' \
+AND VERSION = %d"
+            , current_project_name, inputUwi, traceStruct->trace,
+                          traceStruct->version);
+    EXEC SQL PREPARE S2 FROM : select;
+    EXEC SQL DECLARE C2 CURSOR FOR S2;
+    
+    EXEC SQL OPEN C2;
+    
+    EXEC SQL FETCH C2 INTO : trace_id,  : top,  : base,  : dinc,  : depth_uom,
+        : depth_type,  : trace_min,  : trace_max,  : trace_uom,  : comments,
+        : nlist_id,  : filename;
+    
+    traceStruct->trace_id = trace_id;
+    traceStruct->top = top;
+    traceStruct->base = base;
+    traceStruct->dinc = dinc;
+    traceStruct->min = trace_min;
+    traceStruct->max = trace_max;
+    V_FROMV (traceStruct->depth_uom, depth_uom);
+    V_FROMV (traceStruct->trace_uom, trace_uom);
+    if (strncmp ((char *)depth_type.arr, "D", depth_type.len) == 0)
+        {
+        traceStruct->depth_type = DEPTH_IN_DISTANCE;
+        strcpy (traceStruct->depth_or_time, "DEPTH");
+        }
+    else
+        {
+        traceStruct->depth_type = DEPTH_IN_TIME;
+        strcpy (traceStruct->depth_or_time, "TIME");
+        }
+    V_FROMV (traceStruct->comments, comments);
+    V_FROMV (traceStruct->nlist_id, nlist_id);
+    V_FROMV (traceStruct->filename, filename);
+    
+    status = SUCCESS;
+    goto way_out;
+    
+errrpt:
+    status = OR_STATUS;
+    goto way_out;
+    
+errnfd:
+    status = LG_TRACE_NOT_FOUND;
+    
+way_out:
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL CLOSE C2;
+    return status;
+    }
+/* END:     */

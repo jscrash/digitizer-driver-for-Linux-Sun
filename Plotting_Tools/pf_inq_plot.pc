@@ -1,0 +1,123 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element PF_INQ_PLOT.PC*/
+/* *3    17-AUG-1990 22:11:28 VINCE "(SPR 5644) Code Cleanup"*/
+/* *2    27-APR-1990 13:06:19 MING "(SPR 0) add metatype in PDS"*/
+/* *1    19-JUN-1989 12:35:53 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element PF_INQ_PLOT.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_pf.h"
+#include "esi_oracle.h"
+#include "esi_ts.h"
+#include "esi_tc.h"
+EXEC ORACLE OPTION (RELEASE_CURSOR = YES);
+
+/* Function Description -----------------------------------------------------
+Description:
+    Given a plotter name string, query the plotter database
+    for the driver_Name, Device_Queue & Device_Status that
+    are associated with it.
+
+    If the plotter cannot be located, a status of FAIL is
+    returned and the result args remain unchanged.
+
+Prototype:
+    publicdef INT pf_inq_plotter(CHAR *pname,PDS *pinfo);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) pname       -(CHAR *)
+    (O) pinfo       -(CHAR *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+    OR_STATUS
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT pf_inq_plotter (CHAR *pname, PDS *pinfo)
+#else
+publicdef INT pf_inq_plotter (pname, pinfo)
+CHAR *pname;
+PDS *pinfo;
+#endif
+    {
+    PROGNAME ("PF_INQ_PLOTTER");
+    INT status;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR plotter_name[80];
+    VARCHAR plotter_driver[80];
+    VARCHAR plotter_queue[80];
+    VARCHAR plotter_status[80];
+    VARCHAR plotter_meta_type[20];
+    float plotter_xsize;
+    float plotter_ysize;
+    int plotter_pens;
+    EXEC SQL END DECLARE SECTION;
+    
+    if (pname == ((CHAR *)0) OR (strlen (pname) == 0))
+        return FAIL;
+    
+    V_FROMC (plotter_name, pname);
+    strcpy (pinfo->name, pname);
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    
+    EXEC SQL DECLARE PINFO_CURSOR CURSOR FOR SELECT DRIVER, QUEUE,
+        DECODE (STATUS, 'ONLINE', 'ONLINE', 'OFFLINE'), NVL (XSIZE, 0), NVL (YSIZE, 0),
+        NVL (PENS, 8), META_TYPE FROM ESI.FINDER_PLOTTERS WHERE NAME =  : plotter_name;
+    
+    EXEC SQL OPEN PINFO_CURSOR;
+    EXEC SQL FETCH PINFO_CURSOR INTO : plotter_driver,  : plotter_queue,
+        : plotter_status,  : plotter_xsize,  : plotter_ysize,  : plotter_pens,
+        : plotter_meta_type;
+    
+    if ((status = OR_STATUS) == SUCCESS)
+        {
+        
+        V_FROMV (pinfo->driver, plotter_driver);
+        
+        V_FROMV (pinfo->queue, plotter_queue);
+        
+        V_FROMV (pinfo->status, plotter_status);
+        
+        V_FROMV (pinfo->meta_type, plotter_meta_type);
+        
+        pinfo->ysize = plotter_ysize;
+        pinfo->xsize = plotter_xsize;
+        pinfo->pens = plotter_pens;
+        }
+    EXEC SQL CLOSE PINFO_CURSOR;
+    
+    if (!strcmp (pinfo->status, "OFFLINE"))
+        status = FAIL;
+    
+    return status;
+    }
+/* END:     */

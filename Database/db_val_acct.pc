@@ -1,0 +1,285 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_VAL_ACCT.PC*/
+/* *6    27-AUG-1990 07:52:45 VINCE "(SPR 1) Fixed WHENEVER SQLERROR problem caused by CPRINT"*/
+/* *5    14-AUG-1990 13:11:36 VINCE "(SPR 5644) Header Standardization"*/
+/* *4    28-SEP-1989 12:08:49 GILLESPIE "(SPR 1) Use Version 6 dictionary views; Continue on SQLERROR if inits fail"*/
+/* *3    19-SEP-1989 13:36:22 GILLESPIE "(SPR 100) GULF MODS"*/
+/* *2    11-AUG-1989 13:55:42 CONROY "(SPR 9999) Mods for ORACLE V6"*/
+/* *1    19-JUN-1989 12:30:38 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_VAL_ACCT.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_am.h"
+#include "esi_db.h"
+#include "esi_db_msg.h"
+#include "esi_mg.h"
+#include "esi_ts.h"
+#include "esi_oracle.h"
+/* EXEC ORACLE OPTION (REBIND = NO); */
+EXEC ORACLE OPTION (RELEASE_CURSOR = YES);
+
+/* Function Description -----------------------------------------------------
+Description:
+    This routine validates existing ORACLE accounts and alerts the
+    operator of existing tables and/or columns which exist but have
+    no entry in the main Finder dictionary.  These are not necessarily
+    errors, but it is important information for the site DBA.
+   
+Prototype:
+    publicdef INT dba_validate_account(DB_ACCOUNT_STRUCT *db_account, 
+                                    DB_CREATE_FLAGS *create_flags);
+                                    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) db_account  -(DB_ACCOUNT_STRUCT *) Account structure.
+    (I) create_flags-(DB_CREATE_FLAGS *) Flag structure.
+
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+    Note that the routine DB_UPDATE_ACCOUNT examines an account and
+    updates it as necessary to conform to the current state of the
+    Finder Dictionary.  It should be run before this routine is executed.
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT dba_validate_account (DB_ACCOUNT_STRUCT *db_account,
+                                    DB_CREATE_FLAGS *create_flags) 
+#else
+publicdef INT dba_validate_account (db_account, create_flags)
+DB_ACCOUNT_STRUCT *db_account;
+DB_CREATE_FLAGS *create_flags;
+#endif
+    {
+    INT status;
+    INT i = 0;
+    CHAR last_table[31];
+    CHAR message[133];
+    BOOL c1_defined = FALSE;
+    BOOL dictionary_def_defined = FALSE;
+    BOOL current_def_defined = FALSE;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR owner[31];
+    VARCHAR table[31];
+    VARCHAR column[31];
+    VARCHAR definition[61];
+    VARCHAR scope[10];
+    VARCHAR def_tbspace[31];
+    VARCHAR act_tbspace[31];
+    int ntables;
+    EXEC SQL END DECLARE SECTION;
+    
+    /* this routine only processes the tables so if the
+       table flag is FALSE just return.  Later on it may
+       process all the other object types, then it will
+       have to use the other flags.         */
+    
+    if (create_flags->create_tables == FALSE)
+        return SUCCESS;
+    
+    sprintf (message, mg_message (DB_VALIDATE_MSG), db_account->scope,
+             db_account->name);
+    am_message (AM_STATUS, message);
+    
+    V_FROMC (scope, db_account->scope);
+    V_FROMC (owner, db_account->name);
+    strcpy (last_table, "");
+    
+    EXEC SQL WHENEVER SQLERROR GOTO finish_up;
+    
+    EXEC SQL SELECT COUNT (*)INTO : ntables FROM USER_TABLES;
+    
+    EXEC SQL DECLARE C1 CURSOR FOR SELECT TNAME FROM ESI.FINDER_TABLES WHERE TNAME =  :
+                                                                                     table
+                                                                                      AND
+                                                                                      SCOPE
+                                                                                      =  
+                                                                                     : 
+                                                                                     scope
+                                                                                     ;
+    
+    EXEC SQL DECLARE DICTIONARY_DEF CURSOR FOR SELECT C.TNAME FROM ESI.
+        FINDER_COLUMNS C,
+                                                              ESI.
+                                                              FINDER_TABLES T WHERE T.
+                                                              TNAME =
+                                                              C.TNAME AND C.TNAME =  :
+                                                              table AND CNAME =  :
+                                                              column AND SCOPE =  :
+                                                              scope;
+    
+    EXEC SQL DECLARE SPACE_CHECK CURSOR FOR SELECT A.TABLESPACE_NAME,
+        T.TABLESPACE_NAME FROM ACCOUNT_TB_DEFS A,
+        USER_TABLES T WHERE A.TABLESPACE_NAME !=
+                                                                                      T.
+                                                                                      TABLESPACE_NAME
+                                                                                       AND
+                                                                                       A
+                                                                                      .TABLE_NAME
+                                                                                       =
+                                                                                       T
+                                                                                      .TABLE_NAME
+                                                                                       AND
+                                                                                       A
+                                                                                      .TABLE_NAME
+                                                                                       =
+                                                                                        :
+                                                                                       table
+                                                                                      ;
+    
+    /* CURSOR TO SELECT NAMES OF CURRENT TABLES ONLY (NOT VIEWS...) */
+    
+    EXEC SQL DECLARE CURRENT_DEF CURSOR FOR SELECT A.TABLE_NAME, A.COLUMN_NAME,
+        A.COLUMN_NAME || ' ' || DATA_TYPE ||
+        DECODE (DATA_TYPE, 'DATE', NULL, 'LONG', NULL, 'NUMBER',
+                DECODE (DATA_PRECISION, NULL, NULL, 0, NULL, '(' || DATA_PRECISION ||
+                        DECODE (DATA_SCALE, NULL, NULL, ',' || DATA_SCALE) ||
+                        ')'), '(' || DATA_LENGTH || ')') ||
+        DECODE (NULLABLE, 'Y', NULL, 'N', ' NOT NULL', NULL)
+    FROM USER_TAB_COLUMNS A,
+                                                                USER_TABLES B WHERE A.
+                                                                TABLE_NAME =
+                                                                B.
+                                                                TABLE_NAME ORDER BY A.
+                                                                TABLE_NAME,
+                                                                A.COLUMN_NAME;
+    
+    EXEC SQL OPEN CURRENT_DEF;
+    current_def_defined = TRUE;
+    EXEC SQL FETCH CURRENT_DEF INTO : table,  : column,  : definition;
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    
+    while (OR_STATUS IS_NOT_EQUAL_TO OR_EOF)
+        {
+        if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+            {
+            am_message (AM_STATUS, mg_message (OR_STATUS));
+            goto finish_up;
+            }
+        V_SETZERO (table);
+        V_SETZERO (column);
+        V_SETZERO (definition);
+        if (ARE_DIFFERENT (last_table, (char *)table.arr))
+            {
+            /* found a new table ... */
+            sprintf (message, mg_message (DB_VALIDATING_TABLE), table.arr, ++i,
+                     ntables);
+            am_message (AM_DIALOG, message);
+            strcpy (last_table, (char *)table.arr);
+            
+            /* see if this table exists first */
+            EXEC SQL OPEN C1;
+            c1_defined = TRUE;
+            EXEC SQL FETCH C1 INTO : table;
+            
+            if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+                {
+                sprintf (message, mg_message (DB_TABLE_NOT_IN_DICT), table.arr);
+                am_message (AM_STATUS, message);
+                
+                OR_STATUS = SUCCESS;
+                /* scan columns until table name changes */
+                while (ARE_SAME (last_table,
+                                 (char *)table.arr) AND (OR_STATUS EQUALS SUCCESS))
+                    {
+                    am_message (AM_REPORT, (char *)definition.arr);
+                    EXEC SQL FETCH CURRENT_DEF INTO : table,  : column,  : definition;
+                    V_SETZERO (table);
+                    V_SETZERO (column);
+                    V_SETZERO (definition);
+                    }
+                continue;
+                }
+            else
+                {
+                /* check tablespaces */
+                EXEC SQL OPEN SPACE_CHECK;
+                EXEC SQL FETCH SPACE_CHECK INTO : def_tbspace, act_tbspace;
+                if (OR_STATUS EQUALS SUCCESS)
+                    {
+                    V_SETZERO (def_tbspace);
+                    V_SETZERO (act_tbspace);
+                    sprintf (message, mg_message (DB_TBSPACE_MISMATCH), table.arr,
+                             def_tbspace.arr, act_tbspace.arr);
+                    am_message (AM_STATUS, message);
+                    }
+                }
+            }
+        /* check each column in the table against the Finder
+           Dictionary */
+        EXEC SQL OPEN DICTIONARY_DEF;
+        dictionary_def_defined = TRUE;
+        EXEC SQL FETCH DICTIONARY_DEF INTO : table;
+        
+        if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+            {
+            sprintf (message, mg_message (DB_COLUMN_NOT_IN_DICT), table.arr);
+            am_message (AM_STATUS, message);
+            am_message (AM_REPORT, (char *)definition.arr);
+            }
+    next_column:
+        EXEC SQL FETCH CURRENT_DEF INTO : table,  : column,  : definition;
+        }
+    status = (OR_STATUS EQUALS OR_EOF) ? SUCCESS : OR_STATUS;
+    
+    EXEC SQL WHENEVER NOT FOUND CONTINUE;
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    
+    EXEC SQL UPDATE ESI.FINDER_ACCOUNTS SET LAST_VALIDATED =
+                                                             SYSDATE WHERE 
+                                                             ACCOUNT_NAME =  :
+                                                             owner AND TYPE =  : scope;
+    EXEC SQL COMMIT WORK;
+    
+    am_message (AM_DIALOG, NULL);
+    
+finish_up:
+    EXEC SQL WHENEVER SQLERROR continue;
+    ;
+    if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+        {
+        am_message (AM_STATUS, mg_message (OR_STATUS));
+        }
+    if (c1_defined)
+        {
+        EXEC SQL CLOSE C1;
+        }
+    if (dictionary_def_defined)
+        {
+        EXEC SQL CLOSE DICTIONARY_DEF;
+        }
+    if (current_def_defined)
+        {
+        EXEC SQL CLOSE CURRENT_DEF;
+        }
+    EXEC SQL COMMIT WORK;
+    
+    return status;
+    }
+/* END:     */

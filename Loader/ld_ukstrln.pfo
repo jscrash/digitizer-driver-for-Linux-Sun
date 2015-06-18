@@ -1,0 +1,1536 @@
+C DEC/CMS REPLACEMENT HISTORY, Element LD_UKSTRLN.PFO
+C *8     1-MAR-1990 15:47:29 GILLESPIE "(SPR 1) remove unused variables"
+C *7     7-DEC-1989 09:23:10 GORDON "(SPR 0) Fix include path for esi_nl_err.i"
+C *6    28-NOV-1989 14:40:58 GORDON "(SPR 0) lowercase the include files"
+C *5     3-NOV-1989 11:35:20 PURNA "(SPR 30) mod nl function calls"
+C *4     2-NOV-1989 15:33:58 PURNA "(SPR 30) mod nl_..._point nl_..._row"
+C *3     2-NOV-1989 11:15:12 PURNA "(SPR 30) remove call to SEG_RESET"
+C *2    20-SEP-1989 15:40:38 GORDON "(SPR 200) Renamed version"
+C *1    20-SEP-1989 15:39:03 GORDON "renamed version"
+C DEC/CMS REPLACEMENT HISTORY, Element LD_UKSTRLN.PFO
+C DEC/CMS REPLACEMENT HISTORY, Element LD_UKSTORLIN.PFO
+C *8    20-SEP-1989 08:01:49 GORDON "(SPR 100) get in sync with Gulf"
+C *7    10-AUG-1989 18:58:40 VINCE "(SPR -1) Fortran code after UNIX mods"
+C *6    10-AUG-1989 14:46:26 ADEY "(SPR -1) INDICATE UPDATE OR INSERT RECORD AND ADD SURVEY TO JOURNAL"
+C *5     9-AUG-1989 13:43:10 ADEY "(SPR -1) fix line/survey separator bug"
+C *4     4-AUG-1989 12:10:11 ADEY "(SPR -1) UPDATE THE VERSION FOR LD_UKOOA"
+C *3     3-AUG-1989 15:18:49 ADEY "(SPR -1) support for LD_UKOOA w/ UK labels"
+C *2    26-JUL-1989 08:33:49 ADEY "(SPR -1) Separated survey/line name for se routines, reformatted source"
+C *1    19-JUN-1989 14:59:01 SYSTEM ""
+C DEC/CMS REPLACEMENT HISTORY, Element LD_UKSTORLIN.PFO
+***********************************************************
+*                                                         *
+*                                                         *
+*                                                         *
+*                                                         *
+*                                                         *
+*            FINDER GRAPHICS SYSTEMS, INC                 *
+*                                                         *
+*                                                         *
+*                                                         *
+*                                                         *
+*                                                         *
+***********************************************************
+*
+*
+*
+* AUTHOR:REMI DORET
+* EXTENSIVE MODIFICATIONS BY K ADEY 7/10/89
+*
+* DATE : 20/10/1986
+C
+C
+C   ROUTINE USED TO STORE UKOOA NLIST DATA AND HEADERS IN THE DATA BASE
+C
+C	IPUT PARAMETERS -
+C
+C    BUF    : INTEGER*4 BUFFER CONTAINS THE FOLLOWING SHOT ROW DATA:
+C
+C               THE FIRST INFORMATION IS THE SP NUMBER
+C               THE SECOND IS X COORD OR CONVERTED LONG
+C               THE THIRD  IS Y COORD OR CONVERTED LAT
+C               THEN WE CAN HAVE ALTI WATER DEPTH
+C               WE HAVE NBW_SP WORDS(4 BYTES) OF INFORMATION FOR EACH SP
+C               BUF ( 1)  IS THE FIRST SP NUMBER
+C               BUF ( 1 + NBW_SP ) IS THE SECOND SP NUMBER ....
+C
+C   XBUF    : REAL BUFFER EQUIVALENT TO BUFFER BUF
+C
+C   NBW_SP  : NUMBER OF WORDS ( 4 BYTES) OF INFO FOR EACH SP
+C
+C   INDEB     INDEX IN THE BUFFER OF THE RANK OF THE FIRST SP SELECTED
+C              EXAMPLE : INDEB = 1 IF BUF(1) = FIRSTSP
+C                        INDEB = 2 IF BUF (1 + NBW_SP ) + FIRSTSP
+C
+C  NUM_DEC  : NUMBER OF SP TO STORE
+C
+C *******************************************************************
+C
+      SUBROUTINE UK_STORLIN ( BUF, XBUF, INDEB ,NUM_DEC
+     C			 ,NBW_SP , LINE ,IST)
+C
+C
+	INCLUDE 'ESI$INCLUDE:ld_ukooa2.i'
+	INCLUDE 'ESI$INCLUDE:esi_nl.i'
+	INCLUDE 'ESI$GEN:esi_nl_err.i'
+        INCLUDE 'ESI$INCLUDE:esi_se.i'
+C	INCLUDE 'ESI$INCLUDE:esi_qs.i'
+C
+C	    SET DEBUG CODE
+C
+	INTEGER*4 DEBUG
+C
+
+      REAL*4 XBUF (*)
+      INTEGER*4 BUF (*)
+      INTEGER*4 INDEB ,NUM_DEC, NBW_SP
+      CHARACTER*(*) LINE
+      CHARACTER*20 SURVEY_NAM
+C 
+C-------------------------------------------------------------
+C
+C
+c    declaration of variables used in sql statements
+C
+	EXEC SQL BEGIN DECLARE SECTION
+	CHARACTER*1000  STMT
+	CHARACTER*20   LINE_NAM
+	CHARACTER*40   N_SURVEY
+	CHARACTER*61   LINE_CODE
+	CHARACTER*61   S_SHOTXY
+	CHARACTER*61   S_OPTXY
+	CHARACTER*61   S_LABELS
+	CHARACTER*61   S_RECEIV
+	CHARACTER*254  S_NLFILE
+	INTEGER*4      S_IN_CDP
+	INTEGER*4      S_FI_CDP
+	REAL*4         S_IN_SP
+	REAL*4         S_FI_SP
+	REAL*4         S_UR_X		
+	REAL*4         S_UR_Y		
+	REAL*4         S_LL_X		
+	REAL*4         S_LL_Y
+	INTEGER*4      S_CDP_SP
+	REAL*4         S_SPACIN
+	INTEGER*4      S_SEISM
+	INTEGER*4      S_XYSET
+	REAL*8         S_X1		
+	REAL*8         S_X2		
+	REAL*8         S_X3		
+	REAL*8         S_X4		
+	REAL*8         S_Y1		
+	REAL*8         S_Y2		
+	REAL*8         S_Y3		
+	REAL*8         S_Y4
+        REAL*8         L_LENGTH		
+        INTEGER*4      S_REGUL
+
+	EXEC SQL END DECLARE SECTION
+C
+C
+	INCLUDE 'ESI$INCLUDE:esi_oracle.i'	
+C
+C     STMT2    is a character string used to store sql statements
+C
+C
+	CHARACTER*1000  STMT2
+
+C
+C
+	REAL*4 ALIMIT
+	REAL*4 XSPACIN
+	INTEGER*4 MINI_TRP
+        REAL*8 XD_LARG , XD_LONG
+        INTEGER*4 IND_ENV
+C
+C    TABLE_NAME is used to store the complete name of the DB table
+C
+C
+      CHARACTER*100  TABLE_NAME , T_NAME 
+C
+      REAL*4 LL_X ,LL_Y , UR_X , UR_Y,INIT_SP,FIN_SP
+      INTEGER*4 INIT_CDP , FIN_CDP
+ 
+      INTEGER*4 CDP_PER_SP, LINE_ID
+ 
+C
+      LOGICAL*4 UPDAT
+C
+C*************************************************************
+C
+c    define variables used for nlist manipulations
+C
+C   NLIST_XY   : real*8 containing the pointer to the nlist used for xy
+      REAL*8 NLIST_XY
+C
+C   SORT_XY   : real*8 containing the pointer to the nlis_xy sorted on
+c     ascending cdp
+      REAL*8 SORT_XY
+
+C
+C   OPTIM_XY: real*8 containing the pointer to the nlist used for optim_xy
+      REAL*8 OPTIM_XY
+C
+C   NL_ALTI : real*8 containing the pointer to the nlist used for alti
+      REAL*8 NL_ALTI
+
+C  REAL*8 ARRAY VXY_LIST : used to store pointers to arrays containing
+c   data to store in the nlist or to retrieve from the nlist
+      REAL*8 VXY_LIST ( 3 )
+C
+C   NLIST_SL   : REAL*8 containing the pointer to the nlist used for
+c     shot labels
+C
+      REAL*8 NLIST_SL
+C
+C  REAL*8 ARRAY VSL_LIST : used to store pointers to arrays containing
+c   data to store in the nlist or to retrieve from the nlist
+C
+      REAL*8 VSL_LIST ( 2 )
+      INTEGER*4 NDIM_SL
+C
+c ..............arrays used for nlist init
+      INTEGER*4 UNITS (3), DATA_SIZ (3), DATA_TYP ( 3),VALUEINC ( 3)
+      INTEGER*4 DIM_LIST ( 3 ),SORTFLAG ( 2 ) , DIMSORT ( 2 )
+      INTEGER*4 IDSORT
+C
+      INTEGER*4 BLOCSIZE , STROKXY,STROKSL,NDIM_XY
+C
+C ........   XY_NAME : variable used to store nlist name for xy_coord
+      CHARACTER*80 XY_NAME
+C
+C ........   SL_NAME : variable used to store nlist name for shot/labels
+      CHARACTER*80 SL_NAME
+C
+C ........   XY_OPTIM: variable used to store nlist name for linearised xy_coord
+      CHARACTER*80 XY_OPTIM
+C
+C ........   ALTI_CDP: variable used to store nlist name for altimetry nlist
+      CHARACTER*80 ALTI_CDP
+C
+C  full_filename contains the file name and logical path of the nlist file
+c  it is returned by a call to SEGL_BLD_NLIST_IDS with filename and nlist id
+c  and is used in any n-List read or write call.
+      CHARACTER*240 FULL_FILENAME
+C
+C .......    XCOORD , YCOORD  REAL*8 ARRAYS used to store x y coord
+c ........    to add to the TABLE - even if we store one coord at a
+C .......     time  X_COORD , Y_COORD must be declared as arrays
+c ........    to be passed in the fortran interface to nlist
+      REAL*4 X_COORD ( 2) , Y_COORD ( 2 )
+C
+C .......... CDP_NUM  int array used to store cdp to add to the
+c            TABLE
+      INTEGER*4  CDP_NUM ( 3)
+      INTEGER*4  CDP_READ(100)
+C
+C ........... SP_NUM   real*4 array used to store sp numbers
+C
+      REAL*4 SP_NUM (3)
+C
+      REAL*4 X1(100) ,Y1(100)  ,SP_READ (100)
+C
+      REAL*8 ENV_RECT ( 8 )
+C
+C
+      CHARACTER*41 LINAM
+      INTEGER*4 LI
+      EQUIVALENCE ( LI , LINAM )
+C
+      CHARACTER*80 AREA
+      INTEGER*4 IAREA
+      EQUIVALENCE ( IAREA , AREA )
+*
+      INTEGER*4 IST , ILINE
+
+C
+      LOGICAL*4 BREAK , LASTASC , NEWASC
+      REAL*4 XDIF
+C
+c     logical honor is true if a corespondance cdp-sp has already been
+c     done
+      LOGICAL*4 HONOR
+C
+      CHARACTER*5   CONTEXT
+      CHARACTER     SEPAR
+c
+C      DECLARATION OF FUNCTIONS USED
+C
+      INTEGER*4  TFNBLEN
+      INTEGER*4  SEG_BLD_NLIST_IDS
+
+      DATA FIRST_SQL/.TRUE./
+C
+C******************************************************************
+C 
+c ........   initialize  variables used for nlist
+C
+      UNITS (1)    = 0
+      UNITS (2)    = 0
+      UNITS (3)    = 0
+      DATA_SIZ (1) = 4
+      DATA_SIZ (2) = 4
+      DATA_SIZ (3) = 4
+      DATA_TYP (1) = INT_TYPE
+      DATA_TYP (2) = FLOAT_TYPE
+      DATA_TYP (3) = FLOAT_TYPE
+      VALUEINC (1) = VALUE_LIST
+      VALUEINC (2) = VALUE_LIST
+      VALUEINC (3) = VALUE_LIST
+      BLOCSIZE     = 100
+      DIM_LIST  (1) = 1
+      DIM_LIST  (2) = 2
+      DIM_LIST  (3) = 3
+      NDIM_XY       = 3
+      NDIM_SL       = 2
+      SORTFLAG ( 1 ) = NL_ASCENDING
+      DIMSORT ( 1 ) = 1
+      IDSORT = 1
+
+C*************************************************************
+C 
+c    blank in all the character strings
+C
+       LINE_NAM   = ' '
+       SURVEY_NAM = ' '
+       LINE_CODE  = ' '
+       S_SHOTXY   = ' '
+       S_OPTXY    = ' '
+       S_LABELS   = ' '
+       S_RECEIV   = ' '
+       NLFILE     = ' '
+       CONTEXT    = ' '
+
+
+
+      DEBUG = 0
+
+C ......................................................
+C
+        AREA ( 1 : NB_CHAR ) = AREANAME ( 1 : NB_CHAR)
+C
+*
+*     ILSURV  is the length of the survey name
+*     ILINE   is the length of the linename
+c
+          ILINE = TFNBLEN ( LINE )
+c
+c     convert line name to upper character
+c
+          CALL TSUPPER ( LINE )      
+C
+******************************************************
+*
+*    create table name where we are going to store 
+*     the informations 
+*    this table name is created using the project name
+*    concatenated with .SEIS_LINE_HDR
+*
+******************************************************
+C
+        T_NAME = AREA( 1: NB_CHAR )//'.SEIS_LINE_HDR'
+C
+c add blanks at the beginning of table name 
+C
+	TABLE_NAME (1:3) = '   '
+        TABLE_NAME (3:100 ) = T_NAME (1:97)
+C
+C---------------------------------------------------------------------
+C---------------------------------------------------------------------
+C
+c     prepare the statement used for looking if this line is already
+c     in the data base
+C
+         IF (FIRST_SQL) THEN
+           FIRST_SQL = .FALSE.
+C
+C   PARSE AND PREPARE  SQL LOOK UP CURSOR C1
+C
+
+	STMT = 'SELECT INITIAL_CDP,FINAL_CDP,INITIAL_SHOT, FINAL_SHOT
+     - , CDPS_PER_SHOT_POINT , SEIS_ASSOC , XY_ASSOC,REGULAR ,
+     -  NLIST_FILE FROM  '
+ 
+           CALL TFSTRCAT ( STMT , TABLE_NAME , STMT )
+           CALL TFSTRCAT ( STMT , '  WHERE LINE_NAME =:LINE_NAM' ,STMT )
+
+           CALL TFSTRCAT ( STMT , '  AND SURVEY =:N_SURVEY' ,STMT )
+c
+	EXEC SQL WHENEVER SQLERROR GOTO 895
+c
+	EXEC SQL PREPARE S1 FROM :STMT
+	EXEC SQL DECLARE C1 CURSOR FOR S1
+
+C
+C   PARSE AND PREPARE  SQL UPDATE CURSOR C2
+C
+c .......   update the existing record
+C
+
+           STMT = 'UPDATE  '
+           CALL TFSTRCAT ( STMT , TABLE_NAME , STMT )
+
+           STMT2 = ' SET '
+	CALL TFSTRCAT (STMT2,' SHOT_XY_ID = :S_SHOTXY,',          STMT2)
+	CALL TFSTRCAT (STMT2,'OPTIM_XY_ID = :S_OPTXY,',          STMT2)
+	CALL TFSTRCAT (STMT2,'SHOT_LABELS_ID = :S_LABELS,',      STMT2)
+	CALL TFSTRCAT (STMT2,'INITIAL_CDP = :S_IN_CDP,',         STMT2)
+	CALL TFSTRCAT (STMT2,'FINAL_CDP = :S_FI_CDP,',           STMT2)
+	CALL TFSTRCAT (STMT2,'INITIAL_SHOT = :S_IN_SP,',         STMT2)
+	CALL TFSTRCAT (STMT2,'FINAL_SHOT = :S_FI_SP,',           STMT2)
+	CALL TFSTRCAT (STMT2,'UPPER_RIGHT_X = :S_UR_X,',         STMT2)
+	CALL TFSTRCAT (STMT2,'UPPER_RIGHT_Y = :S_UR_Y,',         STMT2)
+	CALL TFSTRCAT (STMT2,'LOWER_LEFT_X = :S_LL_X,',          STMT2)
+	CALL TFSTRCAT (STMT2,'LOWER_LEFT_Y = :S_LL_Y,',          STMT2)
+	CALL TFSTRCAT (STMT2,'CDPS_PER_SHOT_POINT = :S_CDP_SP,', STMT2)
+	CALL TFSTRCAT (STMT2,'SHOT_POINT_SPACING = :S_SPACIN,',  STMT2)
+	CALL TFSTRCAT (STMT2,'SHOT_RECEIVER_ID = :S_RECEIV,',    STMT2)
+	CALL TFSTRCAT (STMT2,'XY_ASSOC = :S_XYSET,',             STMT2)
+	CALL TFSTRCAT (STMT2,'X1 = :S_X1, Y1 = :S_Y1,',          STMT2)
+	CALL TFSTRCAT (STMT2,'X2 = :S_X2, Y2 = :S_Y2,',          STMT2)
+	CALL TFSTRCAT (STMT2,'X3 = :S_X3, Y3 = :S_Y3,',          STMT2)
+	CALL TFSTRCAT (STMT2,'X4 = :S_X4, Y4 = :S_Y4,',          STMT2)
+	CALL TFSTRCAT (STMT2,'LINE_LENGTH = :L_LENGTH,',         STMT2)
+	CALL TFSTRCAT (STMT2,'REGULAR = :S_REGUL,',              STMT2)
+	CALL TFSTRCAT (STMT2,'NLIST_FILE = :S_NLFILE ',          STMT2)
+	CALL TFSTRCAT (STMT2,' WHERE LINE_NAME = :LINE_NAM',     STMT2)
+C
+          CALL TFSTRCAT ( STMT , STMT2 , STMT )
+C
+          CALL TFSTRCAT ( STMT , ' AND SURVEY =: N_SURVEY ' , STMT)
+C
+          EXEC SQL WHENEVER SQLERROR GOTO 889
+C
+          EXEC SQL PREPARE S2 FROM :STMT
+C
+C   PARSE AND PREPARE  SQL INSERT CURSOR C3
+C
+ 
+          STMT = 'INSERT INTO  '
+          CALL TFSTRCAT ( STMT , TABLE_NAME , STMT )
+C
+	  STMT2 = ' ('
+	CALL TFSTRCAT (STMT2,
+     1   'LINE_NAME,SHOT_XY_ID,OPTIM_XY_ID,SHOT_LABELS_ID,INITIAL_CDP,
+     2    FINAL_CDP,INITIAL_SHOT,FINAL_SHOT,UPPER_RIGHT_X,UPPER_RIGHT_Y,
+     3    LOWER_LEFT_X,LOWER_LEFT_Y,', STMT2)
+	CALL TFSTRCAT (STMT2,
+     1   'CDPS_PER_SHOT_POINT,SHOT_POINT_SPACING,SEIS_ASSOC,
+     2    SHOT_RECEIVER_ID,XY_ASSOC,X1,Y1,X2,Y2,X3,Y3,X4,Y4,LINE_LENGTH,
+     3    REGULAR,LINE_ID,NLIST_FILE,SURVEY', STMT2)
+C
+	CALL TFSTRCAT (STMT2, ') VALUES (', STMT2)
+C
+	CALL TFSTRCAT (STMT2,
+     1   ':LINE_NAM,:S_SHOTXY,:S_OPTXY,:S_LABELS,:S_IN_CDP,:S_FI_CDP,
+     2    :S_IN_SP,:S_FI_SP,:S_UR_X,:S_UR_Y,:S_LL_X,:S_LL_Y,', STMT2)
+	CALL TFSTRCAT (STMT2,
+     1   ':S_CDP_SP,:S_SPACIN,:S_SEISM,:S_RECEIV,:S_XYSET,:S_X1,:S_Y1,
+     2    :S_X2,:S_Y2,:S_X3,:S_Y3,:S_X4,:S_Y4,:L_LENGTH,:S_REGUL,
+     3    ESI.SEISLINE_ID.NEXTVAL, :S_NLFILE,:N_SURVEY)', STMT2)
+C
+         CALL TFSTRCAT ( STMT , STMT2 , STMT )
+C
+         EXEC SQL WHENEVER SQLERROR GOTO 901
+C
+         EXEC SQL PREPARE S3 FROM :STMT
+
+       ENDIF
+
+C--------------------------------------------------------------
+C	    END OF CURSOR INITIALIZATION
+C--------------------------------------------------------------
+C
+C  DECODE THE LINE INTO SURVEY AND LINE BY SPLITTING AT THE
+C   SEPARATOR CHAR CHOIX(1) OR
+C   put the line name in variable LINE_NAM
+C
+        IF(CHOIX(1) .LE. 1) GOTO 50
+        SEPAR = CHAR(CHOIX(1))
+        I = INDEX(LINE, SEPAR)
+        IF( I .LE. 1 .OR. I .GE. ILINE) GOTO 50
+C
+C    CHOIX(1) CONTAINS THE SEPARATOR CHAR, SEPARATE SURVEY AND LINE
+C
+        SURVEY_NAM(1:I-1) = LINE(1:I-1)
+C
+        LINE_NAM(1:ILINE-I) = LINE(I+1:ILINE)
+        ILINE = ILINE - I
+        GOTO 55
+C
+C    IF THERE IS NO SEPARATOR CHAR OR IT IS THE FIRST OR
+C        LAST CHAR IN THE LINE STRING ASSIGN
+C    LINE STRING TO LINE NAME AND ASSIGN DEFAULT SURV_NAME TO SURVEY NAME
+C
+50	LINE_NAM ( 1 : ILINE ) = LINE ( 1 : ILINE )
+C
+C     CREATE SHORT SURVEY NAME FOR SE LINE_NAM/SURVEY_NAM STRUCT
+C
+        SURVEY_NAM(1:ILSURV) = SURV_NAM(1:ILSURV)
+C
+C     put the survey name in the SQL variable
+c
+55      N_SURVEY = SURVEY_NAM
+C
+	S_IN_CDP = INIT_CDP
+c
+C     LOOK FOR THE EXISTENCE OF THE LINE IN THE DATABASE
+C
+	EXEC SQL WHENEVER SQLERROR GOTO 895
+c
+        EXEC SQL OPEN C1 USING :LINE_NAM , :N_SURVEY 
+c
+c       initialise variables to zero before fetching
+C
+        S_NLFILE = ' '
+	S_IN_CDP = 0
+	S_FIN_CDP = 0
+	S_IN_SP = 0
+	S_FIN_CDP = 0
+	S_CDP_SP = 0
+	S_SEISM = 0
+	S_XYSET = 0
+c
+c ........  we set UPDAT to false it will be changed to true
+c           if we find the line in the data base 
+c
+	EXEC SQL WHENEVER NOT FOUND GOTO 100
+c
+        UPDAT = .FALSE.
+
+88      CONTINUE
+
+	EXEC SQL FETCH C1 INTO :S_IN_CDP , :S_FIN_CDP , 
+     -   :S_IN_SP , :S_FIN_CDP , :S_CDP_SP , :S_SEISM ,
+     -  :S_XYSET , :S_REGUL ,:S_NLFILE
+C
+C	THE LINE AND SURVEY DATA WAS FOUND IN THE DATABASE,
+C		SET UPDAT TO TRUE
+
+         UPDAT = .TRUE.
+c
+c ......  we are on a line which exists in the database
+C
+
+100     CONTINUE
+C
+C---------------------------------------------------------------
+C---------------------------------------------------------------
+C
+	CDP_PER_SP = 0 
+	INIT_SP = 0. 
+	FIN_SP = 0. 
+	INIT_CDP  = 0 
+	INIT_SP = 0 
+*
+C
+C*************************************************************
+c
+c     we verify if the line already existS or not in the data base
+c          if yes, we will only need to update this record 
+c          if not, we will need to insert a new record in the data base
+c     we set the HONOR flag if the position was already existing or not
+c     if relation sp - cdp   already existing
+c
+c
+c      we know that a relation internal cdp - sp has been established
+c      and is to be used if the flag S_SEISM is not  equal to 0
+c     in this case we need to use this relation 
+c
+C--------------------------------------------------------------------
+C
+C
+C
+      IF ( S_SEISM .EQ.0 ) THEN
+C
+c      this is the first time we establish a correspondance cdp-sp
+C
+         HONOR = .FALSE.
+C
+C     the correspondance cdp - sp is supposed to be regular by default
+C
+         S_REGUL = REGUL
+C
+      ELSE
+C
+c      a correspondance was already established  between cdp an sp
+C
+         HONOR = .TRUE.
+
+       ENDIF
+C
+C
+C---------------------------------------------------------------
+C---------------------------------------------------------------
+c
+c     convert the coordinates in the default  projection 
+c     if the data projection is the same than the default projection
+c     we convert the x y coord with are in integer to real
+c     all manipulation are done in the buffer buf equivalent to xbuf
+c
+c
+c
+c
+c   IBEGIN is the index in array buf of the first sp we need to process
+c
+	IBEGIN = ( INDEB - 1) * NBW_SP + 1
+
+	CALL UK_CONVPROJ ( BUF( IBEGIN), XBUF( IBEGIN), 
+     -                     NUM_DEC, NBW_SP, IST)
+
+C
+        IF ( IST .NE. 0 ) THEN
+           CALL UK_LOGMES (C38, LINE,IST,I1,I2,I2)
+           CALL UK_LOGMES (C26 ,LINE,I1,I2,I3,I4)
+           GOTO 7000
+        ENDIF
+
+C
+C  IFIRST and ILAST   store the first and last SP of the input 
+c  buffer
+c
+
+       IFIRST = JINT (XBUF ( 1 + (INDEB-1) * NBW_SP ))
+       ILAST  = JINT (XBUF ( 1 + (NUM_DEC + INDEB -2 ) * NBW_SP ))
+
+C
+C---------------------------------------------------------------
+C---------------------------------------------------------------
+C---------------------------------------------------------------
+C---------------------------------------------------------------
+c
+C ........initialize nlist for shot_xy
+C
+      IST = NLG_INIT_NLIST (NLIST_XY ,NDIM_XY , UNITS ,DATA_SIZ
+     -         ,DATA_TYP, VALUEINC , BLOCSIZE )
+C
+
+       IF ( IST .NE .0 ) THEN
+          CALL UK_LOGMES ( C28, XY_NAME, IST, I2, I3 ,I4 )
+          CALL UK_LOGMES ( C26, AREA, I1 ,I2,I3,I4 )
+          GOTO 5000
+       ENDIF
+C
+c    start a TABLE to store the xy coordinates
+C
+       IST = NLG_START_TABLE ( NLIST_XY , STROKXY )
+C
+
+       IF ( IST .NE .0 ) THEN
+          CALL UK_LOGMES ( C29, XY_NAME, IST, I2, I3 ,I4 )
+          CALL UK_LOGMES ( C26, AREA, I1 ,I2,I3,I4 )
+          GOTO 5000
+       ENDIF
+
+C
+c ........initialize nlist for shot_labels
+C
+       IST = NLG_INIT_NLIST (NLIST_SL, NDIM_SL, UNITS, DATA_SIZ
+     -		,DATA_TYP, VALUEINC, BLOCSIZE )
+C
+
+       IF ( IST .NE .0 ) THEN
+          CALL UK_LOGMES ( C28, SL_NAME, IST, I2, I3 ,I4 )
+          CALL UK_LOGMES ( C26, AREA, I1 ,I2,I3,I4 )
+          GOTO 5000
+       ENDIF
+C
+c    start a TABLE to store the xy coordinates
+C
+       IST = NLG_START_TABLE ( NLIST_SL , STROKSL )
+C
+       IF ( IST .NE .0 ) THEN
+          CALL UK_LOGMES ( C29, SL_NAME, IST, I2, I3 ,I4 )
+          CALL UK_LOGMES ( C26, AREA, I1 ,I2,I3,I4 )
+          GOTO 5000
+       ENDIF
+C
+c ...........loop to fill the TABLE with the coordinates
+c ...........converted in the areaprojection
+c
+c .......... we have first to store in vxy_list the pointers to the
+C ...........DATA ARRAYS CDP_NUM, X_COOR AND Y_COORD USED IN ADD_POINTS
+C
+      VXY_LIST ( 1 ) = HOPTR (CDP_NUM ( 1 ))
+      VXY_LIST ( 2 ) = HOPTR ( X_COORD )
+      VXY_LIST ( 3 ) = HOPTR ( Y_COORD )
+C
+C .......... WE HAVE TO STORE IN VSL_LIST THE POINTERS TO THE DATA
+C ........... ARRAYS SP_NUM , CDP_NUM
+C
+      VSL_LIST ( 1 ) = HOPTR ( CDP_NUM ( 1) )
+      VSL_LIST ( 2 ) = HOPTR ( SP_NUM ( 2)  )
+C
+C ........ J   IS  INITIALIZED TO BE ON THE X COORD SELECTED IN BUF
+C
+
+      J = (INDEB - 1 ) * NBW_SP + 1
+C
+c ....... initialise logical flags before beginning the loop
+c ....... in order to detect the changes in the ordering of the
+c ........    sp numbers we use three logicals
+c .......   lastasc gives the order between the two last sp
+c .......   newasc  gives the order dbetween the two current
+c .......   consecutive sp
+c          lastasc , newasc are true if ascending order
+c                               false if descending order
+c .........  BREAK   is true when there is a change in the ordering
+c
+C
+      LASTASC  = .TRUE.
+C
+C----------------------------------------------------------------------
+C----------------------------------------------------------------------
+C
+c ....     store first sp selected in array SP_NUM
+C
+      SP_NUM ( 1 )  = XBUF ( J )
+c
+c .... initialise ' first cdp ' on the line + initialise cdp_per_cp
+c       the routine segincdp is 'honoring' the relation cdp / sp
+c       if there is already at  least one seismic file on this line
+c
+	LINE_ID = 0
+        CALL SEGINCDP ( LINE_NAM, SURVEY_NAM, LINE_ID, HONOR,
+     -        SP_NUM(1) , CDP_NUM(1) , CDP_PER_SP,  ISTAT )
+C
+C
+      UR_X = -99999999999.
+      UR_Y = -99999999999.
+      LL_X =  99999999999.
+      LL_Y =  99999999999.
+C
+C
+C----------------------------------------------------------------------
+C----------------------------------------------------------------------
+C--------------------------------------------------------------------
+C
+      DO 300 I = 1 , NUM_DEC
+
+c    cordinates of the current point
+C
+         X_COORD ( 1 ) = XBUF ( J + 1)
+         Y_COORD ( 1 ) = XBUF ( J + 2)
+
+C
+c   set maxi and mini  on  x and y axis
+C
+         UR_X = AMAX1 ( UR_X , X_COORD(1))
+         UR_Y = AMAX1 ( UR_Y , Y_COORD (1))
+         LL_X = AMIN1 ( LL_X , X_COORD (1))
+         LL_Y = AMIN1 ( LL_Y , Y_COORD (1))
+C
+c ...... store current sp num in SP_NUM(2)  to compare it with the last
+c ......   one  which is in SP_NUM ( 1)
+C
+         SP_NUM ( 2) = XBUF ( J )
+C
+         XDIF =SP_NUM ( 2) - SP_NUM ( 1 )
+C
+C ...... set logical   NEWASC
+C
+
+         IF( XDIF .GE. 0. ) THEN
+              NEWASC = .TRUE.
+         ELSE
+              NEWASC = .FALSE.
+         ENDIF
+c
+c    if the last  sp was the beginning of a new part
+c       BREAK   is true and we force  LASTASC = NEWASC
+c      because we are on the first two sp of a new part
+c
+         IF (BREAK) LASTASC = NEWASC
+C
+C ....    LOOK FOR A BREAK
+C
+         IF ( NEWASC .EQV. LASTASC ) THEN
+            BREAK = .FALSE.
+         ELSE
+            BREAK = .TRUE.
+         ENDIF
+C
+c ..... if we have a break we need to start a new TABLE in shot/labels
+C
+         IF ( BREAK )    THEN
+c       --              -----
+c      flag set to semi regular correspondance
+C
+            S_REGUL = SEMREGUL
+
+C
+c          we update the structure containing information
+c        on the correspondance cdp sp if honor is false
+c        or if the correspondance already established 
+c        is not enough extended - the cdp number  corresponding
+c        to the sp is returned 
+c          this research and updating
+c        is done by the routine  updcores
+C
+c
+             ILSTCDP  = CDP_NUM(1)
+C
+             CALL UPDCORES (LINE_NAM, SURVEY_NAM, LINE_ID, S_REGUL,
+     -           HONOR, ILSTCDP, SP_NUM(2), CDP_NUM(1), IST)
+C
+C
+             IST = NLG_START_TABLE(NLIST_SL, STROKSL)
+C
+             IF ( IST .NE. 0 ) THEN
+                CALL UK_LOGMES ( C29, SL_NAME, IST, I2, I3, I4 )
+                CALL UK_LOGMES ( C26, AREA, I1 ,I2,I3,I4 )
+                GOTO 5000
+             ENDIF
+C
+          ELSE
+C                       -----
+C
+C      return cdp corresponding to the current sp
+c
+               CALL SEGCDPSP (LINE_NAM, SURVEY_NAM, LINE_ID,
+     -                  SP_NUM(2), CDP_NUM(1), IST)
+
+        ENDIF
+c       -----
+C
+C ...... ADD ROW TO THE NLIST_XY
+C
+         IST = NLG_ADD_ROWS ( NLIST_XY, C1, NDIM_XY, DIM_LIST,
+     +   VXY_LIST )
+C
+         IF ( IST.NE.0) THEN
+            CALL UK_LOGMES ( C30, XY_NAME, IST, I2, I3 ,I4 )
+            CALL UK_LOGMES ( C26, AREA, I1 ,I2,I3,I4 )
+            GOTO 5000
+         ENDIF
+C
+C
+C ........   ADD ROW TO NLIST SHOT_LABELS
+C
+         IST = NLG_ADD_ROWS ( NLIST_SL, C1, NDIM_SL, DIM_LIST,
+     +   VSL_LIST )
+C
+         IF ( IST .NE .0 ) THEN
+            CALL UK_LOGMES ( C30 ,SL_NAME , IST , I2, I3 ,I4 )
+            CALL UK_LOGMES ( C26 , AREA , I1 ,I2,I3,I4 )
+            GOTO 5000
+         ENDIF
+C
+C
+C---------------------------------------------------------------
+c
+c     replace in buffer buf the sp number by the cdp number\
+c     this will be used to optimize the linearisation of the 
+c      of the line so we will not need to 'recompute the cdp'
+c     to fill the nlist shot_xy
+c
+C---------------------------------------------------------------
+
+	 BUF ( J ) = CDP_NUM( 1 )
+
+C
+C ......   SET VALUES FOR NEXT STEP IN THE LOOP
+C
+         SP_NUM ( 1) = SP_NUM (2)
+         LASTASC = NEWASC
+C
+         J = J + NBW_SP
+C
+300   CONTINUE
+C
+C---------------------------------------------------------------
+C---------------------------------------------------------------
+C---------------------------------------------------------------
+
+       IF (DEBUG .EQ. 0) GOTO 3503
+C
+C
+C
+C ************     WARNING     ******************
+C *********   PART OF CODE  IN COMMENT CAN BE REACTIVATED
+C    FOR TESTING PURPOSE
+C
+C .... GET ROWS IN THE ARRAYS X1 Y1
+C
+C   SET CURRENT ROW TO BEGINNING OF TABLE
+C
+          IST = NLG_SET_CURRENT_ROW ( NLIST_XY, C1, STROKXY)
+C
+          WRITE ( LIST , 2222) IST
+   
+          IST = NLG_SET_CURRENT_ROW ( NLIST_SL ,C1,C1)
+          WRITE ( LIST , 2222) IST
+2222      FORMAT ( /, ' STATUS SET CURRENT POINT ' , I6)
+C
+C
+          VXY_LIST (1) = HOPTR ( CDP_READ )
+          VXY_LIST (2) = HOPTR (X1)
+          VXY_LIST (3) = HOPTR (Y1)
+          NALL = MIN0 ( 40, NUM_DEC)
+
+          VSL_LIST ( 1 ) = HOPTR ( CDP_READ )
+          VSL_LIST ( 2 ) = HOPTR ( SP_READ )
+C
+          IST = NLG_GET_ROWS ( NLIST_XY, NALL, NDIM_XY, DIM_LIST,
+     +              VXY_LIST , NUM_POIN )
+          IST = NLG_GET_ROWS ( NLIST_SL, NALL, NDIM_SL, DIM_LIST,
+     +              VSL_LIST , NUM_POIN )
+C
+          WRITE ( LIST ,3333) IST , NUM_POIN
+3333      FORMAT ( /, ' STATUS GET POINT ' , 2 ( 1X, I6 ))
+C
+          DO 3501 K = 1 , NALL
+3501     WRITE ( LIST , 3502 ) X1(K), Y1(K), SP_READ(K), CDP_READ(K)
+3502      FORMAT ( /,' X1 = ', E15.8,' Y1 = ',E15.8,'  SP=',F7.1,
+     +              '  CDP = ',I7 )
+C
+3503      CONTINUE  
+C
+C
+C---------------------------------------------------------------
+C---------------------------------------------------------------
+C
+C     ADD NLIST SHOT_XY IN THE DATA BASE
+C
+C    SORT THE NLIST ON ASCENDING CDP NUMBERS
+C
+       IST = NLG_SORT_NLIST ( NLIST_XY , IDSORT , DIMSORT,
+     +  SORTFLAG , SORT_XY )
+
+      IF ( IST .NE . 0 ) THEN
+         CALL UK_LOGMES ( C27, XY_NAME, IST ,I2 ,I3, I4 )
+         CALL UK_LOGMES ( C26, XY_NAME, I1, I2,I3,I4 )
+         GOTO 5000
+      ENDIF
+C
+C   GET THE NLIST ID AND FILENAME FROM SE TOOLS ROUTINES
+C    FOR THE XY DATA
+C
+	IST = SEG_BLD_NLIST_IDS (SURVEY_NAM, LINE_NAM, CONTEXT,
+     -              SEIS_XY, XY_NAME, S_NLFILE, FULL_FILENAME)
+C
+        IF(IST .NE. 0) THEN
+            CALL UK_LOGMES(C54, FULL_FILENAME, IST,0,0,0)
+            GOTO 7000
+        ENDIF
+C
+C .........  DELETE NLIST BEFORE ADDING
+C
+      IST = NLG_DELETE_NLIST ( FULL_FILENAME , XY_NAME )
+
+      IF ( (IST .NE. 0 ) .AND.
+     &	      (IST .NE. NL_FILE_NOT_FOUND) .AND.
+     &	      (IST .NE. NL_FILE_OPEN_ERROR).AND.
+     &	      (IST .NE. NL_INVALID_FILENAME) .AND.
+     &	      (IST .NE. NL_NLIST_NOT_FOUND) .AND.
+     &	      (IST .NE. NL_INVALID_NLIST_NAME) ) THEN
+         CALL UK_LOGMES ( C27, XY_NAME, IST ,I2 ,I3, I4 )
+         CALL UK_LOGMES ( C26, XY_NAME, I1, I2,I3,I4 )
+         GOTO 5000
+      ENDIF
+C
+C ......... WRITE THE NLIST FOR XY COORD
+
+C
+      IST = NLG_WRITE_NLIST ( SORT_XY, FULL_FILENAME , XY_NAME )
+C
+
+      IF ( IST .NE . 0 ) THEN
+         CALL UK_LOGMES ( C27, XY_NAME, IST ,I2 ,I3, I4 )
+         CALL UK_LOGMES ( C26, XY_NAME, I1, I2,I3,I4 )
+         GOTO 5000
+      ENDIF
+C
+c ........... free  space allocated for the nlist
+C
+      IST = NLG_FREE_NLIST ( NLIST_XY )
+      IST = NLG_FREE_NLIST ( SORT_XY )
+C
+
+      IF ( IST .NE .0 ) THEN
+         ISTATUS = 3
+         GOTO 5000
+      ENDIF
+C
+C
+C
+C---------------------------------------------------------------
+C---------------------------------------------------------------
+c
+c         write    the  nlist shot_labels to the disk
+c
+
+C
+c
+c    sort the nlist on ascending cdp numbers
+C
+      IST = NLG_SORT_NLIST ( NLIST_SL , IDSORT , DIMSORT,
+     +  SORTFLAG , SORT_XY )
+
+      IF ( IST .NE . 0 ) THEN
+         CALL UK_LOGMES ( C27, SL_NAME, IST ,I2 ,I3, I4 )
+         CALL UK_LOGMES ( C26, XY_NAME, I1, I2,I3,I4 )
+         GOTO 5000
+      ENDIF
+
+C
+C
+C   GET THE NL ID AND FILENAME FROM SE TOOLS ROUTINES
+C     FOR THE SHOT LABEL NLIST
+C
+	IST = SEG_BLD_NLIST_IDS (SURVEY_NAM, LINE_NAM, CONTEXT,
+     -          SEIS_SL, SL_NAME, S_NLFILE, FULL_FILENAME)
+C
+        IF(IST .NE. 0) THEN
+            CALL UK_LOGMES(C54, FULL_FILENAME, IST,0,0,0)
+            GOTO 5000
+        ENDIF
+C
+c       delete the nlist in case it was already existing
+C 
+      IST = NLG_DELETE_NLIST ( FULL_FILENAME , SL_NAME )
+
+      IF ( (IST .NE. 0 ) .AND.
+     &	      (IST .NE. NL_FILE_NOT_FOUND) .AND.
+     &	      (IST .NE. NL_FILE_OPEN_ERROR).AND.
+     &	      (IST .NE. NL_INVALID_FILENAME) .AND.
+     &	      (IST .NE. NL_NLIST_NOT_FOUND) .AND.
+     &	      (IST .NE. NL_INVALID_NLIST_NAME) ) THEN
+         CALL UK_LOGMES ( C27, SL_NAME, IST ,I2 ,I3, I4 )
+         CALL UK_LOGMES ( C26, XY_NAME, I1, I2,I3,I4 )
+         GOTO 5000
+      ENDIF
+c ......... write the nlist for sl coord
+C
+      IST = NLG_WRITE_NLIST ( SORT_XY , FULL_FILENAME , SL_NAME )
+C
+      IF ( IST .NE . 0 ) THEN
+         CALL UK_LOGMES ( C27, SL_NAME, IST ,I2 ,I3, I4 )
+         CALL UK_LOGMES ( C26, XY_NAME, I1, I2,I3,I4 )
+         GOTO 5000
+      ENDIF
+C
+C
+C  --------------------------------
+c
+c    update initial and final cdp AND sp
+c
+
+      VSL_LIST ( 1 ) = HOPTR ( CDP_READ )
+      VSL_LIST ( 2 ) = HOPTR ( SP_READ )
+
+c       retrieve first ROW of the nlist 
+c
+      IST = NLG_FIRST_ROW ( NLIST_SL  , NDIM_SL , DIM_LIST,
+     + VSL_LIST) 
+
+      INIT_CDP = CDP_READ (1)
+      INIT_SP  = SP_READ  (1)
+
+      IST = NLG_LAST_ROW( NLIST_SL  , NDIM_SL , DIM_LIST,
+     + VSL_LIST) 
+
+      FIN_CDP = CDP_READ (1)
+      FIN_SP  = SP_READ  (1)
+
+
+C  - ------------------ ------------
+c
+c ........... free  space allocated for the nlist
+C
+      IST = NLG_FREE_NLIST ( NLIST_SL )
+      IST = NLG_FREE_NLIST ( SORT_XY  )
+C
+
+
+      IF ( IST .NE .0 ) THEN
+         ISTATUS = 3
+         GOTO 7000
+      ENDIF
+C
+C
+C
+C---------------------------------------------------------------
+C---------------------------------------------------------------
+C
+c
+c       store the altimetry if there are some to store 
+C
+C
+
+      IF ( CHOIX ( 6 ) .NE. 0 )   THEN
+C       --                          ------
+
+c
+c ........initialize nlist for nl_alti
+C
+         IST = NLG_INIT_NLIST (NL_ALTI, NDIM_SL, UNITS, 
+     -            DATA_SIZ ,DATA_TYP, VALUEINC ,BLOCSIZE )
+C
+
+         IF ( IST .NE .0 ) THEN
+            CALL UK_LOGMES ( C28, ALTI_CDP, IST , I2, I3 ,I4 )
+            CALL UK_LOGMES ( C26, AREA, I1 ,I2,I3,I4 )
+            GOTO 5000
+         ENDIF
+c
+c    start a TABLE to store the xy coordinates
+C
+         IST = NLG_START_TABLE ( NL_ALTI , STROKXY )
+C
+
+         IF ( IST .NE .0 ) THEN
+            CALL UK_LOGMES ( C29, ALTI_CDP, IST , I2, I3 ,I4 )
+            CALL UK_LOGMES ( C26, AREA, I1 ,I2,I3,I4 )
+            GOTO 5000
+         ENDIF
+
+         ICUR = IBEGIN 
+
+	 DO 500 I = 1 , NUM_DEC
+C
+
+	    VXY_LIST (1) = HOPTR ( BUF ( ICUR ))
+	    VXY_LIST (2) = HOPTR ( XBUF ( ICUR + 3 ))
+
+c ...... add ROW to the nl_alti
+
+C
+           IST = NLG_ADD_ROWS ( NL_ALTI, C1, NDIM_SL,
+     -             DIM_LIST, VXY_LIST )
+ 
+            IF ( IST.NE.0) THEN
+               CALL UK_LOGMES ( C30, ALTI_CDP, IST, I2, I3, I4 )
+               CALL UK_LOGMES ( C26, AREA, I1 ,I2,I3,I4 )
+               GOTO 5000
+            ENDIF
+C
+C
+            ICUR = ICUR + NBW_SP
+
+500      CONTINUE
+
+
+C
+C
+c
+c    sort the nlist on ascending cdp 
+C
+	 IST = NLG_SORT_NLIST ( NL_ALTI , IDSORT , DIMSORT,
+     +           SORTFLAG , SORT_XY )
+C
+         IF ( IST .NE . 0 ) THEN
+            CALL UK_LOGMES ( C27, ALTI_CDP, IST ,I2 ,I3, I4 )
+            CALL UK_LOGMES ( C26, ALTI_CDP, I1, I2,I3,I4 )
+            GOTO 5000
+         ENDIF
+C
+C   GET THE NL ID AND FILENAME FROM SE TOOLS ROUTINES
+C     FOR THE WATER DEPTH NLIST
+C
+	IST = SEG_BLD_NLIST_IDS (SURVEY_NAM, LINE_NAM, CONTEXT,
+     -          SEIS_ALTI, ALTI_CDP, S_NLFILE, FULL_FILENAME)
+C
+        IF(IST .NE. 0) THEN
+            CALL UK_LOGMES(C54, FULL_FILENAME, IST,0,0,0)
+            GOTO 7000
+        ENDIF
+
+c
+c .........  delete nlist before adding
+C
+         IST = NLG_DELETE_NLIST ( FULL_FILENAME , ALTI_CDP )
+
+         IF ( (IST .NE. 0 ) .AND.
+     &	      (IST .NE. NL_FILE_NOT_FOUND) .AND.
+     &	      (IST .NE. NL_FILE_OPEN_ERROR).AND.
+     &	      (IST .NE. NL_INVALID_FILENAME) .AND.
+     &	      (IST .NE. NL_NLIST_NOT_FOUND) .AND.
+     &	      (IST .NE. NL_INVALID_NLIST_NAME) ) THEN
+            CALL UK_LOGMES ( C27, ALTI_CDP, IST ,I2 ,I3, I4 )
+            CALL UK_LOGMES ( C26, ALTI_CDP, I1, I2,I3,I4 )
+            GOTO 5000
+         ENDIF
+c
+c ......... write the nlist for xy coord
+
+C
+         IST = NLG_WRITE_NLIST ( SORT_XY ,FULL_FILENAME ,ALTI_CDP )
+C
+
+         IF ( IST .NE . 0 ) THEN
+            CALL UK_LOGMES ( C27, ALTI_CDP, IST ,I2 ,I3, I4 )
+            CALL UK_LOGMES ( C26, ALTI_CDP, I1, I2,I3,I4 )
+            GOTO 5000
+         ENDIF
+C
+C ........... free  space allocated for the nlist
+C
+         IST = NLG_FREE_NLIST ( NL_ALTI )
+         IST = NLG_FREE_NLIST ( SORT_XY )
+C
+
+         IF ( IST .NE .0 ) THEN
+            ISTATUS = 3
+            GOTO 7000
+         ENDIF
+
+
+      ENDIF
+C     ------
+C
+C---------------------------------------------------------------
+C---------------------------------------------------------------
+c
+c  compute the linearised nlist coordinates and store them in
+c   xy_optim
+c
+c	ALIMIT is the limit angle for linearisation ( in common ld_ukooa2 )
+c       MINI_TRP is the minimum of ROW in the linearisation
+C
+	ALIMIT = XANG_LIM
+	MINI_TRP = MIN_TRP
+C
+      CALL UK_OPTM_XY ( BUF ( IBEGIN), XBUF (IBEGIN),
+     -      NUM_DEC, NBW_SP, ALIMIT, MINI_TRP, 
+     -      NB_OPT, XSPACIN, IST)
+C
+      IF ( IST .NE .0 ) THEN
+         CALL UK_LOGMES ( C53, XY_OPTIM, IST, I2, I3 ,I4 )
+         CALL UK_LOGMES ( C26, AREA, I1 ,I2,I3,I4 )
+         GOTO 7000
+      ENDIF
+C
+c ........initialize nlist for optim_xy
+C
+      IST = NLG_INIT_NLIST (OPTIM_XY ,NDIM_XY , UNITS ,DATA_SIZ
+     -          ,DATA_TYP, VALUEINC , BLOCSIZE )
+C
+
+      IF ( IST .NE .0 ) THEN
+         CALL UK_LOGMES ( C28, XY_OPTIM, IST, I2, I3 ,I4 )
+         CALL UK_LOGMES ( C26, AREA, I1 ,I2,I3,I4 )
+         GOTO 5000
+      ENDIF
+c
+c    start a TABLE to store the xy coordinates
+c
+      IST = NLG_START_TABLE ( OPTIM_XY , STROKXY )
+C
+
+      IF ( IST .NE .0 ) THEN
+         CALL UK_LOGMES ( C29, XY_OPTIM, IST , I2, I3 ,I4 )
+         CALL UK_LOGMES ( C26, AREA, I1 ,I2,I3,I4 )
+         GOTO 5000
+      ENDIF
+
+      ICUR = IBEGIN 
+
+      DO 600 I = 1 , NB_OPT
+C
+
+         VXY_LIST (1) = HOPTR ( BUF ( ICUR ))
+         VXY_LIST (2) = HOPTR ( XBUF ( ICUR + 1 ))
+         VXY_LIST (3) = HOPTR ( XBUF ( ICUR + 2 ))
+
+c ...... add ROW to the optim_xy
+
+C
+         IST = NLG_ADD_ROWS ( OPTIM_XY, C1, NDIM_XY ,DIM_LIST ,
+     +   VXY_LIST )
+
+         IF ( IST.NE.0) THEN
+            CALL UK_LOGMES ( C30, XY_OPTIM, IST, I2, I3 ,I4 )
+            CALL UK_LOGMES ( C26, AREA, I1 ,I2,I3,I4 )
+            GOTO 5000
+         ENDIF
+C
+C
+	 ICUR = ICUR + NBW_SP
+
+600   CONTINUE
+
+c
+c    sort the nlist on ascending cdp
+C
+      IST = NLG_SORT_NLIST ( OPTIM_XY , IDSORT , DIMSORT,
+     +  SORTFLAG , SORT_XY )
+C
+      IF ( IST .NE . 0 ) THEN
+         CALL UK_LOGMES ( C27, XY_OPTIM, IST ,I2 ,I3, I4 )
+         CALL UK_LOGMES ( C26, XY_OPTIM, I1, I2,I3,I4 )
+         GOTO 5000
+      ENDIF
+
+C
+C   GET THE NL ID AND FILENAME FROM SE TOOLS ROUTINES
+C     FOR THE LINEARIZED OPTIMUM XY NLIST
+C
+	IST = SEG_BLD_NLIST_IDS (SURVEY_NAM, LINE_NAM, CONTEXT,
+     -           SEIS_OPTIM, XY_OPTIM, S_NLFILE, FULL_FILENAME)
+C
+        IF(IST .NE. 0) THEN
+            CALL UK_LOGMES(C54, FULL_FILENAME, IST,0,0,0)
+            GOTO 7000
+        ENDIF
+
+C
+c .........  delete nlist before adding
+C
+C      ALREADY IN THE FULL_FILENAME
+C
+      IST = NLG_DELETE_NLIST ( FULL_FILENAME , XY_OPTIM )
+
+      IF ( (IST .NE. 0 ) .AND.
+     &	   (IST .NE. NL_FILE_NOT_FOUND) .AND.
+     &	   (IST .NE. NL_FILE_OPEN_ERROR).AND.
+     &     (IST .NE. NL_INVALID_FILENAME) .AND.
+     &     (IST .NE. NL_NLIST_NOT_FOUND) .AND.
+     &	   (IST .NE. NL_INVALID_NLIST_NAME) ) THEN
+         CALL UK_LOGMES ( C27, XY_OPTIM, IST ,I2 ,I3, I4 )
+         CALL UK_LOGMES ( C26, XY_OPTIM, I1, I2,I3,I4 )
+         GOTO 5000
+      ENDIF
+c
+c ......... write the nlist for OPTIM xy coord
+
+C
+      IST = NLG_WRITE_NLIST ( SORT_XY , FULL_FILENAME, XY_OPTIM )
+C
+
+      IF ( IST .NE . 0 ) THEN
+         CALL UK_LOGMES ( C27, XY_OPTIM, IST ,I2 ,I3, I4 )
+         CALL UK_LOGMES ( C26, XY_OPTIM, I1, I2,I3,I4 )
+         GOTO 5000
+      ENDIF
+c
+C ........... FREE  SPACE ALLOCATED FOR THE NLIST
+C            
+      IST = NLG_FREE_NLIST ( OPTIM_XY )
+C     
+C
+
+      IF ( IST .NE .0 ) THEN
+         ISTATUS = 3
+         GOTO 5000
+      ENDIF
+
+C
+C
+C---------------------------------------------------------------
+C---------------------------------------------------------------
+C
+C
+
+c      compute the oriented rectangle enclosing the line 
+c    
+c      XD_LARG  and XD_LONG  are used for computing the enveloppe
+c      we take the values which are in the include file LD_UKOOA2
+C
+      XD_LARG = D_LARG
+      XD_LONG = D_LONG
+c
+c   NBENT is the number of lines already loaded during the session
+c   we store in the common entree the ends of the axis of the rect
+c   used for enclosing the line - this data will be used at the 
+c   end of the loading to compute the enveloppes used for picking
+c
+       IND_ENV = NBENT * 4 + 1
+C   
+       CALL UK_ENVEL_F ( XBUF ( IBEGIN), NB_OPT, NBW_SP,
+     -  XD_LONG, XD_LARG, ENV_RECT, EXTREM_C (IND_ENV) )
+C
+C
+C
+C------------------------------------------------------------
+C------------------------------------------------------------
+C
+c    fill the variables used by sql update or insert statement
+C
+	S_SHOTXY = XY_NAME
+	S_OPTXY  = XY_OPTIM
+	S_LABELS = SL_NAME
+	S_RECEIV = ALTI_CDP
+	S_FI_CDP = FIN_CDP
+	S_IN_CDP = INIT_CDP
+	S_IN_SP  = INIT_SP
+	S_FI_SP  = FIN_SP
+	S_UR_X   = UR_X
+	S_UR_Y   = UR_Y
+	S_LL_X   = LL_X
+	S_LL_Y   = LL_Y
+	S_CDP_SP = CDP_PER_SP
+	S_XYSET  = 1
+	S_SPACIN = XSPACIN * CDP_PER_SP
+	S_X1     = ENV_RECT (1)
+	S_Y1     = ENV_RECT (2)
+	S_X2     = ENV_RECT (3)
+	S_Y2     = ENV_RECT (4)
+	S_X3     = ENV_RECT (5)
+	S_Y3     = ENV_RECT (6)
+	S_X4     = ENV_RECT (7)
+	S_Y4     = ENV_RECT (8)
+        L_LENGTH = XSPACIN * JIABS ( FIN_CDP - INIT_CDP )
+C
+C---------------------------------------------------------------
+C---------------------------------------------------------------
+
+c
+
+c        update or insert new row in data base table
+
+C
+      IF ( UPDAT )   THEN
+C     ==             =====
+c
+c      survey is not null
+C
+        EXEC SQL WHENEVER SQLERROR GOTO 889
+c
+	EXEC SQL EXECUTE S2 USING :S_SHOTXY, :S_OPTXY, :S_LABELS,
+     1  :S_IN_CDP, :S_FI_CDP, :S_IN_SP, :S_FI_SP,
+     2  :S_UR_X, :S_UR_Y, :S_LL_X, :S_LL_Y, :S_CDP_SP,
+     3  :S_SPACIN, :S_RECEIV, :S_XYSET, :S_X1, :S_Y1, :S_X2,
+     4  :S_Y2, :S_X3, :S_Y3, :S_X4, :S_Y4, :L_LENGTH, :S_REGUL,
+     5  :S_NLFILE, :LINE_NAM, :N_SURVEY
+c
+c      no  error  so we can commit the work we did
+C
+	EXEC SQL COMMIT WORK
+
+        CALL UK_LOGMES ( C61, LINE,I1,I2,I3,I4)
+
+       ELSE
+C      ====                        
+C
+c     insert a new record in the table
+c
+c  no seismic associated with this line 
+c
+          S_SEISM = 0
+C
+        EXEC SQL WHENEVER SQLERROR GOTO 901
+C
+	EXEC SQL EXECUTE S3 USING :LINE_NAM,
+     1 :S_SHOTXY, :S_OPTXY, :S_LABELS,
+     2 :S_IN_CDP, :S_FI_CDP, :S_IN_SP, :S_FI_SP,
+     3 :S_UR_X, :S_UR_Y, :S_LL_X,  :S_LL_Y, :S_CDP_SP, :S_SPACIN,
+     4 :S_SEISM, :S_RECEIV, :S_XYSET, :S_X1, :S_Y1, :S_X2,
+     5 :S_Y2, :S_X3, :S_Y3, :S_X4, :S_Y4, :L_LENGTH,
+     6 :S_REGUL, :S_NLFILE, :N_SURVEY
+C
+c      no  error  so we can commit the work we did
+C
+	EXEC SQL COMMIT WORK
+
+        CALL UK_LOGMES ( C62, LINE,I1,I2,I3,I4)
+C
+
+      ENDIF
+C     ===== 
+C
+C
+C----------------------------------------------------------------
+C----------------------------------------------------------------
+C
+c
+c .........   display  UK_LOGMESsage confirming that the line has been
+c .,.....    stored
+C
+C=====================================================
+C====================================================
+C=======================================================
+
+       CALL UK_LOGMES ( C33, LINE_NAM, NUM_DEC, IFIRST, ILAST, I4 )
+C
+       CALL UK_LOGMES ( C39, SURVEY_NAM, LL_X, LL_Y, UR_X, UR_Y )
+C
+c        updating  global coordinates on all the line already entered
+C
+       NEWMAX =  AMAX1 ( NEWMAX , UR_X )
+       NEWMAY =  AMAX1 ( NEWMAY , UR_Y )
+       NEWMIX =  AMIN1 ( NEWMIX , LL_X )
+       NEWMIY =  AMIN1 ( NEWMIY , LL_Y )
+C
+c       update number of new lines added to the db + update 
+c       common 	ITABL with the new loaded line
+C
+       NEWLINE = NEWLINE + 1
+
+c ............ add LSTLIN to end of ITABL and increment entry number
+c
+        IDD = NBCARL * NBENT
+        CTABL ( IDD + 1 : IDD + NBCARL ) = LINE (1:NBCARL)
+        NBENT = NBENT + 1
+              
+C
+c    if we are replacing a line already existing we add 1 to REPLINE
+C
+       IF ( HONOR )  REPLINE = REPLINE + 1
+C
+C
+C   -----      ------  ----------  ----------- ------
+C    update the GIS system coordinate
+c
+C       CALL LDGGISUP (SORT_XY, LINE_NAM, SURVEY_NAM)
+C
+C   -----      ------  ----------  ----------- ------
+C-------------------------------------------------------------
+C-------------------------------------------------------------
+C
+C
+5000  CONTINUE
+6000  CONTINUE
+C
+c ........... free  space allocated for the nlist SORT_XY
+C               used for the GIS indexing
+C
+      IST = NLG_FREE_NLIST ( SORT_XY )
+C
+c    reset a c internal structure used to keep information 
+c    about the line
+c
+7000  CONTINUE
+
+C
+      RETURN
+C
+C	    SQL ERROR HANDLING
+C
+889     CONTINUE
+c
+c      we come here in case of data base update error with C2 so we roll
+c      back what we did to the retrieve the old state and need 
+C      
+         CALL UK_LOGMES ( C31 , LINE_NAM ,SQLCDE ,I2 ,I3, I4 )
+         CALL UK_LOGMES ( C26 , XY_NAME , I1, I2,I3,I4 )
+         EXEC SQL ROLLBACK WORK 
+         IST = 1
+         GOTO 7000
+C
+C
+895     CONTINUE
+c
+c      we come here in case of data base error with C1 so we roll
+c      back what we did to the retrieve the old state and need 
+C      
+         CALL UK_LOGMES ( C57 , LINE_NAM ,SQLCDE ,I2 ,I3, I4 )
+         CALL UK_LOGMES ( C26 , XY_NAME , I1, I2,I3,I4 )
+         EXEC SQL ROLLBACK WORK 
+         IST = 1
+         GOTO 7000
+C
+C
+901     CONTINUE
+c
+c      we come here in case of data base insert error with C3 so we roll
+c      back what we did to the retrieve the old state and need 
+C      
+         CALL UK_LOGMES ( C32, LINE_NAM, SQLCDE ,I2 ,I3 ,I4 )
+         CALL UK_LOGMES ( C26, XY_NAME, I1, I2, I3, I4 )
+         EXEC SQL ROLLBACK WORK 
+
+         IST = 1
+         GO TO 6000
+
+      END

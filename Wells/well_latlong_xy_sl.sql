@@ -1,0 +1,29 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element WELL_LATLONG_XY_SL.SQL */
+/* *4    26-NOV-1990 11:49:22 ERIC "(SPR 1) Removed wellname/wellnumber form select phrase to shorten length." */
+/* *3    26-MAR-1990 11:41:02 DOROTHY "(SPR -1) Schema fix." */
+/* *2    29-SEP-1989 12:52:56 ALLAWAY "(SPR 5011) SQL SCRIPT FOR FINDER REPORTS - NEW SCHEMA" */
+/* *1    29-SEP-1989 11:40:06 ALLAWAY "SQL SCRIPT FOR FINDER REPORTS" */
+/* DEC/CMS REPLACEMENT HISTORY, Element WELL_LATLONG_XY_SL.SQL */
+DOC
+	ESI Well Latlong Report
+	p1 = Project Name
+	p2 = name of control list table
+        p3 = name of original select list
+#
+
+CLEAR 	BREAKS;
+
+BREAK ON WELLNAME SKIP 1
+
+COLUMN UWI FORMAT A17
+COL NODE_X FORMAT 99,999,999.9
+COL NODE_Y FORMAT 99,999,999.9
+COL LATITUDE FORMAT 999.99999
+COL LONGITUDE FORMAT 9999.99999
+TTITLE 	CENTER ' -->  --> &1 Well Locations Using Control List "&3" <--  <--' SKIP CENTER 'Sorted by Well Name';
+
+SELECT  A.UWI,
+B.NODE_X, B.NODE_Y, B.LATITUDE, B.LONGITUDE
+FROM 	&1..WELL_HDR A, &1..NODES B, &2 C
+WHERE	A.NODE_ID = B.NODE_ID AND A.UWI = C.UWI
+ORDER BY A.UWI;

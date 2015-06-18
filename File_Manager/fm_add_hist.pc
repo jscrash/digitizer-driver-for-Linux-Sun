@@ -1,0 +1,270 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element FM_ADD_HIST.PC*/
+/* *7    30-OCT-1990 16:26:00 GILLESPIE "(SPR 37) More sun fixes"*/
+/* *6    30-OCT-1990 13:44:49 GILLESPIE "(SPR 37) Fixes for Sun compiles"*/
+/* *5    14-AUG-1990 13:24:09 VINCE "(SPR 5644) Header Standardization"*/
+/* *4     7-NOV-1989 13:23:04 GILLESPIE "(SPR 30) Use esi_fm_int.h include file"*/
+/* *3     7-NOV-1989 12:16:59 GILLESPIE "(SPR 30) Add call to fm_sys_index to get hash table ptr"*/
+/* *2    14-SEP-1989 16:14:55 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *1    19-JUN-1989 12:31:57 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element FM_ADD_HIST.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_fm_int.h"
+
+#ifndef ESI_C_LIB_H
+
+#include "esi_c_lib.h"
+
+#endif
+
+#ifndef ESI_FM_ERR_H
+
+#include "esi_fm_err.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+    This file contains the necessary subroutines to implement the 
+    FM_ADD_HISTORY_RECORD function.
+
+Prototype:
+    publicdef INT fm_add_history_record (FM_PATH finder_pathname, FM_LONG finder_filename,
+        FM_TYPE file_type, FM_PATH from_pathname, FM_LONG from_filename, 
+        FM_TYPE from_file_type, CHAR *description);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    finder_pathname     -(FM_PATH)
+    finder_filename     -(FM_LONG)
+    file_type           -(FM_TYPE)
+    from_pathname       -(FM_PATH)
+    from_filename       -(FM_LONG)
+    from_file_type      -(FM_TYPE)
+    description         -(CHAR *)
+
+Return Value/Status:
+    FM_NO_SUCH_FILE
+    FN_NULL_PTR
+    OR_STATUS
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT fm_add_history_record (FM_PATH finder_pathname, FM_LONG finder_filename,
+                                     FM_TYPE file_type, FM_PATH from_pathname,
+                                     FM_LONG from_filename, FM_TYPE from_file_type,
+                                     CHAR *description)
+#else
+publicdef INT fm_add_history_record (finder_pathname, finder_filename, file_type,
+                                     from_pathname, from_filename, from_file_type,
+                                     description)
+FM_PATH finder_pathname;
+FM_LONG finder_filename;
+FM_TYPE file_type;
+FM_PATH from_pathname;
+FM_LONG from_filename;
+FM_TYPE from_file_type;
+CHAR *description;
+#endif
+    {
+    INT status;
+    FM_STRUCT *fm_hdr;
+    PROJECT_NAME project;
+    ANALYST_NAME creator;
+    CHAR key[FM_KEY_SIZE];
+    FM_FILE file_1;
+    FM_FILE file_2;
+    CHAR append[200];
+    BOOL have_precursor;
+    BOOL free_c1 = FALSE;
+    HASH_TABLE_P fm_hash_table = fm_sys_index ();
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[500];
+    VARCHAR pathname[81];
+    VARCHAR filename[81];
+    VARCHAR filetype[31];
+    long file_id;
+    long precursor_id;
+    VARCHAR desc[241];
+    EXEC SQL END DECLARE SECTION;
+    
+    /*************************************************************************/
+    /* * CHECK THAT HAVE A WELL SPECIFIED FILE FOR SYSTEM * */
+    /* ---------------------------------------------------- */
+    
+    if (IS_EMPTY_STRING (finder_pathname) OR IS_EMPTY_STRING (
+                                                  finder_filename) OR 
+        IS_EMPTY_STRING (file_type))
+        {
+        return(FM_NULL_PTR);
+        }
+    have_precursor =
+        (IS_STRING (from_pathname) AND IS_STRING (
+                                          from_filename) AND 
+                     IS_STRING (from_file_type));
+    strcpy (append, "");
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    
+    /* * FIRST CHECK HASH TABLE FOR FM STRUCTURES * */
+    /* ------------------------------------------- */
+    
+    file_id = -1;
+    fm_parse_long_name (finder_filename, creator, file_1);
+    tc_zeroes (key, FM_KEY_SIZE);
+    sprintf (key, "%s%s%s%s", finder_pathname, file_1, file_type, creator);
+    if (ht_find (fm_hash_table, key, &fm_hdr) EQUALS SUCCESS)
+        {
+        file_id = fm_hdr->file_id;
+        }
+    if (have_precursor)
+        {
+        precursor_id = -1;
+        fm_parse_long_name (from_filename, creator, file_2);
+        tc_zeroes (key, FM_KEY_SIZE);
+        sprintf (key, "%s%s%s%s", from_pathname, file_2, from_file_type, creator);
+        if (ht_find (fm_hash_table, key, &fm_hdr) EQUALS SUCCESS)
+            {
+            precursor_id = fm_hdr->file_id;
+            }
+        }
+    /* * IF DIDN'T FIND EITHER FILE IN HASH TABLE, MUST SEARCH DATA BASE * */
+    /* ------------------------------------------------------------------- */
+    
+    if (file_id EQUALS - 1 OR (have_precursor AND precursor_id EQUALS - 1))
+        {
+        
+        /* * DECLARE FETCH CURSOR * */
+        /* ------------------------ */
+        
+        EXEC SQL WHENEVER SQLERROR GOTO orc_err;
+        stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT FILE_ID FROM %s.FM_HDR WHERE FINDER_PATHNAME = :v1 \
+AND FINDER_FILENAME = :v2 AND FILE_TYPE = :v3"
+                , project);
+        
+        EXEC SQL PREPARE S1 FROM : stmt;
+        EXEC SQL DECLARE C1 CURSOR FOR S1;
+        
+        /* * FETCH ID FOR MAIN FILE * */
+        /* -------------------------- */
+        
+        if (file_id EQUALS - 1)
+            {
+            EXEC SQL WHENEVER NOT FOUND GOTO no_file;
+            
+            V_FROMC (pathname, finder_pathname);
+            V_FROMC (filename, file_1);
+            V_FROMC (filetype, file_type);
+            EXEC SQL OPEN C1 USING : pathname,  : filename,  : filetype;
+            free_c1 = TRUE;
+            EXEC SQL FETCH C1 INTO : file_id;
+            }
+        /* * FETCH ID FOR PRECURSOR FILE * */
+        /* ------------------------------- */
+        
+        if (have_precursor AND precursor_id EQUALS - 1)
+            {
+            EXEC SQL WHENEVER SQLERROR CONTINUE;
+            EXEC SQL WHENEVER NOT FOUND CONTINUE;
+            
+            V_FROMC (pathname, from_pathname);
+            V_FROMC (filename, file_2);
+            V_FROMC (filetype, from_file_type);
+            EXEC SQL OPEN C1 USING : pathname,  : filename,  : filetype;
+            free_c1 = TRUE;
+            EXEC SQL FETCH C1 INTO : precursor_id;
+            if (OR_STATUS != SUCCESS)
+                {
+                sprintf (append, "%s \"%s\"", mg_message (FM_NO_SUCH_FILE),
+                         from_filename);
+                precursor_id = 0;
+                }
+            }
+        }
+    /* * INSERT HISTORY RECORD * */
+    /* ------------------------- */
+    
+    desc.len = sprintf ((char *)desc.arr, "%s%s", description, append);
+    stmt.len = sprintf ((char *)stmt.arr, 
+"INSERT INTO %s.FM_HISTORY \
+(FILE_ID,PRECURSOR_FILE_ID,DATE_MODIFIED,REMARKS) \
+VALUES (:v1,:v2,SYSDATE,:v3)"
+            , project);
+    
+    EXEC SQL PREPARE S2 FROM : stmt;
+    EXEC SQL EXECUTE S2 USING : file_id,  : precursor_id,  : desc;
+    if ((status = OR_STATUS) EQUALS SUCCESS)
+        {
+        EXEC SQL COMMIT WORK;
+        }
+    goto finished;
+    
+    /* * USE ORACLE ERROR RETURN * */
+    /* --------------------------- */
+    
+orc_err:
+    status = OR_STATUS;
+    goto finished;
+    
+    /* * MAIN FILE NOT FOUND * */
+    /* ----------------------  */
+    
+no_file:
+    status = FM_NO_SUCH_FILE;
+    
+    /* * RETURN * */
+    /* ---------- */
+    
+finished:
+    if (free_c1)
+        {
+        EXEC SQL CLOSE C1;
+        }
+    return status;
+    }
+/* END:     */

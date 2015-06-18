@@ -1,0 +1,483 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_UPD_CONST.PC */
+/* *4    20-AUG-1990 17:06:54 KEE "(SPR -1) fixing compile error at sun" */
+/* *3    14-AUG-1990 13:10:53 VINCE "(SPR 5644) Header Standardization" */
+/* *2    13-AUG-1989 11:59:53 GILLESPIE "(SPR 5) Oracle V6 column constraints - temporarily disabled" */
+/* *1    13-AUG-1989 11:57:29 GILLESPIE "Oracle V6 column constraints server" */
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_UPD_CONST.PC */
+
+/******************************************************************************
+
+        Copyright Finder Graphic Systems, Inc. 1989
+           Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphic Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+            Finder Graphic Systems, Inc.
+            579 Market Street
+            San Francisco, CA  USA 94105
+            (415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+
+#ifndef ESI_DB_H
+#include "esi_db.h"
+#endif
+
+#ifndef ESI_DB_MSG_H
+#include "esi_db_msg.h"
+#endif
+
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+/* EXEC ORACLE OPTION (REBIND = NO); */
+EXEC ORACLE OPTION (RELEASE_CURSOR = YES);
+
+#if USE_PROTOTYPES
+static dbz_report_problem(CHAR *stmt);
+#else
+static dbz_report_problem();
+#endif
+
+/******************************************************************************
+
+                          dba_update_constraints
+                   routine to update constraints in ORACLE
+    
+    NOTES
+        
+    The current release of Oracle (6.0.26.3) does nothing with most of these
+    constraints...
+    
+    The order of constraint is very important.  For instance, a foreign key
+    constraint must refer to a column that is either a primary key or
+    is unique.  We must therefore make several passes through the
+    FINDER_COLUMNS table to get all constraints entered.
+    
+    The TABLE constraints are pulled from the FINDER_TABLES table ...
+    
+    Reference:
+    SQL Language Reference Manual 6.0, pages 5-34 to 5-40
+
+    BUG ENCOUNTERED WITH ORACLE:
+	Seems that adding DEFAULT clause makes tables unimportable
+	Since this is not too good, and since this currently is a noop
+	function, anyway, this function has been made to return after
+	performing no action.  Should be fixed when Oracle fixes its
+	EXPORT/IMPORT problem.  JGG
+
+******************************************************************************/
+
+publicdef INT dba_update_constraints(db_account)
+DB_ACCOUNT_STRUCT *db_account;
+
+    {
+    INT status;
+    BOOL cursor = FALSE;
+    INT i = 0;
+    INT *id = (INT *)0;
+    CHAR string[128];
+    CHAR *ps;
+    CHAR *pv;
+    CHAR last_tname[64];
+    INT last_column;
+    CHAR last_foreign_tname[64];
+
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR tname[32];
+        VARCHAR cname[32];
+        VARCHAR scope[12];
+        VARCHAR foreign_tname[64];
+        VARCHAR foreign_cname[32];
+        VARCHAR value[244];
+        int unique_column;
+        VARCHAR stmt[1024];
+        int count;
+    EXEC SQL END DECLARE SECTION;
+
+    sprintf(string, mg_message(DB_CREATING_CONSTRAINTS),
+        db_account -> scope, db_account -> name);
+    am_message(AM_DIALOG, string);
+    am_message(AM_STATUS, string);
+    V_FROMC(scope, db_account -> scope);
+    
+    return SUCCESS;	/* Temporary patch - Oracle bug with Import/Export */
+
+/************** First, put in the COLUMN DEFAULT constraints ********************/
+    
+    EXEC SQL DECLARE C1 CURSOR FOR
+        SELECT B.TNAME, CNAME,
+        DECODE(CTYPE,'NUMBER',DEFAULT_VALUE, ''''||DEFAULT_VALUE||'''')
+        FROM ESI.FINDER_TABLES A,ESI.FINDER_COLUMNS B
+        WHERE DEFAULT_VALUE IS NOT NULL
+        AND A.TNAME = B.TNAME
+        AND SCOPE = :scope
+        ORDER BY B.TNAME, CNAME;
+        
+    EXEC SQL OPEN C1;
+    
+    EXEC SQL FETCH C1 INTO :tname, :cname, :value;
+    
+    while (OR_STATUS EQUALS SUCCESS)
+        {
+        V_SETZERO(tname);
+        V_SETZERO(cname);
+        V_SETZERO(value);
+        
+        stmt.len = sprintf((char *)stmt.arr,
+"ALTER TABLE %s MODIFY (%s DEFAULT %s)", tname.arr, cname.arr, value.arr);
+
+        EXEC SQL EXECUTE IMMEDIATE :stmt;
+
+        if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+            {
+            dbz_report_problem((CHAR *)stmt.arr);
+            }
+        
+        EXEC SQL FETCH C1 INTO :tname, :cname, :value;
+        }
+
+    EXEC SQL CLOSE C1;
+    
+/*********************** END COLUMN DEFAULT constraints ***************************/
+
+/***************** Next, put in the COLUMN CHECK constraints **********************/
+
+    EXEC SQL DECLARE C2 CURSOR FOR
+        SELECT B.TNAME, COLUMN_CONSTRAINT
+        FROM ESI.FINDER_TABLES A,ESI.FINDER_COLUMNS B
+        WHERE COLUMN_CONSTRAINT IS NOT NULL
+        AND A.TNAME = B.TNAME
+        AND SCOPE = :scope
+        ORDER BY B.TNAME, CNAME;
+        
+    EXEC SQL OPEN C2;
+    
+    EXEC SQL FETCH C2 INTO :tname, :value;
+    
+    while (OR_STATUS EQUALS SUCCESS)
+        {
+        V_SETZERO(tname);
+        V_SETZERO(value);
+        
+        stmt.len = sprintf((char *)stmt.arr,
+"ALTER TABLE %s ADD (CHECK (%s))", tname.arr, value.arr);
+
+        EXEC SQL EXECUTE IMMEDIATE :stmt;
+
+        if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+            {
+            dbz_report_problem((CHAR *)stmt.arr);
+            }
+        
+        EXEC SQL FETCH C2 INTO :tname, :value;
+        }
+
+    EXEC SQL CLOSE C2;
+
+/*********************** END COLUMN CHECK constraints ***************************/
+
+/***************** Next, put in the TABLE CHECK constraints **********************/
+
+    EXEC SQL DECLARE C3 CURSOR FOR
+        SELECT TNAME, TABLE_CONSTRAINT
+        FROM ESI.FINDER_TABLES
+        WHERE TABLE_CONSTRAINT IS NOT NULL
+        AND SCOPE = :scope
+        ORDER BY TNAME;
+        
+    EXEC SQL OPEN C3;
+    
+    EXEC SQL FETCH C3 INTO :tname, :value;
+    
+    while (OR_STATUS EQUALS SUCCESS)
+        {
+        V_SETZERO(tname);
+        V_SETZERO(value);
+        
+        stmt.len = sprintf((char *)stmt.arr,
+"ALTER TABLE %s ADD (CHECK (%s))", tname.arr, value.arr);
+
+        EXEC SQL EXECUTE IMMEDIATE :stmt;
+
+        if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+            {
+            dbz_report_problem((CHAR *)stmt.arr);
+            }
+        
+        EXEC SQL FETCH C3 INTO :tname, :value;
+        }
+
+    EXEC SQL CLOSE C3;
+
+/*********************** END TABLE CHECK constraints ***************************/
+
+/***************** Now, put in the PRIMARY KEY constraints **********************/
+
+    EXEC SQL DECLARE C4 CURSOR FOR
+        SELECT B.TNAME, CNAME
+        FROM ESI.FINDER_TABLES A,ESI.FINDER_COLUMNS B
+        WHERE PRIMARY_KEY IS NOT NULL
+        AND A.TNAME = B.TNAME
+        AND SCOPE = :scope
+        ORDER BY B.TNAME, PRIMARY_KEY;
+        
+    EXEC SQL OPEN C4;
+    
+    EXEC SQL FETCH C4 INTO :tname, :cname;
+    
+    stmt.len = 0;
+    last_tname[0] = 0;
+    
+    while (OR_STATUS EQUALS SUCCESS)
+        {
+        V_SETZERO(tname);
+        V_SETZERO(cname);
+        
+        if (ARE_DIFFERENT(last_tname, (char *)tname.arr))
+            {
+            if (IS_STRING(last_tname))
+                {
+                strcat(ps, "))");
+                stmt.len = strlen((char *)stmt.arr);
+                
+                EXEC SQL EXECUTE IMMEDIATE :stmt;
+                
+                if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+                    {
+                    dbz_report_problem((CHAR *)stmt.arr);
+                    }
+                }   
+            
+            stmt.len = sprintf((char *)stmt.arr,
+    "ALTER TABLE %s ADD (PRIMARY KEY (%s", tname.arr, cname.arr);
+            ps = ((char *)stmt.arr) + stmt.len;
+            strcpy(last_tname, (char *)tname.arr);
+            }
+        else
+            {
+            ps += sprintf(ps, ",%s", cname.arr);
+            }
+        
+        EXEC SQL FETCH C4 INTO :tname, :cname;
+        }
+
+    if (IS_STRING(last_tname))
+        {
+        strcat(ps, "))");
+        stmt.len = strlen((char *)stmt.arr);
+        
+        EXEC SQL EXECUTE IMMEDIATE :stmt;
+        
+        if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+            {
+            dbz_report_problem((CHAR *)stmt.arr);
+            }
+        }   
+
+    EXEC SQL CLOSE C4;
+
+/*********************** END PRIMARY KEY constraints ***************************/
+
+/***************** Next, put in the UNIQUE constraints **********************/
+
+/* NOTE:
+    The column UNIQUE_COLUMN identifies the columns within a table
+    that define a unique group.  For instance, if a table has columns
+    A, B, C and D, and B and C define one unique group, and D defines
+    another unique group, then the UNIQUE_COLUMN field have the same
+    value, and column D has a different, non-null value, as in
+    
+       COL  UNIQUE_COLUMN Value
+        A           -
+        B           1
+        C           1
+        D           2
+*/
+        
+
+    EXEC SQL DECLARE C5 CURSOR FOR
+        SELECT B.TNAME, CNAME, UNIQUE_COLUMN 
+        FROM ESI.FINDER_TABLES A,ESI.FINDER_COLUMNS B
+        WHERE UNIQUE_COLUMN IS NOT NULL
+        AND A.TNAME = B.TNAME
+        AND SCOPE = :scope
+        ORDER BY B.TNAME, UNIQUE_COLUMN;
+        
+    EXEC SQL OPEN C5;
+    
+    EXEC SQL FETCH C5 INTO :tname, :cname, :unique_column;
+    
+    stmt.len = 0;
+    last_tname[0] = 0;
+    last_column = -1;
+    
+    while (OR_STATUS EQUALS SUCCESS)
+        {
+        V_SETZERO(tname);
+        V_SETZERO(cname);
+        
+        if (ARE_DIFFERENT(last_tname, (char *)tname.arr) OR
+            last_column != unique_column)
+            {
+            if (IS_STRING(last_tname))
+                {
+                strcat(ps, "))");
+                stmt.len = strlen((char *)stmt.arr);
+                
+                EXEC SQL EXECUTE IMMEDIATE :stmt;
+                
+                if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+                    {
+                    dbz_report_problem((CHAR *)stmt.arr);
+                    }
+                }   
+            
+            stmt.len = sprintf((char *)stmt.arr,
+    "ALTER TABLE %s ADD (UNIQUE (%s", tname.arr, cname.arr);
+            ps = ((char *)stmt.arr) + stmt.len;
+            strcpy(last_tname, (char *)tname.arr);
+            last_column = unique_column;
+            }
+        else
+            {
+            ps += sprintf(ps, ",%s", cname.arr);
+            }
+        
+        EXEC SQL FETCH C5 INTO :tname, :cname, :unique_column;
+        }
+
+    if (IS_STRING(last_tname))
+        {
+        strcat(ps, "))");
+        stmt.len = strlen((char *)stmt.arr);
+        
+        EXEC SQL EXECUTE IMMEDIATE :stmt;
+        
+        if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+            {
+            dbz_report_problem((CHAR *)stmt.arr);
+            }
+        }   
+
+    EXEC SQL CLOSE C5;
+
+/*************************** END UNIQUE constraints *******************************/
+
+/***************** Finally, put in the FOREIGN KEY constraints ********************/
+
+
+    EXEC SQL DECLARE C6 CURSOR FOR
+        SELECT B.TNAME, CNAME, FOREIGN_KEY_TOWNER||
+            DECODE(FOREIGN_KEY_TOWNER,FOREIGN_KEY_TOWNER,'.','')||
+            FOREIGN_KEY_TNAME, FOREIGN_KEY_CNAME
+        FROM ESI.FINDER_TABLES A,ESI.FINDER_COLUMNS B
+        WHERE FOREIGN_KEY_TNAME IS NOT NULL
+        AND FOREIGN_KEY_CNAME IS NOT NULL
+        AND A.TNAME = B.TNAME
+        AND SCOPE = :scope
+        ORDER BY B.TNAME, FOREIGN_KEY_TOWNER, FOREIGN_KEY_TNAME, FOREIGN_KEY_CNAME;
+        
+    EXEC SQL OPEN C6;
+    
+    EXEC SQL FETCH C6 INTO :tname, :cname, :foreign_tname, :foreign_cname;
+    
+    stmt.len = 0;
+    last_tname[0] = 0;
+    last_foreign_tname[0] = 0;
+    
+    while (OR_STATUS EQUALS SUCCESS)
+        {
+        V_SETZERO(tname);
+        V_SETZERO(cname);
+        
+        if (ARE_DIFFERENT(last_tname, (char *)tname.arr) OR
+            ARE_DIFFERENT(last_foreign_tname, (char *)foreign_tname.arr))
+            {
+            if (IS_STRING(last_tname))
+                {
+                sprintf(ps, "%s))", value.arr);
+                stmt.len = strlen((char *)stmt.arr);
+                
+                EXEC SQL EXECUTE IMMEDIATE :stmt;
+                
+                if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+                    {
+                    dbz_report_problem((CHAR *)stmt.arr);
+                    }
+                }   
+            
+            stmt.len = sprintf((char *)stmt.arr,
+    "ALTER TABLE %s ADD (FOREIGN KEY (%s", tname.arr, cname.arr);
+            value.len = sprintf((char *)value.arr,
+    ") REFERENCES %s (%s", foreign_tname.arr, foreign_cname.arr);
+            ps = ((char *)stmt.arr) + stmt.len;
+            pv = ((char *)value.arr) + value.len;
+
+            strcpy(last_tname, (char *)tname.arr);
+            strcpy(last_foreign_tname, (char *)foreign_tname.arr);
+            }
+        else
+            {
+            ps += sprintf(ps, ",%s", cname.arr);
+            pv += sprintf(pv, ",%s", foreign_cname.arr);
+            }
+        
+        EXEC SQL FETCH C6 INTO :tname, :cname, :foreign_tname, :foreign_cname;
+        }
+
+    if (IS_STRING(last_tname))
+        {
+        sprintf(ps, "%s))", value.arr);
+        stmt.len = strlen((char *)stmt.arr);
+        
+        EXEC SQL EXECUTE IMMEDIATE :stmt;
+        
+        if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+            {
+            dbz_report_problem((CHAR *)stmt.arr);
+            }
+        }   
+
+    EXEC SQL CLOSE C6;
+
+/*********************** END PRIMARY KEY constraints ***************************/
+
+    status = SUCCESS;
+
+    return status;
+    }
+
+static dbz_report_problem(stmt)
+CHAR *stmt;
+{
+    CHAR string[128];
+    
+    am_message(AM_REPORT,
+        "Error detected while attempting execute the following:");
+    am_message(AM_REPORT, stmt);
+    sprintf(string,"%-70.70s", OR_MESSAGE);
+    am_message(AM_REPORT, string);
+}

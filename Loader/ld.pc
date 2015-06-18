@@ -1,0 +1,491 @@
+/* *2     1-MAY-1991 21:53:59 KEE "(SPR -1) Landmark Import" */
+/* *1     1-MAY-1991 21:23:41 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_SHOT_TRACE.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* ************************************************************************
+
+   NAME: LD_LM2_IMP_SHOT_TRACE.PC
+
+   AUTHOR: Rod Hanks
+   DATE:   May 18th, 1990
+   DESCRIPTION: Load seismic traces into Finder from a file output by Landmark.
+		Finder does not actually use the data in this form, but it
+		gives us someplace to put it.
+   ************************************************************************ */
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+#ifndef ESI_CTYPE_H
+#include "esi_ctype.h"
+#endif
+#ifndef LD_LM2_IMP_WORK_H
+#include "ld_lm2_imp_work.h"
+#endif
+
+#if USE_PROTOTYPES
+publicdef VOID ld_lm2_imp_shot_trace (FILENAME fileName, PROJECT_NAME project,
+			BOOL convertProj, PROJECTION_STRUCTURE *defaultProj, 
+                        PROJECTION_STRUCTURE *inputProj, CHAR *source, 
+			INT overwrite)
+#else
+publicdef VOID ld_lm2_imp_shot_trace (fileName, project,
+			convertProj, defaultProj, inputProj,
+			source, overwrite)
+FILENAME	fileName;
+PROJECT_NAME	project;
+BOOL	              convertProj;
+PROJECTION_STRUCTURE *defaultProj;
+PROJECTION_STRUCTURE *inputProj;
+CHAR		     *source;
+INT		      overwrite;
+#endif
+    {
+/****************************************************************************
+
+	V a r i a b l e   D e c l a r a t i o n s .
+
+******************************************************************************/
+
+    FILE	   *spfile;
+    CHAR	   inputSurvey[24];
+    CHAR	  *inputName;
+    CHAR	  *pos;
+    CHAR	   lastName[80];
+    BOOL	   moreFlag;
+    INT		   arrayNDX;
+    BOOL	   skipOne;
+    BOOL	   useUpdate;
+    INT		   thisShot;
+    INT		   thisTrace;
+    CHAR	   thisSource[13];
+    CHAR	   thisSurvey[21];
+    CHAR	   thisName[21];
+#ifdef USE_OLDPARSING
+    CHAR	   dummy[255];
+    CHAR	  *inputShot;
+    CHAR	  *inputTrace;
+#else
+    LD_SCANNER_STRUCT ld_scan;	
+#endif
+
+/*
+				General variable declarations.
+*/
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[400];
+	int	lineID;
+	VARCHAR landmarkName[81];
+	VARCHAR lineName[24];
+	VARCHAR	survey[24];
+	int	initial_shot;
+	int	final_shot;
+	int	initial_trace;
+	int	final_trace;
+	VARCHAR sourceName[13];
+    EXEC SQL END DECLARE SECTION;
+/*
+				Oracle variable declarations.
+*/
+/****************************************************************************
+
+	I n i t i a l i z a t i o n .
+
+******************************************************************************/
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT FINDER_LINE_NAME, FINDER_SURVEY FROM %s.SEIS_LINE_XREF \
+WHERE VENDOR_LINE_NAME = :landmarkName AND VENDOR = 'LANDMARK'", project);
+
+    EXEC SQL PREPARE S9 FROM :sqlstmt;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare S9");
+    EXEC SQL DECLARE XREF_CURS CURSOR FOR S9;
+    
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT LINE_ID \
+FROM %s.SEIS_LINE_HDR \
+WHERE LINE_NAME = :lineName AND SURVEY = :survey", project);
+
+    EXEC SQL PREPARE S1 FROM :sqlstmt;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s1");
+    EXEC SQL DECLARE LOOK_CURS CURSOR FOR S1;
+    
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"INSERT INTO %s.SEIS_TRACE_HDR (LINE_ID, \
+FIRST_SP, LAST_SP, FIRST_TRACE, LAST_TRACE, DIGITAL_REF_VOLUME, \
+FIRST_CDP, LAST_CDP, \
+UPPER_TIME, LOWER_TIME, DATA_SIZE, NSAMPLES, SAMPLE_INTERVAL, \
+NTRACES, ATTRIBUTE, INC_TRACE, NB_WORDS, CDP_PER_TRACE, \
+PROCESS_CODE, DATA_POINTER, SIGN, SOURCE) VALUES (\
+:lineID, :initial_shot, :final_shot, \
+:initial_trace, :final_trace, 'X', \
+-99, -99, -99, -99, -99, -99, -99, -99, 'X', -99, -99, -99, -99, \
+-99, 0, :sourceName)", project);
+
+    EXEC SQL PREPARE S2 FROM :sqlstmt;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s2");
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"UPDATE %s.SEIS_TRACE_HDR SET SOURCE = :sourceName, FIRST_SP = :initial_shot, \
+LAST_SP = :final_shot, FIRST_TRACE = :initial_trace, \
+LAST_TRACE = :final_trace \
+WHERE LINE_ID = :lineID", project);
+
+    EXEC SQL PREPARE S3 FROM :sqlstmt;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s3");
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT SOURCE FROM %s.SEIS_TRACE_HDR \
+WHERE LINE_ID = :lineID", project);
+
+    EXEC SQL PREPARE S4 FROM :sqlstmt;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s4");
+    EXEC SQL DECLARE ID_CURS CURSOR FOR S4;
+
+    spfile = ho_open(fileName, "r", NULL);
+    if (spfile == (FILE *)NULL)
+	{
+	printf("Unable to open seismic trace file named %s\n", fileName);
+	}
+    else
+	{
+        printf("loading seismic traces from %s\n", fileName);
+	lastName[0] = 0;
+#ifdef USE_OLDPARSING
+	fgets(dummy, 255, spfile);
+	fgets(dummy, 255, spfile);
+	fgets(dummy, 255, spfile);
+/*
+				Skip the first three lines, they contain
+				formatting information.  We don't use it
+				because we look for the spaces between
+				the columns.
+*/
+/*****************************************************************************
+
+	M a i n   L o g i c .
+
+*****************************************************************************/
+
+	moreFlag = TRUE;
+        while (moreFlag)
+            {
+	    do
+		{
+		pos = fgets(dummy, 255, spfile);
+		}
+		while (pos != (CHAR *) 0 && strlen(dummy) < 5);
+
+	    if (pos == (CHAR *) 0)
+		{
+		moreFlag = FALSE;
+		}
+/*
+				Get next line from file, if any, and
+				set a flag when no more.  We want to
+				fall thru the loop one last time in
+				this case in order to output the last
+				line.
+*/
+	    if (moreFlag)
+		{
+	        while (*pos == ' ')
+		    {
+		    pos++;
+		    }
+	        inputName = pos;
+	        while (*pos != ' ' && *pos != 0)
+		    {
+		    pos++;
+		    }
+	        *pos = 0;
+	        pos++;
+	        while (*pos == ' ')
+		    {
+		    pos++;
+		    }
+	        inputShot = pos;
+	        while (*pos != ' ' && *pos != 0)
+		    {
+		    pos++;
+		    }
+	        *pos = 0;
+	        pos++;
+	        while (*pos == ' ')
+		    {
+		    pos++;
+		    }
+	        inputTrace = pos;
+	        while (*pos != ' ' && *pos != 0)
+		    {
+		    pos++;
+		    }
+	        *pos = 0;
+#else
+        tc_zeroes(&ld_scan, sizeof(LD_SCANNER_STRUCT));	
+        ld_scan.in.fix_format = TRUE;
+	ld_scan.in.snowhite = TRUE;
+        ld_scan.in.num_pair = 3;
+        ld_scan.in.start[0] = 1;     ld_scan.in.end[0] = 12;
+        ld_scan.in.start[1] = 14;    ld_scan.in.end[1] = 24;
+        ld_scan.in.start[2] = 26;    ld_scan.in.end[2] = 36;
+	while (ld_scan.eof == FALSE)
+	  {
+	    ld_scan_line(spfile, &ld_scan);
+	    if ((ld_scan.out_nitems != ld_scan.in.num_pair AND 
+	         ld_scan.out_nitems != 0) OR
+	        ld_scan.out[0].parmtype != LD_STRING OR
+		ld_scan.out[1].parmtype != LD_DOUBLE OR
+		ld_scan.out[2].parmtype != LD_DOUBLE)
+	      { /* scan header */
+		continue;
+              }
+	    else 
+	      {
+	        break;
+              }
+	  }
+	while (TRUE)
+	  {
+	    if (ld_scan.eof == TRUE)
+	      {
+	        moreFlag = !ld_scan.eof;
+		*inputName = *inputSurvey = 0;
+              }
+	    else if (ld_scan.out_nitems == 0)
+	      {
+	        ld_scan_line(spfile, &ld_scan);
+	        continue;
+              }
+	    else if (ld_scan.out_nitems != ld_scan.in.num_pair OR
+	             ld_scan.out[0].parmtype != LD_STRING OR
+		     ld_scan.out[1].parmtype != LD_DOUBLE OR
+		     ld_scan.out[2].parmtype != LD_DOUBLE)
+	      { 
+		printf("Invalid line format - following line will be skipped\n ");
+		printf("%s",ld_scan.line);
+		continue;
+              }
+	    else 
+	      {
+	        moreFlag = !ld_scan.eof;
+		inputName = ld_scan.out[0].parmval.cval;	
+	        thisShot = (INT) ld_scan.out[1].parmval.dbval;
+	        thisTrace = (INT) ld_scan.out[2].parmval.dbval;
+#endif
+	        pos = inputName + strlen(inputName);
+	        while ((int)pos > (int)inputName && *pos != '-')
+		    {
+		    pos--;
+		    }
+	        if ((int)pos > (int)inputName)
+		    {
+		    strncpy(inputSurvey, inputName, (pos - inputName));
+		    inputSurvey[(int)(pos - inputName)] = 0;
+		    }
+	        else
+		    {
+	            pos = inputName;
+	            while (isalpha(*pos))
+		        {
+		        pos++;
+		        }
+	            strncpy(inputSurvey, inputName, (pos - inputName));
+	            inputSurvey[(int)(pos - inputName)] = 0;
+		    }
+		}
+/*
+				Above, parse out the input line into line
+				name (and survey), shot number, trace number.
+*/	
+	    if (strcmp(lastName, inputName) != 0 || moreFlag == FALSE)
+		{
+		if (strlen(lastName) != 0 && skipOne == FALSE && arrayNDX == 2)
+		    {
+		    EXEC SQL OPEN ID_CURS USING :lineID;
+    		    if (OR_STATUS != 0) ld_show_error(OR_STATUS,
+							"open id_curs");
+		    EXEC SQL FETCH ID_CURS INTO :sourceName;
+    		    if (OR_STATUS < 0) 
+			{
+			ld_show_error(OR_STATUS, "fetch id_curs");
+			}
+		    else if (OR_STATUS == 0)
+			{
+			useUpdate = TRUE;
+			}
+		    else
+			{
+			useUpdate = FALSE;
+			}
+		    EXEC SQL CLOSE ID_CURS;
+    		    if (OR_STATUS != 0) ld_show_error(OR_STATUS,
+							"close id_curs");
+/*
+				Get the next line id number.
+*/
+		    if (useUpdate == FALSE)
+			{
+			V_FROMC(sourceName, source);
+		        EXEC SQL EXECUTE S2 USING :lineID, 
+					:initial_shot, :final_shot,
+					:initial_trace, :final_trace,
+					:sourceName;
+    		        if (OR_STATUS != 0) ld_show_error(OR_STATUS,
+							"execute s2");
+			}
+		    else if (overwrite == 0)
+			{
+			printf("Line exists, not overwritten.\n");
+			}
+		    else
+			{
+			V_V_TO_C(thisSource, sourceName);
+			if (strcmp(thisSource, source) != 0)
+			    {
+			    printf("Line exists with source %s, \
+new source %s will be replaced.\n", thisSource, source);
+	                 V_FROMC(sourceName,source);
+			    }
+			    EXEC SQL EXECUTE S3 USING 
+						:sourceName,
+						:initial_shot, :final_shot,
+						:initial_trace, :final_trace,
+						:lineID;
+    		            if (OR_STATUS != 0) ld_show_error(OR_STATUS,
+							"execute s3");
+			}
+		    EXEC SQL COMMIT WORK;
+    		    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "commit trace");
+		    }
+/*
+				End.  We just completed retrieving all of the
+				lines for a survey, so write this line out.
+*/
+		if (moreFlag)
+		    {
+/*
+				From here down, we are at the beginning of a
+				new line, so initialize to begin collecting
+				data from the file for it.
+*/
+		    strcpy(lastName, inputName);
+		    printf("Line: %s\n", lastName);
+/*
+				Set control break value for next time.
+*/
+		    arrayNDX = 0;
+/*
+				Seed the accumulators for the enclosing box.
+				This keeps us from being bothered by zeros.
+*/
+		    V_FROMC(landmarkName, inputName);
+		    V_FROMC(lineName, inputName);
+		    V_FROMC(survey, inputSurvey);
+		    EXEC SQL OPEN XREF_CURS USING :landmarkName;
+		    if (OR_STATUS != 0) ld_show_error(OR_STATUS, 
+							"open xref_curs");
+		    EXEC SQL FETCH XREF_CURS INTO :lineName, :survey;
+		    if (OR_STATUS < 0) ld_show_error(OR_STATUS,
+							"fetch xref_curs");
+		    EXEC SQL CLOSE XREF_CURS;
+		    if (OR_STATUS != 0) ld_show_error(OR_STATUS,
+							"close xref_curs");
+/*
+					Look in the cross reference file to
+					find the line name and survey we should
+					use for this landmark line name.  If we
+					don't find it, we'll use the results of
+					the parsing algorithm above.
+*/
+		    EXEC SQL OPEN LOOK_CURS USING :lineName, :survey;
+    		    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "open look_curs");
+		    lineID = 0;
+		    EXEC SQL FETCH LOOK_CURS INTO :lineID;
+    		    if (OR_STATUS < 0) 
+			{
+			ld_show_error(OR_STATUS, "fetch look_curs");
+			}
+		    else if (OR_STATUS == 0)
+			{
+			skipOne = FALSE;
+			}
+		    else
+			{
+			skipOne = TRUE;
+			V_V_TO_C(thisSurvey, survey);
+			V_V_TO_C(thisName, lineName);
+			printf("Skipping line %s of survey %s, \
+not in database.\n", thisName, thisSurvey);
+			}
+		    EXEC SQL CLOSE LOOK_CURS;
+ 		    if (OR_STATUS != 0) ld_show_error(OR_STATUS, 
+							"close look_curs");
+/*
+				First step, find out if this line already
+				exists.
+*/
+		    }
+/*
+				This is a new line.  
+*/
+		}
+	    if (moreFlag)
+		{
+#ifdef USE_OLDPARSING
+	        sscanf(inputShot, "%d", &thisShot);
+	        sscanf(inputTrace, "%d", &thisTrace);
+#endif
+		switch (arrayNDX)
+		  {
+		  case 0:
+		    initial_shot = thisShot;
+		    initial_trace = thisTrace;
+		    break;
+		  case 1:
+		    final_shot = thisShot;
+		    final_trace = thisTrace;
+		    break;
+		  }
+		arrayNDX++;
+		}
+	       if (ld_scan.eof == FALSE)
+		 {
+	           ld_scan_line(spfile, &ld_scan);
+                 }
+	       else
+	         {
+		   break;
+	         }
+	    }
+/*****************************************************************************
+
+	C l e a n   U p   A n d   E x i t .
+
+******************************************************************************/
+	}
+    if (spfile != (FILE *)NULL) fclose(spfile);
+    return;
+    }

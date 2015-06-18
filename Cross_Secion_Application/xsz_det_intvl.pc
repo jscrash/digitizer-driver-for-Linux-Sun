@@ -1,0 +1,329 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element XSZ_DET_INTVL.PC*/
+/*  3    27-FEB-1992 09:22:40 JESSIE "(SPR 6180) add TVD display of traces and tops"*/
+/* *2    17-AUG-1990 22:34:05 VINCE "(SPR 5644) Code Cleanup"*/
+/* *1    19-JUN-1989 12:42:22 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element XSZ_DET_INTVL.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#ifndef ESI_C_LIB_H
+
+#include "esi_c_lib.h"
+
+#endif
+
+#ifndef ESI_GL_DEFS_H
+
+#include "esi_gl_defs.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_AM_H
+
+#include "esi_am.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_XS_DEFS_H
+
+#include "esi_xs_defs.h"
+
+#endif
+
+#ifndef ESI_LS_MSG_H
+
+#include "esi_ls_msg.h"
+
+#endif
+
+#ifndef ESI_LS_ERR_H
+
+#include "esi_ls_err.h"
+
+#endif
+static INT xsz_select_by_top ();
+static INT xsz_select_by_zone ();
+
+/* File Description ---------------------------------------------------------
+Overview:
+    Log data cross-section functions.
+    
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT xsz_determine_intvl(LAYOUT_STRUCT  *p_layout );
+
+Private_Functions:
+    static INT xsz_select_by_top(LAYOUT_STRUCT *p_layout);
+
+    static INT xsz_select_by_zone(LAYOUT_STRUCT *p_layout);
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+    Function to determine the top and base depth interval for
+    requesting log data for the cross section.                 
+    The results are stored back into the layout structure to   
+    be used for trace retreival, etc.                          
+
+Prototype:
+    publicdef INT xsz_determine_intvl(LAYOUT_STRUCT  *p_layout );
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    p_layout        -(LAYOUT_STRUC *) Pointer to a logplot layout structure.       
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT xsz_determine_intvl (LAYOUT_STRUCT *p_layout)
+#else
+publicdef INT xsz_determine_intvl (p_layout)
+LAYOUT_STRUCT *p_layout;
+#endif
+    {
+    INT status;
+    
+    switch (p_layout->interval.method)
+        {
+    case SEL_TOTAL_INTERVAL:
+        p_layout->interval.ltdm_data_top = 0.0;
+        p_layout->interval.ltdm_data_base = 0.0;
+        break;
+    case SEL_BY_DEPTH:
+        p_layout->interval.ltdm_data_top = p_layout->interval.top;
+        p_layout->interval.ltdm_data_base = p_layout->interval.base;
+        break;
+    case SEL_BY_TOP:
+        status = xsz_select_by_top (p_layout);
+        break;
+    case SEL_BY_ZONE:
+        status = xsz_select_by_zone (p_layout);
+        break;
+        }
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Accesses the database to determine the top and base depth  
+    interval to be drawn in the cross section.  The interval  
+    has been specified as the data between two tops w/offsets. 
+    The results are stored back into the layout structure to   
+    be used for trace retreival, etc.  If a top is missing,    
+    0.0 is stored to signal that the minimum or maximum trace  
+    depth is to be retreived.                                  
+
+Prototype:
+    static INT xsz_select_by_top(LAYOUT_STRUCT *p_layout );
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    p_layout        -(LAYOUT_STRUCT *) Pointer to a logplot layout structure.       
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PRIVATE to <xsz_det_intvl.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT xsz_select_by_top (LAYOUT_STRUCT *p_layout)
+#else
+static INT xsz_select_by_top (p_layout)
+LAYOUT_STRUCT *p_layout;
+#endif
+    {
+    INT status;
+    TOP_STRUCT top;
+    
+    /* Get the top depth according
+       to the well search rules.     */
+    
+    status = ls_get_top (p_layout->pwell->uwi, p_layout->interval.top_select_phrase,
+                         &top);
+    
+    switch (status)
+        {
+    case LS_PRIMARY_SOURCE_FOUND:
+    case LS_ALTERNATE_SOURCE_FOUND:
+        p_layout->interval.ltdm_data_top = top.Depth.md +
+            p_layout->interval.top_offset;
+        break;
+    case LS_SOURCES_NOT_FOUND:
+    case LS_TOP_NOT_FOUND:
+        p_layout->interval.ltdm_data_top = 0.0;
+        break;
+        }
+    /* Get the base depth according
+       to the well search rules.     */
+    
+    status = ls_get_top (p_layout->pwell->uwi, p_layout->interval.base_select_phrase,
+                         &top);
+    
+    switch (status)
+        {
+    case LS_PRIMARY_SOURCE_FOUND:
+    case LS_ALTERNATE_SOURCE_FOUND:
+        p_layout->interval.ltdm_data_base = top.Depth.md +
+                                            p_layout->interval.base_offset;
+        break;
+    case LS_SOURCES_NOT_FOUND:
+    case LS_TOP_NOT_FOUND:
+        p_layout->interval.ltdm_data_base = 0.0;
+        break;
+        }
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Accesses the database to determine the top and base depth 
+    interval to be drawn in the cross section.  The interval 
+    has been specified as the data within a zone w/ offsets. 
+    The results are stored back into the layout structure to 
+    be used for trace retreival, etc.  If a top is missing, 
+    0.0 is stored to signal that the minimum or maximum trace  
+    depth is to be retreived.                                 
+
+Prototype:
+    static INT xsz_select_by_zone(LAYOUT_STRUCT *p_layout );
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    p_layout        -(LAYOUT_STRUCT *) Pointer to a logplot layout structure.      
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PRIVATE to <xsz_det_intvl.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT xsz_select_by_zone (LAYOUT_STRUCT *p_layout)
+#else
+static INT xsz_select_by_zone (p_layout)
+LAYOUT_STRUCT *p_layout;
+#endif
+    {
+    INT status;
+    INT len;
+    PROJECT_NAME project;
+    CHAR top_phrase[120];
+    CHAR base_phrase[120];
+    CHAR message[80];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    double depth;
+    VARCHAR uwi[20];
+    VARCHAR stmt[255];
+    EXEC SQL END DECLARE SECTION;
+    
+    /* Get the zone definition from DB.     */
+    
+    status = lg_zone_get_definition (p_layout->interval.zone_name, top_phrase,
+                                     base_phrase);
+    
+    if (status != SUCCESS)          /* If zone is not defined in this well,
+                                       ask for the total interval.          */
+        {
+        p_layout->interval.ltdm_data_top = 0.0;
+        p_layout->interval.ltdm_data_base = 0.0;
+        return SUCCESS;
+        }
+    len = 0;
+    qs_inq_c (QS_PROJECT_NAME, project, &len);
+    V_FROMC (uwi, p_layout->pwell->uwi);
+    
+    /*  Retrv the zone top depth.   */
+    
+    stmt.len = sprintf ((char *)stmt.arr,
+                        "SELECT MD FROM %s.WELL_TOPS WHERE UWI = :uwi AND %s", project,
+                        top_phrase);
+    EXEC SQL WHENEVER SQLERROR GOTO errrpt;
+    EXEC SQL PREPARE S1 FROM : stmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1 USING : uwi;
+    EXEC SQL FETCH C1 INTO : depth;
+    
+    if (OR_STATUS == SUCCESS)
+        p_layout->interval.ltdm_data_top = depth + p_layout->interval.ztop_offset;
+    else
+        p_layout->interval.ltdm_data_top = 0.0;
+    
+    /*  Retrv the zone base depth.  */
+    
+    stmt.len = sprintf ((char *)stmt.arr,
+                        "SELECT MD FROM %s.WELL_TOPS WHERE UWI = :uwi AND %s", project,
+                        base_phrase);
+    
+    EXEC SQL PREPARE S1 FROM : stmt;
+    /*  EXEC SQL DECLARE C1 CURSOR FOR S1;  */
+    EXEC SQL OPEN C1 USING : uwi;
+    EXEC SQL FETCH C1 INTO : depth;
+    
+    if (OR_STATUS == SUCCESS)
+        p_layout->interval.ltdm_data_base = depth + p_layout->interval.zbase_offset;
+    else
+        p_layout->interval.ltdm_data_base = 0.0;
+    
+    return SUCCESS;
+    
+errrpt:
+    sprintf (message, "%.70s", OR_MESSAGE);
+    am_message (AM_ALERT, message);
+    er_log (message);
+    p_layout->interval.ltdm_data_top = 0.0;
+    p_layout->interval.ltdm_data_base = 0.0;
+    return SUCCESS;
+    }
+/* END:     */

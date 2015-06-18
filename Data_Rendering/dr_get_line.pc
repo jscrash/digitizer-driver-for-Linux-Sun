@@ -1,0 +1,216 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_GET_LINE.PC*/
+/*  8    13-FEB-1992 17:06:16 PURNA "(SPR 1347) added ho_add_path"*/
+/* *7     4-OCT-1990 16:41:37 VINCE "(SPR 1) move mods over from Beta"*/
+/* *6    30-SEP-1990 12:29:29 GILLESPIE "(SPR 2) Change entry point - was ct_get_line"*/
+/* *5    14-AUG-1990 16:31:23 GILLESPIE "(SPR 2001) Use LINE_ATTRIBUTEs"*/
+/* *4    18-JUL-1990 10:42:39 GILLESPIE "(SPR 5411) Remove reset, lock params"*/
+/* *3    23-MAR-1990 16:07:55 GILLESPIE "(SPR 1) Check for filename in database"*/
+/* *2    16-FEB-1990 14:24:32 GILLESPIE "(SPR 6005) Add setting of polygon clip method"*/
+/* *1    19-JUN-1989 12:29:12 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_GET_LINE.PC*/
+/******************************************************************************
+
+        Copyright Exploration Systems, Inc. 1989
+           Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			    Exploration Systems, Inc.
+			    c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+******************************************************************************/
+
+#include "esi_dr.h"
+#include "esi_gks.h"
+#include "esi_ct.h"
+#include "esi_ct_err.h"
+#include "esi_oracle.h"
+#include "esi_stdlib.h"
+
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+
+#ifndef ESI_MM_H
+#include "esi_mm.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+    This function retrieves a line of a given line id.
+
+Prototype:
+    publicdef INT dr_get_line(LINE *line, INT line_number, FILENAME nlist_file,
+                              BOOL isfault, CHAR *horizon);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (O)line         -(LINE *)   A pointer to a line structure.
+    (I)line_number  -(INT)      An item id in the lines table of the
+                                current project.
+    (I)nlist_file   -(FILENAME) File location of the nlist; Name passed in
+                                by electronic drafting.
+    (I)isfault      -(BOOL)     Indicates if we are after a fault or a regular
+                                graphic object.
+    (I)horizon      -(CHAR *)   Horizon name if isfault == TRUE
+
+Return Value/Status:
+    SUCCESS         - Successful completion
+    CT_ORACLE_ERROR - Error occured within Oracle.
+    CT_ORACLE_EOF   - No line retreived from Oracle.
+
+Scope:
+    PUBLIC
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT dr_get_line (LINE *line, INT line_number, FILENAME nlist_file,
+                           BOOL isfault, CHAR *horizon)
+#else
+publicdef INT dr_get_line(line, line_number, nlist_file, isfault, horizon)
+LINE     *line;
+INT      line_number;
+FILENAME nlist_file;     /* Name passed in by electronic drafting */
+BOOL     isfault;        /* retrieve a fault type object          */
+CHAR     *horizon;       /* Name of horizon if isfault == TRUE    */
+#endif
+    {
+    INT  status;
+    UINT Col_List[2];
+    INT  seq;
+    PROJECT_NAME project;
+    static BOOL s1_defined = FALSE;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[512];
+        int     line_id;
+        VARCHAR nlist_id[64];
+        VARCHAR nlist_filename[84];     /* retrieved from database */
+        int     line_color;
+        int     line_style;
+        float   line_width;
+        VARCHAR line_name[44];
+        int     polygon_flag;
+        int     polygon_hatch_style;
+        int     polygon_fill_color;
+    EXEC SQL END DECLARE SECTION;
+    
+    status = SUCCESS;
+    
+    EXEC SQL WHENEVER SQLERROR  GOTO sqlerrorpt;
+    EXEC SQL WHENEVER NOT FOUND GOTO sqleofpt;
+    
+    /*
+     * Build the cursor for the LINES table
+     */
+    if (!s1_defined)
+        {
+        /* get project name                                                         */
+        qs_inq_c(QS_PROJECT_NAME, project, (INT *)0);
+        
+        sqlstmt.len = sprintf((char *)sqlstmt.arr, 
+        "SELECT NLIST_ID, LINE_COLOR, LINE_STYLE, LINE_THICKNESS, LINE_NAME, \
+                DECODE(POLYGON_FLAG,'YES',1,0), \
+                POLYGON_HATCH_STYLE, POLYGON_FILL_COLOR, NLIST_FILE \
+         FROM   %s.LINES \
+         WHERE  LINE_ID = :V1",
+        project);
+        
+        EXEC SQL PREPARE S1 FROM : sqlstmt;
+        EXEC SQL DECLARE LINE_CUR CURSOR FOR S1;
+        s1_defined = TRUE;
+        }
+
+    line_id = line_number;
+    EXEC SQL OPEN LINE_CUR USING :line_id;
+    
+    EXEC SQL FETCH LINE_CUR INTO
+        :nlist_id,    :line_color, :line_style,
+        :line_width,  :line_name,  :polygon_flag,  :polygon_hatch_style,
+        :polygon_fill_color,  :nlist_filename;
+    
+    V_SETZERO (nlist_id);
+    V_SETZERO (nlist_filename);
+
+    /*  Read the nlist  */
+
+    if (isfault)
+        {
+        /* -- fault type; -- */
+
+        /* in the case of FAULTS nlist_id from LINES stores the SEQ number  */
+        /* for SEIS_FAULT_TRACE where the fault nlists are really stored.   */
+
+        seq = line_id;
+	if (horizon == NULL OR *horizon == (CHAR) 0)
+		return SUCCESS;		/* go on to next?? */
+
+        status = dr_get_fault_trace (horizon, seq, line);
+        }
+    else
+        {
+        /* -- not a fault type; -- */
+
+        /* If the name is null in the database, use the name passed in from */
+        /* the caller. Note that this implies the database name takes       */
+        /* precedence over the passed in name                               */
+
+        if (nlist_filename.len == 0)
+            {
+            V_FROMC (nlist_filename, nlist_file);
+            }
+
+        Col_List[0] = 1, Col_List[1] = 2;
+        status = ct_get_nlist(&line->line_nlist, (CHAR *)nlist_filename.arr,
+                              (CHAR *)nlist_id.arr, Col_List, 0.0);
+        }
+
+    if (status != SUCCESS)
+        {
+        return(status);
+        }
+
+    /* assign line attributes. */
+    V_FROMV(line->line_name, line_name);
+    line->line_id            = line_id;
+    line->line.color         = (GKS_REAL)line_color;
+    line->line.style         = (GKS_REAL)line_style;
+    line->line.width         = (GKS_REAL)line_width;
+    line->polygon_flag       = polygon_flag;
+    line->polygon_fill_style = polygon_hatch_style;
+    line->polygon_fill_color = polygon_fill_color;
+    
+    if (polygon_flag)
+        {
+        nl_set_nlist_method(line->line_nlist, NL_CLIP_METHOD, "NLM_WINDOW_CLIP_POLY",
+                            nlm_window_clip_poly);
+        }
+
+    /* return appropriate status                                                    */
+    return(status);
+    
+sqleofpt:
+    /* No such line retrieved                                                       */
+    return CT_ORACLE_EOF;
+    
+sqlerrorpt:
+    /* Honest to God error                                                          */
+    return OR_STATUS;
+    }
+/* END:     */

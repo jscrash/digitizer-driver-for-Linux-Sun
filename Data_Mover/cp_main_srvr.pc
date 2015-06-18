@@ -1,0 +1,2565 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element CP_MAIN_SRVR.PC */
+/*  11   13-FEB-1992 15:29:02 PURNA "(SPR 3574) changed decimal precision on geodetic dec projection" */
+/* *10   31-OCT-1991 16:45:01 PURNA "(SPR 4087) removed redundant line in please note message" */
+/* *9    29-JUL-1991 16:12:36 PURNA "(SPR 0) added some check when converting geodetic value" */
+/* *8    20-JUN-1991 16:15:56 PURNA "(SPR 0) fix changing projection bug" */
+/* *7    13-JUN-1991 15:59:10 PURNA "(SPR 0) fix call to ho_translate_symbol" */
+/* *6    13-JUN-1991 13:36:51 PURNA "(SPR 0) change pathname to home directory" */
+/* *5    11-JUN-1991 12:43:44 PURNA "(SPR 0) update user interface" */
+/* *4    10-JUN-1991 12:05:19 MING "(SPR 0) add esi_mg.h" */
+/* *3     6-MAY-1991 16:41:03 PURNA "(SPR 0) init change" */
+/* *2    17-AUG-1990 21:47:53 VINCE "(SPR 5644) Code Cleanup" */
+/* *1     7-DEC-1989 16:05:54 PURNA "export facility" */
+/* DEC/CMS REPLACEMENT HISTORY, Element CP_MAIN_SRVR.PC */
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+#ifdef GEOSHARE
+#include "geoscience.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_WI_H
+
+#include "esi_wi.h"
+
+#endif
+
+#ifndef ESI_AM_H
+
+#include "esi_am.h"
+
+#endif
+
+#ifndef ESI_SL_H
+
+#include "esi_sl.h"
+
+#endif
+
+#ifndef ESI_CP_ERR_H
+
+#include "esi_cp_err.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+
+#ifndef ESI_CP_H
+
+#include "esi_cp.h"
+
+#endif
+
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_TC_H
+
+#include "esi_tc.h"
+
+#endif
+
+#ifndef ESI_GR_H
+
+#include "esi_gr.h"
+
+#endif
+#ifndef ESI_MP_H
+#include "esi_mp.h"
+#endif
+
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+/* Resource files */
+
+#ifndef CP_CDLGS_RH
+
+#define CP_CDLGS_RSRC "CP_CDLGS"
+
+#include "cp_cdlgs.rh"
+
+#endif
+
+/* Define Constant Value */
+
+#define CP_WORKSPACE "CopyProject_Workspace"
+#define NULLSTR ""
+
+#if USE_PROTOTYPES
+static INT cpz_first_server (CP_STRUCT *pex);
+static INT cpz_cntrl_server(CP_STRUCT *pex);
+static INT cpz_save1_server(CP_STRUCT *pex);
+static INT cpz_save2_server(CP_STRUCT *pex);
+#ifdef GEOSHARE
+static INT cpz_ext_server(CP_STRUCT *pex);
+static INT cpz_ext_get_params(CP_STRUCT *pex,TCP prompt,TCP *params,
+				INT start_i, INT end_i);
+#endif
+static INT cpz_dest_server (CP_STRUCT *pex,BOOL to_control);
+static INT cpz_trans_server(CP_STRUCT *pex);
+static INT cpz_select_server(SL_DATA_TYPE data_type,CP_STRUCT *pex);
+static INT cpz_geo1_server(CP_STRUCT *pex);
+static INT cpz_geo2_server(CP_STRUCT *pex);
+static INT cpz_construct_transnames (CP_STRUCT *pex,INT *ret_status);
+static INT cpz_construct_destnames (CP_STRUCT *pex,INT *ret_status);
+static INT cpz_get_finder_projects(CHAR *source_name,TCP *dests);
+static INT cpz_fill_transnames_selector(CP_STRUCT *pex);
+static INT cpz_fill_destsnames_selector(CP_STRUCT *pex);
+static INT cpz_fill_selsname_selector(CHAR *dtype_string,CP_STRUCT *pex);
+static INT cpz_fill_mapproj_selector(CP_STRUCT *pex,INT id,
+			INT sel_item, INT vscroll_item);
+static INT cpz_load_trans_name(CP_STRUCT *pex);
+static INT cpz_save_trans_name(CP_STRUCT *pex);
+static INT cpz_init_geo_value(CP_STRUCT *pex);
+static INT cpz_set_geo1_dialog_value(CP_STRUCT *pex);
+static INT cpz_set_geo2_dialog_value(CP_STRUCT *pex);
+static INT cpz_convert_coords(CP_STRUCT *pex,PROJECTION_ID old_projection,
+			PROJECTION_ID new_projection);
+static INT cpz_get_default_map_projection(CHAR *project_name,
+			CHAR *map_projection);
+static INT cpz_data_type_exist(CHAR *table_name,CP_STRUCT *pex);
+#else
+static INT cpz_first_server ();
+static INT cpz_cntrl_server();
+static INT cpz_save1_server();
+static INT cpz_save2_server();
+#ifdef GEOSHARE
+static INT cpz_ext_server();
+static INT cpz_ext_get_params();
+#endif
+static INT cpz_dest_server ();
+static INT cpz_trans_server();
+static INT cpz_select_server();
+static INT cpz_geo1_server();
+static INT cpz_geo2_server();
+static INT cpz_construct_transnames ();
+static INT cpz_construct_destnames ();
+static INT cpz_get_finder_projects();
+static INT cpz_fill_transnames_selector();
+static INT cpz_fill_destsnames_selector();
+static INT cpz_fill_selsname_selector();
+static INT cpz_fill_mapproj_selector();
+static INT cpz_load_trans_name();
+static INT cpz_save_trans_name();
+static INT cpz_init_geo_value();
+static INT cpz_set_geo1_dialog_value();
+static INT cpz_set_geo2_dialog_value();
+static INT cpz_convert_coords();
+static INT cpz_get_default_map_projection();
+static INT cpz_data_type_exist();
+#endif
+/* File Description ---------------------------------------------------------
+Overview:
+
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT cp_main_server(BYTE *ptr);
+
+Private_Functions:
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+    Main entry to the CopyProject System.                                  
+    Calls the system initialization routines & checks for success.         
+
+Prototype:
+    publicdef INT cp_main_server(BYTE *ptr);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    ptr             -(BYTE *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT cp_main_server (BYTE *ptr)
+#else
+publicdef INT cp_main_server (ptr)
+BYTE *ptr;
+#endif
+    {
+    
+    INT status, tag_status;
+    CP_STRUCT *pex;
+    
+    tag_status = am_declare ("Data Mover");
+    
+    /*  Try to open the global workspace.  */
+    /*  If we are successful, continue.    */
+    /*  If not, allocate & initialize it.  */
+    status = am_open_workspace (CP_WORKSPACE, AM_GLOBAL, (VOIDPTR *) & pex);
+    if (status != SUCCESS)
+        {                           /*  and initialize it                  */
+        am_define_workspace (CP_WORKSPACE, AM_GLOBAL, sizeof(CP_STRUCT),
+                             (VOIDPTR *) & pex);
+        }
+    status = cpz_first_server (pex);
+    
+    return SUCCESS;
+    
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Open the menus and the message custom dialog.                          
+
+Prototype:
+    static INT cpz_main_server(CP_STRUCT *pex);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    pex             -(CP_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+
+Scope:
+    PRIVATE to <cp_main_srvr.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT cpz_first_server (CP_STRUCT *pex)
+#else
+static INT cpz_first_server (pex)
+CP_STRUCT *pex;
+#endif
+    {
+    INT status = SUCCESS;
+    INT ntrans;
+    INT default_index;
+    INT id,event_class,event_id,event_item;
+    INT item_selected[1];
+    INT nsel = 0;
+    BOOL done=FALSE;
+
+    qs_inq_c (QS_PROJECT_NAME, pex->source_name, (INT *)0);
+    
+    pex->dests_type = CP_FINDER_P;
+    nsel = cpz_construct_destnames (pex,&status);
+    if(nsel <= 0 OR status != SUCCESS)
+	{
+	am_message(AM_ALERT,"There are currently no valid target projects or \
+applications to which you can transfer data. Please create the target \
+applications or project and try the Data Mover later.");
+	am_quit();
+	return SUCCESS;
+    	}
+
+    /* allocate dialog dialog        */
+    status = am_define_resource (AM_DIALOG, CP_CDLGS_RSRC, CP_MAIN,
+                                 NULL_FUNCTION_PTR, &pex->cp_main, pex);
+    id = pex->cp_main;
+    strcpy (pex->trans_name, NULLSTR);
+    pex->trans_n = (CHAR **)NULL;
+
+    wi_set_dialog_text (id,CP_MAIN_MSG,
+	"Please select a Data Mover Definition, and/or click on the \
+appropriate button.");
+
+    /*------------------------------------------------------*/
+    /* build linked lists and TCP's of tables and phrases   */
+    /* and place them into the selector                     */
+    /*------------------------------------------------------*/
+    status = cpz_fill_transnames_selector(pex);
+
+    if(status EQUALS -942)  /* table DATA_MOVER_HDR does not exist */
+	{
+	am_message(AM_ALERT,"The DATA_MOVER_HDR table does not exist in \
+current project. You can proceed data mover without the capability to save \
+any data mover definition or cancel the data mover operation. \n\
+Please contact your database administrator.");
+	}	
+    else if(status  != SUCCESS)
+	{
+    	wi_enable_dialog_item (id,CP_MAIN_MODIFY,OFF);
+    	wi_enable_dialog_item (id,CP_MAIN_OK,OFF);
+	}
+    else
+	{
+    	wi_enable_dialog_item (id,CP_MAIN_MODIFY,ON);
+    	wi_enable_dialog_item (id,CP_MAIN_OK,ON);
+	}
+
+    fi_push();
+    wi_open_dialog (id);
+
+for (event_item = -1, event_id = id;
+    event_id == id && !done;)
+    {
+    wi_request_event(0,&event_class,&event_id,&event_item);
+
+    pex->new_item = FALSE;
+    switch (event_item)
+        {
+    case CP_MAIN_CANCEL:
+	am_quit();
+        /*----------------*/
+        /* free up memory */
+        /*----------------*/
+        ts_tcp_free (pex->trans_n);
+	done = TRUE;
+	break;
+    case CP_MAIN_NEW:
+	pex->new_item = TRUE;
+	status = cpz_dest_server(pex,TRUE);
+	status = cpz_fill_transnames_selector(pex);
+	if(status EQUALS SUCCESS)
+	    {
+    	    wi_enable_dialog_item (id,CP_MAIN_MODIFY,ON);
+    	    wi_enable_dialog_item (id,CP_MAIN_OK,ON);
+	    }
+	else
+	    {
+    	    wi_enable_dialog_item (id,CP_MAIN_MODIFY,OFF);
+    	    wi_enable_dialog_item (id,CP_MAIN_OK,OFF);
+	    }
+	break;
+    case CP_MAIN_MODIFY:
+	if(IS_EMPTY_STRING(pex->trans_name))
+	    {
+	    am_message(AM_ALERT,"No Data Mover Definition has been selected. \
+Please select an existing definition or create a new one.");
+	    break;
+	    }
+	status = cpz_load_trans_name(pex);
+	if(status != SUCCESS)
+	    {
+	    am_message(AM_ALERT,(CHAR *)mg_message(status));
+	    break;
+	    }
+	status = cpz_dest_server(pex,TRUE);
+	status = cpz_fill_transnames_selector(pex);
+	break;
+    case CP_MAIN_OK:
+	if(IS_EMPTY_STRING(pex->trans_name))
+	    {
+	    am_message(AM_ALERT,"No Data Mover Definition has been selected. \
+Please select an existing definition or create a new one.");
+	    break;
+	    }
+	status = cpz_load_trans_name(pex);
+	if(status != SUCCESS)
+	    {
+	    am_message(AM_ALERT,(CHAR *)mg_message(status));
+	    break;
+	    }
+	status = cpz_dest_server(pex,FALSE);
+	am_quit();
+        /*----------------*/
+        /* free up memory */
+        /*----------------*/
+        ts_tcp_free (pex->trans_n);
+	done = TRUE;
+	break;
+    case CP_MAIN_NAMES:
+        wi_query_selections (id, CP_MAIN_NAMES, &nsel, item_selected);
+        if (nsel > 0)
+            {
+            wi_set_default_sel (id, CP_MAIN_NAMES, item_selected[0]);
+            strcpy (pex->trans_name, pex->trans_n[item_selected[0]-1]);
+            }
+        break;
+	}
+    }
+    fi_pop();
+    return SUCCESS;
+    }
+
+/* END:     */
+
+static INT cpz_cntrl_server(pex)
+CP_STRUCT *pex;
+{
+    INT status = SUCCESS,ret_status;
+    INT nsel=0,item_selected[1];
+    INT id,event_class,event_id,event_item;
+    BOOL done=FALSE,changes=FALSE;
+    INT old_selection;
+    CHAR old_sl_name[44];
+    CHAR msg[256];
+    
+    /* allocate dialog dialog        */
+    status = am_define_resource (AM_DIALOG, CP_CDLGS_RSRC, CP_CNTRL,
+                                 NULL_FUNCTION_PTR, &pex->cp_cntrl, pex);
+    id=pex->cp_cntrl;
+    
+    wi_enable_dialog_item (id,CP_CNTRL_WELL_REF,OFF);
+    wi_enable_dialog_item (id,CP_CNTRL_SEIS_REF,OFF);
+    wi_enable_dialog_item (id,CP_CNTRL_LEASE_REF,OFF);
+    wi_enable_dialog_item (id,CP_CNTRL_CULT_REF,OFF);
+    wi_enable_dialog_item (id,CP_CNTRL_GO_REF,OFF);
+
+    wi_enable_dialog_item (id,CP_CNTRL_GO_SEL,OFF);
+
+    wi_enable_dialog_item (id,CP_CNTRL_GEO_SPEC,OFF);
+
+    if(NOT cpz_data_type_exist("LEASE",pex))    
+	{
+    	wi_enable_dialog_item (id,CP_CNTRL_LEASE,OFF);
+    	wi_enable_dialog_item (id,CP_CNTRL_LEASE_NONE,OFF);
+    	wi_enable_dialog_item (id,CP_CNTRL_LEASE_SEL,OFF);
+    	wi_enable_dialog_item (id,CP_CNTRL_LEASE_ALL,OFF);
+	}
+    if(NOT cpz_data_type_exist("WELL_HDR",pex))    
+	{
+    	wi_enable_dialog_item (id,CP_CNTRL_WELL,OFF);
+    	wi_enable_dialog_item (id,CP_CNTRL_WELL_NONE,OFF);
+    	wi_enable_dialog_item (id,CP_CNTRL_WELL_SEL,OFF);
+    	wi_enable_dialog_item (id,CP_CNTRL_WELL_ALL,OFF);
+	}
+    if(NOT cpz_data_type_exist("SEIS_LINE_HDR",pex))    
+	{
+    	wi_enable_dialog_item (id,CP_CNTRL_SEIS,OFF);
+    	wi_enable_dialog_item (id,CP_CNTRL_SEIS_NONE,OFF);
+    	wi_enable_dialog_item (id,CP_CNTRL_SEIS_SEL,OFF);
+    	wi_enable_dialog_item (id,CP_CNTRL_SEIS_ALL,OFF);
+	}
+    if(NOT cpz_data_type_exist("LYNX_CULTURE",pex))    
+	{
+    	wi_enable_dialog_item (id,CP_CNTRL_CULT,OFF);
+    	wi_enable_dialog_item (id,CP_CNTRL_CULT_NONE,OFF);
+    	wi_enable_dialog_item (id,CP_CNTRL_CULT_SEL,OFF);
+    	wi_enable_dialog_item (id,CP_CNTRL_CULT_ALL,OFF);
+	}
+    if(NOT cpz_data_type_exist("GRAPHIC_OBJECTS",pex))    
+	{
+    	wi_enable_dialog_item (id,CP_CNTRL_GO,OFF);
+    	wi_enable_dialog_item (id,CP_CNTRL_GO_NONE,OFF);
+    	wi_enable_dialog_item (id,CP_CNTRL_GO_ALL,OFF);
+	}
+
+    pex->lease_option = CP_NONE_OPTION;
+    if(pex->new_item)
+	{
+	strcpy(pex->trans_name,"UNTITLED");
+	pex->well_option = CP_NONE_OPTION;
+	pex->seismic_option = CP_NONE_OPTION;
+	pex->go_option = CP_NONE_OPTION;
+	pex->culture_option = CP_NONE_OPTION;
+	pex->geo_selection_type = CP_GEO_NO_CONST;
+	}
+    
+     wi_set_dialog_text (id,CP_CNTRL_EDIT_NAME, 
+ 			pex->trans_name);
+
+     wi_set_dialog_text (id,CP_CNTRL_MSG, 
+	"For each data class, please specify how you wish to control \
+the data to be moved to the data mover target.");
+
+     switch(pex->geo_selection_type)
+	{
+	case CP_GEO_NO_CONST :
+	    wi_set_dialog_value(id,CP_CNTRL_GEO_NO_CONST,ON);
+	    break;
+	case CP_GEO_CUR_MAP :
+	case CP_GEO_TRGT_MAP :
+	case CP_GEO_SRC_MAP :
+	    wi_set_dialog_value(id,CP_CNTRL_GEO_BOUND,ON);
+	    break;
+	case CP_GEO_MAN_ENT :
+	    wi_set_dialog_value(id,CP_CNTRL_GEO_MAN_ENT,ON);
+	    break;
+	case CP_GEO_SPEC :
+    	    wi_set_dialog_value(id,CP_CNTRL_GEO_SPEC,ON);
+	    break;
+	}	    	    
+     switch(pex->well_option)
+	{
+	case CP_NONE_OPTION :
+	    wi_set_dialog_value(id,CP_CNTRL_WELL_NONE,ON);
+	    break;
+	case CP_SELECT_OPTION :
+	    wi_set_dialog_value(id,CP_CNTRL_WELL_SEL,ON);
+	    break;
+	case CP_ALL_OPTION :
+	    wi_set_dialog_value(id,CP_CNTRL_WELL_ALL,ON);
+	    break;
+	}
+     switch(pex->seismic_option)
+	{
+	case CP_NONE_OPTION :
+	    wi_set_dialog_value(id,CP_CNTRL_SEIS_NONE,ON);
+	    break;
+	case CP_SELECT_OPTION :
+	    wi_set_dialog_value(id,CP_CNTRL_SEIS_SEL,ON);
+	    break;
+	case CP_ALL_OPTION :
+	    wi_set_dialog_value(id,CP_CNTRL_SEIS_ALL,ON);
+	    break;
+	}
+     switch(pex->culture_option)
+	{
+	case CP_NONE_OPTION :
+	    wi_set_dialog_value(id,CP_CNTRL_CULT_NONE,ON);
+	    break;
+	case CP_SELECT_OPTION :
+	    wi_set_dialog_value(id,CP_CNTRL_CULT_SEL,ON);
+	    break;
+	case CP_ALL_OPTION :
+	    wi_set_dialog_value(id,CP_CNTRL_CULT_ALL,ON);
+	    break;
+	}
+     switch(pex->lease_option)
+	{
+	case CP_NONE_OPTION :
+	    wi_set_dialog_value(id,CP_CNTRL_LEASE_NONE,ON);
+	    break;
+	case CP_SELECT_OPTION :
+	    wi_set_dialog_value(id,CP_CNTRL_LEASE_SEL,ON);
+	    break;
+	case CP_ALL_OPTION :
+	    wi_set_dialog_value(id,CP_CNTRL_LEASE_ALL,ON);
+	    break;
+	}
+     switch(pex->go_option)
+	{
+	case CP_NONE_OPTION :
+	    wi_set_dialog_value(id,CP_CNTRL_GO_NONE,ON);
+	    break;
+	case CP_ALL_OPTION :
+	    wi_set_dialog_value(id,CP_CNTRL_GO_ALL,ON);
+	    break;
+	}
+
+     fi_push();
+     wi_open_dialog(id);
+     
+for (event_item = -1, event_id = id;
+     event_id == id && !done;)
+     {
+                             /* wait for event                              */
+     wi_request_event(0,&event_class,&event_id,&event_item);
+
+                             /* handle each cases of button press           */
+     switch (event_item)
+	{
+	case CP_CNTRL_GEO_NO_CONST:
+	    old_selection = pex->geo_selection_type;
+	    pex->geo_selection_type = CP_GEO_NO_CONST;
+	    if(old_selection != pex->geo_selection_type)
+	    	changes=TRUE;
+	    wi_set_dialog_value(id,CP_CNTRL_GEO_NO_CONST,ON);
+	    break;
+	case CP_CNTRL_GEO_MAN_ENT:
+	    old_selection = pex->geo_selection_type;
+            pex->geo_selection_type = CP_GEO_MAN_ENT;
+	    status = cpz_geo1_server(pex);
+	    if(status EQUALS SUCCESS)
+		{
+	    	wi_set_dialog_value(id,CP_CNTRL_GEO_MAN_ENT,ON);
+	    	if(old_selection != pex->geo_selection_type)
+	    	    changes=TRUE;
+		}
+	    else
+		{
+                pex->geo_selection_type = old_selection;
+		switch(old_selection)
+		    {
+	   	    case CP_GEO_NO_CONST :
+	    		wi_set_dialog_value(id,CP_CNTRL_GEO_NO_CONST,ON);
+	    		break;
+		    case CP_GEO_CUR_MAP :
+		    case CP_GEO_SRC_MAP :
+		    case CP_GEO_TRGT_MAP :
+	    		wi_set_dialog_value(id,CP_CNTRL_GEO_BOUND,ON);
+	    		break;
+		    case CP_GEO_MAN_ENT :
+	    		wi_set_dialog_value(id,CP_CNTRL_GEO_MAN_ENT,ON);
+	    		break;
+		    case CP_GEO_SPEC :
+    	    		wi_set_dialog_value(id,CP_CNTRL_GEO_SPEC,ON);
+	    		break;
+		    }	    	    
+		 }
+	    break;
+	case CP_CNTRL_GEO_BOUND:	    
+	    old_selection = pex->geo_selection_type;
+	    status = cpz_geo2_server(pex);
+	    if(status EQUALS SUCCESS)
+		{
+	    	wi_set_dialog_value(id,CP_CNTRL_GEO_BOUND,ON);
+		if(old_selection != pex->geo_selection_type)
+		    changes = TRUE;
+		}
+	    else
+		{
+		pex->geo_selection_type = old_selection;
+		switch(old_selection)
+		    {
+	   	    case CP_GEO_NO_CONST :
+	    		wi_set_dialog_value(id,CP_CNTRL_GEO_NO_CONST,ON);
+	    		break;
+		    case CP_GEO_CUR_MAP :
+		    case CP_GEO_SRC_MAP :
+		    case CP_GEO_TRGT_MAP :
+	    		wi_set_dialog_value(id,CP_CNTRL_GEO_BOUND,ON);
+	    		break;
+		    case CP_GEO_MAN_ENT :
+	    		wi_set_dialog_value(id,CP_CNTRL_GEO_MAN_ENT,ON);
+	    		break;
+		    case CP_GEO_SPEC :
+    	    		wi_set_dialog_value(id,CP_CNTRL_GEO_SPEC,ON);
+	    		break;
+		    }	    	    
+		 }
+	    break;
+	case CP_CNTRL_CANCEL:
+	    wi_clear(id);
+	    am_release_resource(id);
+	    done = TRUE;
+	    break;
+	case CP_CNTRL_OK:
+	    am_message(AM_DIALOG,"Retrieving data. Please wait ......");
+	    status = cp_test_dtype(pex,&ret_status);
+	    switch(status)
+		{
+		case CP_NO_DATA_TYPE :
+		am_message(AM_ALERT,"No data has been selected for \
+transferral. Please specify at least one data type to be moved or cancel \
+the Data Mover operation.");
+		break;
+
+		case CP_LOAD_WELL_FAIL :
+		case CP_LOAD_SEIS_FAIL :
+		case CP_LOAD_LYNX_FAIL :
+		case CP_LOAD_LEASE_FAIL :
+		case CP_LOAD_GO_FAIL :
+		sprintf(msg,"%s", mg_message(status));
+		strcat(msg," Error status : ");
+		strcat(msg,mg_message(ret_status));
+		am_message(AM_ALERT,msg);
+		break;
+		}
+	    am_message(AM_DIALOG,"");
+	    if(status != SUCCESS) break;
+	    if(changes)
+	    	status = cpz_save1_server(pex);
+	    status = cpz_trans_server(pex);
+	    wi_clear(id);
+	    am_release_resource(id);
+	    done = TRUE;
+	    break;
+	case CP_CNTRL_WELL_NONE:
+	    old_selection=pex->well_option;
+	    wi_set_dialog_value(id,CP_CNTRL_WELL_NONE,ON);
+	    pex->well_option = CP_NONE_OPTION;
+	    if(old_selection != pex->well_option)
+	    	changes=TRUE;
+	    break;
+	case CP_CNTRL_WELL_SEL:
+	    if(IS_STRING(pex->well_sl_name))
+   		strcpy (pex->sels_name, pex->well_sl_name);
+	    else 
+   		strcpy (pex->sels_name, NULLSTR);
+	    strcpy(old_sl_name,pex->sels_name);
+	    status = cpz_select_server(WELLS_DATA_TYPE,pex);
+	    if(IS_STRING(pex->sels_name))
+		{
+	    	wi_set_dialog_value(id,CP_CNTRL_WELL_SEL,ON);
+	    	old_selection=pex->well_option;
+	    	pex->well_option = CP_SELECT_OPTION;
+	        if(old_selection != pex->well_option)
+		    changes=TRUE;
+		else if(ARE_DIFFERENT(old_sl_name,pex->sels_name))
+		    changes=TRUE;
+
+		strcpy(pex->well_sl_name,pex->sels_name);
+   		strcpy (pex->sels_name, NULLSTR);
+		}
+	    else 
+		{
+	    	if(status EQUALS CP_EMPTY_SELECT_LIST)
+		    {
+		    wi_beep(1);
+		    am_message(AM_ALERT,"There are no existing select lists \
+for this data type. Please create an appropriate select list using the Make \
+or Highlight List application.");
+		    }
+		else if(status EQUALS SUCCESS)
+		    {
+		    wi_beep(1);
+		    am_message(AM_ALERT,"No select List Name has been selected.");
+		    }
+     		switch(pex->well_option)
+		    {
+		    case CP_NONE_OPTION :
+	    		wi_set_dialog_value(id,CP_CNTRL_WELL_NONE,ON);
+			break;
+		    case CP_ALL_OPTION :
+	    		wi_set_dialog_value(id,CP_CNTRL_WELL_ALL,ON);
+	    		break;
+		    }
+		}
+	    break;
+	case CP_CNTRL_WELL_ALL:
+	    old_selection=pex->well_option;
+	    wi_set_dialog_value(id,CP_CNTRL_WELL_ALL,ON);
+	    pex->well_option = CP_ALL_OPTION;
+            if(old_selection != pex->well_option)
+	    	changes=TRUE;
+	    break;
+	case CP_CNTRL_WELL_REF:
+	    changes=TRUE;
+	    break;
+	case CP_CNTRL_SEIS_NONE:
+	    old_selection = pex->seismic_option;	
+	    wi_set_dialog_value(id,CP_CNTRL_SEIS_NONE,ON);
+	    pex->seismic_option = CP_NONE_OPTION;
+	    if(old_selection != pex->seismic_option)
+	    	changes=TRUE;
+	    break;
+	case CP_CNTRL_SEIS_SEL:
+	    if(IS_STRING(pex->seismic_sl_name))
+   		strcpy (pex->sels_name, pex->seismic_sl_name);
+	    else 
+   		strcpy (pex->sels_name, NULLSTR);
+	    strcpy(old_sl_name,pex->sels_name);
+	    status = cpz_select_server(SEISMIC_DATA_TYPE,pex);
+	    if(IS_STRING(pex->sels_name))
+		{
+	    	wi_set_dialog_value(id,CP_CNTRL_SEIS_SEL,ON);
+		old_selection = pex->seismic_option;	
+	    	pex->seismic_option = CP_SELECT_OPTION;
+	    	if(old_selection != pex->seismic_option)
+	    	    changes =TRUE;
+		else if(ARE_DIFFERENT(old_sl_name,pex->sels_name))
+		    changes=TRUE;
+		strcpy(pex->seismic_sl_name,pex->sels_name);
+   		strcpy (pex->sels_name, NULLSTR);
+		}
+	    else
+		{
+	    	if(status EQUALS CP_EMPTY_SELECT_LIST)
+		    {
+		    wi_beep(1);
+		    am_message(AM_ALERT,"There are no existing select lists \
+for this data type. Please create an appropriate select list using the Make \
+or Highlight List application.");
+		    }
+		else if(status EQUALS SUCCESS)
+		    {
+		    wi_beep(1);
+		    am_message(AM_ALERT,"No select List Name has been selected.");
+		    }
+     		switch(pex->seismic_option)
+		    {
+		    case CP_NONE_OPTION :
+	    		wi_set_dialog_value(id,CP_CNTRL_SEIS_NONE,ON);
+			break;
+		    case CP_ALL_OPTION :
+	    		wi_set_dialog_value(id,CP_CNTRL_SEIS_ALL,ON);
+	    		break;
+		    }
+		}
+            break;
+	case CP_CNTRL_SEIS_ALL:
+	    old_selection = pex->seismic_option;	
+	    wi_set_dialog_value(id,CP_CNTRL_SEIS_ALL,ON);
+	    pex->seismic_option = CP_ALL_OPTION;
+	    if(old_selection != pex->seismic_option)
+	    	changes=TRUE;
+	    break;
+	case CP_CNTRL_SEIS_REF:
+	    changes=TRUE;
+  	    break;
+	case CP_CNTRL_CULT_NONE:
+	    old_selection = pex->culture_option;
+	    wi_set_dialog_value(id,CP_CNTRL_CULT_NONE,ON);
+	    pex->culture_option = CP_NONE_OPTION;
+	    if(old_selection != pex->culture_option)
+	    	changes=TRUE;
+ 	    break;
+	case CP_CNTRL_CULT_SEL:
+	    if(IS_STRING(pex->culture_sl_name))
+   		strcpy (pex->sels_name, pex->culture_sl_name);
+	    else 
+   		strcpy (pex->sels_name, NULLSTR);
+	    strcpy(old_sl_name,pex->sels_name);
+	    status = cpz_select_server(LYNX_DATA_TYPE,pex);
+	    if(IS_STRING(pex->sels_name))
+		{
+	    	old_selection = pex->culture_option;
+	    	wi_set_dialog_value(id,CP_CNTRL_CULT_SEL,ON);
+	    	pex->culture_option = CP_SELECT_OPTION;
+	    	if(old_selection != pex->culture_option)
+	    	    changes=TRUE;
+		else if(ARE_DIFFERENT(pex->sels_name,old_sl_name))
+		    changes=TRUE;
+		strcpy(pex->culture_sl_name,pex->sels_name);
+   		strcpy (pex->sels_name, NULLSTR);
+		}
+	    else
+		{
+	    	if(status EQUALS CP_EMPTY_SELECT_LIST)
+		    {
+		    wi_beep(1);
+		    am_message(AM_ALERT,"There are no existing select lists \
+for this data type. Please create an appropriate select list using the Make \
+or Highlight List application.");
+		    }
+		else if(status EQUALS SUCCESS)
+		    {
+		    wi_beep(1);
+		    am_message(AM_ALERT,"No select List Name has been selected.");
+		    }
+		switch(pex->culture_option)
+		    {
+		    case CP_NONE_OPTION :
+	    		wi_set_dialog_value(id,CP_CNTRL_CULT_NONE,ON);
+			break;
+		    case CP_ALL_OPTION :
+	    		wi_set_dialog_value(id,CP_CNTRL_CULT_ALL,ON);
+	    		break;
+		    }
+		}
+	    changes=TRUE;
+	    break;
+	case CP_CNTRL_CULT_ALL:
+	    old_selection = pex->culture_option;
+	    wi_set_dialog_value(id,CP_CNTRL_CULT_ALL,ON);
+	    pex->culture_option = CP_ALL_OPTION;
+	    if(old_selection != pex->culture_option)
+	    	changes=TRUE;
+	    break;
+	case CP_CNTRL_CULT_REF:
+	    changes=TRUE;
+	    break;
+	case CP_CNTRL_GO_NONE:
+	    old_selection = pex->go_option;
+	    wi_set_dialog_value(id,CP_CNTRL_GO_NONE,ON);
+	    pex->go_option = CP_NONE_OPTION;
+	    if(old_selection != pex->go_option)
+	    	changes=TRUE;
+	    break;
+	case CP_CNTRL_GO_ALL:
+	    old_selection = pex->go_option;
+	    wi_set_dialog_value(id,CP_CNTRL_GO_ALL,ON);
+	    pex->go_option = CP_ALL_OPTION;
+	    if(old_selection != pex->go_option)
+	    	changes=TRUE;
+	    break;
+	case CP_CNTRL_GO_REF:
+	    changes=TRUE;
+	    break;
+	}
+    }
+    fi_pop();
+    return SUCCESS;
+}
+
+
+static INT cpz_save1_server(pex)
+CP_STRUCT *pex;
+{
+    INT status = SUCCESS;
+    CHAR text[32];
+    INT id,event_class,event_id,event_item;
+    INT unused;
+    BOOL done = FALSE;
+    
+    /* allocate dialog dialog        */
+    status = am_define_resource (AM_DIALOG, CP_CDLGS_RSRC, CP_SAVE1,
+                                 NULL_FUNCTION_PTR, &pex->cp_save1, pex);
+    id = pex->cp_save1;
+
+    wi_set_dialog_text (id, CP_SAVE1_STAT, 
+	"Changes have been made to this Data Mover Definition. \
+Do you wish to save the current Definition?");
+
+    fi_push();
+    wi_open_dialog(id);
+	
+for (event_item = -1, event_id = id;
+     event_id == id && !done;)
+     {
+                             /* wait for event                              */
+     wi_request_event(0,&event_class,&event_id,&event_item);
+                             /* handle each cases of button press           */
+    switch (event_item)
+	{
+	case CP_SAVE1_YES :
+            status = cpz_save2_server(pex);
+	    am_release_resource(id);
+	    done = TRUE;
+	    break;
+	case CP_SAVE1_CANCEL:
+	    am_release_resource(id);
+	    done = TRUE;
+	    status = CP_CANCEL;
+	    break;
+	case CP_SAVE1_NO:
+	    am_release_resource(id);
+	    done = TRUE;
+	    status = SUCCESS;
+	    break;
+	}
+    }
+    fi_pop();
+    return status;
+}
+
+static INT cpz_save2_server(pex)
+CP_STRUCT *pex;
+{
+    INT status = SUCCESS;
+    CHAR text[32];
+    INT id,event_class,event_id,event_item;
+    INT unused;
+    BOOL done = FALSE;
+    CHAR *temp_string;
+    
+    /* allocate dialog dialog        */
+    status = am_define_resource (AM_DIALOG, CP_CDLGS_RSRC, CP_SAVE2,
+                                 NULL_FUNCTION_PTR, &pex->cp_save2, pex);
+    id = pex->cp_save2;
+    wi_set_dialog_text (id, CP_SAVE2_EDIT, pex->trans_name);
+    wi_activate (id, CP_SAVE2_EDIT, TRUE);
+
+    fi_push();
+    wi_open_dialog(id);
+	
+for (event_item = -1, event_id = id;
+     event_id == id && !done;)
+     {
+                             /* wait for event                              */
+     wi_request_event(0,&event_class,&event_id,&event_item);
+                             /* handle each cases of button press           */
+    switch (event_item)
+	{
+	case CP_SAVE2_SAVE :
+            wi_query_dialog_item (id, CP_SAVE2_EDIT, &unused, 
+		text);
+            if (strlen (text) <= 0)
+		{
+		am_message(AM_ALERT,"Please enter Data Mover Definition Name \
+before click 'OK'.");
+		break;
+		}
+	    temp_string = ts_sto_upper(text);
+	    strcpy(pex->trans_name,temp_string);
+    	    wi_set_dialog_text (id, CP_SAVE2_EDIT, pex->trans_name);
+            status = cpz_save_trans_name(pex);
+            if(status EQUALS CP_NO_DEF_REPLACE)
+		{
+    		wi_activate (id, CP_SAVE2_EDIT, TRUE);
+		break;
+		}
+	    if(status != SUCCESS)
+		am_message(AM_ALERT,(CHAR *)mg_message(status));
+	    am_release_resource(id);
+	    done = TRUE;
+	    break;
+	case CP_SAVE2_CANCEL:
+	    am_release_resource(id);
+	    done = TRUE;
+	    status = CP_CANCEL;
+	    break;
+	}
+    }
+    fi_pop();
+    return status;
+}
+
+#ifdef GEOSHARE
+static INT cpz_ext_server(pex)
+CP_STRUCT *pex;
+{
+    INT status = SUCCESS;
+    GSContextRequirements_t **req_list,**req;
+    INT no_req,no_dialog, no_params, i,j;
+    CHAR temp_string[256];
+    TCP prompt,params;
+    status = gs_inquire_context (pex->dests_name, &req_list, &no_req);
+    if(status != SUCCESS)
+	{
+	sprintf(temp_string,"Inquire external application parameters has \
+failed : %d",status);
+	am_message(AM_ALERT,temp_string);
+	return CP_EXT_APL_PRM_FAIL;
+	}
+    if(no_req < 1)
+	{
+	sprintf(temp_string,"External application %s does not require any \
+parameters",pex->dests_name);
+	am_message(AM_ALERT,temp_string);
+	strcpy(pex->ext_appl_arg,NULLSTR);
+	return SUCCESS;
+	}
+
+    no_dialog = (no_req / MAX_EXT_PARAM) + 1;
+    prompt = (TCP)0;
+    params = (TCP)0;
+    for(req = req_list; *req; ++req)
+	ts_tcp_append(&prompt,(*req)->prompt.vector_pointer);
+  
+    for(i=0,j=0; i < no_dialog; i++, j+=6)
+	{
+	if(j + 6 > no_req) 
+ 	    no_params = no_req - j;
+	else
+	    no_params = 6;
+
+    	status = cpz_ext_get_params(pex,prompt,&params,j,no_params);
+	if(status != SUCCESS)
+	    return status;
+	}
+
+    for(req = req_list, i = 0; *req; i++,++req)
+	{
+	strcat(pex->ext_appl_arg," ");
+	strcat(pex->ext_appl_arg,(*req)->cmdline_tag.vector_pointer);
+	strcat(pex->ext_appl_arg," ");
+	strcat(pex->ext_appl_arg,params[i]);
+	}
+
+    ts_tcp_free(prompt);
+    ts_tcp_free(params);
+    return status;
+}
+
+static INT cpz_ext_get_params(pex,prompt,params,start_i,end_i)
+CP_STRUCT *pex;
+TCP prompt;
+TCP *params;
+INT start_i,end_i;
+{
+    INT status = SUCCESS;
+    CHAR text[32];
+    INT id,event_class,event_id,event_item;
+    INT unused, i,j;
+    BOOL done = FALSE;
+    INT no_params;
+    CHAR e_param[30];
+    CHAR msg[256];
+    
+    /* allocate dialog dialog        */
+    status = am_define_resource (AM_DIALOG, CP_CDLGS_RSRC, CP_EXT,
+                                 NULL_FUNCTION_PTR, &id, pex);
+
+    wi_set_dialog_text (id, CP_EXT_NAME_EDIT, pex->dests_name);
+
+    no_params = end_i - start_i;
+    for(i = start_i,j=1; i <end_i ; i++,j++)
+	switch(j)
+	    {
+	    case 1 : 
+    		wi_set_dialog_text (id, CP_EXT_P1_STAT, prompt[i]);
+		break;
+	    case 2 : 
+    		wi_set_dialog_text (id, CP_EXT_P2_STAT, prompt[i]);
+		break;
+	    case 3 : 
+    		wi_set_dialog_text (id, CP_EXT_P3_STAT, prompt[i]);
+		break;
+	    case 4 : 
+    		wi_set_dialog_text (id, CP_EXT_P4_STAT, prompt[i]);
+		break;
+	    case 5 : 
+    		wi_set_dialog_text (id, CP_EXT_P5_STAT, prompt[i]);
+		break;
+	    case 6 : 
+    		wi_set_dialog_text (id, CP_EXT_P6_STAT, prompt[i]);
+		break;
+	    }
+
+    if(no_params < MAX_EXT_PARAM)
+	for(j=no_params+1; j <= MAX_EXT_PARAM ; j++)
+	switch(j)
+	    {
+	    case 1 : 
+    		wi_enable_dialog_item (id, CP_EXT_P1_EDIT, OFF);
+		break;
+	    case 2 : 
+    		wi_enable_dialog_item (id, CP_EXT_P2_EDIT, OFF);
+		break;
+	    case 3 : 
+    		wi_enable_dialog_item (id, CP_EXT_P3_EDIT, OFF);
+		break;
+	    case 4 : 
+    		wi_enable_dialog_item (id, CP_EXT_P4_EDIT, OFF);
+		break;
+	    case 5 : 
+    		wi_enable_dialog_item (id, CP_EXT_P5_EDIT, OFF);
+		break;
+	    case 6 : 
+    		wi_enable_dialog_item (id, CP_EXT_P6_EDIT, OFF);
+		break;
+	    }
+	
+    fi_push();
+    wi_open_dialog(id);
+	
+for (event_item = -1, event_id = id;
+     event_id == id && !done;)
+     {
+                             /* wait for event                              */
+
+     wi_request_event(0,&event_class,&event_id,&event_item);
+                             /* handle each cases of button press           */
+    switch (event_item)
+	{
+	case CP_EXT_DONE :
+    	    for(i = start_i,j=1; i <end_i ; i++,j++)
+	    	{
+	    	switch(j)
+		{
+		case 1 :
+            	wi_query_dialog_item (id, CP_EXT_P1_EDIT, &unused, text);
+		break;
+		case 2 :
+            	wi_query_dialog_item (id, CP_EXT_P2_EDIT, &unused, text);
+		break;
+		case 3 :
+            	wi_query_dialog_item (id, CP_EXT_P3_EDIT, &unused, text);
+		break;
+		case 4 :
+            	wi_query_dialog_item (id, CP_EXT_P4_EDIT, &unused, text);
+		break;
+		case 5 :
+            	wi_query_dialog_item (id, CP_EXT_P5_EDIT, &unused, text);
+		break;
+		case 6 :
+            	wi_query_dialog_item (id, CP_EXT_P6_EDIT, &unused, text);
+		break;
+		}
+
+            	if (strlen (text) <= 0)
+		    {
+		    sprintf(msg,"Please enter param '%s' before you click \
+'Done'",prompt[i]);
+		    am_message(AM_ALERT,msg);
+		    break;
+		    }
+	        sscanf(text,"%s",e_param);
+	        ts_tcp_append(params,e_param);
+		}
+	    am_release_resource(id);
+	    done = TRUE;
+	    status = SUCCESS;
+	    break;
+	case CP_EXT_CANCEL:
+	    am_release_resource(id);
+	    done = TRUE;
+	    status = CP_CANCEL;
+	    break;
+	}
+    }
+    fi_pop();
+    return status;
+}
+
+#endif
+
+static INT cpz_dest_server (pex,to_control)
+CP_STRUCT *pex;
+BOOL to_control;
+{
+    INT status;
+    INT id,event_class,event_id,event_item;
+    INT nsel,item_selected[1];
+    BOOL done = FALSE;
+    INT ret_status;
+    CHAR msg[256];
+
+    /* allocate dialog dialog        */
+    status = am_define_resource (AM_DIALOG, CP_CDLGS_RSRC, CP_DEST,
+                                 NULL_FUNCTION_PTR, &pex->cp_dest, pex);
+    id=pex->cp_dest;
+    
+    strcpy (pex->dests_name, NULLSTR);
+    pex->dests_n = (CHAR **)NULL;
+
+    /*------------------------------------------------------*/
+    /* build linked lists and TCP's of tables and phrases   */
+    /* and place them into the selector                     */
+    /*------------------------------------------------------*/
+
+    pex->dests_type = CP_FINDER_P;
+    wi_set_dialog_value(id,CP_DEST_F_PROJECT,ON);
+
+#ifdef GEOSHARE
+    wi_enable_dialog_item(id,CP_DEST_EXT_APPL,ON);
+#else
+    wi_enable_dialog_item(id,CP_DEST_EXT_APPL,OFF);
+#endif
+
+    status = cpz_fill_destsnames_selector(pex);
+
+    fi_push();
+    wi_open_dialog(id);
+
+for (event_item = -1, event_id = id;
+     event_id == id && !done;)
+    {
+                             /* wait for event                              */
+    wi_request_event(0,&event_class,&event_id,&event_item);
+                             /* handle each cases of button press           */
+    switch (event_item)
+	{
+    	case CP_DEST_EXT_APPL :
+	    pex->dests_type = CP_EXT_APPL;
+ 	    status = cpz_fill_destsnames_selector(pex);
+ 	    if(status EQUALS 17)
+		{
+        	pex->dests_type = CP_FINDER_P;
+		wi_set_dialog_value(id,CP_DEST_F_PROJECT,ON);
+		am_message(AM_ALERT,"Please start the connection manager \
+before using the external application as the destination.");
+		break;
+		}
+	     else if (status != SUCCESS)
+		{
+        	pex->dests_type = CP_FINDER_P;
+		wi_set_dialog_value(id,CP_DEST_F_PROJECT,ON);
+		am_message(AM_ALERT,"No external application defined for \
+this project. Please contact your system administrator.");
+		break;
+		}
+	    wi_set_dialog_value(id,CP_DEST_EXT_APPL,ON);
+	    break;
+	case CP_DEST_F_PROJECT :
+	    pex->dests_type = CP_FINDER_P;
+	    wi_set_dialog_value(id,CP_DEST_F_PROJECT,ON);
+ 	    status = cpz_fill_destsnames_selector(pex);
+	    break;
+	case CP_DEST_CANCEL :
+	    wi_clear(id);
+	    am_release_resource(id);
+            ts_tcp_free (pex->dests_n);
+	    done = TRUE;
+	    break;
+	case CP_DEST_OK :
+	    if(IS_EMPTY_STRING(pex->dests_name))
+		{
+		wi_beep(1);
+		am_message(AM_ALERT,"Please select a Data Mover Target or \
+Cancel the Data Mover operation.");
+		break;
+		}
+#ifdef GEOSHARE
+
+	    if(pex->dests_type EQUALS CP_EXT_APPL)
+		{
+		status = cpz_ext_server(pex);
+		if(status != SUCCESS)
+		    break;
+		}
+#endif
+	    if(to_control)
+	   	status = cpz_cntrl_server(pex);
+	    else
+		{
+		am_message(AM_DIALOG,"Retrieving data. Please wait ......");
+		status = cp_test_dtype(pex,&ret_status);
+		switch(status)
+		    {
+		    case CP_NO_DATA_TYPE :
+			am_message(AM_ALERT,"No data has been selected for \
+transferral. Please specify at least one data type to be moved or cancel \
+the Data Mover operation.");
+			break;
+
+		    case CP_LOAD_WELL_FAIL :
+		    case CP_LOAD_SEIS_FAIL :
+		    case CP_LOAD_LYNX_FAIL :
+		    case CP_LOAD_LEASE_FAIL :
+		    case CP_LOAD_GO_FAIL :
+			sprintf(msg,"%s. Error status : %s",mg_message(status),
+			mg_message(ret_status));
+			am_message(AM_ALERT,msg);
+			break;
+		    }
+		am_message(AM_DIALOG,"");
+		if(status EQUALS SUCCESS) 
+		    status = cpz_trans_server(pex);
+		}
+	    wi_clear(id);
+	    am_release_resource(id);
+            ts_tcp_free (pex->dests_n);
+	    done = TRUE;
+	    break;
+	case CP_DEST_NAMES :
+            wi_query_selections (id, CP_DEST_NAMES, &nsel, item_selected);
+            if (nsel > 0)
+            	{
+            	wi_set_default_sel (id, CP_DEST_NAMES, item_selected[0]);
+            	strcpy (pex->dests_name, pex->dests_n[item_selected[0]-1]);
+            	}
+	    break;
+	}
+    }
+
+    fi_pop();
+    return status;
+}
+
+static INT cpz_trans_server(pex)
+CP_STRUCT *pex;
+{
+    INT status = SUCCESS;
+    INT id,event_class,event_id,event_item;
+    BOOL done = FALSE;
+    CHAR **home_dir;
+    INT ret_status;
+    CHAR msg[256];
+
+    /* allocate dialog dialog        */
+    status = am_define_resource (AM_DIALOG, CP_CDLGS_RSRC, CP_TRANS,
+                                 NULL_FUNCTION_PTR, &pex->cp_trans, pex);
+    id = pex->cp_trans;
+    wi_set_dialog_text (id,CP_TRANS_EDIT_FROM, pex->source_name);
+    wi_set_dialog_text (id,CP_TRANS_EDIT_TO, pex->dests_name);
+    wi_set_dialog_text (id,CP_TRANS_EDIT_NAME, pex->trans_name);
+
+    wi_set_dialog_value (id, CP_TRANS_NO_UPD, ON);
+
+    if(pex->dests_type EQUALS CP_EXT_APPL)
+	{
+    	wi_set_dialog_text (id,CP_TRANS_STAT_TO, "TO External Application:");
+	wi_enable_dialog_item (id, CP_TRANS_YES_UPD, OFF);
+	}
+    else
+    	wi_set_dialog_text (id,CP_TRANS_STAT_TO, "TO project:");
+
+#if UNIX
+    wi_set_dialog_text (id,CP_TRANS_EDIT_LOGS, "Mail Messages");
+#endif
+#ifdef vms
+    status = ho_translate_symbol("SYS$LOGIN",&home_dir);
+    wi_set_dialog_text (id,CP_TRANS_EDIT_LOGS, home_dir[0]);
+#endif
+
+    fi_push();
+    wi_open_dialog(id);
+
+
+for (event_item = -1, event_id = id;
+     event_id == id && !done;)
+    {
+                             /* wait for event                              */
+    wi_request_event(0,&event_class,&event_id,&event_item);
+                             /* handle each cases of button press           */
+    switch (event_item)
+	{
+	case CP_TRANS_CANCEL :
+	    wi_clear(id);
+	    am_release_resource(id);
+	    done = TRUE;
+	    break;
+	case CP_TRANS_OK :
+	    status = cp_call_batch(pex,&ret_status);
+	    switch(status)
+		{
+	    	case CP_BATCH_JOB_FAIL:
+		sprintf(msg,"Sending Batch Job has failed with error: \
+%s. Please contact your system administrator.",mg_message(ret_status));
+		am_message(AM_ALERT,msg);
+		break;
+
+	    	case CP_CANNOT_OPEN_FILE :
+		am_message(AM_ALERT,"Cannot open the script file in \
+ESI$REPORTS. Please contact your system administrator.");
+		break;
+
+		}
+	    wi_clear(id);
+	    am_release_resource(id);
+	    done = TRUE;
+	    break;
+	case CP_TRANS_YES_UPD :
+	    wi_set_dialog_value (id, CP_TRANS_YES_UPD, ON);
+	    pex->update_option = TRUE;
+	    break;
+	case CP_TRANS_NO_UPD :
+	    wi_set_dialog_value (id, CP_TRANS_NO_UPD, ON);
+	    pex->update_option = FALSE;
+  	    break;
+	}
+    }
+    fi_pop();
+    return status;
+}
+
+
+static INT cpz_select_server(data_type,pex)
+SL_DATA_TYPE data_type;
+CP_STRUCT *pex;
+{
+    INT status = SUCCESS;
+    CHAR dtype_string[32];
+    INT id,event_class,event_id,event_item;
+    INT nsel,item_selected[1];
+    INT done= FALSE;
+   
+    /* allocate dialog dialog        */
+    status = am_define_resource (AM_DIALOG, CP_CDLGS_RSRC, CP_SELECT,
+                                 NULL_FUNCTION_PTR, &pex->cp_select, pex);
+    id = pex->cp_select;
+   
+    wi_enable_dialog_item (id, CP_SELECT_EDIT_DTYPE, OFF);
+
+    pex->sels_n = (CHAR **)NULL;
+
+    /*------------------------------------------------------*/
+    /* build linked lists and TCP's of tables and phrases   */
+    /* and place them into the selector                     */
+    /*------------------------------------------------------*/
+	
+    status = sl_inq_dtype_string("DATA_TYPE_NAME",data_type,dtype_string);
+    status = cpz_fill_selsname_selector(dtype_string,pex);
+    if (status != SUCCESS) 
+ 	return status;
+
+    wi_set_dialog_text (id,CP_SELECT_EDIT_DTYPE,dtype_string);    
+
+    fi_push();
+    wi_open_dialog(id);
+
+for (event_item = -1, event_id = id;
+     event_id == id &&
+     !done;)
+    {
+                             /* wait for event                              */
+    wi_request_event(0,&event_class,&event_id,&event_item);
+                             /* handle each cases of button press           */
+    switch (event_item)
+	{
+	case CP_SELECT_CANCEL :
+	    am_release_resource(id);
+	    done= TRUE;
+            ts_tcp_free (pex->sels_n);
+	    strcpy(pex->sels_name,NULLSTR);
+	    status = CP_CANCEL;
+	    break;
+	case CP_SELECT_OK :
+	    if(IS_EMPTY_STRING(pex->sels_name))
+	  	{
+		wi_beep(1);
+		am_message(AM_ALERT,
+		"Please pick one select list name.");
+		}
+	    else
+		{
+	    	am_release_resource(id);
+            	ts_tcp_free (pex->sels_n);
+	        done = TRUE;
+		status = SUCCESS;
+		}
+	    break;
+	case CP_SELECT_NAME_SELS :
+            wi_query_selections (id,CP_SELECT_NAME_SELS,&nsel,item_selected);
+            if (nsel > 0)
+            	{
+            	wi_set_default_sel (id, CP_SELECT_NAME_SELS, item_selected[0]);
+            	strcpy (pex->sels_name, pex->sels_n[item_selected[0]-1]);
+            	}
+	    break;
+	}
+     }
+     fi_pop();
+     return status;
+}
+
+static INT cpz_geo1_server(pex)
+CP_STRUCT *pex;
+{
+    INT status;
+    INT nmaps,default_index;
+    INT nsel,item_selected[1];
+    CHAR text[32],text1[32];
+    PROJECTION_ID old_projection,save_projection;
+    INT old_selection;
+    INT unused;
+    INT id,event_class,event_id,event_item;
+    BOOL done = FALSE;
+    DOUBLE save_llx,save_lly,save_urx,save_ury;
+    LATLONG latitude,longitude;
+
+    /* allocate dialog dialog        */
+    status = am_define_resource (AM_DIALOG, CP_CDLGS_RSRC, CP_GEO1,
+                                 NULL_FUNCTION_PTR, &pex->cp_geo1, pex);
+    id = pex->cp_geo1;
+    
+    pex->map_p = (CHAR **)NULL;
+
+    if(pex->new_item OR IS_EMPTY_STRING(pex->map_projection))
+	{
+    	strcpy (pex->map_projection, NULLSTR);
+    	cpz_init_geo_value(pex);
+	}
+
+    strcpy (save_projection,pex->map_projection);
+    save_llx = pex->ll_x;
+    save_lly = pex->ll_y;
+    save_urx = pex->ur_x;
+    save_ury = pex->ur_y;
+
+     wi_set_dialog_text(pex->cp_geo1,CP_GEO1_STAT_PARAM,
+	"Please enter the Data Mover area boundary coordinates \
+using the coordinate system specified above.");
+
+    /*------------------------------------------------------*/
+    /* build linked lists and TCP's of tables and phrases   */
+    /* and place them into the selector                     */
+    /*------------------------------------------------------*/
+    
+    status = cpz_fill_mapproj_selector(pex,pex->cp_geo1,
+		CP_GEO1_PROJ_SELS,CP_GEO1_PROJ_SRCL);
+    cpz_set_geo1_dialog_value(pex);
+
+    fi_push();
+    wi_open_dialog(id);
+
+for (event_item = -1, event_id = id;
+     event_id == id && !done;)
+    {
+                             /* wait for event                              */
+    wi_request_event(0,&event_class,&event_id,&event_item);
+                             /* handle each cases of button press           */
+    switch (event_item)
+	{
+	case CP_GEO1_CANCEL:
+	    wi_clear(id);
+	    am_release_resource(id);
+	    ts_tcp_free(pex->map_p);
+	    done = TRUE;
+	    status = CP_CANCEL;
+	    strcpy(pex->map_projection,save_projection);
+	    pex->ll_x = save_llx;
+	    pex->ll_y = save_lly;
+	    pex->ur_x = save_urx;
+	    pex->ur_y = save_ury;
+	    break;
+	case CP_GEO1_OK :
+	    if(ARE_SAME(pex->map_projection,"GEODETIC DMS"))
+		{
+            	wi_query_dialog_item (id, CP_GEO1_EDIT_LLX, &unused, text);
+		strcat(text,",");
+            	wi_query_dialog_item (id, CP_GEO1_EDIT_LLY, &unused, text1);
+		strcat(text,text1);
+		ts_parse_dms(text,&latitude,&longitude);
+		ct_dms_to_decimal(&latitude);
+		ct_dms_to_decimal(&longitude);
+		pex->ll_x = longitude.decimal;
+		pex->ll_y = latitude.decimal;
+
+            	wi_query_dialog_item (id, CP_GEO1_EDIT_URX, &unused, text);
+		strcat(text,",");
+            	wi_query_dialog_item (id, CP_GEO1_EDIT_URY, &unused, text1);
+		strcat(text,text1);
+		ts_parse_dms(text,&latitude,&longitude);
+		ct_dms_to_decimal(&latitude);
+		ct_dms_to_decimal(&longitude);
+		pex->ur_x = longitude.decimal;
+		pex->ur_y = latitude.decimal;
+		}
+	    else
+		{
+            	wi_query_dialog_item (id, CP_GEO1_EDIT_LLX, &unused, text);
+	    	pex->ll_x = atof(text);
+            	wi_query_dialog_item (id, CP_GEO1_EDIT_LLY, &unused, text);
+	    	pex->ll_y = atof(text);
+            	wi_query_dialog_item (id, CP_GEO1_EDIT_URX, &unused, text);
+	    	pex->ur_x = atof(text);
+            	wi_query_dialog_item (id,CP_GEO1_EDIT_URY, &unused, text);
+	    	pex->ur_y = atof(text);
+		}
+
+	    if(pex->ur_x <= pex->ll_x)
+		{
+		wi_beep(1);
+		am_message(AM_ALERT,"Please check the lower left and upper \
+right X-coordinates. They appear to be reversed!");
+		break;
+		}
+	    if(pex->ur_y <= pex->ll_y)
+		{
+		wi_beep(1);
+		am_message(AM_ALERT,"Please check the lower left and upper \
+right Y-coordinates. They appear to be reversed!");
+		break;
+		}
+	    wi_clear(id);
+	    am_release_resource(id);
+	    ts_tcp_free(pex->map_p);
+	    done = TRUE;
+	    status = SUCCESS;
+	    break;
+	case CP_GEO1_PROJ_SELS :
+            wi_query_selections (id,CP_GEO1_PROJ_SELS,&nsel,item_selected);
+            if (nsel > 0)
+            	{
+	    	if(ARE_SAME(pex->map_projection,"GEODETIC DMS"))
+		    {
+            	    wi_query_dialog_item (id, CP_GEO1_EDIT_LLX, &unused, text);
+		    strcat(text,",");
+            	    wi_query_dialog_item (id, CP_GEO1_EDIT_LLY, &unused, text1);
+		    strcat(text,text1);
+		    ts_parse_dms(text,&latitude,&longitude);
+		    ct_dms_to_decimal(&latitude);
+		    ct_dms_to_decimal(&longitude);
+		    pex->ll_x = longitude.decimal;
+		    pex->ll_y = latitude.decimal;
+
+            	    wi_query_dialog_item (id, CP_GEO1_EDIT_URX, &unused, text);
+		    strcat(text,",");
+            	    wi_query_dialog_item (id, CP_GEO1_EDIT_URY, &unused, text1);
+		    strcat(text,text1);
+		    ts_parse_dms(text,&latitude,&longitude);
+		    ct_dms_to_decimal(&latitude);
+		    ct_dms_to_decimal(&longitude);
+		    pex->ur_x = longitude.decimal;
+		    pex->ur_y = latitude.decimal;
+		    }
+	        else
+		    {
+            	    wi_query_dialog_item (id, CP_GEO1_EDIT_LLX, &unused, text);
+	    	    pex->ll_x = atof(text);
+            	    wi_query_dialog_item (id, CP_GEO1_EDIT_LLY, &unused, text);
+	    	    pex->ll_y = atof(text);
+            	    wi_query_dialog_item (id, CP_GEO1_EDIT_URX, &unused, text);
+	    	    pex->ur_x = atof(text);
+            	    wi_query_dialog_item (id,CP_GEO1_EDIT_URY, &unused, text);
+	    	    pex->ur_y = atof(text);
+		    }
+
+		strcpy (old_projection, pex->map_projection);
+            	wi_set_default_sel (id, CP_GEO1_PROJ_SELS, item_selected[0]);
+                strcpy (pex->map_projection, pex->map_p[item_selected[0]-1]);
+		cpz_convert_coords(pex,old_projection,pex->map_projection);
+		cpz_set_geo1_dialog_value(pex);
+            	}
+	    break;
+	}
+     }
+     fi_pop();
+     return status;
+
+}
+
+static INT cpz_geo2_server(pex)
+CP_STRUCT *pex;
+{
+    INT status;
+    INT nmaps,default_index;
+    INT nsel,item_selected[1];
+    CHAR text[32];
+    UOM_STRUCTURE uom_code;
+    PROJECTION_ID old_projection;
+    INT old_selection;
+    INT unused;
+    INT id,event_class,event_id,event_item;
+    MAP_STRUCTURE *map;
+    BOOL done = FALSE;
+    PROJECTION_ID dest_m_proj,save_projection;
+    DOUBLE save_llx,save_lly,save_urx,save_ury;
+
+    /* allocate dialog dialog        */
+    status = am_define_resource (AM_DIALOG, CP_CDLGS_RSRC, CP_GEO2,
+                                 NULL_FUNCTION_PTR, &pex->cp_geo2, pex);
+    
+    id = pex->cp_geo2;
+    status = mp_front_map(&map);
+    if(status != SUCCESS)
+    	wi_enable_dialog_item (id,CP_GEO2_CUR_MAP,OFF);
+    else
+    	wi_enable_dialog_item (id,CP_GEO2_CUR_MAP,ON);
+
+    pex->map_p = (CHAR **)NULL;
+
+    if(pex->new_item OR IS_EMPTY_STRING(pex->map_projection))
+	{
+    	strcpy (pex->map_projection, NULLSTR);
+	pex->geo_selection_type = CP_GEO_SRC_MAP;
+    	cpz_init_geo_value(pex);
+	}
+
+    /*------------------------------------------------------*/
+    /* build linked lists and TCP's of tables and phrases   */
+    /* and place them into the selector                     */
+    /*------------------------------------------------------*/
+    
+    status = cpz_fill_mapproj_selector(pex,pex->cp_geo2,
+		CP_GEO2_PROJ_SELS,CP_GEO2_PROJ_SRCL);
+
+    status = cpz_get_default_map_projection(pex->dests_name,dest_m_proj);
+    if(ts_switch(dest_m_proj,pex->map_p) EQUALS -1)
+    	wi_enable_dialog_item (pex->cp_geo2,CP_GEO2_TRGT_MAP,OFF);
+    else
+    	wi_enable_dialog_item (pex->cp_geo2,CP_GEO2_TRGT_MAP,ON);
+
+    status = cpz_set_geo2_dialog_value (pex);
+
+    strcpy (save_projection,pex->map_projection);
+    save_llx = pex->ll_x;
+    save_lly = pex->ll_y;
+    save_urx = pex->ur_x;
+    save_ury = pex->ur_y;
+
+    fi_push();
+    wi_open_dialog(id);
+
+for (event_item = -1, event_id = id;
+     event_id == id && !done;)
+    {
+                             /* wait for event                              */
+    wi_request_event(0,&event_class,&event_id,&event_item);
+                             /* handle each cases of button press           */
+    switch (event_item)
+	{
+	case CP_GEO2_CANCEL:
+	    wi_clear(id);
+	    am_release_resource(id);
+	    ts_tcp_free(pex->map_p);
+	    done = TRUE;
+	    status = CP_CANCEL;
+	    strcpy(pex->map_projection,save_projection);
+	    pex->ll_x = save_llx;
+	    pex->ll_y = save_lly;
+	    pex->ur_x = save_urx;
+	    pex->ur_y = save_ury;
+	    break;
+	case CP_GEO2_OK :
+	    wi_clear(id);
+	    am_release_resource(id);
+	    ts_tcp_free(pex->map_p);
+	    done = TRUE;
+	    status = SUCCESS;
+	    break;
+	case CP_GEO2_TRGT_MAP:
+	    pex->geo_selection_type = CP_GEO_TRGT_MAP;
+	    cpz_init_geo_value(pex);
+	    cpz_set_geo2_dialog_value(pex);
+	    break;
+	case CP_GEO2_SRC_MAP :
+	    pex->geo_selection_type = CP_GEO_SRC_MAP;
+	    cpz_init_geo_value(pex);
+	    cpz_set_geo2_dialog_value(pex);
+	    break;
+	case CP_GEO2_CUR_MAP :
+	    old_selection = pex->geo_selection_type;
+	    pex->geo_selection_type = CP_GEO_CUR_MAP;
+	    status = cpz_init_geo_value(pex);
+	    if(status != SUCCESS)
+		pex->geo_selection_type = old_selection;
+	    else
+	    	cpz_set_geo2_dialog_value(pex);
+	    break;
+	case CP_GEO2_PROJ_SELS :
+            wi_query_selections (id,CP_GEO2_PROJ_SELS,&nsel,item_selected);
+            if (nsel > 0)
+            	{
+            	strcpy (old_projection,pex->map_projection);
+            	wi_set_default_sel (id, CP_GEO2_PROJ_SELS, item_selected[0]);
+            	strcpy (pex->map_projection, pex->map_p[item_selected[0]-1]);
+
+		cpz_convert_coords(pex,old_projection,pex->map_projection);
+		cpz_set_geo2_dialog_value(pex);
+            	}
+	    break;
+	}
+     }
+     fi_pop();
+     return status;
+
+}
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT cpz_construct_transnames (CP_STRUCT *pex,INT *ret_status)
+#else
+static INT cpz_construct_transnames (pex,ret_status)
+CP_STRUCT *pex;
+INT *ret_status;
+#endif
+    {
+    INT count;
+    CP_NAME_TYPE trans_name;
+    
+    /* ORACLE precompiler declarations */
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[1024];
+    static VARCHAR name[33];
+    EXEC SQL END DECLARE SECTION;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO orerror;
+
+    pex->trans_n = (CHAR **)NULL;
+
+    stmt.len = sprintf((CHAR *)stmt.arr,
+	"SELECT DISTINCT DATA_MOVER_DEFINITION FROM %s.DATA_MOVER_HDR",
+	pex->source_name);
+    EXEC SQL PREPARE S_TRANS FROM :stmt;
+    EXEC SQL DECLARE C_TRANS CURSOR FOR S_TRANS;
+    EXEC SQL OPEN C_TRANS;
+    
+    count = 0;
+    FOREVER
+	{
+    	    /*  get the first account name */
+    	EXEC SQL FETCH C_TRANS INTO :name;
+    	if(OR_STATUS EQUALS OR_EOF) break;
+	V_SETZERO(name);
+	V_FROMV(trans_name,name);
+	ts_tcp_append(&pex->trans_n,trans_name);
+	count++;
+        }
+
+    EXEC SQL CLOSE C_TRANS;
+
+    *ret_status = SUCCESS;
+    return(count);
+orerror:
+    *ret_status = OR_STATUS;
+    return 0;
+    }
+/* END:     */
+
+
+static INT cpz_construct_destnames (pex,ret_status)
+CP_STRUCT *pex;
+INT *ret_status;
+    {
+    INT count,status;
+
+    pex->dests_n = (CHAR **)NULL;
+    if(pex->dests_type EQUALS CP_FINDER_P)
+	status = cpz_get_finder_projects(pex->source_name,&pex->dests_n);
+#ifdef GEOSHARE
+    else
+        status = gs_inquire_destinations(&pex->dests_n);
+#endif
+
+    if(status != SUCCESS)
+	{
+	*ret_status = status;
+	return 0;
+	}
+
+    *ret_status = SUCCESS;
+    count = ts_tcp_len(pex->dests_n);
+    return count;
+}
+
+	
+static INT cpz_get_finder_projects(source_name,dests)
+CHAR *source_name;
+TCP *dests;
+{
+    PROJECT_NAME dests_name;
+    
+    /* ORACLE precompiler declarations */
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[1024];
+    static VARCHAR name[33];
+    EXEC SQL END DECLARE SECTION;
+    
+
+    stmt.len = sprintf((CHAR *)stmt.arr,
+        "SELECT DISTINCT ACCOUNT_NAME FROM ESI.FINDER_ACCOUNTS \
+        WHERE TYPE = 'PROJECT' AND ACCOUNT_NAME != '%s' AND\
+        ACCOUNT_NAME != 'DEFAULT_PROJECT' ORDER BY ACCOUNT_NAME",
+	source_name);
+    EXEC SQL PREPARE S_DEST FROM :stmt;
+    EXEC SQL DECLARE C_DEST CURSOR FOR S_DEST;
+    EXEC SQL OPEN C_DEST;
+
+    FOREVER
+	{    
+    	    /*  get the first account name */
+    	EXEC SQL FETCH C_DEST INTO :name;
+	if(OR_STATUS EQUALS OR_EOF) break;
+	V_SETZERO(name);
+	V_FROMV(dests_name,name);
+	ts_tcp_append(dests,dests_name);
+        }
+    EXEC SQL CLOSE C_DEST;
+    
+    return SUCCESS;
+orerror:
+    return OR_STATUS; 
+
+    }
+
+
+static INT cpz_fill_transnames_selector(pex)
+CP_STRUCT *pex;
+{
+    INT ntrans,default_index,status;
+	
+    ntrans = cpz_construct_transnames (pex,&status);
+    if(status != SUCCESS)
+	return status;
+
+    if (ntrans <= 0)
+	return FAIL;
+
+    if (ntrans > 0)
+        {
+        wi_set_selections (pex->cp_main, CP_MAIN_NAMES, CP_MAIN_NAMES_SCRL,
+                           ntrans, 1, pex->trans_n);
+        }
+
+    /*--------------------------------------------------------------*/
+    /* enable tables and phrases selectors to generate              */
+    /* select events, and select the select phrase edit text field  */
+    /*--------------------------------------------------------------*/
+    
+    wi_activate (pex->cp_main, CP_MAIN_NAMES, ON);
+
+    if (ntrans > 0)
+        {
+        default_index = ts_switch (pex->trans_name, pex->trans_n) + 1;
+        wi_set_default_sel (pex->cp_main, CP_MAIN_NAMES,
+                            default_index);
+        }
+    return SUCCESS;
+}
+
+
+static INT cpz_fill_destsnames_selector(pex)
+CP_STRUCT *pex;
+{
+    INT ndests,default_index,status;
+
+    ndests = cpz_construct_destnames (pex,&status);
+    if(status != SUCCESS)
+	return status;
+
+    if (ndests > 0)
+        {
+        wi_set_selections (pex->cp_dest, CP_DEST_NAMES, CP_DEST_NAMES_SCRL,
+                           ndests, 1, pex->dests_n);
+        }
+
+    /*--------------------------------------------------------------*/
+    /* enable tables and phrases selectors to generate              */
+    /* select events, and select the select phrase edit text field  */
+    /*--------------------------------------------------------------*/
+    
+    wi_activate (pex->cp_dest, CP_DEST_NAMES, ON);
+
+    if (ndests > 0)
+        {
+        default_index = ts_switch (pex->dests_name, pex->dests_n) + 1;
+        wi_set_default_sel (pex->cp_dest, CP_DEST_NAMES, default_index);
+        }
+
+    return SUCCESS;
+}
+
+
+static INT cpz_fill_selsname_selector(dtype_string,pex)
+CHAR *dtype_string;
+CP_STRUCT *pex;
+{
+    INT nsels,default_index;
+    INT status;
+
+    status = sl_inq_slist_names(dtype_string,&pex->sels_n,&nsels);
+   
+    if (nsels < 1 OR status != SUCCESS)
+	return CP_EMPTY_SELECT_LIST;
+    else
+        {
+        wi_set_selections (pex->cp_select, CP_SELECT_NAME_SELS, 
+			CP_SELECT_NAME_SCRL, nsels, 1, pex->sels_n);
+        }
+
+    /*--------------------------------------------------------------*/
+    /* enable tables and phrases selectors to generate              */
+    /* select events, and select the select phrase edit text field  */
+    /*--------------------------------------------------------------*/
+    
+    wi_activate (pex->cp_select, CP_SELECT_NAME_SELS, ON);
+
+    if (nsels > 0)
+        {
+        default_index = ts_switch (pex->sels_name, pex->sels_n) + 1;
+        wi_set_default_sel (pex->cp_select, CP_SELECT_NAME_SELS, default_index);
+        }
+
+     return SUCCESS;
+}
+
+static INT cpz_fill_mapproj_selector(pex, id,sel_item,vscroll_item)
+CP_STRUCT *pex;
+INT id,sel_item,vscroll_item;
+{
+    INT nmaps,default_index;
+    INT status;
+
+    status = ct_projection_list(&pex->map_p,&nmaps,TRUE);
+    ts_tcp_append(&pex->map_p,"GEODETIC DMS");
+    ts_tcp_append(&pex->map_p,"GEODETIC DEC");
+    ts_tcp_sort(pex->map_p);
+
+    nmaps = ts_tcp_len(pex->map_p);
+
+    if (nmaps > 0)
+        {
+        wi_set_selections (id, sel_item,
+			vscroll_item, nmaps, 1, pex->map_p);
+        }
+
+    /*--------------------------------------------------------------*/
+    /* enable tables and phrases selectors to generate              */
+    /* select events, and select the select phrase edit text field  */
+    /*--------------------------------------------------------------*/
+
+    wi_activate (id, sel_item, ON);
+
+    if (nmaps > 0)
+        {
+        default_index = ts_switch (pex->map_projection, pex->map_p) + 1;
+	wi_set_default_sel (id, sel_item, default_index);
+        }
+    return SUCCESS;
+}	
+
+static INT cpz_load_trans_name(pex)
+CP_STRUCT *pex;
+{
+    INT status;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[1024];
+    static VARCHAR DATA_MOVER_DEFINITION[44];
+    static int proj_flag;
+    static VARCHAR proj_name[44];
+    static double ll_x,ll_y,ur_x,ur_y;
+    static VARCHAR data_type[44],sl_name[44];
+    static int option_flag;
+    EXEC SQL END DECLARE SECTION;
+    
+    stmt.len = sprintf((CHAR *)stmt.arr,
+    "SELECT PROJECTION_NAME,GEOGRAPHIC_CONSTRAINTS_TYPE, \
+LOWER_LEFT_X, LOWER_LEFT_Y, UPPER_RIGHT_X, UPPER_RIGHT_Y \
+FROM %s.DATA_MOVER_HDR WHERE DATA_MOVER_DEFINITION = '%s'",
+    pex->source_name,pex->trans_name);
+    EXEC SQL PREPARE S_LOAD1 FROM :stmt;
+    EXEC SQL DECLARE C_LOAD1 CURSOR FOR S_LOAD1;
+    EXEC SQL OPEN C_LOAD1;
+    EXEC SQL FETCH C_LOAD1 INTO :proj_name, :proj_flag, 
+				:ll_x, :ll_y, :ur_x, :ur_y;
+    EXEC SQL CLOSE C_LOAD1;
+
+    pex->geo_selection_type = proj_flag;
+    if(pex->geo_selection_type != CP_GEO_NO_CONST)
+	{
+    	V_SETZERO(proj_name);
+	pex->ll_x = ll_x;
+	pex->ll_y = ll_y;
+	pex->ur_x = ur_x;
+	pex->ur_y = ur_y;
+	V_FROMV(pex->map_projection,proj_name);
+	}
+    
+    stmt.len = sprintf((CHAR *)stmt.arr,
+    "SELECT DATA_TYPE, OPTIONS, SELECT_LIST \
+FROM %s.DATA_MOVER_PREFERENCES WHERE DATA_MOVER_DEFINITION = '%s'", 
+    pex->source_name, pex->trans_name);
+    EXEC SQL PREPARE S_LOAD FROM :stmt;
+    EXEC SQL DECLARE C_LOAD CURSOR FOR S_LOAD;
+    EXEC SQL OPEN C_LOAD;
+    FOREVER 
+	{
+	EXEC SQL FETCH C_LOAD INTO :data_type, :option_flag, :sl_name;
+	if(OR_STATUS EQUALS OR_EOF) break;
+	V_SETZERO(data_type);
+	V_SETZERO(sl_name);
+
+	if(ARE_SAME(data_type.arr,"WELLS"))
+	    {
+	    if(option_flag EQUALS CP_SELECT_OPTION)
+	        V_FROMV(pex->well_sl_name,sl_name);
+	    pex->well_option = option_flag;
+	    }
+	else if(ARE_SAME(data_type.arr,"SEISMIC"))
+	    {
+	    if(option_flag EQUALS CP_SELECT_OPTION)
+	        V_FROMV(pex->seismic_sl_name,sl_name);
+	    pex->seismic_option = option_flag;
+	    }
+	else if(ARE_SAME(data_type.arr,"CULTURE"))
+	    {
+	    if(option_flag EQUALS CP_SELECT_OPTION)
+	        V_FROMV(pex->culture_sl_name,sl_name);
+	    pex->culture_option = option_flag;
+	    }
+	else if(ARE_SAME(data_type.arr,"LEASE"))
+	    {
+	    if(option_flag EQUALS CP_SELECT_OPTION)
+	        V_FROMV(pex->lease_sl_name,sl_name);
+	    pex->lease_option = option_flag;
+	    }
+	else if(ARE_SAME(data_type.arr,"GRAPHIC_OBJECT"))
+	    pex->go_option = option_flag;
+	}
+    EXEC SQL CLOSE C_LOAD;
+
+    return SUCCESS;
+orerror:
+    return OR_STATUS;
+}
+
+static INT cpz_save_trans_name(pex)
+CP_STRUCT *pex;
+{
+    INT status;
+    INT ifyes;
+    FILENAME fi_account;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[1024];
+    static VARCHAR name[44],data_type[44],sl_name[44];
+    static int option_flag;
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO orerror;    
+    EXEC SQL WHENEVER NOTFOUND GOTO new_item;
+
+    qs_inq_c (QS_FINDER_ACCOUNT, fi_account, (INT *)0);
+
+    stmt.len = sprintf((CHAR *)stmt.arr,
+    "SELECT DATA_MOVER_DEFINITION \
+FROM %s.DATA_MOVER_HDR WHERE DATA_MOVER_DEFINITION = '%s'",
+    pex->source_name,pex->trans_name);
+    EXEC SQL PREPARE S_SAVE1 FROM :stmt;
+    EXEC SQL DECLARE C_SAVE1 CURSOR FOR S_SAVE1;
+    EXEC SQL OPEN C_SAVE1;
+    EXEC SQL FETCH C_SAVE1 INTO :name;
+    EXEC SQL CLOSE C_SAVE1;
+
+    EXEC SQL WHENEVER NOTFOUND CONTINUE;
+
+    wiyesno("The Data Mover Definition name you chose already exists.\
+Do you want to overwrite it?",NULLSTR,&ifyes,&status);
+
+    if(ifyes)
+	{
+    	stmt.len = sprintf((CHAR *)stmt.arr,
+	"DELETE %s.DATA_MOVER_HDR \
+WHERE DATA_MOVER_DEFINITION = '%s'",
+    	pex->source_name, pex->trans_name);
+    	EXEC SQL EXECUTE IMMEDIATE :stmt;
+
+    	stmt.len = sprintf((CHAR *)stmt.arr,
+	"DELETE %s.DATA_MOVER_PREFERENCES \
+WHERE DATA_MOVER_DEFINITION = '%s'",
+    	pex->source_name, pex->trans_name);
+    	EXEC SQL EXECUTE IMMEDIATE :stmt;
+	}    
+    else
+        return CP_NO_DEF_REPLACE;
+
+new_item :
+
+    if(pex->geo_selection_type EQUALS CP_GEO_NO_CONST)
+	{
+    	stmt.len = sprintf((CHAR *)stmt.arr,
+    	"INSERT INTO %s.DATA_MOVER_HDR \
+(DATA_MOVER_DEFINITION,GEOGRAPHIC_CONSTRAINTS_TYPE,CREATOR_NAME,CREATE_DATE) \
+VALUES ('%s',%d,'%s',SYSDATE)",
+	pex->source_name,pex->trans_name,pex->geo_selection_type,fi_account);
+	}
+    else
+	{
+    	stmt.len = sprintf((CHAR *)stmt.arr,
+    	"INSERT INTO %s.DATA_MOVER_HDR \
+(DATA_MOVER_DEFINITION,PROJECTION_NAME, \
+GEOGRAPHIC_CONSTRAINTS_TYPE,LOWER_LEFT_X,LOWER_LEFT_Y,\
+UPPER_RIGHT_X,UPPER_RIGHT_Y,CREATOR_NAME,CREATE_DATE) \
+VALUES ('%s','%s',%d,%f,%f,%f,%f,'%s',SYSDATE)",
+	pex->source_name,pex->trans_name,
+	pex->map_projection,
+	pex->geo_selection_type,
+	pex->ll_x,pex->ll_y,pex->ur_x,pex->ur_y,fi_account);
+	}
+    EXEC SQL EXECUTE IMMEDIATE :stmt;
+
+    stmt.len = sprintf((CHAR *)stmt.arr,
+    "INSERT INTO %s.DATA_MOVER_PREFERENCES \
+(DATA_MOVER_DEFINITION,DATA_TYPE,SELECT_LIST,OPTIONS) \
+VALUES ('%s',:data_type,:sl_name,:opt_flag)",
+    pex->source_name,pex->trans_name);
+    EXEC SQL PREPARE S2 FROM :stmt;
+
+    stmt.len = sprintf((CHAR *)stmt.arr,
+    "INSERT INTO %s.DATA_MOVER_PREFERENCES \
+(DATA_MOVER_DEFINITION,DATA_TYPE,OPTIONS) \
+VALUES ('%s',:data_type,:opt_flag)",
+    pex->source_name,pex->trans_name);
+    EXEC SQL PREPARE S3 FROM :stmt;
+
+    V_FROMC(data_type,"WELLS");
+    option_flag = pex->well_option;
+    if(pex->well_option EQUALS CP_SELECT_OPTION)
+	{
+        V_FROMC(sl_name,pex->well_sl_name);
+    	EXEC SQL EXECUTE S2 USING :data_type, :sl_name, :option_flag;
+	}
+    else
+    	EXEC SQL EXECUTE S3 USING :data_type, :option_flag;
+
+    V_FROMC(data_type,"SEISMIC");
+    option_flag = pex->seismic_option;
+    if(pex->seismic_option EQUALS CP_SELECT_OPTION)
+	{
+        V_FROMC(sl_name,pex->seismic_sl_name);
+    	EXEC SQL EXECUTE S2 USING :data_type, :sl_name, :option_flag;
+	}
+    else
+    	EXEC SQL EXECUTE S3 USING :data_type, :option_flag;
+
+    V_FROMC(data_type,"LEASE");
+    option_flag = pex->lease_option;
+    if(pex->lease_option EQUALS CP_SELECT_OPTION)
+	{
+        V_FROMC(sl_name,pex->lease_sl_name);
+    	EXEC SQL EXECUTE S2 USING :data_type, :sl_name, :option_flag;
+	}
+    else
+    	EXEC SQL EXECUTE S3 USING :data_type, :option_flag;
+
+    V_FROMC(data_type,"CULTURE");
+    option_flag = pex->culture_option;
+    if(pex->culture_option EQUALS CP_SELECT_OPTION)
+	{
+        V_FROMC(sl_name,pex->culture_sl_name);
+    	EXEC SQL EXECUTE S2 USING :data_type, :sl_name, :option_flag;
+	}
+    else
+    	EXEC SQL EXECUTE S3 USING :data_type, :option_flag;
+
+    V_FROMC(data_type,"GRAPHIC_OBJECT");
+    option_flag = pex->go_option;
+    EXEC SQL EXECUTE S3 USING :data_type, :option_flag;
+
+    EXEC SQL COMMIT WORK;
+
+    return SUCCESS;
+orerror:
+    EXEC SQL ROLLBACK WORK;
+    return OR_STATUS;
+}
+
+static INT cpz_init_geo_value(pex)
+CP_STRUCT *pex;
+{
+    INT status;
+    MAP_STRUCTURE *map;
+	
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[1024];
+    static VARCHAR def_value[32],def_name[32];
+    static double ll_x,ll_y,ur_x,ur_y;
+    EXEC SQL END DECLARE SECTION;
+
+    switch (pex->geo_selection_type)
+	{
+	case CP_GEO_CUR_MAP :    
+	    status = mp_front_map(&map);
+	    strcpy(pex->map_projection,map->map_projection);
+    	    pex->ll_x = map->lower_left_xy.x;
+    	    pex->ll_y = map->lower_left_xy.y;
+    	    pex->ur_x = map->upper_right_xy.x;
+    	    pex->ur_y = map->upper_right_xy.y;
+	    return SUCCESS;
+	case CP_GEO_TRGT_MAP :
+    	    stmt.len = sprintf((CHAR *)stmt.arr,
+	    "SELECT DEFAULT_NAME,DEFAULT_VALUE FROM %s.PROJECT_DEFAULTS \
+WHERE DEFAULT_NAME = 'MAP_PROJECTION' OR\
+      DEFAULT_NAME = 'LOWER_LEFT_X' OR\
+      DEFAULT_NAME = 'LOWER_LEFT_Y' OR\
+      DEFAULT_NAME = 'UPPER_RIGHT_X' OR\
+      DEFAULT_NAME = 'UPPER_RIGHT_Y'",
+      pex->dests_name);
+	    break;
+	case CP_GEO_SRC_MAP :
+	case CP_GEO_MAN_ENT :
+    	    stmt.len = sprintf((CHAR *)stmt.arr,
+	    "SELECT DEFAULT_NAME,DEFAULT_VALUE FROM %s.PROJECT_DEFAULTS \
+WHERE DEFAULT_NAME = 'MAP_PROJECTION' OR\
+      DEFAULT_NAME = 'LOWER_LEFT_X' OR\
+      DEFAULT_NAME = 'LOWER_LEFT_Y' OR\
+      DEFAULT_NAME = 'UPPER_RIGHT_X' OR\
+      DEFAULT_NAME = 'UPPER_RIGHT_Y'",
+      pex->source_name);
+	    break;
+        }
+
+
+    EXEC SQL PREPARE S_DEF1 FROM :stmt;
+    EXEC SQL DECLARE C_DEF1 CURSOR FOR S_DEF1;
+    EXEC SQL OPEN C_DEF1;
+
+    FOREVER
+	{
+    	EXEC SQL FETCH C_DEF1 INTO :def_name, :def_value;
+	if(OR_STATUS EQUALS OR_EOF) break;
+	V_SETZERO(def_name); V_SETZERO(def_value);
+	if(ARE_SAME(def_name.arr,"MAP_PROJECTION"))
+	    {
+	    V_FROMV(pex->map_projection,def_value);
+	    }
+        else if(ARE_SAME(def_name.arr,"LOWER_LEFT_X"))
+	    pex->ll_x = atof((CHAR *)def_value.arr);
+        else if(ARE_SAME(def_name.arr,"LOWER_LEFT_Y"))
+	    pex->ll_y = atof((CHAR *)def_value.arr);
+        else if(ARE_SAME(def_name.arr,"UPPER_RIGHT_X"))
+	    pex->ur_x = atof((CHAR *)def_value.arr);
+        else if(ARE_SAME(def_name.arr,"UPPER_RIGHT_Y"))
+	    pex->ur_y = atof((CHAR *)def_value.arr);
+	}
+    EXEC SQL CLOSE C_DEF1;
+
+    return SUCCESS;
+orerror:
+    return OR_STATUS;
+}
+
+static INT cpz_set_geo1_dialog_value(pex)
+CP_STRUCT *pex;
+{
+    CHAR text[32];
+    LATLONG lat_long;
+
+    if(ARE_SAME(pex->map_projection,"GEODETIC DMS"))
+	{
+	lat_long.decimal = pex->ll_y;
+	ct_decimal_to_dms(&lat_long, LATITUDE, text);
+    	wi_set_dialog_text(pex->cp_geo1,CP_GEO1_EDIT_LLY,text);    
+	lat_long.decimal = pex->ll_x;
+	ct_decimal_to_dms(&lat_long, LONGITUDE, text);
+    	wi_set_dialog_text(pex->cp_geo1,CP_GEO1_EDIT_LLX,text);    
+	
+	lat_long.decimal = pex->ur_y;
+	ct_decimal_to_dms(&lat_long, LATITUDE, text);
+    	wi_set_dialog_text(pex->cp_geo1,CP_GEO1_EDIT_URY,text);    
+	lat_long.decimal = pex->ur_x;
+	ct_decimal_to_dms(&lat_long, LONGITUDE, text);
+    	wi_set_dialog_text(pex->cp_geo1,CP_GEO1_EDIT_URX,text);    
+	
+	return SUCCESS;
+	}
+    sprintf(text,"%12.2lf",pex->ll_x);
+    wi_set_dialog_text(pex->cp_geo1,CP_GEO1_EDIT_LLX,text);    
+    sprintf(text,"%12.2lf",pex->ll_y);
+    wi_set_dialog_text(pex->cp_geo1,CP_GEO1_EDIT_LLY,text);    
+    sprintf(text,"%12.2lf",pex->ur_x);
+    wi_set_dialog_text(pex->cp_geo1,CP_GEO1_EDIT_URX,text);    
+    sprintf(text,"%12.2lf",pex->ur_y);
+    wi_set_dialog_text(pex->cp_geo1,CP_GEO1_EDIT_URY,text);    
+
+    return SUCCESS;
+}
+
+static INT cpz_set_geo2_dialog_value(pex)
+CP_STRUCT *pex;
+{	
+    CHAR text[32];
+    LATLONG lat_long;
+
+    switch (pex->geo_selection_type)
+	{
+	case CP_GEO_TRGT_MAP :
+	    wi_set_dialog_value(pex->cp_geo2,CP_GEO2_TRGT_MAP,ON);
+	    break;
+	case CP_GEO_SRC_MAP :
+	    wi_set_dialog_value(pex->cp_geo2,CP_GEO2_SRC_MAP,ON);
+	    break;
+	case CP_GEO_CUR_MAP :
+	    wi_set_dialog_value(pex->cp_geo2,CP_GEO2_CUR_MAP,ON);
+	    break;
+	}
+
+    if(ARE_SAME(pex->map_projection,"GEODETIC DMS"))
+	{
+	lat_long.decimal = pex->ll_y;
+	ct_decimal_to_dms(&lat_long, LATITUDE, text);
+    	wi_set_dialog_text(pex->cp_geo2,CP_GEO2_EDIT_LLY,text);    
+	lat_long.decimal = pex->ll_x;
+	ct_decimal_to_dms(&lat_long, LONGITUDE, text);
+    	wi_set_dialog_text(pex->cp_geo2,CP_GEO2_EDIT_LLX,text);    
+	
+	lat_long.decimal = pex->ur_y;
+	ct_decimal_to_dms(&lat_long, LATITUDE, text);
+    	wi_set_dialog_text(pex->cp_geo2,CP_GEO2_EDIT_URY,text);    
+	lat_long.decimal = pex->ur_x;
+	ct_decimal_to_dms(&lat_long, LONGITUDE, text);
+    	wi_set_dialog_text(pex->cp_geo2,CP_GEO2_EDIT_URX,text);    
+	
+	return SUCCESS;
+	}
+  
+    sprintf(text,"%12.2lf",pex->ll_x);
+    wi_set_dialog_text(pex->cp_geo2,CP_GEO2_EDIT_LLX,text);    
+    sprintf(text,"%12.2lf",pex->ll_y);
+    wi_set_dialog_text(pex->cp_geo2,CP_GEO2_EDIT_LLY,text);    
+    sprintf(text,"%12.2lf",pex->ur_x);
+    wi_set_dialog_text(pex->cp_geo2,CP_GEO2_EDIT_URX,text);    
+    sprintf(text,"%12.2lf",pex->ur_y);
+    wi_set_dialog_text(pex->cp_geo2,CP_GEO2_EDIT_URY,text);    
+
+    return SUCCESS;
+}
+
+static INT cpz_convert_coords(pex,old_projection,new_projection)
+CP_STRUCT *pex;
+PROJECTION_ID old_projection;
+PROJECTION_ID new_projection;
+{
+    INT status;
+    PROJECTION_STRUCTURE *old_data;
+    PROJECTION_STRUCTURE *new_data;
+    BOOL old_g = FALSE, new_g = FALSE;
+
+    if(ARE_SAME(old_projection,new_projection))
+	return SUCCESS;
+
+    if(ARE_SAME(old_projection,"GEODETIC DMS") OR
+       ARE_SAME(old_projection,"GEODETIC DEC"))
+	old_g = TRUE;
+    else
+   	ct_get_projection(old_projection,&old_data);
+
+    if(ARE_SAME(new_projection,"GEODETIC DMS") OR
+       ARE_SAME(new_projection,"GEODETIC DEC"))
+	new_g = TRUE;
+    else
+	ct_get_projection(new_projection,&new_data);
+
+    if(old_g AND new_g)
+	return SUCCESS;
+
+    if(old_g)
+	ct_get_projection("GEODETIC",&old_data);
+     
+    if(new_g)
+	ct_get_projection("GEODETIC",&new_data);
+	
+    status = ct_transform_point (pex->ll_x,pex->ll_y,old_data,
+			         &pex->ll_x,&pex->ll_y,new_data)
+	     OR
+	     ct_transform_point (pex->ur_x,pex->ur_y,old_data,
+			  	 &pex->ur_x,&pex->ur_y,new_data);
+    
+    return status;
+} 
+
+static INT cpz_get_default_map_projection(project_name,map_projection)
+CHAR *project_name;
+CHAR *map_projection;
+{
+
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[1024];
+    static VARCHAR def_value[32];
+    EXEC SQL END DECLARE SECTION;
+
+    stmt.len = sprintf((CHAR *)stmt.arr,
+    "SELECT DEFAULT_VALUE FROM %s.PROJECT_DEFAULTS \
+WHERE DEFAULT_NAME = 'MAP_PROJECTION'",project_name);
+    EXEC SQL PREPARE S_MAP1 FROM :stmt;
+    EXEC SQL DECLARE C_MAP1 CURSOR FOR S_MAP1;
+    EXEC SQL OPEN C_MAP1;
+    EXEC SQL FETCH C_MAP1 INTO :def_value;
+    EXEC SQL CLOSE C_MAP1;
+    V_SETZERO(def_value);
+    V_FROMV(map_projection,def_value);
+
+    return SUCCESS;
+orerror:
+    return OR_STATUS;
+}
+
+static INT cpz_data_type_exist(table_name,pex)
+CHAR *table_name;
+CP_STRUCT *pex;
+{
+    INT status;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[1024];
+    static VARCHAR key_column[64];
+    EXEC SQL END DECLARE SECTION;
+ 
+    if(ARE_SAME(table_name,"LEASE"))
+	return FALSE;
+
+    stmt.len = sprintf((CHAR *)stmt.arr,
+    "SELECT NULL FROM %s.%s",
+    pex->source_name,table_name);
+
+    EXEC SQL PREPARE S_DTYPE1 FROM :stmt;
+    EXEC SQL DECLARE C_DTYPE1 CURSOR FOR S_DTYPE1;
+    EXEC SQL OPEN C_DTYPE1;
+    EXEC SQL FETCH C_DTYPE1 INTO :key_column;
+    if(OR_STATUS EQUALS OR_EOF)
+	status = FALSE;
+    else
+	status = TRUE;
+    EXEC SQL CLOSE C_DTYPE1;
+    return status;
+    
+orerror:
+    return FALSE;
+}
+
+
+
+
+
+
+

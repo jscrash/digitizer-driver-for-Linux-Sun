@@ -1,0 +1,250 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_UPD_SEQ.PC */
+/* *5    14-AUG-1990 13:11:10 VINCE "(SPR 5644) Header Standardization" */
+/* *4    19-SEP-1989 13:36:13 GILLESPIE "(SPR 100) GULF MODS" */
+/* *3    25-AUG-1989 17:03:58 CONROY "(SPR 9999) change occurances of initial_value to start_with" */
+/* *2    13-AUG-1989 00:01:43 GILLESPIE "(SPR 5) Create Oracle Sequences initial release" */
+/* *1    30-JUL-1989 11:43:39 GILLESPIE "Create Oracle V6 sequences" */
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_UPD_SEQ.PC */
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+
+#ifndef ESI_AM_H
+
+#include "esi_am.h"
+
+#endif
+
+#ifndef ESI_DB_H
+
+#include "esi_db.h"
+
+#endif
+
+#ifndef ESI_DB_MSG_H
+
+#include "esi_db_msg.h"
+
+#endif
+
+#ifndef ESI_MG_H
+
+#include "esi_mg.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+/* EXEC ORACLE OPTION (REBIND = NO); */
+EXEC ORACLE OPTION (RELEASE_CURSOR = YES);
+
+/* Function Description -----------------------------------------------------
+Description:
+    Routine to update sequences in ORACLE.
+
+Prototype:
+    publicdef INT dba_update_sequences(DB_ACCOUNT_STRUCT *db_account);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) db_account  -(DB_ACCOUNT_STRUCT *) Account structure.
+    
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT dba_update_sequences (DB_ACCOUNT_STRUCT *db_account) 
+#else
+publicdef INT dba_update_sequences (db_account)
+DB_ACCOUNT_STRUCT *db_account;
+#endif
+    {
+    INT status;
+    BOOL sequence_cursor = FALSE;
+    INT i = 0;
+    INT *id = (INT *)0;
+    CHAR string[128];
+    CHAR create_sequence_format[128];
+    CHAR *ps;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sname[31];
+    VARCHAR scope[11];
+    VARCHAR stmt[1024];
+    int count;
+    int min_value;
+    int max_value;
+    int initial_value;
+    int increment_by;
+    int cache_size;
+    short min_value_ind;
+    short max_value_ind;
+    short initial_value_ind;
+    short increment_by_ind;
+    short cache_size_ind;
+    VARCHAR order_flag[2];
+    VARCHAR cycle_flag[2];
+    EXEC SQL END DECLARE SECTION;
+    
+    /* retrieve string formats */
+    strcpy (create_sequence_format, mg_message (DB_CREATE_SEQUENCE));
+    
+    sprintf (string, mg_message (DB_CREATING_SEQUENCES), db_account->scope,
+             db_account->name);
+    am_message (AM_DIALOG, string);
+    am_message (AM_STATUS, string);
+    
+    V_FROMC (scope, db_account->scope);
+    count = 0;
+    EXEC SQL SELECT COUNT (*)INTO : count FROM ESI.FINDER_SEQUENCES WHERE SCOPE =  :
+                                                                                  scope;
+        
+    
+    if (count > 0)
+        {
+        EXEC SQL DECLARE SEQUENCE_CURSOR CURSOR FOR SELECT SEQUENCE_NAME, START_WITH,
+            MIN_VALUE, MAX_VALUE, INCREMENT_BY, CACHE_SIZE, CYCLE_FLAG,
+            ORDER_FLAG FROM ESI.FINDER_SEQUENCES A WHERE SCOPE =  :
+                                                                 scope AND NOT 
+                                                                 EXISTS (
+                                                                  SELECT 
+                                                                    SEQUENCE_NAME 
+                                                                   FROM 
+                                                                      USER_SEQUENCES 
+                                                                         B 
+                                                                 WHERE 
+                                                                     A.
+                                                                     SEQUENCE_NAME 
+                                                                     = B.SEQUENCE_NAME)
+        ORDER BY SEQUENCE_NAME;
+        
+        EXEC SQL OPEN SEQUENCE_CURSOR;
+        
+        sequence_cursor = TRUE;
+        
+        EXEC SQL WHENEVER SQLERROR CONTINUE;
+        
+        cycle_flag.arr[0] = 0;
+        order_flag.arr[0] = 0;
+        
+        EXEC SQL FETCH SEQUENCE_CURSOR INTO : sname,  : 
+    initial_value:
+        initial_value_ind,  : 
+    min_value:
+        min_value_ind,  : 
+    max_value:
+        max_value_ind,  : 
+    increment_by:
+        increment_by_ind,  : 
+    cache_size:
+        cache_size_ind,  : cycle_flag,  : order_flag;
+        
+        i = 0;
+        while (OR_STATUS IS_NOT_EQUAL_TO OR_EOF)
+            {
+            V_SETZERO (sname);
+            sprintf (string, create_sequence_format, sname.arr, ++i, count);
+            am_message (AM_DIALOG, string);
+            
+            stmt.len = sprintf ((char *)stmt.arr, "CREATE SEQUENCE %s ", sname.arr);
+            
+            ps = (char *)stmt.arr + stmt.len;
+            if (initial_value_ind EQUALS 0)
+                {
+                ps += sprintf (ps, "START WITH %d ", initial_value);
+                }
+            if (increment_by_ind EQUALS 0)
+                {
+                ps += sprintf (ps, "INCREMENT BY %d ", increment_by);
+                }
+            if (min_value_ind EQUALS 0)
+                {
+                ps += sprintf (ps, "MINVALUE %d ", min_value);
+                }
+            if (max_value_ind EQUALS 0)
+                {
+                ps += sprintf (ps, "MAXVALUE %d ", max_value);
+                }
+            if (cache_size_ind EQUALS 0)
+                {
+                ps += sprintf (ps, "CACHE %d ", cache_size);
+                }
+            if (cycle_flag.arr[0] EQUALS 'Y')
+                {
+                ps += sprintf (ps, "CYCLE ");
+                cycle_flag.arr[0] = 0;
+                }
+            else
+                {
+                ps += sprintf (ps, "NOCYCLE ");
+                }
+            if (order_flag.arr[0] EQUALS 'Y')
+                {
+                ps += sprintf (ps, "ORDER ");
+                order_flag.arr[0] = 0;
+                }
+            else
+                {
+                ps += sprintf (ps, "NOORDER ");
+                }
+            EXEC SQL EXECUTE IMMEDIATE : stmt;
+            if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+                {
+                }
+            EXEC SQL FETCH SEQUENCE_CURSOR INTO : sname,  : 
+        initial_value:
+            initial_value_ind,  : 
+        min_value:
+            min_value_ind,  : 
+        max_value:
+            max_value_ind,  : 
+        increment_by:
+            increment_by_ind,  : 
+        cache_size:
+            cache_size_ind,  : cycle_flag,  : order_flag;
+            }
+        }
+    if (sequence_cursor)
+        {
+        EXEC SQL CLOSE SEQUENCE_CURSOR;
+        }
+    status = SUCCESS;
+    
+    return status;
+    }
+/* END:     */

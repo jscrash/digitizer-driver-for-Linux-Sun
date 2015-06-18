@@ -1,0 +1,511 @@
+/*  DEC/CMS REPLACEMENT HISTORY, Element MP_READ_MAP.PC*/
+/*  *8     2-AUG-1991 16:53:18 MING "(SPR 0) set QS_MAP_PROJECTION "*/
+/*  *7    18-JUL-1991 15:46:12 MING "(SPR 0) remove map does not exist message and let the upper level routine handle it"*/
+/*  *6    15-OCT-1990 13:43:42 GILLESPIE "(SPR 1000) Merge Ernie deltas"*/
+/*   4B1  12-OCT-1990 17:23:27 GILLESPIE "Merge Ernie Deltas"*/
+/*  *5    17-AUG-1990 22:08:37 VINCE "(SPR 5644) Code Cleanup"*/
+/*  *4    15-FEB-1990 10:45:28 WALTERS "(SPR 0) Changes in map setup dialog"*/
+/*  *3    10-OCT-1989 17:00:27 CONROY "(SPR 5028) Mods for new plotting capability"*/
+/*  *2    26-JUN-1989 10:59:39 GILLESPIE "(SPR 20) Fix castings"*/
+/*  *1    19-JUN-1989 12:34:54 SYSTEM ""*/
+/*  DEC/CMS REPLACEMENT HISTORY, Element MP_READ_MAP.PC*/
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Exploration Systems, Inc. 1989                          */
+/*                    Unpublished -- All rights reserved                            */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY   */
+/*CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE      */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*                            Exploration Systems                                   */
+/*                            c/o Finder Graphics Systems                           */
+/*                            201 Tamal Vista Blvd.                                 */
+/*                            Corte Madera, CA  94925                               */
+/*                            (415) 927-0100                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+#include "esi_c_lib.h"
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_MP_H
+#include "esi_mp.h"
+#endif
+
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+
+#ifndef ESI_MD_BASIS_X
+#include "esi_md_basis.x"
+#endif
+
+#ifndef ESI_MD_ERR_H
+#include "esi_md_err.h"
+#endif
+
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+
+#ifndef ESI_FM_H
+#include "esi_fm.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+/* Function Description -----------------------------------------------------       */
+/*Description:                                                                      */
+/*    Routine to read the "MAP_OVERLAYS" table for the                              */
+/*    overlays of the map with the supplied map name.                               */
+/*                                                                                  */
+/*Prototype:                                                                        */
+/*    publicdef INT mp_read_map(CHAR *name);                                        */
+/*                                                                                  */
+/*Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)        */
+/*    name            -(CHAR *)                                                     */
+/*                                                                                  */
+/*Return Value/Status:                                                              */
+/*    SUCCESS - Successful completion.                                              */
+/*                                                                                  */
+/*Scope:                                                                            */
+/*    PUBLIC                                                                        */
+/*                                                                                  */
+/*Limitations/Assumptions:                                                          */
+/*                                                                                  */
+/*-----------------------------------------------------------------------------     */
+
+/* BEGIN:                                                                           */
+#if USE_PROTOTYPES
+publicdef INT mp_read_map (CHAR *name)
+#else
+publicdef INT mp_read_map (name)
+CHAR *name;
+#endif
+    {
+    
+    INT status;
+    PROJECT_NAME project;
+    MAP_STRUCTURE *mapdef;
+    MD_DISPLAY *display = (MD_DISPLAY *)0;
+    MD_COMPILED_MAPDEF *compiled = (MD_COMPILED_MAPDEF *)0;
+    MD_COMPILED_VERB *verb;
+    MD_PARM_STRUCT *parmstruc;
+    MD_VERB_INFO *temp_verb_info;
+    MD_KEY_INFO *temp_key_info;
+    MP_FILES *file_struc;
+    FM_TYPE type;
+    CHAR **temp_tcp;
+    INT last_verb_read = -1;
+    INT last_verb_writ = -1;
+    INT temp_key_ndx;
+    BOOL verb_found = FALSE;
+    INT disp_lines = 0;
+    INT comp_lines = 0;
+    INT crnt_verb_lines = 0;
+    static BOOL inited = FALSE;
+    INT newrecs;
+    INT tot_recs = 0;
+    CHAR msg[200];
+    INT i;
+    INT dummy;
+    INT nclines = -1;
+    INT ndlines = 0;
+    BOOL first = TRUE;
+    INT *map_number;
+    BOOL valid = TRUE;
+    CHAR dash = '-';
+    CHAR blank = ' ';
+    ANALYST_NAME creator;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[500];
+    VARCHAR map_name[41];
+    VARCHAR projection[16];
+    VARCHAR coord_sys[16];
+    float ll_x;
+    float ur_x;
+    float ll_y;
+    float ur_y;
+    VARCHAR ll_str[21];
+    VARCHAR ur_str[21];
+    float map_scale;
+    VARCHAR scale_unit[21];
+    long display_lines;
+    long overlays;
+    VARCHAR title_block_name[41];
+    long scale_sizes_for_plotting;
+    
+    long verb_code[50];
+    long key_code[50];
+    VARCHAR parameter[50][1000];
+    EXEC SQL END DECLARE SECTION;
+    
+    /* **********************************************************************       */
+    
+    /* * SET UP SQL STATEMENT AND CURSOR *                                          */
+    /* -----------------------------------                                          */
+    
+    EXEC SQL WHENEVER SQLERROR GOTO finished;
+    
+    if (NOT inited)
+        {
+        qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+        
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"SELECT PROJECTION,COORDINATE_SYSTEM,LOWER_LEFT_X,LOWER_LEFT_Y, \
+UPPER_RIGHT_X,UPPER_RIGHT_Y,LOWER_LEFT_STR,UPPER_RIGHT_STR, \
+MAP_SCALE,MAP_SCALE_UNIT,DISPLAY_LINES,OVERLAYS,TITLE_BLOCK_NAME,\
+NVL(SCALE_SIZES_FOR_PLOTTING,1) \
+FROM %s.MAP_DEFINITIONS WHERE MAP_NAME = :v1"
+                , project);
+        
+        EXEC SQL PREPARE S1 FROM :sqlstmt;
+        EXEC SQL DECLARE DEF_CUR CURSOR FOR S1;
+        
+        sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"SELECT VERB_CODE,KEY_CODE,PARAMETER FROM %s.MAP_OVERLAYS \
+WHERE MAP_NAME = :v2 ORDER BY SEQ_NO"
+                , project);
+        
+        EXEC SQL PREPARE S2 FROM :sqlstmt;
+        EXEC SQL DECLARE OV_CUR CURSOR FOR S2;
+        
+        inited = TRUE;
+        }
+    /* * FETCH MAP DEFINITION *                                                     */
+    /* ------------------------                                                     */
+    
+    V_C_TO_V (map_name, name);
+    
+    EXEC SQL OPEN DEF_CUR USING :map_name;
+    EXEC SQL FETCH DEF_CUR INTO :projection, :coord_sys, :ll_x, :ll_y,
+       :ur_x, :ur_y, :ll_str, :ur_str, :map_scale, :scale_unit,
+       :display_lines, :overlays, :title_block_name, :scale_sizes_for_plotting;
+    
+    if (OR_STATUS == OR_EOF)
+        {
+        return FAIL;
+        }
+    /* * FETCH OVERLAYS AND BUILD DISPLAY AND COMPILED STRUCTURES *                 */
+    /* ------------------------------------------------------------                 */
+    
+    /* OPEN WORKSPACES                                                              */
+    
+    status = am_open_workspace ("MAPDEF", AM_APPLICATION, (VOIDPTR *)&mapdef);
+    if (status != SUCCESS)
+        {
+        am_define_workspace ("MAPDEF", AM_APPLICATION, sizeof(MAP_STRUCTURE),
+                             (VOIDPTR)&mapdef);
+        }
+    status = am_open_workspace ("MAP_NUMBER", AM_GLOBAL, (VOIDPTR *)&map_number);
+    if (status != SUCCESS)
+        {
+        am_define_workspace ("MAP_NUMBER", AM_GLOBAL, sizeof(INT),
+                             (VOIDPTR)&map_number);
+        }
+    /* FILL MAP HEADER                                                              */
+    
+    tc_zeroes (mapdef, sizeof(MAP_STRUCTURE));
+    
+    V_FROMV (mapdef->map_name, map_name);
+    V_FROMV (mapdef->map_projection, projection);
+    qs_set_c (QS_MAP_PROJECTION,mapdef->map_projection,0);
+    V_FROMV (mapdef->map_coordinate_system, coord_sys);
+    mapdef->lower_left_xy.x = ll_x;
+    mapdef->lower_left_xy.y = ll_y;
+    mapdef->upper_right_xy.x = ur_x;
+    mapdef->upper_right_xy.y = ur_y;
+    V_FROMV (mapdef->lower_left_str, ll_str);
+    V_FROMV (mapdef->upper_right_str, ur_str);
+    mapdef->map_scale = map_scale;
+    V_FROMV (mapdef->map_scale_uom, scale_unit);
+    V_FROMV (mapdef->title_block_name, title_block_name);
+    mapdef->map_title_on_map = FALSE;
+    mapdef->full_screen_flag = TRUE;
+    mapdef->wcs_to_inches = 1.0;
+    mapdef->scale_sizes_for_plotting = scale_sizes_for_plotting;
+    
+    (*map_number)++;
+    mapdef->map_number = *map_number;
+    
+    /* INITIALIZE DISPLAY & COMPILED STRUCTS                                        */
+    
+    mp_init_display_struct (&display, display_lines);
+    mp_init_compiled_mapdef (&compiled, overlays);
+    mapdef->display = display;
+    mapdef->compiled = compiled;
+    
+    tc_zeroes (display->overlay_displayed, display->nrows * sizeof(BOOL));
+    
+    /* * GET THE OVERLAYS *                                                         */
+    /* --------------------                                                         */
+    
+    EXEC SQL OPEN OV_CUR USING :map_name;
+    
+    FOREVER
+        {
+        EXEC SQL FETCH OV_CUR INTO :verb_code, :key_code, :parameter;
+        
+        status = OR_STATUS;
+        newrecs = OR_ROWCOUNT - tot_recs;
+        tot_recs = OR_ROWCOUNT;
+        
+        /* * DISPLAY LINE LOOP *                                                    */
+        /* ---------------------                                                    */
+        
+        for (i = 0; i < newrecs; i++)
+            {
+            /* HAVE A NEW VERB                                                      */
+            
+            if (verb_code[i] != last_verb_read)
+                {
+                /* ONE LINE OVERLAY                                                 */
+                
+                if (verb_found AND crnt_verb_lines EQUALS 0)
+                    {
+                    temp_verb_info = &(overlay_verbs[last_verb_writ]);
+                    nclines++;
+                    display->verb_ndx[ndlines] = last_verb_writ;
+                    strcpy (display->verbs[ndlines], temp_verb_info->verb);
+                    
+                    display->key_ndx[ndlines] = -1;
+                    ts_fill (display->keywords[ndlines], blank, SELECTOR_SIZE);
+                    
+                    display->parameters[ndlines] =
+                        (CHAR *) am_allocate (AM_GLOBAL, SELECTOR_SIZE + 1);
+                    ts_fill (display->parameters[ndlines], blank, SELECTOR_SIZE);
+                    
+                    display->compiled_row[ndlines] = nclines;
+                    
+                    compiled->verb_code[nclines] = last_verb_read;
+                    mp_init_comp_verb (&verb, temp_verb_info);
+                    compiled->verb_ptr[nclines] = verb;
+                    
+                    ndlines++;
+                    }
+                /* CHECK REQUIRED KEYWORDS                                          */
+                
+                if (verb_found)
+                    {
+                    if (mp_req_chk (ndlines, &dummy) != SUCCESS)
+                        {
+                        valid = FALSE;
+                        sprintf (msg, "%s: %s, %s", mg_message (MD_MISSING_REQ_KEY),
+                                 temp_verb_info->verb, temp_verb_info->key_tcp[dummy]);
+                        am_message (AM_STATUS, msg);
+                        }
+                    }
+                /* START UP FOR NEXT VERB                                           */
+                
+                crnt_verb_lines = 0;
+                first = TRUE;
+                verb_found = mp_verb_lookup (verb_code[i], &last_verb_writ);
+                last_verb_read = verb_code[i];
+                }
+            /* STILL HAVE SAME VERB                                                 */
+            else
+                {
+                first = FALSE;
+                }
+            /* * PROCESS OPTIONS *                                                  */
+            /* -------------------                                                  */
+            
+            if (verb_found)
+                {
+                temp_verb_info = &(overlay_verbs[last_verb_writ]);
+                
+                /* CHECK KEY                                                        */
+                
+                if (mp_key_lookup (key_code[i], last_verb_writ, &temp_key_ndx))
+                    {
+                    temp_tcp = temp_verb_info->key_tcp;
+                    
+                    /* CHECK PARAMETER                                              */
+                    
+                    V_SETZERO (parameter[i]);
+                    if (mp_parm_ok ((CHAR *)parameter[i].arr, last_verb_writ,
+                                    temp_key_ndx, &parmstruc, &dummy))
+                        {
+                        display->verb_ndx[ndlines] = last_verb_writ;
+                        if (crnt_verb_lines EQUALS 0)
+                            {
+                            nclines++;
+                            strcpy (display->verbs[ndlines], temp_verb_info->verb);
+                            compiled->verb_code[nclines] = last_verb_read;
+                            mp_init_comp_verb (&verb, temp_verb_info);
+                            compiled->verb_ptr[nclines] = verb;
+                            }
+                        else
+                            {
+                            ts_fill (display->verbs[ndlines], blank, SELECTOR_SIZE);
+                            display->overlay_displayed[ndlines] = TRUE;
+                            }
+                        /* FILL FILE STRUCTURES                                     */
+                        
+                        temp_key_info = &(temp_verb_info->key_list[temp_key_ndx]);
+                        if ((temp_key_info->
+                             val_code EQUALS FILER$) OR (temp_key_info->
+                                                         val_code EQUALS FILEW$))
+                            {
+                            
+                            if (temp_key_info->val_code EQUALS FILER$)
+                                {
+                                fm_long_name ((CHAR *)parameter[i].arr,
+                                              (CHAR *)parameter[i].arr);
+                                }
+                            else
+                                {
+                                fm_parse_long_name ((CHAR *)parameter[i].arr, creator,
+                                                    (CHAR *)parameter[i].arr);
+                                }
+                            V_SETLEN (parameter[i]);
+                            
+                            strcpy (type, temp_key_info->val_arg + 4);
+                            type[strlen (type) - 1] = 0;
+                            mpz_get_file_struct (type, &file_struc);
+                            mpz_add_to_file_struct (temp_key_info->val_arg,
+                                                    parmstruc->parmval.cval, type,
+                                                    file_struc);
+                            }
+                        display->key_ndx[ndlines] = temp_key_ndx;
+                        strcpy (display->keywords[ndlines], temp_tcp[temp_key_ndx]);
+                        display->parameters[ndlines] =
+                            (CHAR *) am_allocate (AM_GLOBAL, parameter[i].len + 1);
+                        strcpy ((char *)display->parameters[ndlines],
+                                (char *)parameter[i].arr);
+                        
+                        display->compiled_row[ndlines] = nclines;
+                        
+                        verb->key_used[temp_key_ndx] = 1;
+                        verb->parm_ptr[temp_key_ndx] = parmstruc;
+                        
+                        ndlines++;
+                        crnt_verb_lines++;
+                        }
+                    else
+                        {
+                        valid = FALSE;
+                        sprintf (msg, "%s: %s, %s", mg_message (MD_VALID_ERROR_PARM),
+                                 temp_verb_info->verb, temp_tcp[temp_key_ndx]);
+                        am_message (AM_STATUS, msg);
+                        }
+                    }
+                else if (key_code[i] != -1)
+                    {
+                    valid = FALSE;
+                    sprintf (msg, "%s: %s", mg_message (MD_VALID_ERROR_KEY),
+                             temp_verb_info->verb);
+                    am_message (AM_STATUS, msg);
+                    }
+                }
+            else if (verb_code[i] EQUALS - 1)
+                {
+                display->overlay_displayed[ndlines] = TRUE;
+                ts_fill (display->verbs[ndlines], dash, SELECTOR_SIZE);
+                ts_fill (display->keywords[ndlines], dash, SELECTOR_SIZE);
+                
+                display->parameters[ndlines] = (CHAR *) am_allocate (AM_GLOBAL,
+                                                                     SELECTOR_SIZE +
+                                                                     1);
+                ts_fill (display->parameters[ndlines], dash, SELECTOR_SIZE);
+                
+                ndlines++;
+                }
+            else if (first)
+                {
+                valid = FALSE;
+                am_message (AM_STATUS, mg_message (MD_VALID_ERROR_VERB));
+                }
+            }
+        if (status EQUALS OR_EOF)
+            {
+            break;
+            }
+        }
+    if (verb_found AND crnt_verb_lines EQUALS 0)
+        {
+        temp_verb_info = &(overlay_verbs[last_verb_writ]);
+        nclines++;
+        display->verb_ndx[ndlines] = last_verb_writ;
+        strcpy (display->verbs[ndlines], temp_verb_info->verb);
+        
+        display->key_ndx[ndlines] = -1;
+        ts_fill (display->keywords[ndlines], blank, SELECTOR_SIZE);
+        
+        display->parameters[ndlines] = (CHAR *) am_allocate (AM_GLOBAL,
+                                                             SELECTOR_SIZE + 1);
+        ts_fill (display->parameters[ndlines], blank, SELECTOR_SIZE);
+        
+        display->compiled_row[ndlines] = nclines;
+        
+        compiled->verb_code[nclines] = last_verb_read;
+        mp_init_comp_verb (&verb, temp_verb_info);
+        compiled->verb_ptr[nclines] = verb;
+        
+        ndlines++;
+        }
+    /* CHECK REQUIRED KEYWORDS                                                      */
+    
+    if (verb_found)
+        {
+        if (mp_req_chk (ndlines, &dummy) != SUCCESS)
+            {
+            valid = FALSE;
+            sprintf (msg, "%s: %s, %s", mg_message (MD_MISSING_REQ_KEY),
+                     temp_verb_info->verb, temp_verb_info->key_tcp[dummy]);
+            am_message (AM_STATUS, msg);
+            }
+        }
+    /* * SUCCESSFULLY READ (THOUGH PERHAPS NOT VALID MAP): STORE MAPDEF *           */
+    /* ------------------------------------------------------------------           */
+    
+    /* INIT MAP WM ELEMENTS                                                         */
+    
+    mapdef->wm_id_list = (INT *) am_allocate (AM_GLOBAL, 100 * sizeof(INT));
+    tc_zeroes (mapdef->wm_id_list, 100 * sizeof(INT));
+    mapdef->wm_id_count = (INT *) am_allocate (AM_GLOBAL, 100 * sizeof(INT));
+    tc_zeroes (mapdef->wm_id_count, 100 * sizeof(INT));
+    mapdef->wm_group_names = (CHAR **) am_allocate (AM_GLOBAL, 100 * sizeof(CHAR *));
+    tc_zeroes (mapdef->wm_group_names, 100 * sizeof(CHAR *));
+    mapdef->wm_nalloc = 100;
+    
+    /* TRANSFER OVERLAY INFO                                                        */
+    
+    display->last_row_used = ndlines;
+    compiled->last_row_used = nclines;
+    mapdef->valid = valid;
+    if (NOT valid)
+        {
+        am_message (AM_ALERT, mg_message (MD_MAPDEF_NOT_VALID));
+        }
+    /* * RETURN *                                                                   */
+    /* ----------                                                                   */
+    
+finished:
+    if (OR_STATUS < 0)
+        {
+        sprintf (msg, "%s: %s", mg_message (MD_ORACLE_ERROR), OR_MESSAGE);
+        am_message (AM_STATUS, msg);
+        }
+    return SUCCESS;
+    }
+/* END:                                                                             */

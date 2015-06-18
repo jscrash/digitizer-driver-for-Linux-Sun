@@ -1,0 +1,359 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element GB_CNFG_AN.PC*/
+/* *9     4-JAN-1991 12:12:58 JESSIE "(SPR 6390) relase workspace before return"*/
+/* *8     5-DEC-1990 12:09:00 JESSIE "(SPR 6167) fix updating analyst_configuration fail"*/
+/* *7    23-AUG-1990 15:29:42 PURNA "(SPR 0) fix compiling error"*/
+/* *6    14-AUG-1990 13:25:53 VINCE "(SPR 5644) Header Standardization"*/
+/* *5    16-FEB-1990 14:06:12 MING "(SPR 0) change date format to YYMMDD-HH24MISS"*/
+/* *4    14-FEB-1990 12:53:50 MING "(SPR 0) change date format YYMMDD_HHMISS to YYMMDD-HHMISS (orcale bug)"*/
+/* *3     6-FEB-1990 10:42:54 MING "(SPR 0) change date/time declaration to new data type DATE_TIME"*/
+/* *2    26-JUN-1989 10:44:40 GILLESPIE "(SPR 20) Fix castings"*/
+/* *1    19-JUN-1989 12:32:18 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element GB_CNFG_AN.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_gl_defs.h"
+#include "esi_c_lib.h"
+#include "esi_am.h"
+#include "esi_wi.h"
+#include "esi_as_getp.h"
+#include "gb_cnfg_an.rh"
+#include "esi_er.h"
+#include "esi_mg.h"
+#include "esi_ts.h"
+#include "esi_gb_msg.h"
+#include "esi_oracle.h"
+static CHAR CONFIGURE_ANALYST_RSRC[] = 
+    {
+    "GB_CNFG_AN"
+    };
+
+
+
+EXEC ORACLE OPTION (RELEASE_CURSOR = YES);
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+typedef struct 
+    {                               /* ANALYST_RECORD workspace */
+    ANALYST_NAME name;              /* Analyst name */
+    PROJECT_NAME project;           /* Exploration project */
+    INT experience_level;           /* Experience level */
+    CHAR programmer[2];             /* Programmer flag */
+    DATE_TIME last_run;             /* Date/time last run */
+    INT id;                         /* Dialog id */
+    } ANALYST_RECORD;
+
+static INT gb_configure_analyst_server ();
+static INT gb_configure_analyst_project ();
+
+/* File Description ---------------------------------------------------------
+Overview:
+    GB_CONFIGURE_ANALYST is an application which allows the analyst
+    to view and modify his configuration parameters.
+
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT gb_configure_analyst(BYTE *pointer);
+
+Private_Functions:
+    static INT gb_configure_analyst_server();
+
+    static INT gb_configure_analyst_project();
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT gb_configure_analyst(BYTE *pointer);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    BYTE *pointer;                
+
+Return Value / Status : SUCCESS-Successful completion.Scope : PUBLIC Limitations /
+Assumptions :
+-----------------------------------------------------------------------------*/ 
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT gb_configure_analyst (BYTE *pointer)
+#else
+publicdef INT gb_configure_analyst (pointer)
+BYTE *pointer;
+#endif
+    {
+    INT status;                     /* Completion status */
+    CHAR text[100];                 /* Messages */
+    ANALYST_RECORD *a;              /* Pointer to ANALYST_RECORD workspace */
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR name[31];               /* User's login account name */
+    int experience_level;
+    VARCHAR programmer[2];
+    VARCHAR project[31];
+    VARCHAR last_run[20];
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ********************************************************************** */
+    
+    am_declare ("CONFIGURE ANALYST");
+    
+    /*   Define ANALYST_RECORD workspace. */
+    
+    am_define_workspace ("ANALYST_RECORD", AM_APPLICATION, sizeof(ANALYST_RECORD),
+                         (VOIDPTR *) & a);
+    
+    /*   Define dialog. */
+    
+    am_define_resource (AM_DIALOG, CONFIGURE_ANALYST_RSRC, 1,
+                        gb_configure_analyst_server, &a->id, a);
+    
+    EXEC SQL SELECT USER, PROJECT, EXPERIENCE_LEVEL, TEST, TO_CHAR (DATE_LAST_RUN,
+                                                                    'YYMMDD-HH24MISS')
+    INTO : name,  : project,  : experience_level,  : programmer,
+        : last_run FROM ESI.ANALYST_CONFIGURATION WHERE ACCOUNT_NAME = USER;
+    
+    if (OR_STATUS == SUCCESS)
+        {
+        V_FROMV (a->name, name);
+        V_FROMV (a->project, project);
+        V_FROMV (a->programmer, programmer);
+        V_FROMV (a->last_run, last_run);
+        a->experience_level = experience_level;
+        }
+    else
+        {
+        sprintf (text, mg_message (GB_CANT_ACCESS_ANALYST), OR_STATUS);
+        am_message (AM_STATUS, text);
+        er_log (text);
+        am_quit ();
+        return SUCCESS;
+        }
+    /*   Enable QUIT on File menu. */
+    
+    wienfmi (a->id, WI_FILE_MENU_QUIT, ON);
+    
+    /*   Put analyst information in dialog. */
+    
+    wiscdt (a->id, ANALYST_CONFIG_NAME, a->name);
+    wiscdt (a->id, ANALYST_CONFIG_PROJECT, a->project);
+    wiscdt (a->id, ANALYST_CONFIG_LAST_RUN, a->last_run);
+    if (a->programmer[0] == 'Y')
+        wiscdv (a->id, ANALYST_CONFIG_PROGRAMMER, ON);
+    if (a->experience_level)
+        wiscdv (a->id, ANALYST_CONFIG_OLD_TIMER, ON);
+    else
+        wiscdv (a->id, ANALYST_CONFIG_NOVICE, ON);
+    
+    /*   Present dialog. */
+    
+    wiopcd (a->id);
+    
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT gb_configure_analyst_server(INT id,INT item,ANALYST_RECORD *a);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    id              -(INT) Dialog id.
+    item            -(INT) Dialog control.
+    a               -(ANALYST_RECORD *) Pointer to ANALYST_RECORD workspace.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE to <gb_cnfg_an.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT gb_configure_analyst_server (INT id, INT item, ANALYST_RECORD *a)
+#else
+static INT gb_configure_analyst_server (id, item, a)
+INT id;
+INT item;
+ANALYST_RECORD *a;
+#endif
+    {
+    INT status;                     /* Completion status */
+    CHAR text[100];                 /* Messages */
+    AS_GET_PROJECT_WORKSPACE *pproject; /* Pointer to AS_GET_PROJECT protocol */
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    int experience_level1;
+    VARCHAR programmer1[2];
+    VARCHAR project1[31];
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ********************************************************************** */
+    
+    /*   Assume success. */
+    
+    status = SUCCESS;
+    
+    /*   Switch on dialog control. */
+
+    switch (item)
+        {
+        
+    case ANALYST_CONFIG_NOVICE:
+        a->experience_level = 0;
+        break;
+        
+    case ANALYST_CONFIG_OLD_TIMER:
+        a->experience_level = 1;
+        break;
+        
+    case ANALYST_CONFIG_PROGRAMMER:
+        if (a->programmer[0] == 'Y')
+            a->programmer[0] = 'N';
+        else
+            a->programmer[0] = 'Y';
+        break;
+        
+    case ANALYST_CONFIG_CANCEL:
+    case WI_FILE_MENU_QUIT:
+        am_quit ();
+        break;
+        
+    case ANALYST_CONFIG_CHG_PROJECT:
+        wiscdt (a->id, ANALYST_CONFIG_MESSAGE, mg_message (GB_CONFIGURE_ANALYST_WAIT));
+        am_define_workspace ("AS_GET_PROJECT_WORKSPACE", AM_APPLICATION,
+                             sizeof(AS_GET_PROJECT_WORKSPACE), (VOIDPTR *) & pproject);
+        pproject->cancel = TRUE;
+        pproject->quit = TRUE;
+        pproject->no_selection = TRUE;
+        strcpy (pproject->project, a->project);
+        gb_configure_analyst_project((VOIDPTR)pproject);
+/*        am_start_server (as_get_project, gb_configure_analyst_project,
+                         (VOIDPTR)pproject);*/
+        break;
+        
+    case ANALYST_CONFIG_OK:
+        V_FROMC (project1, a->project);
+        V_FROMC (programmer1, a->programmer);
+        experience_level1 = a->experience_level;
+        EXEC SQL UPDATE ESI.ANALYST_CONFIGURATION SET PROJECT =  : project1,
+                                                                EXPERIENCE_LEVEL =  :
+                                                                experience_level1,
+                                                                TEST =  :
+                                                                programmer1 WHERE 
+                                                                ACCOUNT_NAME = USER;
+        if (OR_STATUS EQUALS SUCCESS)
+            {
+            EXEC SQL COMMIT WORK;
+            }
+        else
+            {
+            EXEC SQL ROLLBACK WORK;
+            sprintf (text, mg_message (GB_CANT_UPDATE_ANALYST), OR_STATUS);
+            am_message (AM_STATUS, text);
+            er_log (text);
+            }
+        am_quit ();
+        break;
+        }
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT gb_configure_analyst_project(AS_GET_PROJECT_WORKSPACE *pproject);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    pproject        -(AS_GET_PROJECT_WORKSPACE *) Protocol pointer.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PRIVATE to <gb_cnfg_an.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT gb_configure_analyst_project (AS_GET_PROJECT_WORKSPACE *pproject)
+#else
+static INT gb_configure_analyst_project (pproject)
+AS_GET_PROJECT_WORKSPACE *pproject; /* Protocol pointer */
+#endif
+    {
+    ANALYST_RECORD *a;              /* Pointer to ANALYST_RECORD workspace */
+    
+    /* ********************************************************************** */
+    
+    as_get_project((VOIDPTR)pproject);
+    /*   Access ANALYST_RECORD workspace. */
+    
+    am_open_workspace ("ANALYST_RECORD", AM_APPLICATION, (VOIDPTR *)(VOIDPTR *) & a);
+    
+    /*   Remove status message. */
+    
+    wiscdt (a->id, ANALYST_CONFIG_MESSAGE, "");
+    
+    /*   Switch on status from as_get_project
+         server. */
+    
+    switch (pproject->status)
+        {
+        
+    case SUCCESS:
+        strcpy (a->project, pproject->project);
+        wiscdt (a->id, ANALYST_CONFIG_PROJECT, a->project);
+        break;
+        
+    case AS_ERR_CANCEL:
+        break;
+        
+    case AS_ERR_QUIT:
+        am_quit ();
+        break;
+        
+    default:
+        break;
+        }
+    /*   Release protocol workspace. */
+    
+    am_release_workspace ("AS_GET_PROJECT_WORKSPACE", AM_APPLICATION);
+    
+    return SUCCESS;
+    }
+/* END:     */

@@ -1,0 +1,195 @@
+*T CDLG
+,100
+*N LD_LG_ASCII_CDLG_1
+*S PR 0 PU 1
+55 61 290 463
+ASCII Log Data File Loader
+6
+
+*I LD_LG_ASCII_FILE_PROMPT
+StatText Enabled
+19 20 46 364
+ASCII Log Data File Name:
+
+*I LD_LG_ASCII_FILENAME_FIELD
+EditText Enabled
+48 19 80 383
+<Filename>
+
+*I LD_LG_ASCII_FPROMT2
+StatText Enabled
+90 20 120 364
+Data Source:
+
+*I LD_LG_ASCII_F_SOURCE
+EditText Enabled
+117 19 149 103
+ASCII
+
+*I LD_LG_ASCII_CDLG_1_PROCEED
+BtnItem Enabled
+DefaultButton
+185 302 210 380
+Proceed
+
+*I LD_LG_ASCII_CDLG_1_ABORT
+BtnItem Enabled
+180 22 210 100
+Exit
+
+,120
+*N LD_LG_ASCII_HEADER_1OF2
+*S PR 0 PU 1
+67 32 400 504
+Verify Log Data File Header Info (1/2)
+15
+
+*I LD_LG_ASCII_1OF2_UWI_PROMPT
+StatText Enabled
+1 170 26 305
+Well Identification:
+
+*I LD_LG_ASCII_1OF2_NULL_PROMPT
+StatText Enabled
+65 299 90 385
+Null Value:
+
+*I LD_LG_ASCII_1OF2_UWI
+EditText Enabled
+33 152 65 323
+12345678901234
+
+*I LD_LG_ASCII_1OF2_NULL
+EditText Enabled
+90 283 120 395
+-999.25
+
+*I LD_LG_ASCII_1OF2_MAX_ERR_PROMPT
+StatText Enabled
+158 240 183 450
+Maximum Recoverable Errors:
+
+*I LD_LG_ASCII_1OF2_MAX_ERR
+EditText Enabled
+185 307 215 371
+10
+
+*I LD_LG_ASCII_1OF2_SAMPLE_PROMPT
+StatText Enabled
+65 25 90 155
+Sample Interval:
+
+*I LD_LG_ASCII_1OF2_SAMPLE_INCR
+EditText Enabled
+90 33 120 136
+0.5
+
+*I LD_LG_ASCII_1OF2_FEET
+RadioItem Enabled
+125 35 143 108
+Feet
+
+*I LD_LG_ASCII_1OF2_METERS
+RadioItem Enabled
+145 35 163 108
+Meters
+
+*I LD_LG_ASCII_1OF2_INCHES
+RadioItem Enabled
+165 35 183 108
+Inches
+
+*I LD_LG_ASCII_1OF2_CENTIMETERS
+RadioItem Enabled
+185 35 203 143
+Centimeters
+
+*I LD_LG_ASCII_1OF2_SECONDS
+RadioItem Enabled
+205 35 223 143
+Seconds
+
+*I LD_LG_ASCII_1OF2_MILLISECONDS
+RadioItem Enabled
+225 35 243 143
+Milliseconds
+
+*I LD_LG_ASCII_1OF2_OTHER
+RadioItem Enabled
+245 35 350 143
+Other
+
+,130
+*N LD_LG_ASCII_HEADER_2OF2
+*S PR 0 PU 1
+40 4 350 498
+Verify Log Data File Header Info (2/2)
+9
+
+*I LD_LG_ASCII_2OF2_TRACE_PROMPT
+StatText Enabled
+70 110 98 363
+Trace Names, Separated by Commas:
+
+*I LD_LG_ASCII_2OF2_FORMAT_PROMPT
+StatText Enabled
+1 207 28 265
+Format:
+
+*I LD_LG_ASCII_2OF2_DEPTH_PROMPT
+StatText Enabled
+182 150 212 320
+Name of "Depth" Field:
+
+*I LD_LG_ASCII_2OF2_FORMAT
+EditText Enabled
+34 21 66 452
+8F10.4
+
+*I LD_LG_ASCII_2OF2_DEPTH_NAME
+EditText Enabled
+213 17 245 456
+DEPTH
+
+*I LD_LG_ASCII_2OF2_ABORT
+BtnItem Enabled
+270 18 295 117
+Abort
+
+*I LD_LG_ASCII_2OF2_LOAD
+BtnItem Enabled
+270 378 295 477
+Load Data
+
+SETGROUP 2
+*I LD_LG_ASCII_2OF2_TRACE_NAMES
+EditText Enabled
+100 17 178 456
+
+
+*I LD_LG_ASCII_2OF2_SCROLL_BAR
+VScroll Enabled
+100 460 178 475
+
+
+,140
+*N LD_LG_ASCII_MESSAGE_DIALOG
+89 66 226 446
+ASCII File Log Loader
+3
+
+*I LD_LG_ASCII_MESSAGE_PROMPT
+StatText Disabled
+16 8 41 365
+Now loading log data from the ASCII file into Finder.
+
+*I LD_LG_ASCII_RECORD_PROMPT
+StatText Disabled
+55 8 80 365
+
+
+*I LD_LG_ASCII_ERROR_PROMPT
+StatText Disabled
+95 8 120 365
+
+

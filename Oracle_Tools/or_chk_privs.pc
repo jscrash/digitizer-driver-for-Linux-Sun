@@ -1,0 +1,159 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_CHK_PRIVS.PC*/
+/* *2    25-JUL-1990 19:56:45 VINCE "(SPR 5644) Header Standardization"*/
+/* *1    19-JUN-1989 12:35:17 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_CHK_PRIVS.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_oracle.h"
+#include "esi_tc.h"
+#include "esi_qs.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+    To examine the SYSTABAUTH table and find out if the user has   
+    authorization to perform update, delete, select, and insert    
+    operations on a table.  The privileges for each operation      
+    is returned as BOOLean flags (1 = YES, 0 = NO).                
+
+    This routine assumes that the grantor is the project account.              
+
+    Example usage:                                                           
+
+    status = or_check_privileges(table_name,&select,&insert,&update,&delete);   
+
+    This could be even more general if the grantor was passed in.                
+
+Prototype:
+    publicdef INT or_check_privileges(CHAR *table, BOOL *select, BOOL *insert, BOOL *update, 
+        BOOL *delete );
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    table           -(CHAR *) Table name input and privileges returned.
+    select          -(BOOL *)
+    insert          -(BOOL *)
+    update          -(BOOL *)
+    delete          -(BOOL *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT or_check_privileges (CHAR *table, BOOL *select, BOOL *insert,
+                                   BOOL *update, BOOL *delete)
+#else
+publicdef INT or_check_privileges (table, select, insert, update, delete)
+CHAR *table;
+BOOL *select, *insert, *update, *delete;
+#endif
+    {
+    INT status;
+    INT len;
+    CHAR project[64];               /* Project name                */
+    CHAR account[64];               /* User account name           */
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    
+    VARCHAR select_phrase[256];
+    char ora_delete;
+    char ora_update;
+    char ora_select;
+    char ora_insert;
+    
+    EXEC SQL END DECLARE SECTION;
+    /******************************************************************************/
+    
+    /* Get the project name, user account  */
+    
+    qs_inq_c (QS_PROJECT_NAME, project, &len);
+    qs_inq_c (QS_FINDER_ACCOUNT, account, &len);
+    
+    /* Set ORACLE error jump conditions    */
+    
+    EXEC SQL WHENEVER SQLERROR GOTO errrpt;
+    EXEC SQL WHENEVER NOT FOUND GOTO errnfd;
+    
+    /* Set up the SELECT phrase            */
+    
+    len = sprintf ((char *)select_phrase.arr, 
+"SELECT DEL,UPD,SEL,INS FROM SYSTABAUTH WHERE TNAME = '%s' AND \
+     GRANTOR = '%s' AND (GRANTEE = 'PUBLIC' OR GRANTEE = '%s')"
+            , table, project, account);
+    
+    V_SETLEN (select_phrase);
+    
+    EXEC SQL PREPARE S1 FROM : select_phrase;
+    
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    
+    EXEC SQL OPEN C1;
+    
+    EXEC SQL FETCH C1 INTO : ora_delete,  : ora_update,  : ora_select,  : ora_insert;
+    
+    /* check buffers and set flags          */
+    
+    if (ora_delete EQUALS 'Y' OR ora_delete EQUALS 'G')
+        *delete = TRUE;
+    else
+        *delete = FALSE;
+    if (ora_update EQUALS 'Y' OR ora_update EQUALS 'G')
+        *update = TRUE;
+    else
+        *update = FALSE;
+    if (ora_select EQUALS 'Y' OR ora_select EQUALS 'G')
+        *select = TRUE;
+    else
+        *select = FALSE;
+    if (ora_insert EQUALS 'Y' OR ora_insert EQUALS 'G')
+        *insert = TRUE;
+    else
+        *insert = FALSE;
+    
+    EXEC SQL CLOSE C1;
+    
+    return SUCCESS;
+    /* If error -  return the ORACLE error code*/
+    /* If you can't get at this table, trouble */
+errrpt:
+errnfd:
+    status = sqlca.sqlcode;
+    /* the value of the Booleans is really undefined.             */
+    /* I have chosen to assume if the table does not exist        */
+    /* in SYSTABAUTH you probably don't have access to it. (C.P.) */
+    *select = FALSE;
+    *insert = FALSE;
+    *update = FALSE;
+    *delete = FALSE;
+    
+    return status;
+    
+    }
+/* END:     */

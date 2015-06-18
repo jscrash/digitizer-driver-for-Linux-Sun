@@ -1,0 +1,133 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element MD_ALT.PC*/
+/* *2    17-AUG-1990 21:56:26 VINCE "(SPR 5644) Code Cleanup"*/
+/* *1    19-JUN-1989 12:34:09 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element MD_ALT.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_gl_defs.h"
+#include "esi_md_defs.h"
+#include "esi_md_err.h"
+#include "esi_oracle.h"
+#include "esi_am.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+    Function to check the parameter against stored alternative
+    strings.
+
+Prototype:
+    publicdef INT md_alt(MD_PARM_STRUCT *parmstruc,MD_KEY_STRUCT *keystruc);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    parmstruc       -(MD_PARM_STRUCT *) Map def parameter structure.
+    keystruc        -(MD_KEY_STRUCT *) Map def keyword structure.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    MD_STRING_NOT_FOUND
+    MD_ORACLE_ERROR
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT md_alt (MD_PARM_STRUCT *parmstruc, MD_KEY_STRUCT *keystruc)
+#else
+publicdef INT md_alt (parmstruc, keystruc)
+MD_PARM_STRUCT *parmstruc;
+MD_KEY_STRUCT *keystruc;
+#endif
+    {
+    
+    PROGNAME ("MD_ALT");
+    INT status;                     /* RETURN STATUS */
+    CHAR text[128];
+    
+/*     EXEC ORACLE OPTION (REBIND = NO); */
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    static VARCHAR pvalue[26];      /* PARAMETER VALUE */
+    static VARCHAR dummy[26];       /* DUMMY INTO VARIABLE */
+    static VARCHAR tempverb[26];    /* VERB */
+    static VARCHAR tempkey[26];     /* KEYWORD */
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ********************************************************************** */
+    
+    status = SUCCESS;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO orcerr;
+    EXEC SQL WHENEVER NOT FOUND GOTO not_found;
+    
+    V_FROMC (pvalue, parmstruc->parmval.cval);
+    V_FROMC (tempverb, keystruc->realverb);
+    V_FROMC (tempkey, keystruc->keywrd);
+    
+    EXEC SQL SELECT ALT_VALUE INTO : dummy FROM CODES.PARM_VALUE_ALTS WHERE VERB =  :
+                                                                                   tempverb
+                                                                                    AND 
+                                                                                   KEYWORD
+                                                                                    =  
+                                                                                   : 
+                                                                                   tempkey
+                                                                                    AND 
+                                                                                   ALT_VALUE
+                                                                                    =  
+                                                                                   : 
+                                                                                   pvalue
+                                                                                   ;
+    
+    parmstruc->parmtype = 1;
+    goto finished;
+    
+    /* * NO CODED VALUE FOUND * */
+    /* ------------------------ */
+    
+not_found:
+    status = MD_STRING_NOT_FOUND;
+    sprintf (text, 
+"VERB = %s and KEYWORD = %s and ALT_VALUE = %s is not found \
+in CODES.PARM_VALUE_ALTS table"
+            , keystruc->realverb, keystruc->keywrd, parmstruc->parmval.cval);
+    am_message (AM_ALERT, text);
+    goto finished;
+    
+    /* * ORACLE ERROR * */
+    /* ---------------- */
+    
+orcerr:
+    status = MD_ORACLE_ERROR;
+    
+    /* * RETURN * */
+    /* ---------- */
+    
+finished:
+    return status;
+    }
+/* END:     */

@@ -1,0 +1,360 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element XS_DEL_LYT.PC*/
+/* *2    17-AUG-1990 22:38:13 VINCE "(SPR 5644) Code Cleanup"*/
+/* *1    19-JUN-1989 12:42:31 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element XS_DEL_LYT.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#ifndef ESI_AM_H
+
+#include "esi_am.h"
+
+#endif
+
+#ifndef ESI_WI_H
+
+#include "esi_wi.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_XS_DEFS_H
+
+#include "esi_xs_defs.h"
+
+#endif
+
+#ifndef XS_CDLGS_RH
+
+#include "xs_cdlgs.rh"
+
+#endif
+
+#ifndef XS_MENUS_RH
+
+#include "xs_menus.rh"
+
+#endif
+publicdef INT xs_delete_layout ();
+
+#if USE_PROTOTYPES
+static INT xs_dellayout_cdlg_server (INT id, INT item, XS_STRUCT *pxs);
+
+#else       /* no prototypes */
+static INT xs_dellayout_cdlg_server ();
+
+#endif      /* of #if USE_PROTOTYPES */
+
+/* File Description ---------------------------------------------------------
+Overview:
+    Delete a layout routines.
+    
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT xs_dellayout_cdlg_init(XS_STRUCT *pxs);
+    
+    publicdef INT xs_delete_layout(CHAR *layout_name[]);
+
+Private_Functions:
+    static INT xs_dellayout_cdlg_server (INT id, INT item, XS_STRUCT *pxs);
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+    Display dialog to allow user to delete a layout
+
+Prototype:
+    publicdef INT xs_dellayout_cdlg_init(XS_STRUCT *pxs);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    pxs             -(XS_STRUCT *) Pointer to XS_STRUCT.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT xs_dellayout_cdlg_init (XS_STRUCT *pxs)
+#else
+publicdef INT xs_dellayout_cdlg_init (pxs)
+XS_STRUCT *pxs;
+#endif
+    {
+    INT max_selectable = 100;
+    INT id;
+    INT status;
+    INT num_items;
+    
+    status = am_define_resource (AM_DIALOG, XS_CDLGS_FILE, XS_DEL_LAYOUT,
+                                 xs_dellayout_cdlg_server, &id, pxs);
+    
+    /*  Deactivate conflicting menu items. */
+    
+    wienmni (pxs->layout_menu_id, NEW_MENU_ITEM, OFF);
+    wienmni (pxs->layout_menu_id, RETRIEVE_MENU_ITEM, OFF);
+    wienmni (pxs->layout_menu_id, DELETE_MENU_ITEM, OFF);
+    
+    /* get a list of layouts to delete by calling xs_gen_layout_list with
+    hardcoded buttons of 'current' for projects and accounts, ignoring 
+    the project and account that is returned and displaying only the name */
+    
+    pxs->search_project = OFF;
+    pxs->search_accounts = OFF;
+    
+    status = xs_gen_layout_list (pxs);
+    
+    num_items = ts_tcp_len (pxs->layout_name_tcp);
+    
+    /* set selector list and open dialog */
+    wisselt (id, XS_DEL_LAYOUT_LIST, XS_DEL_LAYOUT_VSCROLL, num_items, max_selectable,
+             pxs->layout_name_tcp);
+    
+    status = wiopcd (id);
+    
+    return SUCCESS;
+    
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Receive list of layouts to delete, call routine to delete
+    layout for each name.
+
+Prototype:
+    static INT xs_dellayout_cdlg_server(INT id, INT item, XS_STRUCT *pxs );
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    id              -(INT) Resource id.
+    item            -(INT) Event number.
+    pxs             -(XS_STRUCT *) Pointer to XS_STRUCT.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PRIVATE to <xs_del_lyt.pc>
+
+Limitations/Assumptions:
+WARNING -
+    I AM RETURNING THE ROUTINE XS_DELLAYOUT_CDLG_SERVER WHICH WAS
+    ELIMINATED IN THE SUN CODE. THIS CAUSES A LINK FAULT SINCE THE 
+    ROUTINE IS USED BY AM_DEFINE_RESOURCE.          CHARLIE    
+- END OF WARNING
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT xs_dellayout_cdlg_server (INT id, INT item, XS_STRUCT *pxs)
+#else
+static INT xs_dellayout_cdlg_server (id, item, pxs)
+INT id;
+INT item;
+XS_STRUCT *pxs;
+#endif
+    {
+    INT status;
+    INT i;
+    INT count;
+    INT listid[100];
+    CHAR buffer[81];
+    
+    switch (item)
+        {
+        
+    case XS_DEL_LAYOUT_DELETE:
+        /* user has selected list to delete (if any) , now go through list */
+        /* and delete them. Assume user knows what he is doing and just    */
+        /* give "I'm busy deleting xxxx...." msg during deletes.*/
+        
+        /*convert listid to strings to pass to dellayout */
+        wiqsel (id, XS_DEL_LAYOUT_LIST, &count, listid);
+        
+        for (i = 0; i < count; i++)
+            {
+            /* put up message box */
+            sprintf (buffer, "DELETING LAYOUT: %s",
+                     pxs->layout_name_tcp[listid[i] - 1]);
+            status = am_message (AM_STATUS, buffer);
+            
+            status = xs_delete_layout (pxs->layout_name_tcp[listid[i] - 1]);
+            }
+        status = wiopcd (pxs->msg_cdlg_id);
+        
+        /* free the tcp's for later */
+        status = ts_tcp_free (pxs->layout_name_tcp);
+        status = ts_tcp_free (pxs->project_name_tcp);
+        status = ts_tcp_free (pxs->analyst_name_tcp);
+        pxs->layout_name_tcp = (CHAR **)NULL;
+        pxs->project_name_tcp = (CHAR **)NULL;
+        pxs->analyst_name_tcp = (CHAR **)NULL;
+        
+        status = am_release_resource (id);
+        break;
+        
+    case XS_DEL_LAYOUT_CANCEL:
+        /* free the tcp even if unused */
+        status = ts_tcp_free (pxs->layout_name_tcp);
+        status = ts_tcp_free (pxs->project_name_tcp);
+        status = ts_tcp_free (pxs->analyst_name_tcp);
+        pxs->layout_name_tcp = (CHAR **)NULL;
+        pxs->project_name_tcp = (CHAR **)NULL;
+        pxs->analyst_name_tcp = (CHAR **)NULL;
+        
+        status = am_release_resource (id);
+        break;
+        
+    default:
+        break;
+        
+        }
+    /*  Activate conflicting menu items. */
+    
+    wienmni (pxs->layout_menu_id, NEW_MENU_ITEM, ON);
+    wienmni (pxs->layout_menu_id, RETRIEVE_MENU_ITEM, ON);
+    wienmni (pxs->layout_menu_id, DELETE_MENU_ITEM, ON);
+    
+    return SUCCESS;
+    
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT xs_delete_layout(CHAR *layout_name[]);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    layout_name     -(CHAR *[])
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT xs_delete_layout (CHAR *layout_name[])
+#else
+publicdef INT xs_delete_layout (layout_name)
+CHAR *layout_name[];
+#endif
+    {
+    INT i;
+    INT status;
+    PROJECT_NAME project;
+    CHAR buffer[81], text[128];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR delete[312];
+    VARCHAR filename[128];
+    EXEC SQL END DECLARE SECTION;
+    
+    qs_inq_c (QS_PROJECT_NAME, project, &i);
+    
+    EXEC SQL WHENEVER SQLERROR GOTO errrept;
+    
+    EXEC SQL WHENEVER NOT FOUND GOTO errnfd;
+    
+    delete.len = sprintf ((char *)delete.arr, 
+"SELECT KEY_PARM FROM %s.CROSS_SECTION_LAYOUTS \
+     WHERE  SOURCE = USER AND LAYOUT_NAME = '%s' AND \
+        VERB = 'BINARY LAYOUT FILENAME'"
+            , project, layout_name);
+    
+    EXEC SQL PREPARE S_FILE
+FROM:
+    delete;
+    
+    EXEC SQL DECLARE C1 CURSOR FOR S_FILE;
+    
+    EXEC SQL OPEN C1;
+    
+    EXEC SQL FETCH C1
+INTO:
+    filename;
+    
+    V_FROMV (buffer, filename);
+    
+    ho_delete_file (buffer, &status);
+    
+errnfd:
+    EXEC SQL CLOSE C1;
+    
+    sprintf ((CHAR *)delete.arr, "DELETE FROM %s.CROSS_SECTION_LAYOUTS WHERE SOURCE = USER AND \
+    LAYOUT_NAME = '%s'"
+             , project, layout_name);
+    V_SETLEN (delete);
+    
+    EXEC SQL PREPARE S1
+FROM:
+    delete;
+    
+    EXEC SQL EXECUTE S1;
+    
+    EXEC SQL COMMIT WORK;
+    
+    return SUCCESS;
+    
+errrept:
+    
+    /* FOR NOW - this needs to be upgraded to an mg_message */
+    sprintf (buffer, "SQL error %d occurred during delete layout\n", sqlca.sqlcode);
+    status = am_message (AM_REPORT, buffer);
+    
+    return FAIL;
+    
+    }
+/* END:     */

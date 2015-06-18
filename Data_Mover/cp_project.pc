@@ -1,0 +1,3418 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element CP_PROJECT.PC */
+/* *9    11-JUN-1991 16:17:32 PURNA "(SPR 0) add functionality" */
+/* *8     6-MAY-1991 17:19:26 PURNA "(SPR 0) init change" */
+/* *7     6-MAY-1991 16:54:51 PURNA "(SPR 0) init change" */
+/* *6    30-SEP-1990 11:38:35 GILLESPIE "(SPR 1) Change Col_List to be UINT" */
+/* *5    29-SEP-1990 12:05:05 GILLESPIE "(SPR 1) Merge beta deltas" */
+/* *4     3-AUG-1990 18:32:10 PURNA "(SPR 0) change include to esi_sl_meth.ah" */
+/* *3     3-JUL-1990 16:36:13 PURNA "(SPR 0) init changes" */
+/* *2    30-JUN-1990 00:01:25 PURNA "(SPR 0) init changes" */
+/* *1     7-DEC-1989 16:21:48 PURNA "" */
+/* DEC/CMS REPLACEMENT HISTORY, Element CP_PROJECT.PC */
+/* DEC/CMS REPLACEMENT HISTORY, Element CP_PROJECT.PC*/
+/* *2    16-AUG-1990 11:36:57 EXTERMINATOR "(SPR 0) select list modification"*/
+/* *1    13-AUG-1990 16:56:22 SYSTEM "Finder 6.1"*/
+/* DEC/CMS REPLACEMENT HISTORY, Element CP_PROJECT.PC*/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Finder Graphics Systems, Inc.
+			201 Tamal Vista Blvd
+			Corte Madera, CA  USA 94925
+			(415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+/* INCLUDE FILES */
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+#ifndef ESI_GL_DEFS_H
+#include "esi_gl_defs.h"
+#endif
+#ifndef ESI_GL_VCHAR_H
+#include "esi_gl_vchar.h"
+#endif
+#ifndef ESI_CP_H
+#include "esi_cp.h"
+#endif
+#ifndef ESI_CP_ERR_H
+#include "esi_cp_err.h"
+#endif
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_HO_H
+#include "esi_ho.h"
+#endif
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+#ifndef ESI_HT_H
+#include "esi_ht.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+#ifndef ESI_OR_ERR_H
+#include "esi_or_err.h"
+#endif
+#ifndef ESI_OR_MSG_H
+#include "esi_or_msg.h"
+#endif
+
+EXEC SQL INCLUDE SQLDA.H;
+
+EXEC SQL BEGIN DECLARE SECTION;
+privatedef VARCHAR stmt[2048];
+privatedef VARCHAR tname[32];
+EXEC SQL END DECLARE SECTION;
+
+EXEC SQL DECLARE S STATEMENT;
+EXEC SQL DECLARE S1 STATEMENT;
+EXEC SQL DECLARE S2 STATEMENT;
+EXEC SQL DECLARE S3 STATEMENT;
+EXEC SQL DECLARE C CURSOR FOR S;
+EXEC SQL DECLARE C3 CURSOR FOR S3;
+
+/******************************************************************************/
+privatedef SQLDA *bdp;              /* Descriptor used for BIND variables */
+privatedef SQLDA *sdp;              /* Descriptor used for SELECT variables */
+privatedef SQLDA *update_sdp;       /* Descriptor used for UPDATE variables */
+privatedef SQLDA *primary_sdp;      /* Descriptor used for where clause */
+
+
+privatedef CHAR *vars = NULL;       /* Pointer to area used to hold BIND variables */
+privatedef INT bdsize;              /* initial size of BIND variable descriptor */
+privatedef INT bvsize;              /* maximum # of characters in BIND variable names */
+privatedef INT sdsize;              /* initial size of SELECT variable descriptor */
+privatedef INT svsize;              /* maximum # of characters in SELECT variable names */
+privatedef BOOL cursor_open;        /* database cursor is open */
+
+#define MAX_VALUE_SIZE 241
+#define DUPLICATE_KEY -1
+#define NOT_KEY_COLUMN -2
+
+extern SQLDA *sqlald ();
+
+
+privatedef CHAR *source_project;
+privatedef CHAR *target_project;
+privatedef CHAR *fi_account;
+privatedef FILE *list_file;
+
+privatedef INT process_id, option_flag;
+privatedef CHAR temp_list_name[61];
+privatedef TABLE_NAME local_table_name;	
+privatedef COLUMN_NAME key_column,local_key_column;
+privatedef INT table_data_type;
+
+privatedef BOOL do_transformation=FALSE,degrees_uom=FALSE;
+privatedef PROJECTION_STRUCTURE *source_proj_struct,*target_proj_struct;
+privatedef PROJECTION_ID source_projection_id,target_projection_id;
+
+privatedef INT hash_table_key;
+privatedef HASH_TABLE *seisline_id_seq=(HASH_TABLE *)0;
+privatedef HASH_TABLE *lynx_id_seq=(HASH_TABLE *)0;
+privatedef HASH_TABLE *arc_id_seq=(HASH_TABLE *)0;
+privatedef HASH_TABLE *node_id_seq=(HASH_TABLE *)0;
+privatedef HASH_TABLE *go_object_id_seq=(HASH_TABLE *)0;
+privatedef HASH_TABLE *go_item_id_seq=(HASH_TABLE *)0;
+privatedef HASH_TABLE *log_curve_seq=(HASH_TABLE *)0;
+privatedef HASH_TABLE *seis_vel_id_seq=(HASH_TABLE *)0;
+privatedef LISTHEAD uwi_key_ll;
+privatedef LISTHEAD lineid_key_ll;
+privatedef LISTHEAD lynxid_key_ll;
+privatedef LISTHEAD arcid_key_ll;
+privatedef LISTHEAD nodeid_key_ll;
+privatedef LISTHEAD go_objectid_key_ll;
+privatedef LISTHEAD go_itemid_key_ll;
+privatedef LISTHEAD survey_key_ll;
+
+#define UWI_DOMAIN 1
+#define LYNX_ID_DOMAIN 137
+#define ARC_ID_DOMAIN 136
+#define SEISLINE_ID_DOMAIN 100
+#define NODE_ID_DOMAIN 10
+#define GO_OBJECT_ID_DOMAIN 57
+#define GO_ITEM_ID_DOMAIN 78
+#define TRACE_ID_DOMAIN 110
+#define SEIS_VEL_ID_DOMAIN 144
+#define SURVEY_DOMAIN 23
+#define GO_OBJECT_NAME_DOMAIN 58
+#define LEASE_ID_DOMAIN 86
+#define DATA_TYPE_DOMAIN 138
+
+
+
+
+
+
+
+
+
+
+
+
+
+#define WELL_HDR_TABLE "WELL_HDR"
+#define SEISMIC_HDR_TABLE "SEIS_LINE_HDR"
+#define CULTURE_HDR_TABLE "LYNX_CULTURE"
+#define LYNX_ARC_TABLE "LYNX_LRFR"
+#define GO_HDR_TABLE "GRAPHIC_OBJECTS"
+#define WELL_KEY_COLUMN "UWI"
+#define SEISMIC_KEY_COLUMN "LINE_ID"
+#define CULTURE_KEY_COLUMN "LYNX_ID"
+#define GO_KEY_COLUMN "OBJECT_ID"
+
+typedef struct
+    {
+    TABLE_NAME table_name;
+    INT_FUNCTION_PTR function;
+    } CP_FILTER_HEADER;
+
+typedef struct
+    {
+    TABLE_NAME table_name;
+    COLUMN_NAME column_name;
+    } CP_LOOKUP_HDR;
+
+typedef struct
+    {
+    TABLE_NAME table_name;
+    COLUMN_NAME column_name;
+    INT extend_flag;
+    } CP_NL_EXTENDS_HDR;
+
+/* PRIVATE FUNCTIONS DECLARATION */
+
+privatedef INT cleanup ();
+privatedef INT commitwork ();
+privatedef INT descbind ();
+privatedef INT getbvvals ();
+privatedef INT descsel ();
+privatedef INT rollbkwk ();
+privatedef INT fillseldesc ();
+privatedef INT freeselvars ();
+privatedef INT cp_well_hdr_filter ();
+privatedef INT cp_seis_tie_filter ();
+privatedef INT cp_go_correlations_filter();
+privatedef INT cp_lynx_ifv_filter ();
+privatedef INT cp_lynx_text_filter ();
+privatedef INT cp_lynx_node_gc_filter ();
+
+#if USE_PROTOTYPES			
+privatedef INT cpz_copy_table(CHAR *table_name);
+privatedef INT cpz_table_exist(CHAR *table_name);
+privatedef INT cpz_insert_table(CHAR *table_name,INT *nrows, 
+	CHAR *lookup_column);
+privatedef INT cpz_tables_compatible(CHAR *table_name);
+privatedef INT cpz_copy_nlists(CHAR *table_name,CHAR *lookup_column);
+privatedef INT cpz_cartography(CHAR *table_name,CHAR *lookup_column);
+privatedef INT parse_sql (CHAR *arg_stmt);
+privatedef INT doinsert (CHAR *table_name,INT *nrows);
+privatedef INT is_key_column (CHAR *table_name,CHAR *column_name,INT *domain);
+privatedef INT get_new_sequence(INT domain,INT *sequence);
+privatedef INT cp_invoke_filter_method(CHAR *table_name);
+privatedef INT fill_tempdesc(SQLDA **out,LISTHEAD *index_list);
+#else
+privatedef INT cpz_copy_table();
+privatedef INT cpz_table_exist();
+privatedef INT cpz_insert_table();
+privatedef INT cpz_tables_compatible();
+privatedef INT cpz_copy_nlists();
+privatedef INT cpz_cartography();
+privatedef INT parse_sql ();
+privatedef INT doinsert();
+privatedef INT is_key_column ();
+privatedef INT get_new_sequence ();
+privatedef INT cp_invoke_filter_method();
+privatedef INT fill_tempdesc();
+#endif
+
+privatedef const CP_FILTER_HEADER cp_post_filter_method[20] = {
+	{"SEIS_TIE",cp_seis_tie_filter},
+	{"WELL_HDR",cp_well_hdr_filter},
+	{"GRAPHIC_OBJECT_CORRELATIONS",cp_go_correlations_filter},
+	{"LYNX_IFV",cp_lynx_ifv_filter},
+	{"LYNX_TEXT",cp_lynx_text_filter},
+	{"LYNX_NODE_GC",cp_lynx_node_gc_filter},
+	{"",(INT_FUNCTION_PTR)0}
+	};
+
+    /* this are column name in specified table (usually function as nlist_id)
+       that is defined when moving nlist and the extends value of the nlist
+       is needed to update the value in the table */
+
+privatedef const CP_NL_EXTENDS_HDR cp_table_flags[20] = {
+	{"SEIS_LINE_HDR","SHOT_XY_ID",CP_SEIS_XY_EXTENDS},
+	{"LINES","NLIST_ID",CP_GRAPHIC_OBJECT_EXTENDS},
+	{"SEIS_FAULT_TRACE","DIGITAL_REF",CP_FAULT_TRACE_EXTENDS},
+	{"LYNX_ARCS","DIGITAL_REF",CP_LYNX_ARCS_EXTENDS},
+	{"LYNX_OBJECTS","DIGITAL_REF",CP_LYNX_OBJECTS_EXTENDS},
+	{"","",NO_EXTENDS}
+	};
+
+privatedef const CP_LOOKUP_HDR cp_lookup_column[20] = { 
+	{"GRAPHIC_OBJECT_CODES","NAME"},
+	{"SEIS_HOR_CODES","HOR_CODES"},
+	{"LITHOSTRAT_CODES","CODE"},
+	{"ZONE_CODES","SRC_CODE"},
+	{"LINES","LINE_ID"},
+	{"TEXT","TEXT_ID"},
+	{"SEIS_FAULT_TRACE","SEQ"},
+	{"LYNX_AREA_BUNDLE","AREA_BUNDLE_ID"},
+	{"LYNX_LINE_BUNDLE","LINE_BUNDLE_ID"},
+	{"LYNX_SYMBOL_BUNDLE","SYMBOL_BUNDLE_ID"},
+	{"LYNX_TEXT_BUNDLE","TEXT_BUNDLE_ID"},
+	{"",""}
+	};
+
+privatedef const CP_LOOKUP_HDR cp_hdr_table[20] = { 
+	{"SEIS_LINE_HDR",""},
+	{"LYNX_CULTURE",""},
+	{"GRAPHIC_OBJECTS",""},
+	{"",""}
+	};
+
+privatedef const CP_LOOKUP_HDR cp_foreign_node_id[20] = {
+	{"WELL_HDR","NODE_ID"},
+	{"WELL_HDR","BASE_NODE_ID"},
+	{"WELL_HDR_SECOND","NODE_ID"},
+	{"WELL_HDR_SECOND","BASE_NODE_ID"},
+	{"TEXT","POSITION"},
+	{"LYNX_IFV","INIT_NODE"},
+	{"LYNX_IFV","FINAL_NODE"},
+	{"LYNX_NODE_GC","NODE_ID"},
+	{"LYNX_TEXT","NODE_ID"},
+	{"",""}
+	};
+
+privatedef const CP_LOOKUP_HDR cp_full_ospathname_table[20] = { 
+	{"LYNX_OBJECT",""},
+	{"LINES",""},
+	{"",""}
+	};
+
+/****************************************************************************/
+/*									    */
+/*  CP_COPY_PROJECT							    */
+/*									    */
+/*  Copy seismic and well table driven by select list			    */
+/*  from source project to target project				    */
+/*									    */
+/*  Returns:  SUCCESS							    */
+/*									    */
+/****************************************************************************/
+
+publicdef INT main(argc, argv)
+INT argc;
+CHAR **argv;
+{
+FILENAME full_filename;
+FILENAME temp_filename,exec_filename;
+INT status=SUCCESS;
+BOOL first=TRUE;
+privatedef BOOL First=TRUE;
+DATE_TIME date_tag;
+CHAR buff[256];
+INT  dtype_flag,len;
+COLUMN_NAME column_name;
+	
+EXEC SQL BEGIN DECLARE SECTION;
+    privatedef VARCHAR source[32];
+    privatedef VARCHAR tabname[32];
+    privatedef VARCHAR dtype[32];
+    privatedef int proc_id;
+    VARCHAR sqlstmt[1024];
+EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO orerror;
+
+    if (or_login(argc, argv) IS_NOT_EQUAL_TO SUCCESS)
+        {
+        printf("Unable to log onto Oracle - Aborting");
+        exit (EXIT_FAILURE);
+        }
+
+	/* command line arguments */
+
+    fi_account=ts_sto_upper(argv[1]);
+    source_project=ts_sto_upper(argv[2]);
+    target_project=ts_sto_upper(argv[3]);
+    process_id=atoi(argv[4]);
+    dtype_flag = atoi(argv[5]);
+    option_flag = atoi(argv[6]);
+
+	/* set project name and configure project */
+
+    qs_set_c(QS_PROJECT_NAME,source_project,strlen(source_project));
+    status=finder_config_project(TRUE);
+    if (status != SUCCESS)
+        {
+        printf ("This process cannot continue, configure project failed \
+with error : %s. Please contact your system administrator",
+	mg_message(status));
+        exit(EXIT_FAILURE);
+        }
+
+
+	/* allocate memory for sequences hash table */
+    ht_init_hash_table(100,10,HT_INT_KEY,sizeof(INT),sizeof(INT),
+	HT_APPLICATION_TABLE,&seisline_id_seq);
+    ht_init_hash_table(100,10,HT_INT_KEY,sizeof(INT),sizeof(INT),
+	HT_APPLICATION_TABLE,&lynx_id_seq);
+    ht_init_hash_table(100,10,HT_INT_KEY,sizeof(INT),sizeof(INT),
+	HT_APPLICATION_TABLE,&arc_id_seq);
+    ht_init_hash_table(100,10,HT_INT_KEY,sizeof(INT),sizeof(INT),
+	HT_APPLICATION_TABLE,&node_id_seq);
+    ht_init_hash_table(100,10,HT_INT_KEY,sizeof(INT),sizeof(INT),
+	HT_APPLICATION_TABLE,&go_object_id_seq);
+    ht_init_hash_table(100,10,HT_INT_KEY,sizeof(INT),sizeof(INT),
+	HT_APPLICATION_TABLE,&go_item_id_seq);
+    ht_init_hash_table(100,10,HT_INT_KEY,sizeof(INT),sizeof(INT),
+	HT_APPLICATION_TABLE,&log_curve_seq);
+    ht_init_hash_table(100,10,HT_INT_KEY,sizeof(INT),sizeof(INT),
+	HT_APPLICATION_TABLE,&seis_vel_id_seq);
+
+
+    printf("SOURCE: '%s'\n",source_project);
+    printf("TARGET: '%s'\n",target_project);
+    printf("********************************\n\n");
+    sprintf((CHAR *)temp_list_name,"%s$%s",source_project,target_project);
+	
+	/* open file that contains list of nlist file and id  to copy nlist
+	   later */
+
+    ho_date_tag(date_tag);
+    sprintf(temp_filename,"datamover_nl_%s",date_tag);
+    status = ho_add_path("ESI$REPORTS",temp_filename,MAXPATHLENGTH,
+                       full_filename);
+    if (status != SUCCESS)
+        {
+        printf ("This process cannot continue, add pathname ESI$REPORTS and %d\
+ failed with error : %s. Please contact your system administrator",
+	temp_filename,mg_message(status));
+        exit(EXIT_FAILURE);
+        }
+    list_file = (FILE *)ho_open(full_filename,"w",NULL);
+    if (list_file EQUALS (FILE *)NULL)
+        {
+        printf ("This process cannot continue, creating file %s has failed. \
+Please contact your system administrator",full_filename);
+        exit(EXIT_FAILURE);
+        }
+
+	/* allocate memory for BIND and SELECT descriptor */
+
+    bdsize = 50;
+    bvsize = 150;
+    sdsize = 50;
+    svsize = 400;
+
+    status = SUCCESS;
+    
+    if ((bdp = (SQLDA *)sqlald (bdsize, bvsize, 10)) EQUALS (SQLDA *)0)
+        {
+        printf ("This process cannot continue due to error : %s. \
+Please contact your system administrator",
+	mg_message(OR_SQL_BAD_BIND_DESCRIPTOR));
+        exit(EXIT_FAILURE);
+        }
+
+    if ((sdp = (SQLDA *)sqlald (sdsize, svsize, 0)) EQUALS (SQLDA *)0)
+        {
+        printf ("This process cannot continue due to error : %s. \
+Please contact your system administrator",
+	mg_message(OR_SQL_BAD_SEL_DESCRIPTOR));
+        exit(EXIT_FAILURE);
+        }
+
+    sdp->N=0;
+
+	/* Is transformation necessary ? */
+
+    if(First)
+	{	
+	status= cp_get_project_projection(source_project,source_projection_id) 
+		OR
+		cp_get_project_projection(target_project,target_projection_id);
+	if (status != SUCCESS)
+            {
+            printf ("This process cannot continue due to error : %s. \
+Please contact your system administrator",
+       	    mg_message(status));
+            exit(EXIT_FAILURE);
+            }
+
+        if((strcmp(source_projection_id,target_projection_id) != ZERO) AND 
+		(status EQUALS SUCCESS) )
+	    {
+	    status = ctz_get_projection(source_project,source_projection_id,
+			&source_proj_struct) OR
+	    	     ctz_get_projection(target_project,target_projection_id,
+			&target_proj_struct);
+	    if (status != SUCCESS)
+	        {
+	        printf ("This process cannot continue due to error : %s. \
+Please contact your system administrator",
+                mg_message(status));
+                exit(EXIT_FAILURE);
+                }
+	    do_transformation=TRUE;
+	    if(ARE_SAME(source_projection_id,"GEODETIC") OR
+	       ARE_SAME(target_projection_id,"GEODETIC"))
+		degrees_uom= TRUE;
+	    }
+	First=FALSE;
+	}
+
+	/* define tables to be moved according to data type */
+    llinit(&nodeid_key_ll,0,(sizeof(CHAR)*20),0);
+    buff[0]=0;
+    if(dtype_flag & CP_WELL_DTYPE)
+	{
+        llinit(&uwi_key_ll,0,(sizeof(CHAR)*20),0);
+	table_data_type = CP_WELL_DTYPE;
+	cpz_copy_table(WELL_HDR_TABLE);
+	strcat(buff,"DATA_TYPE = 'WELLS' OR DATA_TYPE = 'ZONE' OR ");
+	}
+
+    if(dtype_flag & CP_SEISMIC_DTYPE)
+	{
+    	llinit(&lineid_key_ll,0,(sizeof(CHAR)*20),0);
+    	llinit(&survey_key_ll,0,(sizeof(CHAR)*20),0);
+	table_data_type = CP_SEISMIC_DTYPE;
+        cpz_copy_table(SEISMIC_HDR_TABLE);
+	strcat(buff,"DATA_TYPE = 'SEISMIC' OR ");
+	}
+
+    if(dtype_flag & CP_LEASE_DTYPE)
+	strcat(buff,"DATA_TYPE = 'LEASE' OR ");
+
+    if(dtype_flag & CP_CULTURE_DTYPE)
+	{
+    	llinit(&lynxid_key_ll,0,(sizeof(CHAR)*20),0);
+    	llinit(&arcid_key_ll,0,(sizeof(CHAR)*20),0);
+	table_data_type = CP_CULTURE_DTYPE;
+	cpz_copy_table(CULTURE_HDR_TABLE);
+	cpz_copy_table(LYNX_ARC_TABLE);
+	strcat(buff,"DATA_TYPE = 'CULTURE' OR ");
+	}
+
+    if(dtype_flag & CP_GRAPHIC_OBJECT)
+	{
+    	llinit(&go_objectid_key_ll,0,(sizeof(CHAR)*20),0);
+    	llinit(&go_itemid_key_ll,0,(sizeof(CHAR)*20),0);
+	table_data_type = CP_GRAPHIC_OBJECT;
+	cpz_copy_table(GO_HDR_TABLE);
+	strcat(buff,"DATA_TYPE = 'GRAPHIC_OBJECT' OR ");
+	}
+
+    if(dtype_flag & CP_CODES_DTYPE)
+	strcat(buff,"DATA_TYPE = 'CODES' OR ");
+
+    len = strlen(buff);
+    if (len < 1)
+        {
+        printf("No data type has been defined for this process. \
+Data Mover is terminated without moving any data.");
+        exit(EXIT_SUCCESS);
+        }
+    buff[len-4]=0;
+	    
+
+	/* loop on each table need to be moved */
+
+    sqlstmt.len = sprintf((CHAR *)sqlstmt.arr,    
+    "SELECT DISTINCT TNAME,DATA_TYPE \
+FROM ESI.FINDER_TABLES \
+WHERE (%s) AND TNAME NOT LIKE 'LOADER%%' AND SCOPE='PROJECT' AND \
+TNAME != '%s' AND TNAME != '%s' AND TNAME != '%s' AND TNAME != '%s' AND \
+TNAME != '%s'",
+	buff,SEISMIC_HDR_TABLE,WELL_HDR_TABLE,GO_HDR_TABLE,CULTURE_HDR_TABLE,
+	LYNX_ARC_TABLE);
+    EXEC SQL PREPARE CPROJECT_S1 FROM :sqlstmt;
+    EXEC SQL DECLARE CPROJECT_C1 CURSOR FOR CPROJECT_S1;
+    EXEC SQL OPEN CPROJECT_C1;
+
+    FOREVER
+	{
+
+	EXEC SQL FETCH CPROJECT_C1 INTO :tabname,:dtype;
+	if(OR_STATUS == OR_EOF) break;
+	V_SETZERO(tabname);
+	V_SETZERO(dtype);
+	
+	if(ARE_SAME((char *)dtype.arr,"WELLS") OR 
+	   ARE_SAME((char *)dtype.arr,"ZONE"))
+	    {
+	    table_data_type = CP_WELL_DTYPE;
+	    cpz_copy_table((CHAR *)tabname.arr);
+	    }
+
+	else if (ARE_SAME((char *)dtype.arr,"SEISMIC"))
+	    {
+	    table_data_type = CP_SEISMIC_DTYPE;
+	    cpz_copy_table((CHAR *)tabname.arr);
+	    }
+
+	else if (ARE_SAME((char *)dtype.arr,"LEASE"))
+	    {
+	    table_data_type = CP_LEASE_DTYPE;
+	    cpz_copy_table((CHAR *)tabname.arr);
+	    }
+
+	else if (ARE_SAME((char *)dtype.arr,"CULTURE"))
+	    {
+	    table_data_type = CP_CULTURE_DTYPE;
+	    cpz_copy_table((CHAR *)tabname.arr);
+	    }
+
+	else if (ARE_SAME((char *)dtype.arr,"GRAPHIC_OBJECT"))
+	    {
+	    table_data_type = CP_GRAPHIC_OBJECT;
+	    cpz_copy_table((CHAR *)tabname.arr);
+	    }
+
+	else if (ARE_SAME((char *)dtype.arr,"CODES"))
+	    {
+	    table_data_type = CP_CODES_DTYPE;
+	    cpz_copy_table((CHAR *)tabname.arr);
+	    }
+	}
+
+    EXEC SQL CLOSE CPROJECT_C1;
+
+	/* clear memory allocation */
+
+    if(dtype_flag & CP_WELL_DTYPE)
+	{
+        llfree(&uwi_key_ll);
+	}
+    if(dtype_flag & CP_SEISMIC_DTYPE)
+	{
+	llfree(&lineid_key_ll);
+	llfree(&survey_key_ll);
+	}
+    if(dtype_flag & CP_CULTURE_DTYPE)
+	{
+	llfree(&lynxid_key_ll);
+	llfree(&arcid_key_ll);
+	}
+    if(dtype_flag & CP_GRAPHIC_OBJECT)
+	{
+	llfree(&go_objectid_key_ll);
+	llfree(&go_itemid_key_ll);
+	}
+
+    llfree(&nodeid_key_ll);
+    cleanup();
+    ht_free_table(&seisline_id_seq);
+    ht_free_table(&lynx_id_seq);
+    ht_free_table(&arc_id_seq);
+    ht_free_table(&node_id_seq);
+    ht_free_table(&go_object_id_seq);
+    ht_free_table(&go_item_id_seq);
+    ht_free_table(&log_curve_seq);
+    ht_free_table(&seis_vel_id_seq);
+
+	/* delete temp_list table */
+    proc_id = process_id;
+    EXEC SQL DELETE TEMP_SEISMIC_LISTS WHERE TEMP_PROCESS_ID = :proc_id;
+    EXEC SQL DELETE TEMP_WELL_LISTS WHERE TEMP_PROCESS_ID = :proc_id;
+
+	/* call the copy nlist process */
+    fclose(list_file);
+
+
+    status = ho_add_path("ESI$BIN","cp_target_nlist",MAXPATHLENGTH,exec_filename);
+
+    if(status != SUCCESS)
+        {
+        printf ("This process cannot continue, add pathname 'ESI$BIN' and \
+'cp_target_nlist' failed with error : %s. Please contact your system \
+administrator.",mg_message(status));
+        rollbkwk();
+        exit(EXIT_FAILURE);
+        }
+    sprintf(buff,"%s, %s, %s, %s",
+	fi_account,
+	source_project,
+	target_project,
+	full_filename);
+
+    status = ho_spawn(SPAWN_BATCH,exec_filename,buff,&process_id);
+    if(status != SUCCESS)
+        {
+        printf ("This process cannot execute %s, failed with error : %s. \
+Please contact your system administrator.",
+	exec_filename,mg_message(status));
+    	rollbkwk();
+        exit(EXIT_FAILURE);
+        }
+    printf("Copy nlist from %s project to %s project will be completed by process \
+id %d.\n",source_project,target_project,process_id);
+    printf("====> Copy nlist from %s project to %s project will be \
+completed by process id %d.\n",source_project,target_project,process_id);
+
+    commitwork();
+    printf("====> The Data Mover has finished transfering data.\n\
+      Please review this log carefully to ensure that the transfer \
+was successful.\n");
+    exit(EXIT_SUCCESS);
+	
+orerror:
+    printf("This process cannot continue, oracle error encountered : %s. \
+Please contact your Database Administrator.",mg_message(OR_STATUS));
+    rollbkwk();
+    fclose(list_file);
+    exit(EXIT_FAILURE);
+}
+
+
+/****************************************************************************/
+/*									    */
+/*  cpz_COPY_TABLE							    */
+/*									    */
+/*  Insert content driven by select list from 'table_name' of		    */
+/*  'source_project' to 'table_name' of 'target_project'.		    */
+/*									    */
+/*  Returns:  SUCCESS/OR_STATUS						    */
+/*									    */
+/****************************************************************************/
+
+privatedef INT cpz_copy_table(table_name)
+CHAR *table_name;
+{
+INT status;
+INT nrows;
+COLUMN_NAME lookup_column;
+
+
+        /* check if table exist in both source and target
+                             projects */
+    status=cpz_table_exist(table_name);
+    if(status != SUCCESS) return SUCCESS;
+
+       /*  check whether source table and target table are
+                             compatible, so copying is possible */
+    status = cpz_tables_compatible(table_name);
+    if(status != SUCCESS) return SUCCESS;	   
+
+       /* insert to table */
+    status = cpz_insert_table(table_name,&nrows,lookup_column);
+    if(status != SUCCESS OR nrows < 1) return status;	
+
+    if(cpz_need_transformation(table_name) AND do_transformation)
+	{
+    	status=cpz_cartography(table_name,lookup_column);
+    	if(status != SUCCESS) 
+	    {
+	    printf("      Cartographic transformation on %s table has \
+failed due to error:%s\n",table_name,mg_message(status));
+	    }
+	}
+
+    if(cpz_nlist_exist(table_name))
+	{
+    	status = cpz_copy_nlists(table_name,lookup_column);
+    	if(status != SUCCESS)
+	    {
+	    printf("      Copy nlist on %s table has failed due to \
+error: %s\n",table_name,mg_message(status));
+	    }
+	}
+
+    return SUCCESS;
+}
+
+
+privatedef INT cpz_table_exist(table_name)
+CHAR *table_name;
+{
+
+EXEC SQL BEGIN DECLARE SECTION;
+    privatedef VARCHAR tabname[32];
+    privatedef VARCHAR source[32];
+    privatedef VARCHAR target[32];
+EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO orerror;
+
+    V_FROMC(tabname,table_name);
+    V_FROMC(source,source_project);
+
+    EXEC SQL
+        SELECT NULL
+        FROM ALL_TABLES
+        WHERE OWNER = :source AND TABLE_NAME = :tabname;
+    if(OR_STATUS == OR_EOF) 
+	{
+        printf("====> Table %s DOES NOT EXIST in source project %s.\n",
+	    table_name,source_project);
+	return FAIL;
+	}
+
+    V_FROMC(target,target_project);
+    EXEC SQL
+        SELECT NULL
+        FROM ALL_TABLES
+        WHERE OWNER = :target AND TABLE_NAME = :tabname;
+    if(OR_STATUS == OR_EOF) 
+	{
+        printf("====> Table %s exists in source project %s, but it DOES \
+NOT EXIST in target project %s.\n",
+	    table_name,source_project,target_project);
+	return FAIL;
+	}
+
+    return SUCCESS;
+orerror:
+    printf("      Oracle error %s encounted while checking if %s table \
+exist in both project.\n",mg_message(OR_STATUS),table_name);
+    return OR_STATUS;
+}
+
+/****************************************************************************/
+/*									    */
+/*  CPZ_TABLES_COMPATIBLE						    */
+/*									    */
+/*  Create a node in the DIFF_COLUMNS linked list which contains	    */
+/*  information on different columns in table 'table_name' between	    */
+/*  'source_project' and 'target_project'.				    */
+/*									    */
+/*  Returns:  SUCCESS							    */
+/*									    */
+/****************************************************************************/
+privatedef INT cpz_tables_compatible(table_name)
+CHAR *table_name;
+{
+BOOL FirstInfo=TRUE;
+COLUMN_NAME column_name;
+INT status=SUCCESS;
+
+EXEC SQL BEGIN DECLARE SECTION;
+    privatedef VARCHAR tabname[32];
+    privatedef VARCHAR source[32];
+    privatedef VARCHAR target[32];
+    privatedef VARCHAR colname[32];
+    privatedef char nullable;
+EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO orerror;
+
+    V_FROMC(tabname,table_name);
+    V_FROMC(source,source_project);
+    V_FROMC(target,target_project);
+
+                             /*  check whether table of source_project is
+                             greater than that of target_project. If it is
+                             greater then analyze the differences, otherwise
+                             continue */
+    EXEC SQL DECLARE ANALYZE_C1 CURSOR FOR
+	SELECT COLUMN_NAME 
+	    FROM ACCESSIBLE_COLUMNS 
+	    WHERE TABLE_NAME=:tabname AND OWNER=:source AND
+	    COLUMN_NAME NOT IN (SELECT COLUMN_NAME 
+	    	FROM ACCESSIBLE_COLUMNS 
+	    	WHERE TABLE_NAME=:tabname AND OWNER=:target);
+    EXEC SQL OPEN ANALYZE_C1;
+   	
+    FOREVER
+	{
+	EXEC SQL FETCH ANALYZE_C1 INTO :colname;
+	if(OR_STATUS == OR_EOF) break;
+	V_SETZERO(colname);
+	if(FirstInfo)
+	    {
+	    printf("====> Table %s has more columns in source project \
+%s.\n       ******* COPY TABLE DENIED *******\n",table_name,source_project);
+	    FirstInfo=FALSE;
+            }
+	V_FROMV(column_name,colname);
+	printf("      Column '%s'\n",column_name);
+	status=FAIL;
+	}
+    EXEC SQL CLOSE ANALYZE_C1;
+
+    FirstInfo=TRUE;
+    EXEC SQL DECLARE ANALYZE_C2 CURSOR FOR
+	SELECT COLUMN_NAME 
+	    FROM ACCESSIBLE_COLUMNS 
+	    WHERE TABLE_NAME=:tabname AND OWNER=:target AND
+		COLUMN_NAME NOT IN (SELECT COLUMN_NAME 
+	    		FROM ACCESSIBLE_COLUMNS 
+    			WHERE TABLE_NAME=:tabname AND OWNER=:source);
+    EXEC SQL OPEN ANALYZE_C2;
+
+    FOREVER 
+	{
+	EXEC SQL FETCH ANALYZE_C2 INTO :colname;
+
+	if(OR_STATUS == OR_EOF) break;
+	V_SETZERO(colname);
+
+	if(FirstInfo)
+	    {
+	    if(status != FAIL) 
+		printf("====> Table %s has more columns in target \
+project %s.\n",table_name,target_project);
+	    FirstInfo=FALSE;
+            }
+	V_FROMV(column_name,colname);
+	printf("      Column '%s' ",column_name);
+	EXEC SQL 
+	    SELECT NULLABLE INTO :nullable 
+	    FROM ACCESSIBLE_COLUMNS 
+	    WHERE TABLE_NAME=:tabname AND OWNER=:target AND 
+		  COLUMN_NAME=:colname;
+
+	if(nullable EQUALS 'Y')
+	    printf(" is nullable.\n");
+	else
+	    {
+	    printf(" is not nullable. ******* COPY TABLE DENIED *******\n");
+	    if(status EQUALS SUCCESS) status=FAIL;
+	    }
+	}
+
+    EXEC SQL CLOSE ANALYZE_C2;
+
+    return status;
+orerror:
+    printf("      Oracle error %s encounted while comparing %s table \
+in both project.\n",mg_message(OR_STATUS),table_name);
+    return OR_STATUS;
+}
+
+
+/****************************************************************************/
+/*									    */
+/*  cpz_CARTOGRAPHY  							    */
+/*									    */
+/*  update coordinate pairs if target project has a different default	    */
+/*  projection with source project					    */
+/*									    */
+/*  Returns:  SUCCESS,OR_STATUS						    */
+/*									    */
+/****************************************************************************/
+
+privatedef INT cpz_cartography(table_name,lookup_column)
+CHAR *table_name;
+CHAR *lookup_column;
+{
+    INT status=SUCCESS;
+    COLUMN_NAME x_coord,y_coord;
+    INT nlinks,i;
+    LISTHEAD key_list;
+
+EXEC SQL BEGIN DECLARE SECTION;
+    privatedef VARCHAR tabname[32];
+    VARCHAR sqlstmt[500];
+    privatedef VARCHAR xcoord[32],ycoord[32];
+    privatedef double x_in,x_out,y_in,y_out;
+    privatedef VARCHAR rid[19];
+    privatedef VARCHAR key_column_id[32];
+EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO orerror;
+
+    V_FROMC(tabname,table_name);
+
+/* do coord pairs (x coord and y coord) */
+
+    EXEC SQL DECLARE COORD_C0 CURSOR FOR 
+    	SELECT A.CNAME,B.CNAME 
+	FROM ESI.FINDER_COLUMN_COUPLING A,ESI.FINDER_COLUMNS C,
+	ESI.FINDER_COLUMN_COUPLING B,ESI.FINDER_COLUMNS D 
+	WHERE A.CNAME=C.CNAME  AND B.CNAME=D.CNAME  AND 
+	  A.COUPLE_TYPE='COORD' AND A.COUPLE_ID=B.COUPLE_ID AND 
+	  A.TNAME=:tabname AND B.TNAME=:tabname AND 
+	  C.TNAME=:tabname AND D.TNAME=:tabname AND 
+	  C.DOMAIN=40 AND D.DOMAIN=41;
+    EXEC SQL OPEN COORD_C0;
+
+    switch(table_data_type)
+    	{
+	case CP_WELL_DTYPE :
+	    if(ARE_SAME(lookup_column,key_column))
+		key_list = uwi_key_ll;
+	    else
+		key_list = nodeid_key_ll;
+	    break;
+	case CP_SEISMIC_DTYPE :
+	    if(ARE_SAME(lookup_column,key_column))
+		key_list = lineid_key_ll;
+	    else
+		key_list = survey_key_ll;
+	    break;
+	case CP_CULTURE_DTYPE :
+	    if(ARE_SAME(lookup_column,key_column))
+	    	key_list = lynxid_key_ll;
+	    else
+		key_list = arcid_key_ll;
+	    break;
+	case CP_CODES_DTYPE :
+	    sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+	    "SELECT DISTINCT %s FROM %s.%s",
+	    lookup_column,target_project,table_name);
+	    EXEC SQL PREPARE CODE_S FROM :sqlstmt;
+	    EXEC SQL DECLARE CODE_C CURSOR FOR CODE_S;
+	    EXEC SQL OPEN CODE_C;
+	    break;
+	case CP_GRAPHIC_OBJECT :
+	    if(ARE_SAME(lookup_column,key_column))
+	        key_list = go_objectid_key_ll;
+	    else
+		key_list = go_itemid_key_ll;
+	    break;
+	}		
+
+    if(table_data_type != CP_CODES_DTYPE)
+   	nlinks = llcount(&key_list);
+
+    FOREVER
+	{
+    	EXEC SQL FETCH COORD_C0 INTO :xcoord,:ycoord;
+	V_SETZERO(xcoord);V_SETZERO(ycoord);   
+	if(OR_STATUS == OR_EOF) break;
+
+	V_FROMV(x_coord,xcoord);
+	V_FROMV(y_coord,ycoord);
+
+            /* get value and rowid defined by the select list
+               (wells or seismic) */
+
+	sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+	"SELECT %s,%s,ROWID FROM %s.%s WHERE %s = :key_column_id",
+	x_coord,y_coord,
+	target_project,table_name,
+	lookup_column);
+	EXEC SQL PREPARE COORD_S1 FROM :sqlstmt;
+	EXEC SQL DECLARE COORD_C1 CURSOR FOR COORD_S1;
+
+	sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+	"UPDATE %s.%s SET %s=:x_out, %s=:y_out WHERE ROWID=:rid",
+	target_project,table_name,
+    	x_coord,y_coord);
+	EXEC SQL PREPARE COORD_S2 FROM :sqlstmt;
+
+	i=1;
+	FOREVER
+	    {
+	    if(table_data_type EQUALS CP_CODES_DTYPE)
+		{
+		EXEC SQL FETCH CODE_C INTO :key_column_id;
+		if(OR_STATUS EQUALS OR_EOF) break;
+	        V_SETZERO(key_column_id);
+		}
+	    else
+		{
+		if(i > nlinks) break;
+	    	llgetn(&key_list,(VOIDPTR)key_column_id.arr,i);
+		i++;
+	    	V_SETLEN(key_column_id);
+		}
+
+	    EXEC SQL OPEN COORD_C1 USING :key_column_id;
+	    EXEC SQL FETCH COORD_C1 INTO :x_in,:y_in,:rid;
+	    if(OR_STATUS == OR_EOF) continue;
+
+	    status=ct_transform_point(x_in,y_in,source_proj_struct,
+				      &x_out,&y_out,target_proj_struct);   
+	    if(status != SUCCESS) return status;
+	    EXEC SQL EXECUTE COORD_S2 USING :x_out,:y_out,:rid;
+	    }
+	}
+    if(nlinks >0)
+    	EXEC SQL CLOSE COORD_C1;
+    EXEC SQL CLOSE COORD_C0;
+
+    commitwork();
+
+    printf("      Cartography transformation successfully completed \
+on %s table. \n",table_name); 
+    return status;
+
+orerror:
+    rollbkwk();
+    printf("      Oracle error %s encounted while doing cartographic \
+transformation on %s table.\n",mg_message(OR_STATUS),table_name);
+    return OR_STATUS;
+}	
+
+privatedef INT cpz_need_transformation(table_name)
+CHAR *table_name;
+{
+EXEC SQL BEGIN DECLARE SECTION;
+    privatedef VARCHAR tabname[32];
+EXEC SQL END DECLARE SECTION;
+
+    V_FROMC(tabname,table_name);
+    EXEC SQL SELECT DISTINCT NULL FROM ESI.FINDER_COLUMN_COUPLING
+        WHERE TNAME=:tabname AND COUPLE_TYPE = 'COORD';
+    if(OR_STATUS EQUALS OR_EOF) return FALSE;
+    
+    return TRUE;
+orerror:
+    return FALSE;
+
+}
+
+
+privatedef INT cpz_nlist_exist(table_name)
+CHAR *table_name;
+{
+EXEC SQL BEGIN DECLARE SECTION;
+    privatedef VARCHAR tabname[32];
+EXEC SQL END DECLARE SECTION;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO orerror;
+
+    V_FROMC(tabname,table_name);
+
+    EXEC SQL 
+	SELECT DISTINCT NULL 
+	FROM ESI.FINDER_NLIST_MAPPING
+	WHERE TNAME=:tabname;
+    if(OR_STATUS == OR_EOF) return FALSE;
+   
+    return TRUE;
+
+orerror:
+    return FALSE;
+}
+
+/****************************************************************************/
+/*									    */
+/*  cpz_COPY_NLISTS							    */
+/*									    */
+/*  Copy nlist related with all moved nlist_id from source project to	    */
+/*  target project directories						    */
+/*  This function will call a child process called 'cpz_target_nlist'	    */
+/*									    */
+/*  Returns:  SUCCESS							    */
+/*									    */
+/****************************************************************************/
+    
+privatedef INT cpz_copy_nlists(table_name,lookup_column)
+CHAR *table_name;
+CHAR *lookup_column;
+{
+    COLUMN_NAME column_name,rowid;
+    NLIST_ID column_value,nlist_id;
+    FILENAME nlist_file,temp_filename,full_filename;  
+    PATHNAME logical_name;
+    INT i,nlinks,status;
+    UINT col_list[2];
+    INT table_flag;
+    INT nlist_count=0;
+    LISTHEAD key_list;
+
+
+EXEC SQL BEGIN DECLARE SECTION;
+    privatedef VARCHAR tabname[32];
+    VARCHAR sqlstmt[500];
+    privatedef VARCHAR target[32];
+    privatedef VARCHAR colname[32];
+    privatedef VARCHAR rid[19];
+    privatedef VARCHAR key_column_id[20];
+EXEC SQL END DECLARE SECTION;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO orerror;
+        
+    V_FROMC(tabname,table_name);
+    V_FROMC(target,target_project);
+
+    EXEC SQL DECLARE NLISTC2 CURSOR FOR
+	SELECT DISTINCT CNAME 
+	FROM ESI.FINDER_NLIST_MAPPING
+	WHERE TNAME=:tabname;
+    EXEC SQL OPEN NLISTC2;
+
+    sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+    "SELECT ROWID FROM %s.%s WHERE %s = :key_column_id",
+	target_project,table_name,lookup_column);
+    EXEC SQL PREPARE NLISTS3 FROM :sqlstmt;
+    EXEC SQL DECLARE NLISTC3 CURSOR FOR NLISTS3;
+    
+    EXEC SQL WHENEVER NOTFOUND CONTINUE;
+
+    switch(table_data_type)
+    	{
+	case CP_WELL_DTYPE :
+	    if(ARE_SAME(lookup_column,key_column))
+		key_list = uwi_key_ll;
+	    else
+		key_list = nodeid_key_ll;
+	    break;
+	case CP_SEISMIC_DTYPE :
+	    if(ARE_SAME(lookup_column,key_column))
+		key_list = lineid_key_ll;
+	    else
+		key_list = survey_key_ll;
+	    break;
+	case CP_CULTURE_DTYPE :
+	    if(ARE_SAME(lookup_column,key_column))
+	    	key_list = lynxid_key_ll;
+	    else 
+		key_list = arcid_key_ll;
+	    break;
+	case CP_CODES_DTYPE :
+	    sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+	    "SELECT DISTINCT %s FROM %s.%s",
+	    lookup_column,target_project,table_name);
+	    EXEC SQL PREPARE CODE_S1 FROM :sqlstmt;
+	    EXEC SQL DECLARE CODE_C1 CURSOR FOR CODE_S1;
+	    EXEC SQL OPEN CODE_C1;
+	    break;
+	case CP_GRAPHIC_OBJECT :
+	    if(ARE_SAME(lookup_column,key_column))
+	        key_list = go_objectid_key_ll;
+	    else
+		key_list = go_itemid_key_ll;
+	    break;
+	}		
+
+    if(table_data_type != CP_CODES_DTYPE)
+   	nlinks = llcount(&key_list);
+
+	
+    FOREVER
+	{
+	EXEC SQL FETCH NLISTC2 INTO :colname;
+	if(OR_STATUS == OR_EOF) break;    
+
+	V_SETZERO(colname);
+	V_FROMV(column_name,colname);
+	
+	i=1;
+	FOREVER
+	    {
+	    if(table_data_type EQUALS CP_CODES_DTYPE)
+		{
+		EXEC SQL FETCH CODE_C1 INTO :key_column_id;
+		if(OR_STATUS EQUALS OR_EOF) break;
+	        V_SETZERO(key_column_id);
+		}
+	    else
+		{
+		if(i > nlinks) break;
+	    	llgetn(&key_list,(VOIDPTR)key_column_id.arr,i);
+		i++;
+	    	V_SETLEN(key_column_id);
+		}
+
+	    EXEC SQL OPEN NLISTC3 USING :key_column_id;
+	    EXEC SQL FETCH NLISTC3 INTO :rid;
+	    if(OR_STATUS EQUALS OR_EOF) continue;
+
+	    V_FROMV(rowid,rid);
+	    status=cp_get_filename(rowid,target_project,table_name,column_name,
+			    "",logical_name,nlist_file,nlist_id,col_list);
+	    if (status != SUCCESS OR IS_EMPTY_STRING(nlist_file) 
+		OR IS_EMPTY_STRING(nlist_id) OR IS_EMPTY_STRING(logical_name)
+		OR strncmp(nlist_file,"--FAULT--",9) EQUALS 0)
+		continue;
+
+	    if(is_full_ospathname(table_name))
+		{
+	        status = ho_parse_pathname(nlist_file,temp_filename,
+					full_filename);
+	        strcpy(temp_filename,nlist_file);
+		strcpy(nlist_file,full_filename);
+		}
+	    else
+		{
+	    	status=ho_add_path(logical_name, nlist_file ,
+				MAXPATHLENGTH, temp_filename);
+		}
+	    if(status != SUCCESS) 
+		{
+		printf("      Error %s encountered while appending \
+pathname %s to filename %s. Please contact your Database Administrator.\n",
+		mg_message(status),logical_name,nlist_file);
+		continue;
+		}
+	    if((status=ho_translate_filename(temp_filename,full_filename)) 
+							EQUALS SUCCESS)
+		{
+		nlist_count++;
+
+			/* SOME TABLES NEED TO BE UPDATED IF TRANSFORMATION
+			   APPLICABLE. THUS WE NEED TO PASS A FLAG TO THE
+			   COPY NLIST TOOLS TO FIGURE OUT WHAT TO UPDATE IN
+			   THE SPECIFIED TABLE */
+
+		table_flag = cpz_table_flag(table_name,column_name);
+		fprintf(list_file,"%-6d%-80s%-30s%-30s%-30s%-4d%-4d%-4d",
+			nlist_count, 
+			full_filename, 
+			logical_name,
+			nlist_file,
+			nlist_id,
+			col_list[0],
+			col_list[1],
+			table_flag);
+		if(table_flag EQUALS CP_GRAPHIC_OBJECT_EXTENDS OR
+		   table_flag EQUALS CP_LYNX_OBJECTS_EXTENDS)
+		    fprintf(list_file,"%-30s\n",(char *)key_column_id.arr);
+		else
+		    fprintf(list_file,"\n");	
+		}
+	    }
+	}
+
+    EXEC SQL CLOSE NLISTC2;
+    
+    printf("      Copy nlist will be done on table %s.\n",table_name);
+    return SUCCESS;
+orerror:
+    printf("      Oracle error %s encountered while preparing nlist to \
+be copied along with %s table.\n",mg_message(OR_STATUS),table_name);
+    return OR_STATUS;
+}
+
+
+privatedef INT cpz_insert_table(table_name,nrows,lookup_column)
+CHAR *table_name;
+INT *nrows;
+CHAR *lookup_column;
+   {
+    INT status;
+    CHAR arg_stmt[512];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    privatedef VARCHAR tabname[32];
+    privatedef VARCHAR colname[32];
+    privatedef VARCHAR source[32];
+    privatedef int domain;
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO orerror;
+    EXEC SQL WHENEVER NOT FOUND CONTINUE;
+
+    V_FROMC(source,source_project);
+    V_FROMC(tabname,table_name);
+
+        /*  Get temporary table name where the select list */
+    switch(table_data_type)
+	{
+	case CP_WELL_DTYPE:
+	    domain = UWI_DOMAIN;
+	    strcpy(local_table_name,"TEMP_WELL_LISTS");
+	    strcpy(local_key_column,"KEY_UWI");
+	    break;
+	case CP_SEISMIC_DTYPE:
+	    domain = SEISLINE_ID_DOMAIN;
+	    strcpy(local_table_name,"TEMP_SEISMIC_LISTS");
+	    strcpy(local_key_column,"LINE_ID");
+	    break;
+	case CP_LEASE_DTYPE:
+	    domain = LEASE_ID_DOMAIN;
+	    strcpy(local_table_name,"TEMP_LEASE_LISTS");
+	    strcpy(local_key_column,"TEMP_LEASE_ID");
+	    break;
+	case CP_CULTURE_DTYPE:
+	    domain = LYNX_ID_DOMAIN;
+	    strcpy(local_table_name,"TEMP_LYNX_LISTS");
+	    strcpy(local_key_column,"LYNX_ID");
+	    break;
+	case CP_GRAPHIC_OBJECT:
+	    domain = GO_OBJECT_ID_DOMAIN;
+	    strcpy(local_table_name,"TEMP_GO_LISTS");
+	    strcpy(local_key_column,"OBJECT_ID");
+	    break;
+    	case CP_CODES_DTYPE:
+	    cpz_retrieve_lookup_column(table_name,lookup_column);
+            sprintf((CHAR *)arg_stmt,
+            "SELECT DISTINCT * FROM %s.%s",source_project,table_name);
+    	    return cpz_execute_insertion(table_name,arg_stmt,nrows);
+	    break;
+        }
+
+    EXEC SQL DECLARE C_DTYPE CURSOR FOR
+	SELECT CNAME FROM ESI.FINDER_COLUMNS 
+	WHERE TNAME = :tabname AND DOMAIN=:domain ORDER BY PRIMARY_KEY;
+    EXEC SQL OPEN C_DTYPE;
+    EXEC SQL FETCH C_DTYPE INTO :colname;
+
+    if (OR_STATUS EQUALS OR_EOF)
+	{
+	status = cpz_no_keycolumn_tables(table_name,arg_stmt,lookup_column);
+	if (status EQUALS FAIL) goto not_found;
+	else if (status != SUCCESS) goto error;
+	}
+    else
+	{
+    	V_SETZERO(colname);
+    	V_FROMV(key_column,colname);
+	if(ARE_SAME(table_name,LYNX_ARC_TABLE))
+	    strcpy(key_column,"LYNX_ID");
+	strcpy(lookup_column,key_column);
+        sprintf((CHAR *)arg_stmt,
+        "SELECT DISTINCT * FROM %s.%s \
+WHERE %s IN \
+(SELECT DISTINCT %s FROM %s \
+WHERE TEMP_PROCESS_ID = %d AND \
+TEMP_LIST_NAME = '%s')",
+	source_project,table_name,
+	key_column,local_key_column,local_table_name,
+	process_id,temp_list_name);
+	}
+
+    return cpz_execute_insertion(table_name,arg_stmt,nrows);
+
+error:
+    printf("====> Error %s encountered while inserting rows in %s \
+table.\n",mg_message(status),table_name);
+    rollbkwk ();
+    return status;
+
+orerror:
+    printf("====> Oracle error %s encountered while inserting rows in \
+%s table.\n",mg_message(OR_STATUS),table_name);
+    rollbkwk ();
+    return OR_STATUS;
+
+not_found:
+    printf("====> Table %s is not being moved, no information needed \
+from this table.\n",table_name);
+    return FAIL;
+}
+
+privatedef INT cpz_execute_insertion(table_name,arg_stmt,nrows)
+CHAR *table_name;
+CHAR *arg_stmt;
+INT *nrows;
+{
+    INT status;
+
+    status = parse_sql(arg_stmt);
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+	goto error;		
+        }
+    bdp->N = bdsize;
+    status = descbind ();
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+	goto error;
+        }
+    /* get any values required for the bind */
+    if (bdp->F IS_NOT_EQUAL_TO 0 AND (status = getbvvals (&vars)) IS_NOT_EQUAL_TO SUCCESS)
+        {
+	goto error;
+        }
+    /* open the cursor */
+    EXEC SQL OPEN C USING DESCRIPTOR bdp;
+    if (OR_STATUS IS_NOT_EQUAL_TO SUCCESS)
+        {
+	goto orerror;
+        }
+    cursor_open = TRUE;
+    
+    sdp->N = sdsize;
+    status = descsel ();        /* describe the SELECT variables */
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+	{
+	goto error;
+	}
+    if (sdp->F IS_NOT_EQUAL_TO 0)
+	{
+	fillseldesc ();
+        }
+
+        /* perform fetches for SELECT and insert into */
+     doinsert (table_name,nrows);
+
+	/* do filtering on table for special case only */
+     if(*nrows > 0)
+	cp_invoke_filter_method(table_name);
+		
+    return SUCCESS;
+error:
+    printf("====> Error %s encountered while inserting rows in %s \
+table.\n",mg_message(status),table_name);
+    rollbkwk ();
+    return status;
+orerror:
+    printf("====> Oracle error %s encountered while inserting rows in \
+%s table.\n",mg_message(OR_STATUS),table_name);
+    rollbkwk ();
+    return OR_STATUS;
+not_found:
+    printf("====> Table %s is not being moved, no information needed \
+from this table.\n",table_name);
+    return FAIL;
+    }
+
+
+#if USE_PROTOTYPES
+privatedef INT cpz_no_keycolumn_tables(CHAR *table_name, CHAR *stmt,
+					CHAR *lookup_column)
+#else
+privatedef INT cpz_no_keycolumn_tables(table_name,stmt,lookup_column)
+CHAR *table_name;
+CHAR *stmt;
+CHAR *lookup_column;
+#endif
+{
+INT status;
+CHAR buff[120];
+
+    EXEC SQL BEGIN DECLARE SECTION;
+    privatedef VARCHAR tabname[32];
+    privatedef VARCHAR colname[32];
+    privatedef VARCHAR dtype[32];
+    privatedef int domain;
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO orerror;
+    EXEC SQL WHENEVER NOT FOUND GOTO orerror;
+
+
+    if(ARE_SAME(table_name,"LINES"))
+	{
+	cpz_retrieve_lookup_column(table_name,lookup_column);
+	sprintf((char *)stmt,
+    	"SELECT DISTINCT * FROM %s.%s WHERE %s IN \
+(SELECT DISTINCT ITEM_ID FROM %s.GRAPHIC_OBJECT_CORRELATIONS WHERE \
+ITEM_CLASS = 'LINE' AND OBJECT_ID IN \
+(SELECT DISTINCT OBJECT_ID FROM TEMP_GO_LISTS WHERE TEMP_PROCESS_ID = %d \
+AND TEMP_LIST_NAME = '%s'))",
+    	source_project,table_name,lookup_column,source_project,
+       	process_id,temp_list_name);
+    	return SUCCESS;
+	}
+    else if(ARE_SAME(table_name,"TEXT") AND 
+	table_data_type EQUALS CP_GRAPHIC_OBJECT)
+	{
+	cpz_retrieve_lookup_column(table_name,lookup_column);
+	sprintf((char *)stmt,
+    	"SELECT DISTINCT * FROM %s.%s WHERE %s IN \
+(SELECT DISTINCT ITEM_ID FROM %s.GRAPHIC_OBJECT_CORRELATIONS WHERE \
+ITEM_CLASS = 'TEXT' AND OBJECT_ID IN \
+(SELECT DISTINCT OBJECT_ID FROM TEMP_GO_LISTS WHERE TEMP_PROCESS_ID = %d \
+AND TEMP_LIST_NAME = '%s'))",
+    	source_project,table_name,lookup_column,source_project,
+       	process_id,temp_list_name);
+    	return SUCCESS;
+	}
+    else if(ARE_SAME(table_name,"SEIS_FAULT_TRACE"))
+	{ 
+	cpz_retrieve_lookup_column(table_name,lookup_column);
+	sprintf((char *)stmt,
+	"SELECT DISTINCT * FROM %s.%s WHERE %s IN \
+(SELECT DISTINCT LINE_ID FROM %s.LINES WHERE \
+NLIST_FILE LIKE '--FAULT--%%')",
+	source_project,table_name,lookup_column,source_project,
+        process_id,temp_list_name);
+    	return SUCCESS;
+	}
+	
+    V_FROMC(tabname,table_name);
+    EXEC SQL SELECT DATA_TYPE INTO :dtype 
+	FROM ESI.FINDER_TABLES 
+	WHERE TNAME = :tabname;
+    V_SETZERO(dtype);
+
+    EXEC SQL WHENEVER NOT FOUND CONTINUE;
+
+    if(ARE_SAME((char *)dtype.arr,"ZONE"))
+	{
+	strcpy(lookup_column,"ZONE");
+	sprintf((char *)stmt,
+	"SELECT DISTINCT * FROM %s.%s",
+	source_project,table_name);
+	return SUCCESS;
+	}
+
+     else if(ARE_SAME((char *)dtype.arr,"SEISMIC"))
+	{
+		/* TABLES WITH SURVEY */
+	domain = SURVEY_DOMAIN;
+	EXEC SQL SELECT CNAME INTO :colname
+	    FROM ESI.FINDER_COLUMNS 
+	    WHERE TNAME = :tabname AND DOMAIN= :domain;
+	V_SETZERO(colname);
+	if(OR_STATUS != OR_EOF)
+	    {
+	    V_FROMV(lookup_column,colname);
+	    sprintf((char *)stmt,
+	    "SELECT DISTINCT * FROM %s.%s \
+WHERE %s IN (SELECT SURVEY FROM %s.%s WHERE %s IN \
+(SELECT DISTINCT LINE_ID FROM TEMP_SEISMIC_LISTS WHERE TEMP_PROCESS_ID = %d \
+AND TEMP_LIST_NAME = '%s'))",
+    	    source_project,table_name,(char *)colname.arr,
+	    source_project,SEISMIC_HDR_TABLE,SEISMIC_KEY_COLUMN,
+	    process_id,temp_list_name);
+	    return SUCCESS;
+	    }
+
+		/* TABLES WITH VEL_ID */
+
+	domain = SEIS_VEL_ID_DOMAIN;
+	EXEC SQL SELECT CNAME INTO :colname
+	    FROM ESI.FINDER_COLUMNS 
+	    WHERE TNAME = :tabname AND DOMAIN=:domain;
+	V_SETZERO(colname);
+	if(OR_STATUS != OR_EOF)
+	    {
+	    V_FROMV(lookup_column,colname);
+	    sprintf((char *)stmt,
+	    "SELECT DISTINCT * FROM %s.%s \
+WHERE %s IN (SELECT VEL_ID FROM %s.SEIS_VEL_HDR WHERE %s IN \
+(SELECT DISTINCT LINE_ID FROM TEMP_SEISMIC_LISTS WHERE TEMP_PROCESS_ID = %d \
+AND TEMP_LIST_NAME = '%s'))",
+    	    source_project,table_name,(char *)colname.arr,
+	    source_project,SEISMIC_KEY_COLUMN,
+	    process_id,temp_list_name);
+	    return SUCCESS;
+	    }
+	}
+
+     else if(ARE_SAME((char *)dtype.arr,"WELLS"))
+	{
+		/* TABLES WITH NODE_ID */
+	domain = NODE_ID_DOMAIN;
+	EXEC SQL SELECT CNAME INTO :colname
+	    FROM ESI.FINDER_COLUMNS 
+	    WHERE TNAME = :tabname AND DOMAIN=:domain;
+	V_SETZERO(colname);
+	if(OR_STATUS != OR_EOF)	
+	    {
+	    V_FROMV(lookup_column,colname);
+	    sprintf((char *)stmt,
+    	    "SELECT DISTINCT * FROM %s.%s WHERE %s IN \
+(SELECT NODE_ID FROM %s.%s WHERE %s IN \
+(SELECT DISTINCT KEY_UWI FROM TEMP_WELL_LISTS \
+WHERE TEMP_PROCESS_ID=%d AND TEMP_LIST_NAME='%s'))",
+    	    source_project,table_name,(char *)colname.arr,
+    	    source_project,WELL_HDR_TABLE,WELL_KEY_COLUMN,
+	    process_id,temp_list_name);
+	
+	    return SUCCESS;
+	    }
+
+		/* TABLES WITH TRACE_ID */
+	domain = TRACE_ID_DOMAIN;
+	EXEC SQL SELECT CNAME INTO :colname
+	    FROM ESI.FINDER_COLUMNS 
+	    WHERE TNAME = :tabname AND DOMAIN=:domain;
+	V_SETZERO(colname);
+	if(OR_STATUS != OR_EOF)	
+	    {
+	    V_FROMV(lookup_column,colname);
+	    sprintf((char *)stmt,
+    	    "SELECT DISTINCT * FROM %s.%s WHERE %s IN \
+(SELECT TRACE_ID FROM %s.WELL_LOG_CURVE_HDR WHERE %s IN \
+(SELECT DISTINCT KEY_UWI FROM TEMP_WELL_LISTS \
+WHERE TEMP_PROCESS_ID=%d AND TEMP_LIST_NAME='%s'))",
+    	    source_project,table_name,(char *)colname.arr,
+    	    source_project,WELL_KEY_COLUMN,
+	    process_id,temp_list_name);
+	
+	    return SUCCESS;
+	    }
+	}
+
+     else if(ARE_SAME((char *)dtype.arr,"GRAPHIC_OBJECT"))
+	{
+	domain = GO_OBJECT_NAME_DOMAIN;
+	EXEC SQL SELECT CNAME INTO :colname
+	    FROM ESI.FINDER_COLUMNS 
+	    WHERE TNAME = :tabname AND DOMAIN=:domain;
+	V_SETZERO(colname);
+	if(OR_STATUS != OR_EOF)	
+	    {
+	    V_FROMV(lookup_column,colname);
+	    sprintf((char *)stmt,
+    	    "SELECT DISTINCT * FROM %s.%s WHERE %s IN \
+(SELECT OBJECT_NAME FROM %s.%s WHERE %s IN \
+(SELECT DISTINCT OBJECT_ID FROM TEMP_GO_LISTS \
+WHERE TEMP_PROCESS_ID=%d AND TEMP_LIST_NAME='%s'))",
+    	    source_project,table_name,(char *)colname.arr,
+    	    source_project,GO_HDR_TABLE,GO_KEY_COLUMN,
+	    process_id,temp_list_name);
+	    return SUCCESS;
+	    }
+	}
+     
+     else if(ARE_SAME((char *)dtype.arr,"CULTURE"))
+	{
+	status = cpz_retrieve_lookup_column(table_name,lookup_column);
+	if(status EQUALS SUCCESS)
+	    {
+	    sprintf((char *)stmt,
+    	    "SELECT DISTINCT * FROM %s.%s",
+    	    source_project,table_name);
+	    return SUCCESS;
+	    }	    
+	domain = ARC_ID_DOMAIN;
+	EXEC SQL SELECT CNAME INTO :colname
+	    FROM ESI.FINDER_COLUMNS 
+	    WHERE TNAME = :tabname AND DOMAIN=:domain;
+	V_SETZERO(colname);
+	if(OR_STATUS != OR_EOF)	
+	    {
+	    V_FROMV(lookup_column,colname);
+	    sprintf((char *)stmt,
+    	    "SELECT DISTINCT * FROM %s.%s WHERE %s IN \
+(SELECT LYNX_PART FROM %s.LYNX_LRFR WHERE LYNX_ID IN \
+(SELECT DISTINCT LYNX_ID FROM TEMP_LYNX_LISTS \
+WHERE TEMP_PROCESS_ID=%d AND TEMP_LIST_NAME='%s'))",
+    	    source_project,table_name,(char *)colname.arr,
+    	    source_project,
+	    process_id,temp_list_name);
+	    return SUCCESS;
+	    }
+
+	domain = DATA_TYPE_DOMAIN;
+	EXEC SQL SELECT CNAME INTO :colname
+	    FROM ESI.FINDER_COLUMNS 
+	    WHERE TNAME = :tabname AND DOMAIN=:domain;
+	V_SETZERO(colname);
+	if(OR_STATUS != OR_EOF)	
+	    {
+	    V_FROMV(lookup_column,colname);
+	    sprintf((char *)stmt,
+    	    "SELECT DISTINCT * FROM %s.%s WHERE %s IN \
+(SELECT DISTINCT DATA_TYPE FROM %s.LYNX_CULTURE WHERE LYNX_ID IN \
+(SELECT DISTINCT LYNX_ID FROM TEMP_LYNX_LISTS \
+WHERE TEMP_PROCESS_ID=%d AND TEMP_LIST_NAME='%s'))",
+    	    source_project,table_name,(char *)colname.arr,
+    	    source_project,
+	    process_id,temp_list_name);
+	    return SUCCESS;
+	    }
+
+	domain = GO_ITEM_ID_DOMAIN;
+	EXEC SQL SELECT CNAME INTO :colname
+	    FROM ESI.FINDER_COLUMNS 
+	    WHERE TNAME = :tabname AND DOMAIN=:domain;
+	V_SETZERO(colname);
+	if(OR_STATUS != OR_EOF)	
+	    {
+	    V_FROMV(lookup_column,colname);
+	    sprintf((char *)stmt,
+    	    "SELECT DISTINCT * FROM %s.%s WHERE %s IN \
+(SELECT DISTINCT TEXT_ID FROM %s.LYNX_TEXT WHERE LYNX_ID IN \
+(SELECT DISTINCT LYNX_ID FROM TEMP_LYNX_LISTS \
+WHERE TEMP_PROCESS_ID=%d AND TEMP_LIST_NAME='%s'))",
+    	    source_project,table_name,(char *)colname.arr,
+    	    source_project,
+	    process_id,temp_list_name);
+	    return SUCCESS;
+	    }
+	}
+     
+     return FAIL;
+orerror:
+    printf("      Oracle error %s encountered while preparing select \
+statement before inserting to %s table.\n",mg_message(OR_STATUS),table_name);
+    return OR_STATUS;
+}
+
+EXEC SQL WHENEVER SQLERROR CONTINUE;
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    privatedef INT cleanup();
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+    
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+privatedef INT cleanup ()
+    {
+    /* free up memory resources */
+    if (sdp->N IS_NOT_EQUAL_TO 0)
+        {
+        freeselvars ();
+        }
+    sqlclu (sdp);                   /* free the SELECT variable descriptor */
+    
+    if (vars IS_NOT_EQUAL_TO NULL)
+        {
+        tc_free (vars);
+        vars = NULL;
+        }
+    sqlclu (bdp);                   /* free the BIND   variable descriptor */
+    
+    if (cursor_open)
+        {
+        EXEC SQL CLOSE C;
+        }
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    privatedef INT commitwork();
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+    
+Return Value/Status:
+    OR_STATUS
+    
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+privatedef INT commitwork ()
+    {
+    EXEC SQL COMMIT WORK;
+    
+    return OR_STATUS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    privatedef INT descbind();
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+    
+Return Value/Status:
+    OR_STATUS
+    
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+privatedef INT descbind ()
+    {
+    /* describe the BIND variables */
+    
+    EXEC SQL DESCRIBE BIND VARIABLES FOR S INTO bdp;
+    
+    if (OR_STATUS EQUALS SUCCESS)
+        {
+        if (bdp->F < 0)
+            {
+            bdsize = -(bdp->F);
+            sqlclu (bdp);
+            bdp = (SQLDA *)sqlald (bdsize, bvsize, 0);
+            EXEC SQL DESCRIBE BIND VARIABLES FOR S INTO bdp;
+            }
+        bdp->N = bdp->F;
+        }
+    return OR_STATUS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    privatedef INT descsel();
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+    
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+privatedef INT descsel ()
+    {
+    /* describe the SELECT variables */
+    
+    EXEC SQL DESCRIBE SELECT LIST FOR S INTO sdp;
+    
+    if (sdp->F < 0)
+        {
+        sdsize = -(sdp->F);
+        sqlclu (sdp);
+        sdp = (SQLDA *)sqlald (sdsize, svsize, 0);
+        EXEC SQL DESCRIBE SELECT LIST FOR S INTO sdp;
+        }
+    sdp->N = sdp->F;
+    
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    privatedef INT doinsert();
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+privatedef INT doinsert (CHAR *table_name,INT *nrows)
+#else
+privatedef INT doinsert (table_name,nrows)
+CHAR *table_name;
+INT *nrows;
+#endif
+    {
+    INT count,c_no,c_update,out_count;
+    CHAR *f_string,*b_string,*u_string,*v_string;
+    CHAR buffer[100];
+    INT nbytes,extra_bytes;
+    CHAR *ps,*ps1,*ps2,*ps3;
+    INT len;    
+    INT status;
+    INT *column_domain,*primary_key,*nullable_column;
+
+    /* get the total max size that a row could be (+ 1 per col for 
+	trailing null + 1 for safety */
+    for (count = 0, nbytes = 0; count < sdp->N; count++)
+        {
+        nbytes += MAX (sdp->L[count], sdp->C[count]) + 2;
+        }
+
+    /* allocate enough room for this maximum size */
+    f_string = (CHAR *)tc_zalloc (nbytes*sizeof(CHAR));
+    b_string = (CHAR *)tc_zalloc (nbytes*sizeof(CHAR));
+
+    extra_bytes = nbytes + (sdp->N * 10);
+    u_string = (CHAR *)tc_zalloc (extra_bytes*sizeof(CHAR));
+    v_string = (CHAR *)tc_zalloc (extra_bytes*sizeof(CHAR));
+    column_domain = (INT *)tc_alloc(sizeof(INT)*sdp->N);
+    primary_key = (INT *)tc_alloc(sizeof(INT)*sdp->N);
+    nullable_column = (INT *)tc_alloc(sizeof(INT)*sdp->N);
+
+    /* print out column headings */
+    
+    for (count = 0, ps = f_string, ps1 = b_string, ps2=u_string, ps3=v_string;
+	count < sdp->N; 
+	count++, ps += strlen (ps), ps1 += strlen(ps1), 
+	ps2 += strlen(ps2), ps3 += strlen(ps3))
+        {
+		/* copy column_name found by doing DESCRIBE to temp buffer */
+	strncpy(buffer,sdp->S[count],sdp->C[count]);
+        buffer[sdp->C[count]] = 0;
+
+		/* Is this column a finder key column */
+	if(NOT is_key_column(table_name,buffer,&column_domain[count]))
+	    column_domain[count] = NOT_KEY_COLUMN;
+
+	if(option_flag & CP_UPDATE_OPTION AND 
+	   table_data_type != CP_GRAPHIC_OBJECT AND
+	   table_data_type != CP_CULTURE_DTYPE)
+	    {
+		/* Assume that all row fetch will not be empty */
+	    nullable_column[count] = FALSE;
+
+		/* Is this column not a primary key, will be updated if
+		   necessary and create update stmt attribute */
+	    if(NOT is_primary_key(table_name,buffer) AND
+	       column_domain[count] != SEISLINE_ID_DOMAIN AND
+               column_domain[count] != LYNX_ID_DOMAIN)
+	    	{
+	    	primary_key[count] = FALSE;
+	    	sprintf(ps2,"%s = :c%d,",buffer,count);
+	    	}
+		/* do not update if column is a key_column */
+	    else if((ARE_SAME(table_name,SEISMIC_HDR_TABLE) AND
+		     column_domain[count] EQUALS SEISLINE_ID_DOMAIN) OR
+	   	    (ARE_SAME(table_name,CULTURE_HDR_TABLE) AND
+		     column_domain[count] EQUALS LYNX_ID_DOMAIN))
+	    	{
+	    	primary_key[count] = FALSE;
+		}
+	    else
+		{		    
+	    	primary_key[count] = TRUE;
+	    	sprintf(ps3,"%s = :c%d AND ",buffer,count);
+	    	}
+	    }
+		/* create insert stmt attribute */
+	sprintf (ps, "%s,",buffer);
+	sprintf (ps1,":c%d,",count);
+        }
+
+	/* remove trailing "," from strings */
+    len	= strlen(f_string);
+    f_string[len-1] = 0;
+    len = strlen(b_string);
+    b_string[len-1] = 0;
+    len = strlen(u_string);
+    u_string[len-1] = 0;
+    len = strlen(v_string);
+    v_string[len-4] = 0;
+
+    stmt.len = sprintf ((CHAR *)stmt.arr,
+    "INSERT INTO %s.%s (%s) VALUES(%s)",
+    target_project,table_name,f_string,b_string);
+    EXEC SQL PREPARE S1 FROM :stmt;
+
+    if(option_flag & CP_UPDATE_OPTION AND
+       table_data_type != CP_GRAPHIC_OBJECT AND
+       table_data_type != CP_CULTURE_DTYPE)
+	{
+    	stmt.len = sprintf ((CHAR *)stmt.arr,
+    	"UPDATE %s.%s SET %s WHERE %s",
+    	target_project,table_name,u_string,v_string);
+    	EXEC SQL PREPARE S2 FROM :stmt;
+
+	if(is_seq_table_hdr(table_name))
+	    {
+       	    stmt.len = sprintf ((CHAR *)stmt.arr,
+            "SELECT %s FROM %s.%s WHERE %s",
+            key_column,target_project,table_name,v_string);
+	    EXEC SQL PREPARE S3 FROM :stmt;
+	    }
+	}
+	
+    /* here is where the fetches are actually performed */
+    
+    EXEC SQL WHENEVER NOT FOUND GOTO NOT_FOUND;
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+
+
+    c_no = 0;    
+    c_update = 0;
+    for (count = 0; ; count++)
+        {
+        clear_sdp_V();
+        EXEC SQL FETCH C USING DESCRIPTOR sdp;
+
+	if(NOT cpz_row_exist_in_header_table(column_domain,table_name))	
+	    {
+	    c_no ++;
+	    continue;	
+	    }
+
+	EXEC SQL EXECUTE S1 USING DESCRIPTOR sdp;
+	if(OR_STATUS EQUALS DUPLICATE_KEY)
+	   {
+	   if(option_flag & CP_UPDATE_OPTION AND
+	      table_data_type != CP_GRAPHIC_OBJECT AND
+	      table_data_type != CP_CULTURE_DTYPE)
+		{
+		cpz_update_row(table_name,column_domain,primary_key,
+			        nullable_column,nbytes,&out_count);
+		if(out_count) c_update ++;
+		else c_no ++;
+		}
+	   else
+		c_no ++;
+	   }
+	else if(OR_STATUS != SUCCESS)
+	    goto NOT_FOUND;
+        }
+
+NOT_FOUND:
+
+    len = count - c_no - c_update;
+
+    if(len > 0)
+	{
+        commitwork();
+	printf ( "====> %u row%scopied to %s table.\n", 
+	    len, len EQUALS 1 ? " " : "s ",table_name);
+	}
+
+    if((option_flag & CP_UPDATE_OPTION) AND c_update > 0)
+	{
+	printf ( "%s%u row%supdated in %s table.\n", 
+	len > 0 ? "      " : "====> ",
+	c_update,c_update EQUALS 1 ? " " : "s ",table_name);
+	}
+
+    *nrows = len;
+    tc_free (f_string);
+    tc_free (b_string);
+    tc_free (u_string);
+    tc_free (v_string);
+    tc_free (column_domain);
+    tc_free (primary_key);
+    tc_free (nullable_column);
+    return SUCCESS;
+error:
+    printf("====> Error %s encountered while updating %s table.\n",
+	table_name,mg_message(status));
+    return status;
+    }
+/* END:     */
+
+#if USE_PROTOTYPES
+privatedef INT cpz_update_row(CHAR *table_name,
+			      INT *column_domain,INT *primary_key,
+			      INT *nullable_column, INT nbytes,INT *c_update)
+#else
+privatedef INT cpz_update_row(table_name,column_domain,primary_key,
+			      nullable_column,nbytes,c_update)
+CHAR *table_name;
+INT *column_domain;
+INT *primary_key;
+INT *nullable_column;
+INT nbytes;
+INT *c_update;
+#endif
+{
+    BOOL same_w_prev;
+    CHAR *u_string,*v_string;
+    CHAR buffer[100];
+    CHAR entry[256];
+    CHAR *ps2,*ps3;
+    INT len, count;    
+    INT status, index, p_index;
+    INT key,value;
+privatedef LISTHEAD update_var_index;
+privatedef LISTHEAD primary_var_index;
+
+EXEC SQL BEGIN DECLARE SECTION;
+    privatedef VARCHAR key_column_id[20];
+EXEC SQL END DECLARE SECTION;
+
+    u_string = (CHAR *)tc_zalloc ((nbytes*2)*sizeof(CHAR));
+    v_string = (CHAR *)tc_zalloc ((nbytes*2)*sizeof(CHAR));
+    llinit(&update_var_index,0,sizeof(INT),0);
+    if(is_seq_table_hdr(table_name))
+	{
+	llinit(&primary_var_index,0,sizeof(INT),0);
+	}
+
+    /* print out UPDATE variables using non primary key, non key column,
+       and not null column */
+  
+    same_w_prev=TRUE;
+    for (count = index = 0, ps2=u_string;
+	count < sdp->N; 
+	count++, ps2 += strlen(ps2))
+        {
+	    /* Is this column not a primary key */
+	if(primary_key[count] OR column_domain[count] != NOT_KEY_COLUMN)
+	    {
+	    continue;
+	    }
+
+	     /* copy column_name found by doing DESCRIBE to temp buffer */
+	strncpy(buffer,sdp->S[count],sdp->C[count]);
+        buffer[sdp->C[count]] = 0;
+
+	     /* copy column entry */
+	strcpy(entry,sdp->V[count]);
+	entry[sdp->L[count]] = 0;
+	ts_trim(entry);
+
+	     /* Is column null ? If yes, skip do not update */
+        if(IS_STRING(entry))
+	    {	
+		/* check whether we can use the previous parse 
+		   update statement */
+   	    if(nullable_column[count])
+		same_w_prev=FALSE;
+
+	    nullable_column[count] = FALSE;
+		/* copy the descriptor structure from the select descriptor */
+    	    llappnd(&update_var_index,(VOIDPTR)&count);
+
+	    sprintf(ps2,"%s = :c%d,",buffer,count);
+	    index ++;
+	    }
+		/* check whether we can use the previous parse 
+		   update statement */
+	else
+	    {
+	    if(! nullable_column[count])
+	        same_w_prev = FALSE;
+	    nullable_column[count] = TRUE;
+	    }
+	}
+
+	/* This loop is to build WHERE clause using 
+	   PRIMARY KEY and KEY COLUMN */
+    for (count = p_index = 0, ps3=v_string;
+	count < sdp->N; 
+	count++, ps3 += strlen(ps3))
+        {
+	   /* remove new finder sequences that was created before 
+	      insertion failed */
+	if(column_domain[count] EQUALS SEISLINE_ID_DOMAIN AND
+	   ARE_SAME(table_name,SEISMIC_HDR_TABLE))
+	    {
+	    ht_delete(seisline_id_seq,(VOIDPTR)&hash_table_key);
+	    lldelb(&lineid_key_ll);
+	    continue;
+	    }
+	if(column_domain[count] EQUALS LYNX_ID_DOMAIN AND 
+	    ARE_SAME(table_name,CULTURE_HDR_TABLE))
+	    {
+	    ht_delete(lynx_id_seq,(VOIDPTR)&hash_table_key);
+	    lldelb(&lynxid_key_ll);
+	    continue;
+	    }
+	if(NOT primary_key[count])
+	    continue;
+
+	     /* copy column_name found by doing DESCRIBE to temp buffer */
+	strncpy(buffer,sdp->S[count],sdp->C[count]);
+        buffer[sdp->C[count]] = 0;
+	
+    	llappnd(&update_var_index,(VOIDPTR)&count);
+	index ++;
+
+    	if(is_seq_table_hdr(table_name))
+	    {
+    	    llappnd(&primary_var_index,(VOIDPTR)&count);
+	    p_index ++;
+	    }
+        sprintf(ps3,"%s = :c%d AND ",buffer,count);
+	}
+
+    fill_tempdesc(&update_sdp,&update_var_index);
+    if(p_index > 0)
+        fill_tempdesc(&primary_sdp,&primary_var_index);
+
+    if(NOT same_w_prev)
+	{
+	    /* remove trailing "," from string */
+        len = strlen(u_string);
+        u_string[len-1] = 0;
+        len = strlen(v_string);
+        v_string[len-4] = 0;
+
+    	stmt.len = sprintf ((CHAR *)stmt.arr,
+    	"UPDATE %s.%s SET %s WHERE %s",
+    	target_project,table_name,u_string,v_string);
+    	EXEC SQL PREPARE S2 FROM :stmt;
+	}
+
+    EXEC SQL EXECUTE S2 USING DESCRIPTOR update_sdp;
+
+    if(OR_STATUS EQUALS SUCCESS)
+	{
+	*c_update=1;
+    	if(is_seq_table_hdr(table_name))
+	    {
+	    EXEC SQL OPEN C3 USING DESCRIPTOR primary_sdp;
+	    EXEC SQL FETCH C3 INTO :key_column_id;
+
+     	    value = atoi((char *)key_column_id.arr);
+	    if(ARE_SAME(table_name,SEISMIC_HDR_TABLE))
+		{
+       	    	llappnd(&lineid_key_ll,(VOIDPTR)(char *)key_column_id.arr);
+   	        ht_insert(seisline_id_seq,(VOIDPTR)&hash_table_key,
+			(VOIDPTR)&value);
+		}
+	    if(ARE_SAME(table_name,CULTURE_HDR_TABLE))
+		{
+       	    	llappnd(&lynxid_key_ll,(VOIDPTR)(char *)key_column_id.arr);
+	        ht_insert(lynx_id_seq,(VOIDPTR)&hash_table_key,
+			(VOIDPTR)&value);
+		}
+	    }
+	}
+    else
+	*c_update = 0;
+
+NOT_FOUND:
+
+    tc_free (u_string);
+    tc_free (v_string);
+    llfree(&update_var_index);
+    free_tempdesc (update_sdp);
+    if(is_seq_table_hdr(table_name))
+	{
+        free_tempdesc (primary_sdp);
+	llfree(&primary_var_index);
+	}
+    return SUCCESS;
+}
+
+EXEC SQL WHENEVER NOT FOUND CONTINUE;
+EXEC SQL WHENEVER SQLERROR CONTINUE;
+    
+privatedef INT clear_sdp_V()
+{
+    INT i;
+
+    for(i = 0 ; i<sdp->N; i++)
+	sdp->V[i][0] = 0;
+
+}
+
+privatedef INT fill_tempdesc(out,index_list)
+SQLDA **out;
+LISTHEAD *index_list;
+{
+SQLDA *temp;
+INT nlinks,i,index;
+ 
+    nlinks = llcount(index_list);
+    if(nlinks < 1) return FAIL;
+
+    temp = (SQLDA *)tc_alloc (sizeof(SQLDA));
+    temp->N = nlinks;
+    temp->F = nlinks;
+    temp->V = (CHAR **)tc_alloc (sizeof(CHAR *)*nlinks);
+    temp->L = (INT *)tc_alloc (sizeof(INT)*nlinks);
+    temp->T = (short *)tc_alloc (sizeof(short)*nlinks);
+    temp->I = (short **)tc_alloc (sizeof(short *)*nlinks);
+    temp->S = (CHAR **)tc_alloc (sizeof(CHAR *)*nlinks);
+    temp->M = (short *)tc_alloc (sizeof(short)*nlinks);
+    temp->C = (short *)tc_alloc (sizeof(short)*nlinks);
+
+    for(i = 0 ; i < nlinks ; i++)
+	{
+    	llgetn(index_list,(VOIDPTR)&index,i+1);
+	cpz_copy_desc_struc(temp,i,index);
+	}
+    *out = temp;
+    return SUCCESS;
+
+}
+
+privatedef INT free_tempdesc(temp)
+SQLDA *temp;
+{
+INT i;
+     for (i=0 ; i < temp->N;i++)
+	{
+	tc_free(temp->V[i]);
+	tc_free(temp->S[i]);
+	}
+
+     tc_free (temp->V);
+     tc_free (temp->L);
+     tc_free (temp->T);
+     tc_free (temp->I);
+     tc_free (temp->S);
+     tc_free (temp->M);
+     tc_free (temp->C);
+    
+     tc_free (temp);
+}
+
+
+privatedef INT cpz_copy_desc_struc(temp_sdp,new_index,old_index)
+SQLDA *temp_sdp;
+INT new_index,old_index;
+{
+INT len;
+	/* V */
+     len = strlen(sdp->V[old_index]);
+     temp_sdp->V[new_index] = STRING_ALLOCATE (sdp->V[old_index]);
+     strcpy(temp_sdp->V[new_index],sdp->V[old_index]);
+     temp_sdp->V[new_index][len] = 0;
+	/* L */
+     temp_sdp->L[new_index] = sdp->L[old_index];
+	/* T */
+     temp_sdp->T[new_index] = sdp->T[old_index];
+	/* I */
+     temp_sdp->I[new_index] = (short *)tc_alloc(sizeof(short));
+     temp_sdp->I[new_index][0] = sdp->I[old_index][0];   
+	/* S */
+     temp_sdp->S[new_index] = STRING_ALLOCATE (sdp->S[old_index]);
+     strncpy(temp_sdp->S[new_index],sdp->S[old_index],sdp->C[old_index]);
+	/* M */
+     temp_sdp->M[new_index] = sdp->M[old_index];
+	/* C */
+     temp_sdp->C[new_index] = sdp->C[old_index];
+   
+     return SUCCESS;
+}
+
+privatedef INT cpz_row_exist_in_header_table(column_domain,table_name)
+INT *column_domain;
+CHAR *table_name;
+{
+    INT key,value;
+    INT i,j,status;
+    INT len;
+    CHAR buffer[1000];
+
+    for(i=0; i < sdp->N ; i++)
+	{
+	strncpy(buffer,sdp->S[i],sdp->C[i]);
+        buffer[sdp->C[i]] = 0;
+
+    	if(ARE_SAME(table_name,SEISMIC_HDR_TABLE) AND
+       	   ARE_SAME(buffer,"SURVEY"))
+	    {
+    	    strcpy(buffer,sdp->V[i]);
+    	    ts_snowhite(buffer);
+       	    llappnd(&survey_key_ll,(VOIDPTR)buffer);
+	    continue;
+	    }
+
+	if(column_domain[i] EQUALS NOT_KEY_COLUMN)
+	    continue;
+
+    	switch(column_domain[i])
+    	    {
+	    case SEISLINE_ID_DOMAIN :
+	      	hash_table_key = atoi(sdp->V[i]);
+	    	status = ht_find(seisline_id_seq,(VOIDPTR)&hash_table_key,
+				(VOIDPTR)&value);
+	        if(status EQUALS SUCCESS)
+		    break;
+
+		if(ARE_DIFFERENT(table_name,SEISMIC_HDR_TABLE))
+		    return FALSE;
+		    
+                get_new_sequence(column_domain[i],&value);
+		ht_insert(seisline_id_seq,(VOIDPTR)&hash_table_key,
+			(VOIDPTR)&value);
+
+            	sprintf(buffer,"%d",value);
+            	llappnd(&lineid_key_ll,(VOIDPTR)buffer);
+	    	break;
+	    case LYNX_ID_DOMAIN	:
+		hash_table_key = atoi(sdp->V[i]);
+		if(ARE_SAME(table_name,LYNX_ARC_TABLE) AND
+		   ARE_SAME(buffer,"LYNX_PART"))
+		    {
+	            get_new_sequence(ARC_ID_DOMAIN,&value);
+		    ht_insert(arc_id_seq,(VOIDPTR)&hash_table_key,
+			(VOIDPTR)&value);
+
+            	    sprintf(buffer,"%d",value);
+            	    llappnd(&arcid_key_ll,(VOIDPTR)buffer);
+	    	    break;
+		    }
+				   
+	    	status = ht_find(lynx_id_seq,(VOIDPTR)&hash_table_key,
+				(VOIDPTR)&value);
+	        if(status EQUALS SUCCESS)
+		    break;
+	        if(ARE_DIFFERENT(table_name,CULTURE_HDR_TABLE))
+		    return FALSE;
+
+	        get_new_sequence(column_domain[i],&value);
+		ht_insert(lynx_id_seq,(VOIDPTR)&hash_table_key,
+			(VOIDPTR)&value);
+
+            	sprintf(buffer,"%d",value);
+            	llappnd(&lynxid_key_ll,(VOIDPTR)buffer);
+	    	break;
+	    case ARC_ID_DOMAIN :
+		hash_table_key = atoi(sdp->V[i]);
+	    	status = ht_find(arc_id_seq,(VOIDPTR)&hash_table_key,
+				(VOIDPTR)&value);
+	        if(status EQUALS SUCCESS)
+		    break;
+		return FALSE;
+	    case NODE_ID_DOMAIN :
+		if(cpz_foreign_node_id_table(table_name,buffer))
+		     continue;
+
+		hash_table_key = atoi(sdp->V[i]);
+		status = ht_find(node_id_seq,(VOIDPTR)&hash_table_key,
+				(VOIDPTR)&value);
+		if(status EQUALS SUCCESS) break;
+		else return FALSE;
+	    case GO_OBJECT_ID_DOMAIN :
+		hash_table_key = atoi(sdp->V[i]);
+		status = ht_find(go_object_id_seq,(VOIDPTR)&hash_table_key,
+				(VOIDPTR)&value);
+		if(status EQUALS SUCCESS) break;
+
+		if(ARE_DIFFERENT(table_name,GO_HDR_TABLE))
+		    return FALSE;
+
+	        get_new_sequence(column_domain[i],&value);
+		ht_insert(go_object_id_seq,(VOIDPTR)&hash_table_key,
+			(VOIDPTR)&value);
+
+            	sprintf(buffer,"%d",value);
+            	llappnd(&go_objectid_key_ll,(VOIDPTR)buffer);
+	    	break;
+	    case GO_ITEM_ID_DOMAIN :
+		hash_table_key = atoi(sdp->V[i]);
+		status = ht_find(go_item_id_seq,(VOIDPTR)&hash_table_key,
+				(VOIDPTR)&value);
+		if(status EQUALS SUCCESS) break;
+
+		if(ARE_DIFFERENT(table_name,"GRAPHIC_OBJECT_CORRELATIONS"))
+		    return FALSE;
+
+	        get_new_sequence(column_domain[i],&value);
+		ht_insert(go_item_id_seq,(VOIDPTR)&hash_table_key,
+			(VOIDPTR)&value);
+
+            	sprintf(buffer,"%d",value);
+            	llappnd(&go_itemid_key_ll,(VOIDPTR)buffer);
+	    	break;
+	    case TRACE_ID_DOMAIN :
+		hash_table_key = atoi(sdp->V[i]);
+		status = ht_find(log_curve_seq,(VOIDPTR)&hash_table_key,
+				(VOIDPTR)&value);
+		if(status EQUALS SUCCESS) break;
+
+		if(ARE_DIFFERENT(table_name,"WELL_LOG_CURVE_HDR"))
+		    return FALSE;
+
+	        get_new_sequence(column_domain[i],&value);
+		ht_insert(log_curve_seq,(VOIDPTR)&hash_table_key,
+			(VOIDPTR)&value);
+	    	break;
+	    case SEIS_VEL_ID_DOMAIN :
+		hash_table_key = atoi(sdp->V[i]);
+		status = ht_find(seis_vel_id_seq,(VOIDPTR)&hash_table_key,
+				(VOIDPTR)&value);
+		if(status EQUALS SUCCESS) break;
+
+
+	        get_new_sequence(column_domain[i],&value);
+		ht_insert(seis_vel_id_seq,(VOIDPTR)&hash_table_key,
+			(VOIDPTR)&value);
+	    	break;
+	    case UWI_DOMAIN		:
+		if(ARE_SAME(table_name,WELL_HDR_TABLE))
+		    {
+	    	    strcpy(buffer,sdp->V[i]);
+	    	    ts_snowhite(buffer);
+            	    llappnd(&uwi_key_ll,(VOIDPTR)buffer);
+		    }
+		continue;
+	    }
+
+	    /* replace current select descriptor with new sequence value */
+	len=strlen(sdp->V[i]);
+	sprintf(sdp->V[i],"%d",value);
+    	j = strlen(sdp->V[i]);
+    	for(;j < len;j++)
+      	   sdp->V[i][j]=' ';
+    	sdp->V[i][len]='\0';
+        }
+    return TRUE;
+}
+
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    privatedef INT fillseldesc();
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+    
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+privatedef INT fillseldesc ()
+    {
+    /* set up destination variables - set ORACLE datatypes */
+    INT i;
+    SHORT precision;
+    SHORT scale;
+    INT length;
+    
+    for (i = 0; i < sdp->N; i++)
+        {
+        sdp->T[i] &= ~0x8000;
+        switch (sdp->T[i])
+            {
+        case 1:                     /* ORACLE Character type */
+            length = sdp->L[i];
+            break;
+        case 2:                     /* ORACLE Numeric data type */
+            precision = (unsigned char)(sdp->L[i] >> 8);
+            scale = (char)sdp->L[i];
+            /*--------------------------------------------*/
+            /* coerce to CHAR data type                   */
+            /* calculate length based on precision, scale */
+            /*--------------------------------------------*/
+            sdp->T[i] = 1;
+            
+            length = precision;
+            if (precision EQUALS 0)
+                {
+                length = 10;        /* max size allotted */
+                }
+            if (scale < 0)
+                {
+                length += (-scale);
+                }
+            sdp->L[i] = length + 2;
+            break;
+        case 12:                    /* DATE data type */
+        case 13:                    /* DATE data type */
+            sdp->T[i] = 1;          /* coerce to CHAR data type */
+            sdp->L[i] = 10;
+            }
+        sdp->V[i] = (CHAR *)tc_alloc (sdp->L[i] + 1);
+        sdp->I[i] = (SHORT *)tc_alloc (sizeof(SHORT));
+        }
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    privatedef INT freeselvars();
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+    
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+privatedef INT freeselvars ()
+    {
+    INT i;
+    /* free the SELECT variables */
+    
+    for (i = 0; i < sdp->N; i++)
+        {
+        tc_free (sdp->V[i]);
+        tc_free (sdp->I[i]);
+        }
+    sdp->N = 0;
+    
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    privatedef INT getbvvals(CHAR **vars);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    vars            -(CHAR **)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+privatedef INT getbvvals (CHAR **vars)
+#else
+privatedef INT getbvvals (vars)
+CHAR **vars;
+#endif
+    {
+    INT i;
+    INT status;
+    CHAR prompt_string[133];
+    CHAR variable[32];
+    
+    /* retrieve the BIND values */
+    if (*vars EQUALS NULL)
+        {
+        *vars = (CHAR *)tc_zalloc ((bdp->F) * MAX_VALUE_SIZE);
+        }
+    /* prompt for and receive each bind variable */
+    for (i = 0; i < bdp->F; i++)
+        {
+        bdp->V[i] = &((*vars)[i * MAX_VALUE_SIZE]);
+        strcpy (variable, ts_sto_upper (ts_snowhite (bdp->S[i])));
+        sprintf (prompt_string, mg_message (OR_SQL_BIND_PROMPT), variable);
+        if (status IS_NOT_EQUAL_TO SUCCESS)
+            {
+            return status;
+            }
+        bdp->T[i] = 1;
+        bdp->L[i] = strlen (bdp->V[i]);
+        bdp->I[i] = 0;
+        }
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    privatedef INT parse_sql();
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+    OR_EMPTY_SQL_STATEMENT
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+privatedef INT parse_sql (CHAR *arg_stmt)
+#else
+privatedef INT parse_sql (arg_stmt)
+CHAR *arg_stmt;
+#endif
+    {
+    INT value;
+    
+	/* build select stmt */
+    value = stmt.len = sprintf((CHAR *)stmt.arr,
+    "%s",arg_stmt);
+
+        /* free up select variables */
+    if (sdp->N IS_NOT_EQUAL_TO 0)
+	{
+	freeselvars ();
+	}
+	/* free up bind variables */
+    if (vars IS_NOT_EQUAL_TO NULL)
+	{
+	tc_free (vars);
+	vars = NULL;
+	}
+
+        /* parse the entered statement */
+     EXEC SQL PREPARE S FROM : stmt;
+
+    if (OR_STATUS != SUCCESS)
+	return OR_STATUS;
+
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    privatedef INT rollbkwk();
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+    
+Return Value/Status:
+    OR_STATUS
+    
+Scope:
+    PRIVATE to <or_sql_proc.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+privatedef INT rollbkwk ()
+#else
+privatedef INT rollbkwk ()
+#endif
+    {
+    EXEC SQL ROLLBACK WORK;
+    
+    return OR_STATUS;
+    }
+/* END:     */
+
+#if USE_PROTOTYPES
+privatedef INT is_key_column (CHAR *table_name,CHAR *column_name,INT *domain)
+#else
+privatedef INT is_key_column (table_name,column_name,domain)
+CHAR *table_name;
+CHAR *column_name;
+INT *domain;
+#endif
+{
+
+    EXEC SQL BEGIN DECLARE SECTION;
+    privatedef VARCHAR tabname[32];
+    privatedef VARCHAR colname[32];
+    privatedef int domain_out;
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO orerror;
+    EXEC SQL WHENEVER NOTFOUND GOTO orerror;
+
+    V_FROMC(tabname,table_name);
+    V_FROMC(colname,column_name);
+
+    EXEC SQL 
+	SELECT DOMAIN INTO :domain_out FROM ESI.FINDER_COLUMNS
+	WHERE TNAME = :tabname AND CNAME = :colname AND
+		(DOMAIN = 100 OR DOMAIN = 137 OR DOMAIN = 1 OR DOMAIN = 10 OR
+		 DOMAIN = 57 OR DOMAIN = 78 OR DOMAIN = 136 OR DOMAIN = 110 OR
+		 DOMAIN = 144);
+
+    *domain = domain_out;
+    return TRUE;
+   
+orerror:
+    return FALSE;
+}
+
+
+#if USE_PROTOTYPES
+privatedef INT is_primary_key (CHAR *table_name,CHAR *column_name)
+#else
+privatedef INT is_primary_key (table_name,column_name)
+CHAR *table_name;
+CHAR *column_name;
+#endif
+{
+
+    EXEC SQL BEGIN DECLARE SECTION;
+    privatedef VARCHAR tabname[32];
+    privatedef VARCHAR colname[32];
+    privatedef int domain_out;
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO orerror;
+    EXEC SQL WHENEVER NOTFOUND GOTO orerror;
+
+    V_FROMC(tabname,table_name);
+    V_FROMC(colname,column_name);
+
+    EXEC SQL 
+	SELECT NULL INTO :domain_out FROM ESI.FINDER_COLUMNS
+	WHERE TNAME = :tabname AND CNAME = :colname AND
+	      PRIMARY_KEY IS NOT NULL;
+
+    return TRUE;
+   
+orerror:
+    return FALSE;
+}
+
+
+#if USE_PROTOTYPES
+privatedef INT get_new_sequence(INT domain,INT *sequence)
+#else
+privatedef INT get_new_sequence(domain,sequence)
+INT domain;
+INT *sequence;
+#endif
+{
+    EXEC SQL BEGIN DECLARE SECTION;
+    privatedef int seq_out;
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO orerror;
+    EXEC SQL WHENEVER NOTFOUND GOTO orerror;
+
+    switch(domain)
+	{
+    	case SEISLINE_ID_DOMAIN	:
+	     EXEC SQL SELECT ESI.SEISLINE_ID.NEXTVAL INTO :seq_out FROM DUAL;
+	     break;
+	case LYNX_ID_DOMAIN	:
+	case ARC_ID_DOMAIN	:
+	     EXEC SQL SELECT ESI.LYNX_ID_SEQ.NEXTVAL INTO :seq_out FROM DUAL;
+	     break;
+	case GO_OBJECT_ID_DOMAIN	:
+	case GO_ITEM_ID_DOMAIN	:
+	     EXEC SQL SELECT ESI.GRAPHIC_OBJECT_SEQ.NEXTVAL INTO :seq_out 
+		FROM DUAL;
+	     break;
+	case TRACE_ID_DOMAIN	:
+	     EXEC SQL SELECT ESI.LOG_CURVE_SEQ.NEXTVAL INTO :seq_out 
+		FROM DUAL;
+	     break;
+	case SEIS_VEL_ID_DOMAIN	:
+	     EXEC SQL SELECT ESI.SEIS_VEL_ID_SEQ.NEXTVAL INTO :seq_out 
+		FROM DUAL;
+	     break;
+	}
+	
+    *sequence = seq_out;
+    return SUCCESS;
+
+orerror:
+    switch(domain)
+	{
+    	case SEISLINE_ID_DOMAIN	:
+            printf("      Oracle error %s encountered while retrieving \
+sequence ESI.SEISLINE_ID. Please contact your database administrator.\n",
+	     mg_message(OR_STATUS));
+	     break;
+	case LYNX_ID_DOMAIN	:
+	case ARC_ID_DOMAIN	:
+            printf("      Oracle error %s encountered while retrieving \
+sequence ESI.LYNX_ID_SEQ. Please contact your database administrator.\n",
+	     mg_message(OR_STATUS));
+	     break;
+	case GO_OBJECT_ID_DOMAIN	:
+	case GO_ITEM_ID_DOMAIN	:
+            printf("      Oracle error %s encountered while retrieving \
+sequence ESI.GRAPHIC_OBJECT_SEQ. \
+Please contact your database administrator.\n",
+	     mg_message(OR_STATUS));
+	     break;
+	case TRACE_ID_DOMAIN	:
+            printf("      Oracle error %s encountered while retrieving \
+sequence ESI.LOG_CURVE_SEQ. Please contact your database administrator.\n",
+	     mg_message(OR_STATUS));
+	     break;
+	case SEIS_VEL_ID_DOMAIN	:
+            printf("      Oracle error %s encountered while retrieving \
+sequence ESI.SEIS_VEL_ID_SEQ. Please contact your database administrator.\n",
+	     mg_message(OR_STATUS));
+	     break;
+	}
+    return OR_STATUS;
+}
+
+#if USE_PROTOTYPES
+privatedef INT cp_invoke_filter_method(CHAR *table_name)
+#else
+privatedef INT cp_invoke_filter_method(table_name)
+CHAR *table_name;
+#endif
+{
+	
+    CP_FILTER_HEADER *cMethod;
+
+    for(cMethod = cp_post_filter_method;
+	IS_STRING(cMethod->table_name); cMethod++)
+ 	{
+	if(ARE_SAME(table_name,cMethod->table_name))
+	    return (cMethod->function)();
+	}
+   return SUCCESS;
+}
+
+
+privatedef INT cpz_retrieve_lookup_column(table_name,lookup_column)
+CHAR *table_name;
+CHAR *lookup_column;
+{
+    CP_LOOKUP_HDR *cMethod;
+
+    for(cMethod = cp_lookup_column;
+	IS_STRING(cMethod->table_name); cMethod++)
+ 	{
+	if(ARE_SAME(table_name,cMethod->table_name))
+	    {
+	    strcpy(lookup_column,cMethod->column_name);
+	    return SUCCESS;
+	    }
+	}
+   return FAIL;
+}
+
+privatedef INT cpz_foreign_node_id_table(table_name,column_name)
+CHAR *table_name;
+CHAR *column_name;
+{
+    CP_LOOKUP_HDR *cMethod;
+
+    for(cMethod = cp_foreign_node_id;
+	IS_STRING(cMethod->table_name); cMethod++)
+ 	{
+	if(ARE_SAME(table_name,cMethod->table_name) AND
+	   ARE_SAME(column_name,cMethod->column_name))
+	    return TRUE;
+	}
+   return FALSE;
+}
+
+privatedef INT is_seq_table_hdr(table_name)
+CHAR *table_name;
+{
+    CP_LOOKUP_HDR *cMethod;
+
+    for(cMethod = cp_hdr_table;
+	IS_STRING(cMethod->table_name); cMethod++)
+ 	{
+	if(ARE_SAME(table_name,cMethod->table_name))
+	    return TRUE;
+	}
+   return FALSE;
+}
+
+privatedef INT is_full_ospathname(table_name)
+CHAR *table_name;
+{
+    CP_LOOKUP_HDR *cMethod;
+
+    for(cMethod = cp_full_ospathname_table;
+	IS_STRING(cMethod->table_name); cMethod++)
+ 	{
+	if(ARE_SAME(table_name,cMethod->table_name))
+	    return TRUE;
+	}
+   return FALSE;
+}
+
+#if USE_PROTOTYPES
+privatedef INT cpz_table_flag(CHAR *table_name,CHAR *column_name)
+#else
+privatedef INT cpz_table_flag(table_name,column_name)
+CHAR *table_name;
+CHAR *column_name;
+#endif
+{
+	
+    CP_NL_EXTENDS_HDR *cMethod;
+
+    for(cMethod = cp_table_flags;
+	IS_STRING(cMethod->table_name); cMethod++)
+ 	{
+	if(ARE_SAME(table_name,cMethod->table_name) AND
+	   ARE_SAME(column_name,cMethod->column_name))
+	    return cMethod->extend_flag;
+	}
+   return NO_EXTENDS;
+}
+
+
+#define TOLERANCE 0.000005
+
+privatedef INT cp_well_hdr_filter()
+{
+CHAR stmt1[256],stmt2[256];
+
+	sprintf(stmt1,
+	"SELECT DISTINCT NODE_ID,%s FROM %s.%s WHERE %s IN \
+(SELECT DISTINCT KEY_UWI FROM TEMP_WELL_LISTS \
+WHERE TEMP_PROCESS_ID=%d AND TEMP_LIST_NAME='%s')",
+        WELL_KEY_COLUMN,source_project,WELL_HDR_TABLE,
+	WELL_KEY_COLUMN,process_id,temp_list_name);
+
+	sprintf(stmt2,
+    	"UPDATE %s.%s SET NODE_ID = :node_id WHERE %s = :uwi",
+    	target_project,WELL_HDR_TABLE,WELL_KEY_COLUMN);
+
+    return cp_move_node(stmt1,stmt2);
+}
+
+privatedef INT cp_lynx_ifv_filter()
+{
+CHAR stmt1[256],stmt2[256];
+INT status;
+
+	sprintf(stmt1,
+	"SELECT DISTINCT INIT_NODE,ARC_ID FROM %s.LYNX_IFV WHERE ARC_ID IN \
+(SELECT DISTINCT LYNX_PART FROM %s.LYNX_LRFR WHERE LYNX_ID IN \
+(SELECT DISTINCT LYNX_ID FROM TEMP_LYNX_LISTS \
+WHERE TEMP_PROCESS_ID=%d AND TEMP_LIST_NAME='%s'))",
+        source_project,source_project,
+	process_id,temp_list_name);
+
+	sprintf(stmt2,
+    	"UPDATE %s.LYNX_IFV SET INIT_NODE = :node_id WHERE ARC_ID = :arc_id",
+    	target_project);
+
+    status = cp_move_node(stmt1,stmt2);
+    if (status != SUCCESS) return status;
+
+	sprintf(stmt1,
+	"SELECT DISTINCT FINAL_NODE,ARC_ID FROM %s.LYNX_IFV WHERE ARC_ID IN \
+(SELECT DISTINCT LYNX_PART FROM %s.LYNX_LRFR WHERE LYNX_ID IN \
+(SELECT DISTINCT LYNX_ID FROM TEMP_LYNX_LISTS \
+WHERE TEMP_PROCESS_ID=%d AND TEMP_LIST_NAME='%s'))",
+        source_project,source_project,
+	process_id,temp_list_name);
+
+	sprintf(stmt2,
+    	"UPDATE %s.LYNX_IFV SET FINAL_NODE = :node_id WHERE ARC_ID = :arc_id",
+    	target_project);
+
+    return cp_move_node(stmt1,stmt2);
+
+}
+
+privatedef INT cp_lynx_text_filter()
+{
+CHAR stmt1[256],stmt2[256];
+
+	sprintf(stmt1,
+	"SELECT DISTINCT NODE_ID,LYNX_ID FROM %s.LYNX_TEXT WHERE LYNX_ID IN \
+(SELECT DISTINCT LYNX_ID FROM TEMP_LYNX_LISTS \
+WHERE TEMP_PROCESS_ID=%d AND TEMP_LIST_NAME='%s')",
+        source_project,process_id,temp_list_name);
+
+	sprintf(stmt2,
+    	"UPDATE %s.LYNX_TEXT SET NODE_ID = :node_id WHERE LYNX_ID = :lynx_id",
+    	target_project);
+
+    return cp_move_node(stmt1,stmt2);
+}
+
+privatedef INT cp_lynx_node_gc_filter()
+{
+CHAR stmt1[256],stmt2[256];
+
+	sprintf(stmt1,
+	"SELECT DISTINCT NODE_ID,LYNX_ID FROM %s.LYNX_NODE_GC WHERE \
+LYNX_ID IN (SELECT DISTINCT LYNX_ID FROM TEMP_LYNX_LISTS \
+WHERE TEMP_PROCESS_ID=%d AND TEMP_LIST_NAME='%s')",
+        source_project,process_id,temp_list_name);
+
+	sprintf(stmt2,
+    	"UPDATE %s.LYNX_NODE_GC SET NODE_ID = :node_id WHERE \
+LYNX_ID = :lynx_id",
+    	target_project);
+
+    return cp_move_node(stmt1,stmt2);
+}
+
+privatedef INT cp_move_node(stmt1,stmt2)
+CHAR *stmt1;
+CHAR *stmt2;
+{
+INT status;
+INT counter;
+INT total_count;
+CHAR buffer[32];
+INT i;
+	
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[500];
+    privatedef VARCHAR column_ptr[1000][24];
+    privatedef double node_x,node_y;
+    privatedef int node_ptr[1000],out_node_ptr[1000],node_id;
+    privatedef int nrows;
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO orerror;
+    EXEC SQL WHENEVER NOTFOUND CONTINUE;
+
+    sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,"%s",stmt1);	
+    EXEC SQL PREPARE S_MAIN FROM :sqlstmt;
+    EXEC SQL DECLARE C_MAIN CURSOR FOR S_MAIN;
+
+    sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+    "SELECT DISTINCT NODE_X, NODE_Y FROM %s.NODES \
+WHERE NODE_ID = :node_id",
+    source_project);
+    EXEC SQL PREPARE S_NODE FROM :sqlstmt;
+    EXEC SQL DECLARE C_NODE CURSOR FOR S_NODE;
+ 
+    sqlstmt.len = sprintf((CHAR *)sqlstmt.arr,"%s",stmt2);
+    EXEC SQL PREPARE S_UPD FROM :sqlstmt;
+
+
+    EXEC SQL OPEN C_MAIN;
+
+    counter=0;
+    total_count=0;
+    FOREVER
+	{
+	EXEC SQL FETCH C_MAIN INTO :node_ptr, :column_ptr;
+	nrows = OR_ROWCOUNT - total_count;
+	if(nrows < 1) break;
+	total_count=OR_ROWCOUNT;
+	for(i=0 ; i<nrows; i++)
+	    {
+	    node_id = node_ptr[i];
+            EXEC SQL OPEN C_NODE USING :node_id;
+	    EXEC SQL FETCH C_NODE INTO :node_x, :node_y;
+
+            if(do_transformation)
+	        {
+		status = ct_transform_point(node_x,node_y,
+					source_proj_struct,
+		       			&node_x,&node_y,
+					target_proj_struct);
+	    	if (status != SUCCESS) goto error;
+	    	}
+	    status = ly_process_node_on_project(node_x,node_y,
+				target_project,TOLERANCE,
+				(NODE_ID *)&out_node_ptr[i]);
+	    if(status != SUCCESS) goto error;
+
+			/* hash table to store the translation from
+			   old id to new id */
+	    if(status = ht_find(node_id_seq,(VOIDPTR)&node_ptr[i],
+				(VOIDPTR)&out_node_ptr[i]) 
+					!= SUCCESS)
+		{
+		ht_insert(node_id_seq,(VOIDPTR)&node_ptr[i],
+			(VOIDPTR)&out_node_ptr[i]);
+    	    	sprintf(buffer,"%d",out_node_ptr[i]);
+       	    	status = llappnd(&nodeid_key_ll,(VOIDPTR)buffer);
+		if(status EQUALS SUCCESS) counter++;
+		}
+	    }
+
+	EXEC SQL EXECUTE S_UPD USING :out_node_ptr, :column_ptr;
+	commitwork();
+	if(nrows < 1000) break;
+	}
+
+
+    if(total_count > 0)
+    	EXEC SQL CLOSE C_NODE;
+
+    EXEC SQL CLOSE C_MAIN;
+
+    printf ( "====> %u row%scopied to NODES table.\n", 
+	counter, counter EQUALS 1 ? " " : "s ");
+    return SUCCESS;
+error:
+    printf("====> Error %s encountered while moving NODES table.\n",
+	mg_message(status));
+    return status;
+orerror:
+    printf("====> Oracle error %s encountered while moving \
+NODES table.\n",mg_message(OR_STATUS));
+    return OR_STATUS;
+}
+
+privatedef INT cp_go_correlations_filter()
+{
+INT status;
+INT counter;
+privatedef INT first=TRUE;
+INT total_count;
+CHAR buffer[32];
+INT i,j;
+INT *old_item_id,*new_item_id;
+UINT nids; 
+DOUBLE uom_factor;
+	
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[500];
+    privatedef int text_id_ptr[50];
+    privatedef double node_x,node_y;
+    privatedef int node_ptr[50],out_node_ptr[50];
+    privatedef int item_id,node_id;
+    privatedef int nrows;
+    privatedef double text_size[50],line_spacing[50];
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO orerror;
+    EXEC SQL WHENEVER NOTFOUND CONTINUE;
+
+    cpz_copy_table("LINES");
+    cpz_copy_table("TEXT");
+
+    status = ht_get_all(go_item_id_seq,&nids,(VOIDPTR)&old_item_id,
+			(VOIDPTR)&new_item_id);
+    if(status != SUCCESS OR nids < 0) return status;
+
+    if(first)
+	{
+    	sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+	"SELECT DISTINCT POSITION,TEXT_ID,TEXT_SIZE,LINE_SPACING \
+FROM %s.TEXT WHERE TEXT_ID = :object_id",
+	target_project);
+    	EXEC SQL PREPARE S_TEXT FROM :sqlstmt;
+    	EXEC SQL DECLARE C_TEXT CURSOR FOR S_TEXT;
+
+    	sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+    	"SELECT DISTINCT NODE_X, NODE_Y FROM %s.NODES \
+WHERE NODE_ID = :node_id",
+    	source_project);
+    	EXEC SQL PREPARE S_NODE1 FROM :sqlstmt;
+    	EXEC SQL DECLARE C_NODE1 CURSOR FOR S_NODE1;
+ 
+     	sqlstmt.len = sprintf((CHAR *)sqlstmt.arr,
+    	"UPDATE %s.TEXT SET POSITION = :node_id, TEXT_SIZE = :text_size,\
+LINE_SPACING = :line_spacing WHERE TEXT_ID = :text_id",
+    	target_project);
+	EXEC SQL PREPARE S_UPD_TEXT FROM :sqlstmt;
+
+	first = FALSE;
+	}
+
+    counter=0;
+    for(i = 0 ; i< nids;i++)
+	{
+	item_id = new_item_id[i];
+	EXEC SQL OPEN C_TEXT USING :item_id;
+	total_count=0;
+        FOREVER 
+	    {
+	    EXEC SQL FETCH C_TEXT INTO :node_ptr, :text_id_ptr, 
+				 	:text_size, :line_spacing;
+	    nrows = OR_ROWCOUNT - total_count;
+	    if(nrows < 1) break;
+	    total_count=OR_ROWCOUNT;
+	    for(j=0 ; j<nrows; j++)
+	    	{
+	    	node_id = node_ptr[j];
+            	EXEC SQL OPEN C_NODE1 USING :node_id;
+	    	EXEC SQL FETCH C_NODE1 INTO :node_x, :node_y;
+
+            	if(do_transformation)
+	            {
+   		    if(degrees_uom)
+		    	{
+        	    	ct_get_uom_factor_degrees(node_x,node_y,source_proj_struct,
+                               	      &text_size[j],target_proj_struct);
+        	    	ct_get_uom_factor_degrees(node_x,node_y,source_proj_struct,
+ 	                              &line_spacing[j],target_proj_struct);
+		    	}
+		    else
+		    	{
+        	    	ct_get_uom_factor(source_projection_id,target_projection_id,
+				      &uom_factor);
+        	    	text_size[j] = text_size[j] / uom_factor;
+        	    	line_spacing[j] = line_spacing[j] / uom_factor;
+		    	}
+		    status = ct_transform_point(node_x,node_y,
+					source_proj_struct,
+		       			&node_x,&node_y,
+					target_proj_struct);
+	    	    if (status != SUCCESS) goto error;
+	    	    }
+	    	status = ly_process_node_on_project(node_x,node_y,
+				target_project,TOLERANCE,
+				(NODE_ID *)&out_node_ptr[j]);
+	    	if(status != SUCCESS) goto error;
+
+			/* hash table to store the translation from
+			   old id to new id */
+	    	if(status = ht_find(node_id_seq,(VOIDPTR)&node_ptr[j],
+				(VOIDPTR)&out_node_ptr[j]) 
+					!= SUCCESS)
+		    {
+		    ht_insert(node_id_seq,(VOIDPTR)&node_ptr[j],
+			(VOIDPTR)&out_node_ptr[j]);
+    	    	    sprintf(buffer,"%d",out_node_ptr[j]);
+       	    	    status = llappnd(&nodeid_key_ll,(VOIDPTR)buffer);
+		    if(status EQUALS SUCCESS) counter++;
+		    }
+	    	}
+	   
+	    EXEC SQL EXECUTE S_UPD_TEXT USING :out_node_ptr, :text_size, 
+						:line_spacing, :text_id_ptr;
+
+	    commitwork();
+	    if(nrows < 50) break;
+	    }
+	}
+
+
+    if(total_count > 0)
+    	EXEC SQL CLOSE C_NODE1;
+
+    EXEC SQL CLOSE C_TEXT;
+
+    printf( "====> %u row%scopied to NODES table.\n", 
+	counter, counter EQUALS 1 ? " " : "s ");
+    return SUCCESS;
+error:
+    printf("====> Error %s encountered while moving NODES table.\n",
+	mg_message(status));
+    return status;
+orerror:
+    printf("====> Oracle error %s encountered while moving \
+NODES table.\n",mg_message(OR_STATUS));
+    return OR_STATUS;
+}
+
+privatedef INT cp_seis_tie_filter()
+{
+INT status;
+INT count;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[500];
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO orerror;
+    EXEC SQL WHENEVER NOTFOUND CONTINUE;
+
+
+    sqlstmt.len = sprintf((CHAR *)sqlstmt.arr,
+    "DELETE %s.SEIS_TIE WHERE TIE_LINE_ID NOT IN \
+(SELECT %s FROM %s.%s) OR THIS_LINE_ID NOT IN \
+(SELECT %s FROM %s.%s)",
+	target_project,
+	SEISMIC_KEY_COLUMN,target_project,SEISMIC_HDR_TABLE,
+	SEISMIC_KEY_COLUMN,target_project,SEISMIC_HDR_TABLE);
+     EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+
+    count = OR_ROWCOUNT;
+    printf( "====> %u row%sis deleted from SEIS_TIE table.\n",
+	count,count EQUALS 1 ? " " : "s ");
+
+     commitwork();
+     return SUCCESS;
+
+orerror:
+    printf("      Oracle error %s encountered while filtering SEIS_TIE \
+table.\n",mg_message(OR_STATUS));
+     rollbkwk();
+     return OR_STATUS;
+}	      
+
+
+	

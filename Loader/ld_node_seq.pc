@@ -1,0 +1,450 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_NODE_SEQ.PC */
+/* *11   13-MAY-1991 11:46:39 LOEBL "(SPR 0) Altered fetch loop for performance" */
+/* *10   18-APR-1990 09:20:55 WALTERS "(SPR 0) Change order of fields in update statement" */
+/* *9    13-APR-1990 17:27:22 WALTERS "(SPR 0) Change well_hdr update statuments where clause" */
+/* *8    10-APR-1990 16:54:33 WALTERS "(SPR 0) Remove extra print statements" */
+/* *7    10-APR-1990 15:50:50 WALTERS "(SPR 0) Fix sorting bug" */
+/* *6     9-APR-1990 14:31:44 WALTERS "(SPR 0) Change where clause of well_hdr update statement" */
+/* *5    27-MAR-1990 15:49:55 WALTERS "(SPR 0) use primary source in well_hdr table" */
+/* *4    27-MAR-1990 15:00:54 WALTERS "(SPR 0) Made prog more verbose" */
+/* *3    27-MAR-1990 14:17:21 WALTERS "(SPR 0) Change data class to nodes" */
+/* *2    19-MAR-1990 10:12:58 WALTERS "(SPR 0) Initial release of Nodes sequencer" */
+/* *1    19-MAR-1990 10:11:36 WALTERS "Nodes sequencer" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_NODE_SEQ.PC */
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_OR_H
+#include "esi_or.h"
+#endif
+
+#ifndef ESI_GL_VCHAR_H
+#include "esi_gl_vchar.h"
+#endif
+
+#ifndef ESI_GL_TOP_H
+#include "esi_gl_top.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#define VERSION "Version 1.1"
+
+EXEC SQL BEGIN DECLARE SECTION;
+    unsigned int rank[25];
+    unsigned int node_id[25];
+    long nd_id;
+    long max_nodes_node_id;
+    long min_nodes_second_id;
+    long max_nodes_second_id;
+    long count_nodes_second_id;
+    unsigned int lvl;
+    double nd_x, nd_y;
+    double lat, lon;
+    double tdx, tdy, bdx, bdy;
+
+    double base_delta_x[25];
+    double base_delta_y[25];
+    double top_delta_x[25];
+    double top_delta_y[25];
+    
+    VARCHAR src[13];
+    VARCHAR dat[13];
+    VARCHAR l_qual[2];
+    VARCHAR u_well_i[21];
+    VARCHAR dev[2];
+    VARCHAR deviation_flag[25][2];
+    VARCHAR source[25][14];
+    VARCHAR test_uwi[25][24];
+    VARCHAR sqlstmt[500];
+EXEC SQL END DECLARE SECTION;
+
+EXEC ORACLE OPTION (REBIND = NO);
+
+main (argc, argv)
+int argc;
+char **argv;
+{
+    int status;
+
+    /* Check for the correct number of incoming arguments */
+
+    if (argc != 3) {
+	printf ("Usage: %s <oracle_login> <project>\n", argv[0]);
+	exit (1);
+    }
+
+    /* Log onto ORACLE */
+
+    if (or_login (argc, argv) != SUCCESS) {	/* Log into Oracle */
+	exit (1);
+    }
+
+/*    EXEC SQL ALTER SESSION SET SQL_TRACE TRUE;
+*/
+    /* Configure finder project */
+
+    qs_set_c (QS_PROJECT_NAME, ts_sto_upper (argv[2]), 0);
+    if ((status = finder_config_project (TRUE)) IS_NOT_EQUAL_TO SUCCESS) {
+        printf ("Can't connect to project %s: \n", argv[2]);
+        or_logout (FALSE);
+        exit (EXIT_FAILURE);
+    }
+
+    /* Load the whcs data from nodes_second to nodes and from */
+    /* well_hdr_second to well_hdr for a given search list    */
+
+    printf ("\n\nFinder Graphics Systems, Inc. nodes sequence %s\n", VERSION);
+    whcs_load_data ();
+    exit (SUCCESS);
+}
+
+
+privatedef int whcs_load_data ()
+{
+    long num_returned = 0;
+    long xx;
+    long num_distinct_nodes;
+    BOOL allow_node_updates;
+    CHAR analyst[31];
+    NODE_ID last_id_saved;
+    char last_uwi_saved[21];
+    PROJECT_NAME project;
+
+    last_id_saved = 0;
+    qs_inq_c (QS_PROJECT_NAME, project, 0);
+    qs_inq_c (QS_FINDER_ACCOUNT, analyst, 0);
+
+    lvl = 0;
+
+    /* Use analyst search list if count is greater than 0 */
+
+    sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr,
+			  "SELECT COUNT(*) FROM %s.SOURCE_SEARCH_LIST \
+			   WHERE DATA_CLASS = 'NODES'", analyst);
+    EXEC SQL PREPARE S10 FROM :sqlstmt;
+    EXEC SQL DECLARE C10 CURSOR FOR S10;
+    EXEC SQL OPEN C10;
+    EXEC SQL FETCH C10 INTO :lvl;
+    EXEC SQL CLOSE C10;
+
+    if (lvl == 0) {
+
+	/* Use project search list if count is greater than 0 */
+
+	strcpy (analyst, project);
+	sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr,
+			  "SELECT COUNT(*) FROM %s.SOURCE_SEARCH_LIST \
+			   WHERE DATA_CLASS = 'NODES'", project);
+	EXEC SQL PREPARE S11 FROM :sqlstmt;
+	EXEC SQL DECLARE C11 CURSOR FOR S11;
+	EXEC SQL OPEN C11;
+	EXEC SQL FETCH C11 INTO :lvl;
+	EXEC SQL CLOSE C11;
+    }
+
+    if (lvl == 0) {
+
+	/* Use system search list if count is greater than 0 */
+
+	strcpy (analyst, "ESI");
+	sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr,
+			  "SELECT COUNT(*) FROM ESI.SOURCE_SEARCH_LIST \
+			   WHERE DATA_CLASS = 'NODES'");
+	EXEC SQL PREPARE S12 FROM :sqlstmt;
+	EXEC SQL DECLARE C12 CURSOR FOR S12;
+	EXEC SQL OPEN C12;
+	EXEC SQL FETCH C12 INTO :lvl;
+	EXEC SQL CLOSE C12;
+    }
+
+    if (lvl == 0){
+	printf ("Can't find a search list\n");
+        or_logout (FALSE);
+        exit (EXIT_FAILURE);
+    }
+/* determine if there are any node_ids in nodes_second 
+   which coincide with nodes. If not, then
+   we may drop unique indexes on nodes, and force inserts.
+   Otherwise we will leave the indexes and allow updates
+*/
+    EXEC SQL select nvl(max(node_id),0) 
+             into :max_nodes_node_id 
+             from nodes; 
+    if (OR_STATUS != 0){
+	printf ("Can't select from NODES table\n");
+        or_logout (FALSE);
+        exit (EXIT_FAILURE);
+    }
+    EXEC SQL select nvl(min(node_id),0), nvl(max(node_id),0), count(node_id) 
+             into :min_nodes_second_id, :max_nodes_second_id,
+                  :count_nodes_second_id 
+             from nodes_second;
+    if (OR_STATUS != 0){
+	printf ("Can't select from NODES_SECOND table\n");
+        or_logout (FALSE);
+        exit (EXIT_FAILURE);
+    }
+
+    num_distinct_nodes = max_nodes_second_id - min_nodes_second_id + 1;
+    if ( (min_nodes_second_id > max_nodes_node_id) &&
+         (num_distinct_nodes == count_nodes_second_id) ) 
+    {
+         EXEC SQL drop index nodes_node_id;
+         allow_node_updates = FALSE;
+    }
+    else
+    {
+         allow_node_updates = TRUE;
+    }
+
+/* alter the well_hdr table definition to avoid chaining
+ */
+    EXEC SQL alter table well_hdr pctfree 20;
+    if (OR_STATUS != 0){
+	printf ("Can't alter table WELL_HDR %d\n",sqlca.sqlcode);
+        or_logout (FALSE);
+        exit (EXIT_FAILURE);
+    }
+
+ 
+   /* Select records from well_hdr_second to be moved up to the well_hdr
+       table.  Order records by rank and move only the one with the 
+       highest rank (1 = highest rank) */
+
+    sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr,
+		     "SELECT A.NODE_ID, A.UWI, A.SOURCE, B.DATA_RANK, \
+                     A.TOP_DELTA_X, A.TOP_DELTA_Y, \
+                     A.BASE_DELTA_X, A.BASE_DELTA_Y, \
+                     A.DEVIATION_FLAG \
+		     FROM %s.WELL_HDR_SECOND A, %s.SOURCE_SEARCH_LIST B \
+		     WHERE A.SOURCE = B.DATA_VALUE AND \
+		           B.DATA_CLASS = 'NODES' \
+		     ORDER BY A.UWI, B.DATA_RANK", project, analyst);
+    EXEC SQL PREPARE S1 FROM :sqlstmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1;
+
+    while (1) {
+
+	/* do an array fetch -- get 25 at a time */
+
+	EXEC SQL FETCH C1 INTO :node_id, :test_uwi, :source, :rank,
+                     top_delta_x, top_delta_y, 
+                     base_delta_x, base_delta_y, 
+                     deviation_flag;
+	xx = sqlca.sqlerrd[2];
+
+	if (OR_STATUS == OR_EOF) 
+	    break;
+
+	/* Store the highest ranking records for each node_id */
+
+	whcs_store_data (xx - num_returned, last_uwi_saved, 
+                         allow_node_updates );
+	num_returned = xx;
+        printf ("Stored records thru # %d\n", num_returned);
+    }
+
+    if (xx - num_returned > 0)   /* Store the last group of records */
+	whcs_store_data (xx - num_returned, last_uwi_saved);
+
+    printf ("\n\n%d records processed\n", xx);
+
+    return SUCCESS;
+}
+
+
+whcs_store_data (n, last, allow_node_updates )
+long n;
+BOOL allow_node_updates ;
+char *last;
+{
+    privatedef int first = TRUE;
+    int i;
+    char temp_uwi[21];
+    PROJECT_NAME project;
+
+    /* If this is the first time through this routine then setup and 
+       parse the needed SQL statements now.  This is done only once */
+
+    if (first) {
+	qs_inq_c (QS_PROJECT_NAME, project, 0);
+
+	/* Select record from the nodes-second given node id and source */
+
+	sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr,
+			       "SELECT NODE_ID, NODE_X, NODE_Y, LOC_QUAL, \
+				       LATITUDE, LONGITUDE, SOURCE, DATUM \
+			        FROM %s.NODES_SECOND \
+			        WHERE NODE_ID = :nd_id AND SOURCE = :src",
+				project);
+        EXEC SQL PREPARE S2 FROM :sqlstmt;
+        EXEC SQL DECLARE C2 CURSOR FOR S2;
+
+	/* Insert record into nodes table */
+
+	sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr,
+			       "INSERT INTO %s.NODES (NODE_ID, NODE_X, \
+				       NODE_Y, LOC_QUAL, LATITUDE, LONGITUDE, \
+				       SOURCE, DATUM) \
+				VALUES (:nd_id, :nd_x, :nd_y, :l_qual, :lat, \
+					:lon, :src, :dat)", project);
+        EXEC SQL PREPARE S3 FROM :sqlstmt;
+
+	/* Update record in nodes table */
+
+	sqlstmt.len = sprintf ((CHAR *)sqlstmt.arr,
+			       "UPDATE %s.NODES SET NODE_X = :nd_x, \
+				       NODE_Y = :nd_y, LOC_QUAL = :l_qual, \
+				       LATITUDE = :lat, LONGITUDE = :lon, \
+				       SOURCE = :src, DATUM = :dat \
+				WHERE NODE_ID = :nd_id AND SOURCE = :src",
+				project);
+        EXEC SQL PREPARE S4 FROM :sqlstmt;
+
+	/* Select record from the well_hdr_second given node id and source */
+
+        sqlstmt.len = sprintf((char *)sqlstmt.arr,
+			   "SELECT UWI,NODE_ID,TOP_DELTA_X,TOP_DELTA_Y, \
+			    BASE_DELTA_X, BASE_DELTA_Y, DEVIATION_FLAG \
+			    FROM %s.WELL_HDR_SECOND \
+			    WHERE NODE_ID = :nd_id AND SOURCE = :src", project);
+        EXEC SQL PREPARE S5 FROM :sqlstmt;
+        EXEC SQL DECLARE C5 CURSOR FOR S5;
+    
+	/* Insert record into well_hdr table */
+
+        sqlstmt.len = sprintf((char *)sqlstmt.arr,
+			   "INSERT INTO %s.WELL_HDR \
+			    (UWI, PRIMARY_SOURCE, NODE_ID, TOP_DELTA_X, TOP_DELTA_Y, \
+			     BASE_DELTA_X, BASE_DELTA_Y, DEVIATION_FLAG) \
+			     VALUES (:u_well_i, :src, :theNode, :tdx, :tdy, \
+			     :bdx, :bdy, :dev)", project);
+        EXEC SQL PREPARE S6 FROM :sqlstmt;
+
+	/* Update record in well_hdr table */
+
+        sqlstmt.len = sprintf((char *)sqlstmt.arr,
+			   "UPDATE %s.WELL_HDR SET \
+			    NODE_ID = :nd_id, \
+			    TOP_DELTA_X = :tdx, TOP_DELTA_Y = :tdy, \
+			    BASE_DELTA_X = :bdx, BASE_DELTA_Y = :bdy, \
+			    DEVIATION_FLAG = :dev, \
+			    PRIMARY_SOURCE = :src \
+			    WHERE UWI = :u_well_i", project);
+        EXEC SQL PREPARE S7 FROM :sqlstmt;
+
+	first = FALSE;
+    }
+
+    /* Loop through and process the highest ranking records */
+
+    for (i = 0; i < n; i++) {
+	strcpy (temp_uwi, (char *)test_uwi[i].arr);
+	if (ARE_SAME (temp_uwi, last))
+	    continue;
+
+	/* Save the last node_id stored, initialize source and node_id */
+
+	strcpy (last, temp_uwi);
+	nd_id = node_id[i];
+        tdx = top_delta_x[i];
+        tdy = top_delta_y[i];
+        bdx = base_delta_x[i];
+        bdy = base_delta_y[i];
+        V_FROMC (u_well_i, test_uwi[i].arr);
+        V_FROMC (dev, deviation_flag[i].arr);
+	V_FROMC (src, source[i].arr);
+
+	/* Select record from the well_hdr_second given node id and source */
+
+/* 
+	EXEC SQL OPEN C5 USING :nd_id, :src;
+	EXEC SQL FETCH C5 INTO :u_well_i, :nd_id, :tdx, :tdy, :bdx, :bdy, :dev;
+
+	if (OR_STATUS == 0) {
+*/
+        if (TRUE) {
+	    /* Insert record into well_hdr table */
+
+            EXEC SQL EXECUTE S6 USING :u_well_i, :src, :nd_id, :tdx, :tdy, 
+				      :bdx, :bdy, :dev;
+	    if (OR_STATUS != 0) {
+
+		/* Update record in well_hdr table */
+
+	        EXEC SQL EXECUTE S7 USING :nd_id, :tdx, :tdy, :bdx, 
+					  :bdy, :dev, :src, :u_well_i; 
+	        if (OR_STATUS < 0) {
+		    printf ("WELL_HDR UPDATE: %s", sqlca.sqlerrm.sqlerrmc);
+		    EXEC SQL ROLLBACK WORK;
+		    continue;
+	        }
+	    }
+	}
+
+	/* Select record from the nodes-second given node id and source */
+
+	EXEC SQL OPEN C2 USING :nd_id, :src;
+	EXEC SQL FETCH C2 INTO :nd_id, :nd_x, :nd_y, :l_qual, 
+			       :lat, :lon, :src, :dat;
+	if (OR_STATUS != 0) {
+	    continue;
+	}
+
+	/* Insert record into nodes table */
+
+        EXEC SQL EXECUTE S3 USING :nd_id, :nd_x, :nd_y, :l_qual, 
+				  :lat, :lon, :src, :dat;
+	if (OR_STATUS != 0) {
+
+	    /* Update record in nodes table */
+
+            if (!allow_node_updates) {
+		printf ("NODES insert failed: %s", sqlca.sqlerrm.sqlerrmc);
+		EXEC SQL ROLLBACK WORK;
+		continue;
+            }
+	    EXEC SQL EXECUTE S4 USING :nd_x, :nd_y, :l_qual, :lat, 
+				      :lon, :src, :dat, :nd_id, :src;
+	    if (OR_STATUS < 0) {
+		printf ("NODES UPDATE: %s", sqlca.sqlerrm.sqlerrmc);
+		EXEC SQL ROLLBACK WORK;
+		continue;
+	    }
+	}
+/*        exec sql rollback work release; */
+/*        exit(SUCCESS); */
+	EXEC SQL COMMIT WORK;
+    }
+}

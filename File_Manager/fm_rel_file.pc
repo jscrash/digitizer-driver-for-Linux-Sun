@@ -1,0 +1,252 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element FM_REL_FILE.PC*/
+/* *11    5-DEC-1991 12:50:55 LOEBL "(SPR 0) Utilize sysdate for todays date."*/
+/* *10    6-JUN-1991 14:50:14 MING "(SPR 0) update expiration date"*/
+/* *9    14-AUG-1990 13:25:12 VINCE "(SPR 5644) Header Standardization"*/
+/* *8    16-MAR-1990 15:27:38 GILLESPIE "(SPR 1) Add check for null fm_hdr"*/
+/* *7    16-FEB-1990 13:50:47 GORDON "(SPR 0) Make date format handle 24hr, always set in_use to false"*/
+/* *6    14-FEB-1990 12:52:14 MING "(SPR 0) change date format YYMMDD_HHMISS to YYMMDD-HHMISS (oracle bug)"*/
+/* *5     6-FEB-1990 10:37:50 MING "(SPR 0) change date/time declaration to new data type DATE_TIME"*/
+/* *4     7-NOV-1989 13:23:47 GILLESPIE "(SPR 30) Use esi_fm_int.h include file"*/
+/* *3     7-NOV-1989 12:17:15 GILLESPIE "(SPR 30) Add call to fm_sys_index to get hash table ptr"*/
+/* *2    14-SEP-1989 16:15:10 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *1    19-JUN-1989 12:32:13 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element FM_REL_FILE.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_fm_int.h"
+
+#ifndef ESI_FM_ERR_H
+
+#include "esi_fm_err.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_HO_H
+
+#include "esi_ho.h"
+
+#endif
+
+#ifndef ESI_HO_FILES_H
+
+#include "esi_ho_files.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+    This file contains the necessary subroutines to implement the
+    FM_INIT_FILE function.
+
+Prototype:
+    publicdef INT fm_release_file (FM_PATH fi_pathname, FM_LONG fi_filename, 
+        FM_TYPE file_type);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    fi_pathname     -(FM_PATH)
+    fi_filename     -(FM_LONG)
+    file_type       -(FM_TYPE)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FM_FILE_NOT_OPEN
+    FM_BAD_MODE
+    FM_UPDATE_ERROR
+    FM_NULL_PTR
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT fm_release_file (FM_PATH fi_pathname, FM_LONG fi_filename,
+                               FM_TYPE file_type)
+#else
+publicdef INT fm_release_file (fi_pathname, fi_filename, file_type)
+FM_PATH fi_pathname;
+FM_LONG fi_filename;
+FM_TYPE file_type;
+#endif
+    {
+    INT status;
+    CHAR key[FM_KEY_SIZE];
+    FM_STRUCT *fm_hdr = (FM_STRUCT *)0;
+    PROJECT_NAME project;
+    ANALYST_NAME creator;
+    FILENAME os_path;
+    FILENAME os_filename;
+    FM_FILE filename;
+    DATE_TIME create_date;
+    DATE_TIME mod_date;
+    CHAR expiration_date[20];
+    UINT file_size;
+    HASH_TABLE_P fm_hash_table = fm_sys_index ();
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[1000];
+    VARCHAR fi_name[256];
+    EXEC SQL END DECLARE SECTION;
+    
+    /*************************************************************************/
+    
+    /* * CHECK THAT HAVE A WELL SPECIFIED FILE FOR SYSTEM * */
+    /* ---------------------------------------------------- */
+    
+    if (IS_EMPTY_STRING (fi_pathname) OR IS_EMPTY_STRING (
+                                                       fi_filename) OR 
+        IS_EMPTY_STRING (file_type))
+        {
+        return(FM_NULL_PTR);
+        }
+    /* * CHECK HASH TABLE FOR FM STRUCTURE * */
+    /* ------------------------------------- */
+    
+    fm_parse_long_name (fi_filename, creator, filename);
+    tc_zeroes (key, FM_KEY_SIZE);
+    sprintf (key, "%s%s%s%s", fi_pathname, filename, file_type, creator);
+    if (ht_find (fm_hash_table, key, &fm_hdr) EQUALS SUCCESS)
+        {
+        /* FILE NOT BEING USED (NOT OPEN) */
+        if (NOT fm_hdr->in_use)
+            {
+            status = FM_FILE_NOT_OPEN;
+            }
+        /* FILE OPENED */
+        
+        else
+            {
+            status = SUCCESS;
+            fm_create_os_filename (fm_hdr->file_id, os_filename);
+            ho_add_path (fi_pathname, os_filename, sizeof(FILENAME), os_filename);
+            
+            switch (fm_hdr->mode[0])
+                {
+                /* READ FILE: LEAVE HDR ALONE */
+            case 'r':
+            case 'R':
+                break;
+                
+                /* WRITE FILE: UPDATE HDR */
+            case 'w':
+            case 'W':
+                if (ho_get_date (os_filename, &file_size, create_date,
+                                 mod_date) EQUALS SUCCESS)
+                    {
+                    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+                    if (fm_hdr->in_data_base)
+                        {
+                        sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"UPDATE %s.FM_HDR \
+SET FILE_SIZE=%d, \
+LAST_MOD_DATE=sysdate, \
+EXPIRATION_DATE=TO_DATE('%s','DD-MON-YYYY') \
+WHERE FILE_ID='%d'" ,
+          project, file_size, fm_hdr->expiration_date,
+                                     fm_hdr->file_id);
+                        EXEC SQL EXECUTE IMMEDIATE : sqlstmt;
+                        }
+                    else
+                        {
+                        fm_create_full_path (fm_hdr->file_id, fi_pathname, 
+                                             os_path);
+                        sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"INSERT INTO %s.FM_HDR \
+(FILE_ID, FINDER_PATHNAME, FINDER_FILENAME,\
+FILE_TYPE, OS_PATHNAME, CREATOR_ANALYST, CREATOR_APPLICATION, FILE_SIZE,\
+CREATE_DATE, EXPIRATION_DATE, LAST_MOD_DATE, DELETE_FLAG, REMARKS) \
+VALUES \
+(%d, '%s', :v1, \
+'%s', '%s', '%s', '%s', %d, \
+SYSDATE, TO_DATE('%s','DD-MON-YYYY'), SYSDATE, 'F', '%s')" ,project, 
+                         fm_hdr->file_id, fm_hdr->fi_path,
+                         fm_hdr->file_type, os_path, fm_hdr->creator,
+                         fm_hdr->creator_app, file_size, 
+                         fm_hdr->expiration_date, fm_hdr->desc);
+               
+			V_FROMC (fi_name,fm_hdr->fi_name);
+			EXEC SQL PREPARE S1 FROM :sqlstmt;
+			EXEC SQL EXECUTE S1 USING :fi_name;
+                        }
+                    if ((status = OR_STATUS) EQUALS SUCCESS)
+                        {
+                        EXEC SQL COMMIT WORK;
+                        }
+                    }
+                else
+                    {
+                    status = FM_UPDATE_ERROR;
+                    }
+                break;
+                
+            default:
+                status = FM_BAD_MODE;
+                break;
+                }
+            }
+        }
+    else
+        {
+        status = FM_FILE_NOT_OPEN;
+        }
+    /* * UPDATE HASH TABLE AND CALL TERMINATION FUNCTION * */
+    /* --------------------------------------------------- */
+    
+    if (fm_hdr != (FM_STRUCT *)0)
+        {
+        fm_hdr->in_use = FALSE;
+        }
+    if (status EQUALS SUCCESS)
+        {
+        fm_hdr->in_data_base = TRUE;
+        ht_update (fm_hash_table, key, &fm_hdr);
+        if (fm_hdr->term_func != NULL_FUNCTION_PTR)
+            {
+            status = (*(fm_hdr->term_func))(fm_hdr->file_id, os_filename);
+            }
+        }
+    return status;
+    }
+/* END:     */

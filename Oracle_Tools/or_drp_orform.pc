@@ -1,0 +1,83 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_DRP_ORFORM.PC*/
+/* *2    25-JUL-1990 19:56:59 VINCE "(SPR 5644) Header Standardization"*/
+/* *1    19-JUN-1989 12:35:23 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_DRP_ORFORM.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_gl_defs.h"
+#include "esi_am.h"
+#include "esi_oracle.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+    This utility drops a named application for the current user.
+
+Prototype:
+    publicdef INT or_drop_oracle_form(CHAR *formname)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    formname        -(CHAR *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT or_drop_oracle_form (CHAR *formname)
+#else
+publicdef INT or_drop_oracle_form (formname)
+CHAR *formname;
+#endif
+    {
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR appname[31];
+    int appid;
+    EXEC SQL END DECLARE SECTION;
+    
+    V_FROMC (appname, formname);
+    /* Get the application ID to drop */
+    EXEC SQL SELECT APPID INTO : appid FROM SYSTEM.IAPAPP WHERE APPNAME =  :
+                                                                          appname AND 
+                                                                          APPOWNER =
+                                                                          USER;
+    
+    EXEC SQL DELETE SYSTEM.IAPBLK WHERE BLKAPPID =  : appid;
+    EXEC SQL DELETE SYSTEM.IAPCOMMENT WHERE CMTAPPID =  : appid;
+    EXEC SQL DELETE SYSTEM.IAPFLD WHERE FLDAPPID =  : appid;
+    EXEC SQL DELETE SYSTEM.IAPMAP WHERE MAPAPPID =  : appid;
+    EXEC SQL DELETE SYSTEM.IAPSQLTXT WHERE SQTAPPID =  : appid;
+    EXEC SQL DELETE SYSTEM.IAPTRG WHERE TRGAPPID =  : appid;
+    EXEC SQL DELETE SYSTEM.IAPTRIGGER WHERE TRIGAPPID =  : appid;
+    EXEC SQL DELETE SYSTEM.IAPAPP WHERE APPID =  : appid;
+    EXEC SQL COMMIT WORK;
+    
+    return SUCCESS;
+    }
+/* END:     */

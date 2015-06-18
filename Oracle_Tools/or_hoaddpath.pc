@@ -1,0 +1,129 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_HOADDPATH.PC*/
+/* *1     8-JAN-1991 16:16:56 GILLESPIE "User exit to simulate logical names from forms (SPR 6347)"*/
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_HOADDPATH.PC*/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Finder Graphics Systems, Inc.
+			201 Tamal Vista Blvd
+			Corte Madera, CA  USA 94925
+			(415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+/*
+ * OR_HOADDPATH.PC
+ * 
+ * A USER EXIT FROM AN ORACLE FORM 
+ * TO PREPEND A DIRECTORY ENTRY TO A FILE NAME
+ * THIS PROVIDES THE HO_ADD_PATH SERVICE TO FORMS
+ *
+ * The command format is HOADDPATH DIRECTORY FILE_NAME FULL_FILENAME
+ * where DIRECTORY is the directory name
+ *       FILE_NAME is name of the simple file name
+ *       FULL_FILENAME is name of the container which will receive
+ *                     the full path name to the requested file
+ */
+                           
+#include "esi_c_lib.h"
+#include "esi_oracle.h"
+#include "esi_ho_files.h"
+#include "esi_ts.h"
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+
+/*************************************************************/
+#if USE_PROTOTYPES
+publicdef INT or_hoaddpath( char *cmd, int *cmdlen, char *msg,
+                            int *msglen, int *query )
+#else
+publicdef INT or_hoaddpath( cmd, cmdlen, msg, msglen, query )
+char *cmd;
+int  *cmdlen;
+char *msg;
+int  *msglen;
+int  *query;
+#endif
+{
+    INT  status = SUCCESS;
+    CHAR errmsg[81];
+    INT  len;                         /* length of error message */
+    CHAR command_line[512];
+    CHAR *pnext;
+    CHAR command[31];
+    PATHNAME directory;
+    FILENAME filename;
+
+/*
+ * SQL definitions for program variables 
+ */
+EXEC SQL BEGIN DECLARE SECTION; 
+    VARCHAR directory_field[256];
+    VARCHAR dname[256];
+    VARCHAR filename_field[256];
+    VARCHAR fname[256];
+    VARCHAR result[256];
+    VARCHAR result_field[256];
+EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO bad_command;
+
+/* parse the command line */
+
+   strncpy(command_line, cmd, *cmdlen);
+   command_line[*cmdlen] = 0;
+
+   pnext = ts_next_word(command_line, command);
+   if (pnext EQUALS NULL)
+    {
+    goto bad_command;
+    }
+  pnext = ts_next_word(pnext, (char *)directory);
+  if (directory[0] EQUALS ':' OR directory[0] EQUALS '&')
+    {
+    V_FROMC(directory_field, directory+1);
+    EXEC IAF GET :directory_field INTO :dname;
+    V_FROMV(directory, dname);
+    }
+
+   if (pnext EQUALS NULL)
+    {
+    goto bad_command;
+    }
+  pnext = ts_next_word(pnext, (char *)filename);
+  if (filename[0] EQUALS ':' OR filename[0] EQUALS '&')
+    {
+    V_FROMC(filename_field, filename+1);
+    EXEC IAF GET :filename_field INTO :fname;
+    V_FROMV(filename, fname);
+    }
+
+   if (pnext EQUALS NULL)
+    {
+    goto bad_command;
+    }
+  ts_next_word(pnext, (char *)result_field.arr);
+  V_SETLEN(result_field);
+
+   status = ho_add_path(directory, filename, sizeof filename,
+                       (CHAR *)result.arr);
+   V_SETLEN(result);
+
+   EXEC IAF PUT :result_field VALUES( :result);
+
+   return( IAPSUCC );
+
+bad_command:
+      return( IAPFAIL );
+}

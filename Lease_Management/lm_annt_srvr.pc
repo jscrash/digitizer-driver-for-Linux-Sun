@@ -1,0 +1,369 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LM_ANNT_SRVR.PC */
+/* *7    11-SEP-1991 13:40:15 PURNA "(SPR 0) add comments" */
+/* *6     9-AUG-1991 12:48:42 PURNA "(SPR 3630) dimmed the SQLPHRASE button" */
+/* *5    18-JUN-1991 18:38:40 PURNA "(SPR 0) do not quit from SQLPHRASE" */
+/* *4    12-JUN-1991 14:55:59 PURNA "(SPR 0) upgrade user interface" */
+/* *3     7-MAY-1991 17:48:37 PURNA "(SPR 1622) init change" */
+/* *2    18-MAR-1991 18:07:57 PURNA "(SPR 0) Lease Mapping Init Checkin" */
+/* *1    18-MAR-1991 17:51:24 PURNA "Lease Mapping" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LM_ANNT_SRVR.PC */
+#include "esi_oracle.h"
+#include "esi_qs.h"
+
+#ifndef ESI_GL_DEFS_H
+#include "esi_gl_defs.h"
+#endif
+
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+#ifndef ESI_WI_H
+#include "esi_wi.h"
+#endif
+
+#ifndef ESI_FI_H
+#include "esi_fi.h"
+#endif
+
+#ifndef ESI_LM_H
+#include "esi_lm.h"
+#endif
+
+#ifndef ESI_HO_H
+#include "esi_ho.h"
+#endif
+static INT lmz_get_annotation_tcp();
+static INT lmz_create_annotation_param();
+
+/* Resource files */
+
+#ifndef LM_CDLGS_RH
+#define LM_CDLGS_RSRC "LM_CDLGS"
+#include "lm_cdlgs.rh"
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+    Routine to define parameter on annotation keyword in lease overlay
+
+Prototype:
+    publicdef INT lm_annotation_init(CHAR *prev_param,CHAR *param,
+				BOOL *sqlphrase_flag)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) prev_param	- (CHAR *)existing value of the annotation keyword's parameter
+    (O) param		- (CHAR *)returned value after user add/modify 
+				  the parameter
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lm_annotation_init(CHAR *prev_param,CHAR *param)
+#else
+publicdef INT lm_annotation_init(prev_param,param)
+CHAR *prev_param;
+CHAR *param;
+#endif
+{
+    INT status;
+    INT id,event_class,event_id,event_item;
+    INT *selected_list;
+    INT num_items;
+    LM_DIALOG_STRUCT *pex;
+    INT done=FALSE;
+    CHAR msg[240];
+
+
+    param[0]=0;
+
+    status = am_open_workspace(LM_DIALOG_WORKSPACE,AM_GLOBAL,(VOIDPTR *)&pex);
+    if (status != SUCCESS)
+	{
+         /*  initialize it                          */
+	am_define_workspace(LM_DIALOG_WORKSPACE,AM_GLOBAL,
+                          sizeof(LM_DIALOG_STRUCT),(VOIDPTR *)&pex);
+	}
+
+	/* defines the dialog resource.	      */
+    status = am_define_resource(AM_DIALOG,LM_CDLGS_RSRC,
+			    LM_ANNT,
+			    NULL_FUNCTION_PTR, 
+			    &pex->lm_annot,
+			    NULL);
+    id = pex->lm_annot;
+
+	/* dimmed SQLPHRASE button for later enchancement */
+    wi_enable_dialog_item(id,LM_ANNT_BTN_PHRASE,OFF);
+
+	/* set the texts to the selecting box.*/
+    status = lmz_get_annotation_tcp(pex,&num_items);
+    if(status != SUCCESS)
+	{
+	sprintf(msg,"Error when retrieving Annotation Attributes: %s. \
+Please contact your Database Administrator.",mg_message(status));
+	am_message(AM_ALERT,msg);
+	return SUCCESS;
+	}
+
+    if(num_items < 1)
+	{
+	am_message(AM_ALERT,"No Annotation attributes defined for this \
+project. Please contact your Database Administrator.");
+	return SUCCESS;
+	}
+
+
+	/* print message on message box */
+    if(IS_EMPTY_STRING(prev_param))
+	strcpy(msg,"Please select one or more annotation attributes and \
+click 'Done'");
+    else
+	sprintf(msg,"%s has been selected.",prev_param);
+    wi_set_dialog_text (id, LM_ANNT_MESSAGE,msg);
+
+    fi_push();
+    wi_open_dialog (id);
+
+for (event_item = -1, event_id = id;
+    event_id == id && !done;)
+    {
+    wi_request_event(0,&event_class,&event_id,&event_item);
+    switch (event_item)
+	{
+        case LM_ANNT_BTN_DONE:
+		/* retrieved all the selected annotations from the selector 
+			box  */
+            selected_list =(INT *)tc_alloc( sizeof(INT ) * (num_items + 1));
+  	    wi_query_selections(id, LM_ANNT_SELECT_LIST, &num_items,
+				   selected_list);
+            if(num_items < 1)
+	    	{
+		wi_set_dialog_text (id, LM_ANNT_MESSAGE,
+		"No annotation attributes has been selected.\
+Please select one or more attributes, or click 'CANCEL'.");
+		break;
+		}
+
+		/* concatenate all the selected annotations into one string */
+
+	    status = lmz_create_annotation_param(selected_list,num_items,
+						pex,param);
+
+	    if(status != SUCCESS)
+	    	{
+	    	param[0]=0;
+	    	}
+
+	    tc_free( selected_list );
+	    am_release_resource(id);
+	    status = SUCCESS;
+            done=TRUE;
+   	    break;
+
+        case LM_ANNT_BTN_CANCEL:
+	    am_release_resource(id);
+	    status = FAIL;
+	    done=TRUE;
+            break;
+
+       	case LM_ANNT_BTN_PHRASE:
+	    am_message (AM_ALERT,"SQLphrase option has not been implemented yet.");
+	    am_release_resource(id);
+	    status = SUCCESS;
+            break;
+        }
+    }
+
+    fi_pop();
+    return status;
+}
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    Routine to fill the annotation parameter selector box
+
+Prototype:
+    static INT lmz_get_annotation_tcp(LM_DIALOG_STRUCT *pex,INT *out_nitems)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) pex		-(LM_DIALOG_STRUCT *) Lease overlay structure.
+    (O) out_nitems	-(INT *) number of possible choices of annotation
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+#if USE_PROTOTYPES
+static INT lmz_get_annotation_tcp(LM_DIALOG_STRUCT *pex,INT *out_nitems)
+#else
+static INT lmz_get_annotation_tcp(pex,out_nitems)
+LM_DIALOG_STRUCT *pex;
+INT *out_nitems;
+#endif
+{
+    INT status;
+    INT nitems;    
+    INT nselected,i,index;
+    PROJECT_NAME project_name;
+
+EXEC SQL BEGIN DECLARE SECTION; 
+    VARCHAR stmt[256];
+    static VARCHAR code_name[32];
+EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO orcerr;
+    pex->annot_tcp=(TCP)0;   /* init tcp */
+    
+	/* build the sql stmt to retrieve info from database */
+
+    qs_inq_c(QS_PROJECT_NAME,project_name,(INT *)0);
+    stmt.len = sprintf((CHAR *)stmt.arr,
+    "SELECT DISTINCT ATTRIBUTE_NAME FROM %s.LEASE_ATTRIBUTES",
+    project_name);
+    EXEC SQL PREPARE S6 FROM :stmt;
+    EXEC SQL DECLARE C6 CURSOR FOR S6;
+    EXEC SQL OPEN C6;
+
+	/* loop for each item and appent to the TCP structure */
+
+    nitems = 0;
+    FOREVER 
+	{
+	EXEC SQL FETCH C6 INTO :code_name;
+	if(OR_STATUS EQUALS OR_EOF) break;
+	V_SETZERO(code_name);
+	ts_tcp_append(&pex->annot_tcp,(char *)code_name.arr);
+	nitems++;
+	}
+    *out_nitems = nitems;
+    if(nitems < 1)
+	return SUCCESS;
+
+	/* sort the annotation parameters */
+    ts_tcp_sort(pex->annot_tcp);
+
+	/* load parametes into selector box */
+    wi_set_selections (pex->lm_annot,LM_ANNT_SELECT_LIST,LM_ANNT_SELECT_BAR,
+                       nitems, nitems , pex->annot_tcp);
+
+	/* activate selector box */
+    wi_activate(pex->lm_annot,LM_ANNT_SELECT_LIST,ON);
+
+	/* hilite all the already selected item */
+    if(pex->annot_select_tcp != (TCP)0)
+	{
+	for(nselected = ts_tcp_len(pex->annot_select_tcp), i = 0;
+	    i < nselected; i++)
+    	    {
+	    index = ts_switch(pex->annot_select_tcp[i],pex->annot_tcp) + 1;
+	    wi_set_default_sel(pex->lm_annot,LM_ANNT_SELECT_LIST,index);
+	    }
+	}
+	
+    return SUCCESS;
+
+orcerr:
+    return OR_STATUS;
+}
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    Routine to fill the annotation parameter selector box
+
+Prototype:
+    static INT lmz_create_annotation_param(INT *selected_list,
+					INT num_items,
+					LM_DIALOG_STRUCT *pex,
+					CHAR *param)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) selected_list 	-(INT *) array of index to which item was selected
+    (I)	num_items 	-(INT) total number of item was selected
+    (I) pex		-(LM_DIALOG_STRUCT *) Lease overlay dialog boxes structure 
+    (O) param		-(CHAR *) return string of selected items with semicolon 
+				  separating each of the item
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+#if USE_PROTOTYPES
+static INT lmz_create_annotation_param(INT *selected_list,
+					INT num_items,
+					LM_DIALOG_STRUCT *pex,
+					CHAR *param)
+#else
+static INT lmz_create_annotation_param(selected_list,num_items,
+				pex,param)
+INT *selected_list;
+INT num_items;
+LM_DIALOG_STRUCT *pex;
+CHAR *param;
+#endif
+{
+    INT status;
+    INT str_len,new_len;
+    INT i,index;
+    TCP ptcp;
+
+    ts_tcp_copy(&ptcp,pex->annot_tcp);
+    ts_tcp_free(pex->annot_tcp);
+    pex->annot_tcp = (TCP)0;
+
+    for(i = new_len = 0;i<num_items;i++)
+	{
+	index = selected_list[i]-1;
+	str_len = strlen(ptcp[index]);
+	str_len++;
+	new_len += str_len; 
+
+	if(i==0)
+	    strcpy(param,ptcp[index]);
+	else
+	    strcat(param,ptcp[index]);
+	strcat(param,";");
+	ts_tcp_append(&pex->annot_tcp,ptcp[index]);
+	}
+    param[new_len-1]=0;
+    ts_tcp_free(ptcp);
+    ts_tcp_sort(pex->annot_tcp);
+	    
+    return SUCCESS;    
+}

@@ -1,0 +1,174 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LGZ_DM_I_L_V.PC*/
+/*  8    27-FEB-1992 09:18:01 JESSIE "(SPR 6180) add TVD display of traces and tops"*/
+/* *7    23-AUG-1990 17:39:44 JESSIE "(SPR 1) fix include files"*/
+/* *6    14-SEP-1989 18:19:58 GORDON "(SPR -1) checkin from gulf"*/
+/* *5    14-SEP-1989 16:16:24 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *4    13-AUG-1989 01:46:11 GILLESPIE "(SPR 5) Change WLL_LOG_TRACE_HDR to WELL_LOG_CURVE; always release cursor"*/
+/* *3     8-AUG-1989 10:44:32 VINCE "(SPR -1) added Gulf mods; static in SQL declare section"*/
+/* *2    19-JUL-1989 08:05:29 GORDON "(SPR 100) Add mods from Sun port"*/
+/* *1    19-JUN-1989 12:33:12 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element LGZ_DM_I_L_V.PC*/
+
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+
+/* **************************************************************************
+
+    Author:   James Chang
+    ************************************************************************* */
+
+#ifndef ESI_LG_LDEFS_H
+#include "esi_lg_ldefs.h"
+#endif
+#ifndef ESI_LG_ERR_H
+#include "esi_lg_err.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#include "esi_oracle.h"
+
+
+/*  **************************************************************************
+
+    ROUTINE LGZ_INQ_LAST_VERSION
+
+    DESCRIPTION
+         A internal help routine of Log Trace Data Manager.  The function of this
+         routine is to inquire the last version number of trace.  There is one
+         parameter, named NEWVERSION, to indicate that the returned version
+         number should be the last version number or the number after the last
+         version ( e.g. creates a new version number.).
+
+    ************************************************************************ */
+publicdef INT lgz_inq_last_version(  traceStruct, newVersion  )
+    /*************************************************************************/
+LOG_TRACE_STRUCT *traceStruct;    /*%P a pointer of LOG_TRACE_STRUCT().     */
+INT newVersion;                   /*%P the flag of indicating the returned  */
+                                  /*   version should be new version, or the*/
+                                  /*   last version in the database.        */
+{
+    INT status = SUCCESS;         /*   the returned flag.                   */
+    INT   tempVersion = 0;
+    PROJECT_NAME current_project_name;
+
+    CHAR text[12];
+    char	dtype;
+
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR	select[512];
+    int	lastVersion;        
+EXEC SQL END DECLARE SECTION;
+/*  **********************************************************************  */
+
+    lastVersion = 0;
+
+/* Added J Gillespie June 88
+   Since the depth data type is really important (we don't want just any old
+   trace, but one in the currently interesting domain), then we must pull
+   out the highest version of the named trace in the specified depth domain
+   (either Time or Depth).  If none is specified, then extract a trace
+   in Depth */
+
+    switch( traceStruct -> depth_type )
+    {
+	case DEPTH_IN_DISTANCE:
+	case 0:
+	    dtype = 'D';
+	    break;
+	case DEPTH_IN_TIME:
+	    dtype = 'T';
+	    break;
+	default:
+	    dtype = 'D';   /* Consider more later... ???? */
+	    break;
+    }
+
+    qs_inq_c(QS_PROJECT_NAME, current_project_name, (INT *) 0);
+
+    EXEC SQL WHENEVER SQLERROR GOTO errrpt;
+    EXEC SQL WHENEVER NOT FOUND GOTO ernofd;
+
+
+
+    if (newVersion)
+    {
+         select.len = sprintf((char *)select.arr,
+"SELECT VERSION FROM \
+%s.WELL_LOG_CURVE_HDR \
+WHERE UWI = '%s' AND TRACE_TYPE = '%s' \
+ORDER BY VERSION DESC ", current_project_name,
+    traceStruct -> uwi, traceStruct -> trace);
+    EXEC SQL PREPARE LAST_V_S1 FROM :select;
+    EXEC SQL DECLARE LAST_V_C1 CURSOR FOR LAST_V_S1;
+    EXEC SQL OPEN LAST_V_C1;
+
+    EXEC SQL FETCH LAST_V_C1 INTO :lastVersion;
+    EXEC SQL CLOSE LAST_V_C1;
+
+                                /*   if returned value should be new version */
+                                /*   creates a new version then returns.     */
+
+    traceStruct -> version = lastVersion + 1;
+
+    }
+    else
+    {
+    select.len = sprintf((char *)select.arr, 
+"SELECT VERSION FROM \
+%s.WELL_LOG_CURVE_HDR \
+WHERE UWI = '%s' AND TRACE_TYPE = '%s' AND NVL(DEPTH_TYPE,'D') = '%c' \
+ORDER BY VERSION DESC ", current_project_name,
+traceStruct -> uwi, traceStruct -> trace, dtype);
+    EXEC SQL PREPARE LAST_V_S2 FROM :select;
+    EXEC SQL DECLARE LAST_V_C2 CURSOR FOR LAST_V_S2;
+    EXEC SQL OPEN LAST_V_C2;
+
+    EXEC SQL FETCH LAST_V_C2 INTO :lastVersion;
+    EXEC SQL CLOSE LAST_V_C2;
+
+    traceStruct -> version = lastVersion;
+    }
+
+    
+    sprintf( text, ";%d", traceStruct -> version );  
+    strcat(traceStruct -> trace_name, text);
+    return status;
+
+
+errrpt:
+    status = OR_STATUS;
+    return status;
+
+ernofd:
+    if(  newVersion     )
+    {
+         traceStruct -> version = 1;
+         strcat(traceStruct -> trace_name, ";1");
+         status = SUCCESS;
+    }
+    else
+    {
+         status = LG_TRACE_NOT_FOUND;
+    }
+    return status;
+}

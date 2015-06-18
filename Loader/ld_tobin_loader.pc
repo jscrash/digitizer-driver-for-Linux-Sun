@@ -1,0 +1,1686 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_TOBIN_LOADER.PC*/
+/*  21    3-MAR-1992 10:38:43 JILL "(SPR 0) fix bug(missing nlists during tiling) use lookup tables"*/
+/* *20   24-OCT-1991 14:45:54 LOEBL "(SPR 0) Remove explicit sqltrace"*/
+/* *19   26-JUL-1991 14:56:53 CHEW "(SPR 0) Change default location to northwest region."*/
+/* *18    9-JUL-1991 15:20:17 CHEW "(SPR 0) Set default lon/lat direction"*/
+/* *17   26-JUN-1991 19:15:29 CHEW "(SPR 0) Prompt user for location of data. (Longitude:E/W and Latitude:N/S)"*/
+/* *16   16-MAY-1991 15:04:23 LOEBL "(SPR 0) Implement extensive status checking"*/
+/* *15    3-JAN-1991 12:20:55 MING "(SPR 6435) fix text label to use correct up vector"*/
+/* *14   31-DEC-1990 16:30:15 MING "(SPR 6435) change NL_NLIST_MIN to NL_NLIST_MAX "*/
+/* *13    9-NOV-1990 10:36:27 MING "(SPR -1) replace ho_find_files and ho_find_files2 to ho_find_pathnames and ho_find_filenames"*/
+/* *12    4-OCT-1990 16:57:03 VINCE "(SPR 1) changed call to dr_put_line for new calling arguments"*/
+/* *11   23-AUG-1990 17:48:49 PURNA "(SPR 0) compiling error fix"*/
+/* *10    9-AUG-1990 22:02:23 GILLESPIE "(SPR 2001) Change OS dependency switch"*/
+/* *9    20-JUN-1990 18:04:18 PURNA "(SPR 0) mod for geodetic projection"*/
+/* *8    19-JUN-1990 16:47:29 MING "(SPR 0) change ho_find_files2 to ho_find_files"*/
+/* *7    18-DEC-1989 16:46:08 PURNA "(SPR 5069) export facility mods"*/
+/* *6    13-DEC-1989 10:12:42 VINCE "(SPR -1) removed uppercase of pathname when not comming from the command line."*/
+/* *5    19-OCT-1989 08:36:10 GORDON "(SPR 999) fix call to ct_transform_point"*/
+/* *4    14-OCT-1989 11:54:05 VINCE "(SPR -1) changed calling sequence for new ct_transform_point"*/
+/* *3    22-SEP-1989 15:24:08 GILLESPIE "(SPR 101) Fix up castings"*/
+/* *2     5-SEP-1989 16:12:05 GORDON "(SPR 200) Gulf changes (August trip)"*/
+/* *1     1-JUL-1989 12:23:20 GILLESPIE ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_TOBIN_LOADER.PC*/
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+
+******************************************************************************/
+
+
+/* TOBIN_LOADER.CC,  VINCE>CWORK,  VINCE,  12/04/86
+   Command line process to load a Tobin Land Net tape.
+   Copyright (c) 1986, Exploration Systems Inc, Sausalito, CA. */
+
+/* TITLE : TOBIN_LOADER - Command line process to load a Tobin Land Net tape. */
+
+/* START-CODE : */
+
+/*   Start Global Stuff   */
+#include "esi_math.h"
+#include "esi_oracle.h"
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+#ifndef ESI_MP_H
+#include "esi_mp.h"
+#endif
+
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_FI_H
+#include "esi_fi.h"
+#endif
+
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_HO_H
+#include "esi_ho.h"
+#endif
+
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+
+#ifndef ESI_LD_TOBIN_H
+#include "esi_ld_tobin.h"
+#endif
+
+#ifndef ESI_LD_ERR_H
+#include "esi_ld_err.h"
+#endif
+
+#ifndef ESI_LD_MSG_H
+#include "esi_ld_msg.h"
+#endif
+
+#ifndef ESI_DR_H
+#include "esi_dr.h"
+#endif
+
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+
+#ifndef ESI_LU_H
+#include "esi_lu.h"
+#endif
+
+EXEC ORACLE OPTION (REBIND = NO);
+
+publicdef INT n_stars = 0;
+#define STAR  printf ("*"); if (n_stars++ > 70) { printf ("\n"); n_stars = 0; }
+#define RESET_STARS if (n_stars > 0) { printf("\n"); n_stars = 0; }
+
+   /*   Internal Error Flags.       */
+#define QUIET_FAIL           4000
+   /*   ******** ***** ******       */
+
+   /*  constant definitions   */
+#define LABELS_PER_ID       50
+#define END_OF_FILE         -1
+#define ERRTXT              -1001
+#define IGNORE              -1002
+#define END_OF_LIST         -1
+#define LOAD_ALL             0
+#define LOAD_SUBSET          1
+
+#define LAT$                 1 /* positions in the lat/lon arrays        */
+#define LON$                 0 /* note that internal storage is lon/lat  */
+
+privatedef CHAR *line_names[] = {
+   /*  0 */ "TOBIN_UNKNOWN_TYPE",  /* used when type is otherwise undefined. */
+   /*  1 */ "TOBIN_ANNOTATION",
+   /*  2 */ "TOBIN_SECTIONS",
+   /*  3 */ "TOBIN_TOWNSHIPS",
+   /*  4 */ "TOBIN_COUNTIES",
+   /*  5 */ "TOBIN_STATES",
+   /*  6 */ "TOBIN_OUTLINES",
+   /*  7 */ "TOBIN_MUNIS",           /* "TOBIN_Municipalities"  */
+   /*  8 */ "TOBIN_RIVERS",
+   /*  9 */ "TOBIN_STREAMS",
+   /* 10 */ "TOBIN_ISLANDS",
+   /* 11 */ "TOBIN_LAKES",
+   /* 12 */ "TOBIN_OLD_RIVERS",      /* "TOBIN_Old_Riverbeds" */
+   /* 13 */ "TOBIN_OCEANS",          /* "TOBIN_Ocean_Areas" */
+   /* 14 */ "TOBIN_FED_HIGHWAYS",    /* "TOBIN_Federal_Highways" */
+   /* 15 */ "TOBIN_STATE_HIGHWAYS",
+   /* 16 */ "TOBIN_TRAVELWAYS",
+   /* 17 */ "TOBIN_PIPELINES",
+   /* 18 */ "TOBIN_RAILROADS",
+   /* 19 */ "TOBIN_MSCS",            /* "TOBIN_Monumented_Section_Corners" */
+   /* 20 */ "TOBIN_BENCHMARKS",
+   /* 21 */ "TOBIN_MONUMENTS",
+   /* 22 */ "TOBIN_FED_RESERVES",    /* "TOBIN_Federal_Reservations" */
+   /* 23 */ "TOBIN_STATE_RESERVES",  /* "TOBIN_State_Reservations"  */
+   /* 24 */ "TOBIN_TRANS_LINES",     /* "TOBIN_Transmission_Lines" */
+   /* 25 */ "*TOBIN_WELLS",
+   /* 26 */ "TOBIN_UNSURVEYED",      /* "Tobin_Unsurveyed_Areas" */
+   /* 27 */ "*TOBIN_LEASES",
+   /* 28 */ "*TOBIN_SHOT_POINTS",
+   /* 29 */ "*TOBIN_CORE_HOLES",
+   /* 30 */ "*TOBIN_B_SPLINES",
+   /* 31 */ "*TOBIN_SMOOTH_GRIDS",
+	     0               } ;     /*  zero must be last in list.  */
+
+
+privatedef INT line_attributes [MAX_DEFINED_LEVELS] [3] = {
+   /*         color, thickness, style  */
+   /*  0 */     12,      1,       1,         /* used as default  */
+   /*  1 */      3,      1,       1,
+   /*  2 */      8,      1,       1,
+   /*  3 */      8,      1,       1,
+   /*  4 */      7,      1,       1,
+   /*  5 */      7,      1,       1,
+   /*  6 */      4,      1,       1,
+   /*  7 */      3,      1,       1,
+   /*  8 */      5,      1,       1,
+   /*  9 */      5,      1,       1,
+   /* 10 */      1,      1,       1,
+   /* 11 */      1,      1,       1,
+   /* 12 */      5,      1,       4,
+   /* 13 */     11,      1,       4,
+   /* 14 */     10,      1,       1,
+   /* 15 */     10,      1,       1,
+   /* 16 */     10,      1,       1,
+   /* 17 */     15,      1,       1,
+   /* 18 */      6,      1,       4,
+   /* 19 */      2,      1,       1,
+   /* 20 */      2,      1,       1,
+   /* 21 */      2,      1,       1,
+   /* 22 */      9,      1,       1,
+   /* 23 */      9,      1,       1,
+   /* 24 */     15,      1,       4,
+   /* 25 */     12,      1,       1,
+   /* 26 */     12,      1,       1,
+   /* 27 */     12,      1,       1,
+   /* 28 */     12,      1,       1,
+   /* 29 */     12,      1,       1,
+   /* 30 */     12,      1,       1,
+   /* 31 */     12,      1,       1  } ;
+
+privatedef CHAR  program_name[] = "TOBIN_LOADER";
+
+   /* section labels to be excluded from the load.                           */
+   /*    any other undesired label strings may be added to this table.       */
+   privatedef CHAR *exclude_labels[] = {       "5",  "4",  "3",  "2",
+				     "7",  "8",  "9", "10", "11", "12",
+				    "18", "17",             "14", "13",
+				    "19", "20",             "23", "24",
+				    "30", "29", "28", "27", "26", "25",
+					  "32", "33", "34", "35",       0};
+
+   /*  ******** ***********   */
+
+   /*   Global Variables   */
+   privatedef FILE      *fin;
+
+   privatedef CHAR text[81], ctype[81], errtxt[81];
+   privatedef FILENAME  current_path, dir_name;
+   privatedef ENTRYNAME current_name, subset_file;
+   privatedef PROJECT_NAME project;
+   privatedef CHAR      **file_table, record[TOBIN_LAND_REC_SIZE];
+   privatedef DOUBLE	lon_val; /* 1.0 for East or -1.0 for West   */
+   privatedef DOUBLE	lat_val; /* 1.0 for North or -1.0 for South */
+   privatedef INT       i, input_status, n_codes, type, codes[100], nfiles=0, one=1;
+   privatedef INT       n_points, n_labels, n_unknown, nft, record_no;
+   privatedef INT       start_time, end_time, dtime, hours, mins, secs;
+   privatedef INT       previous_llevel, file_table_index, gtp_error;
+   privatedef INT       headers_in_object, llevel;
+   privatedef INT       n_loaded[MAX_DEFINED_LEVELS];
+   privatedef INT       last_ll_init[MAX_DEFINED_LEVELS];
+   privatedef INT       total_poly[MAX_DEFINED_LEVELS];
+   privatedef INT       total_points[MAX_DEFINED_LEVELS];
+   privatedef INT       total_labels[MAX_DEFINED_LEVELS];
+   privatedef INT           object_ids[MAX_DEFINED_LEVELS];
+   privatedef DOUBLE    last_ll[MAX_DEFINED_LEVELS] [2];
+   privatedef DOUBLE    xy_offset[2];      /* x/y offset for demo loads.          */
+   privatedef INT       use_offset;        /* offset load flag, true = use offset.*/
+   privatedef PROJECTION_STRUCTURE *tobin_projection, *area_projection;
+   privatedef BOOL geode_flag;
+   privatedef NLIST_HEADER pl[MAX_DEFINED_LEVELS];
+   privatedef DR_DATA dr_data;
+
+   EXEC SQL BEGIN DECLARE SECTION;
+      privatedef VARCHAR stmt[512];
+   EXEC SQL END DECLARE SECTION;
+
+#define LB_NODE struct lb_node_
+LB_NODE {
+   CHAR     text[TEXT_];
+   CHAR     align[3];
+   INT      font, precision, color;
+   DOUBLE   angle, wd, ht, sp, linesp;
+   DOUBLE   ll[2], ur[2], node_ll[2], node_xy[2];
+   LB_NODE *next;
+} ;
+
+LB_NODE *lb_first[MAX_DEFINED_LEVELS], *lb_current[MAX_DEFINED_LEVELS];
+
+   struct object_extents_ {
+      INT    init;
+      DOUBLE xmin, ymin, xmax, ymax;
+   }  object_extents [MAX_DEFINED_LEVELS] ;
+
+   struct text_object_ {
+      INT       vpos, color, font, precision;
+      CHAR      text[81], align[81], node_id[81];
+      DOUBLE    angle, wd, ht, sp, linesp;
+      DOUBLE    ll_x, ll_y, ur_x, ur_y;
+   } text_object ;
+
+   struct line_object_ {
+      INT       vpos, color, style, thick;
+      FILENAME  pl_file;
+      ENTRYNAME pl_id;
+      CHAR      name[81];
+      DOUBLE    ll_x, ll_y, ur_x, ur_y;
+   } line_object ;
+
+   struct node_object_ {
+      DOUBLE  lat, lon;
+      DOUBLE  x, y;
+   } node_object ;
+
+   /*   ****** *********   */
+
+   /*   Global Functions   */
+   CHAR  *smove();
+   DOUBLE dmove();
+   INT check_type(),        display_stats();
+   INT find_header(),       get_next_file();
+   INT imove();
+   INT initialize(),        llmove(),              load_label();
+   INT load_point(),        load_polygon(),        log_error();
+   INT process_file(),      process_tobin(),       purge_nl();
+   INT read_record(),       translate_gtp_error();
+   INT show_parameters(),   shut_down(),           store_label();
+   INT store_text_object(), transform(),           update_extents();
+   INT write_labels(),      write_nlists();
+   /*   ****** *********   */
+
+/*   End Global Stuff   */
+
+/* ************************************************************************* */
+/* Main Entry Point */
+
+main(argc, argv)
+     INT  argc;
+     CHAR **argv;
+{
+   INT status;
+
+   geode_flag=FALSE;
+   if ( status = initialize(argc, argv) ) return;
+
+
+   if ( status = ho_find_pathnames (dir_name, &file_table) ) {
+      printf ("Error while searching for files using %s\n", dir_name);
+      printf ("%s aborting.\n", program_name);
+      or_logout(0);
+      return;
+   }
+
+   nft = ts_tcp_len (file_table);
+   printf ("\n %d %s found using %s\n\n",
+	    nft, (nft == 1 ? "file" : "files"), dir_name);
+   if (nft == 0) {
+      printf ("No files found. %s aborting.\n", program_name);
+      or_logout(0);
+      return;
+   }
+
+   if ( log_error( process_tobin()  ) OR
+	log_error( shut_down()      ) ) /* null */ ;
+   RESET_STARS;
+   printf ("Tobin Loader ending on %s\n", ctime(&end_time));
+
+   or_logout(1);
+   return;
+}
+
+/* ************************************************************************* */
+/* *****************************  Subroutines  ***************************** */
+/* ************************************************************************* */
+
+INT process_tobin()
+{
+   INT status;
+   for (status=get_next_file(); status==SUCCESS; status=get_next_file())
+      {
+       status = process_file() ;
+       log_error ( status );
+      }
+   if (status != END_OF_LIST)
+       return status;
+   return SUCCESS;
+}
+
+/* *************************************************************************    */
+
+INT get_next_file()
+{
+   if (fin != (FILE *)NULL) fclose (fin);
+
+   file_table_index++;
+   if (file_table[file_table_index] == 0) return END_OF_LIST;
+
+   strcpy (current_path, file_table[file_table_index]);
+
+   input_status = SUCCESS;
+   fin = fopen (current_path, "r");
+   if (fin == (FILE *)NULL) return LD_TL_CANT_OPEN_FILE;
+
+   return SUCCESS;
+}
+
+/* ************************************************************************* */
+
+INT process_file()
+{
+   INT status = SUCCESS;
+   record_no  = 0;
+
+   RESET_STARS;
+   printf ("loading file %s\n (one '*' per polygon)\n", current_path);
+   nfiles++;
+   tc_zeroes(&dr_data, sizeof(DR_DATA) );
+   if ( log_error ( find_header() ))  return LD_TL_NO_HEADER_IN_FILE;
+
+   while ( status == SUCCESS && input_status != END_OF_FILE )
+      {
+      status = load_polygon();
+      log_error( status );
+      log_error( find_header()  );
+      }
+
+   RESET_STARS;
+   if ( status == SUCCESS )
+      {
+      status = purge_nl();            /* store it all */
+      }
+
+   /* commit at the end of each file processed. */
+   EXEC SQL COMMIT WORK;
+
+   return status;
+}
+
+/* ************************************************************************* */
+
+INT find_header()
+{
+   INT hdr;
+
+/*  Look for the next loadable header in the file.  Leave the header in
+    the buffer when done.                                                   */
+
+   hdr = (record[RECORD_TYPE$] == HEADER_TYPE);   /* already have a header? */
+   while ( (NOT hdr) && (input_status != END_OF_FILE) ) {
+      read_record();
+      hdr = ( (record[RECORD_TYPE$] == HEADER_TYPE) && (check_type()) );
+   }
+
+   if (input_status == END_OF_FILE) return END_OF_FILE;
+
+   smove  (current_name, record+NAME$, NAME_);
+
+   return SUCCESS;
+}
+
+/* ************************************************************************* */
+
+INT check_type()
+{
+   INT  i, itype, istate, izone;
+
+   itype  = imove (record+LLEVEL$,     LLEVEL_);
+   istate = imove (record+CNVR_STATE$, CNVR_STATE_);
+   izone  = imove (record+CNVR_ZONE$,  CNVR_ZONE_);
+
+   if (itype >= MAX_DEFINED_LEVELS) itype = 0; /* use default position */
+
+   /* TOBIN has the zone codes backwards for these two states !              */
+   if (istate == TEXAS_STATE_CODE)     izone = TEXAS_ZONE_CONSTANT     - izone;
+   if (istate == LOUISIANA_STATE_CODE) izone = LOUISIANA_ZONE_CONSTANT - izone;
+
+   if (*line_names[itype] == '*') return FALSE; /*  not a loadable type     */
+
+   llevel = itype;  /*  store the stuff for future use.          */
+
+   if (type == LOAD_ALL)          return TRUE;  /*  all data requested      */
+
+   for (i=0 ; i<n_codes ; i++)
+      if (codes[i] == itype)      return TRUE;  /* it's a requested type    */
+
+   return FALSE;                                /* not a requested type     */
+}
+
+/* ************************************************************************* */
+
+INT load_polygon()
+{
+   DOUBLE sw_ll[2], ne_ll[2], xsw_ll[2], xne_ll[2];
+   INT    done;
+   INT    status;
+
+   (n_loaded[llevel])++;
+
+   STAR;
+   n_points = 0; n_labels = 0; n_unknown = 0;
+
+   status = SUCCESS;
+   done = FALSE;
+
+   while (! done) {
+      read_record();
+      switch (record[ RECORD_TYPE$ ]) {
+	 case HEADER_TYPE :
+	    done = TRUE;
+	    break;
+	 case POINT_TYPE :
+	    status = load_point();
+	    if (status == SUCCESS)
+                {
+                n_points++;
+                done = (record[EOP_FLAG$] == END_OF_POLY);
+                }
+            else
+                {
+                done = TRUE;
+                }
+	    break;
+	 case LABEL_TYPE :
+	    status = load_label();
+	    if (status == SUCCESS)
+                {
+                n_labels++;
+                }
+            else
+                {
+                if ( status != IGNORE)
+                   {
+                   done = TRUE;
+                   }
+                }
+	    break;
+	 case '\0' :
+	    /* ignore an empty record */
+	    break;
+	 default :
+	    RESET_STARS;
+	    printf ("Record # %d has an unrecognized record type [%1.1s]\n",
+		     record_no, record);
+	    n_unknown++;
+	    break;
+      }
+      done = ( (done) OR (input_status == END_OF_FILE) );
+   }
+
+   if (record[EOP_FLAG$] != END_OF_POLY) {
+      RESET_STARS;
+      printf (" ####  No End-Of-Polygon marker found before next header or end of file.\n");
+      printf ("      record number %d in file %s\n",
+	       record_no, current_path);
+   }
+
+   if (n_unknown > 0) {
+      RESET_STARS;
+      printf
+      (" ####  There %s %d record%s of unrecognized type in th%s polygon%s.\n",
+	      ((n_unknown==1) ? "was" : "were"), n_unknown,
+	      ((n_unknown==1) ? "" : "s"),
+	      ((n_unknown==1) ? "is" : "ese"),
+	      ((n_unknown==1) ? "" : "s") );
+   }
+
+
+   return status;
+}
+
+/* ************************************************************************* */
+
+privatedef INT load_point()
+{
+
+   DOUBLE at_ll[2], xat_ll[2], to_ll[2], xto_ll[2];
+   INT    err_flag;
+   UINT  new_stroke_number;
+   privatedef UINT dim_list[2] ={1, 2};
+   VOIDPTR Var_List[2];
+   NLIST_HEADER nlist;
+   privatedef INT units[2]     = { 0, 0};
+   privatedef INT data_type[2] = { FLOAT_TYPE, FLOAT_TYPE};
+   privatedef INT data_size[2] = { sizeof(DOUBLE), sizeof(DOUBLE) };
+
+   llmove ( at_ll, record+AT_LL$);
+   llmove ( to_ll, record+TO_LL$);
+
+   if ( log_error ( transform (xat_ll, at_ll) )  OR
+	log_error ( transform (xto_ll, to_ll) )  )  return QUIET_FAIL;
+
+   if (last_ll_init[llevel] == FALSE) {  /* make last different from current */
+      last_ll[llevel] [LAT$] = xat_ll[LAT$] + 5.0;
+      last_ll[llevel] [LON$] = xat_ll[LON$] + 5.0;
+      last_ll_init[llevel]   = TRUE;
+   }
+
+   nlist = pl[llevel];
+   if ((xat_ll[LAT$] != last_ll[llevel] [LAT$]) OR
+       (xat_ll[LON$] != last_ll[llevel] [LON$])   ) {
+      nl_start_stroke ( nlist, &new_stroke_number );
+
+      Var_List[0] = (VOIDPTR)&xat_ll[LON$];
+      Var_List[1] = (VOIDPTR)&xat_ll[LAT$];
+      nl_add_points_convert ( nlist, 1, 2, dim_list, Var_List,
+          units, (size_t*)data_size, data_type );
+   }
+
+   Var_List[0] = (VOIDPTR)&xto_ll[LON$];
+   Var_List[1] = (VOIDPTR)&xto_ll[LAT$];
+   nl_add_points_convert ( nlist, 1, 2, dim_list, Var_List,
+       units, (size_t*)data_size, data_type );
+
+   last_ll[llevel] [LAT$] = xto_ll[LAT$];
+   last_ll[llevel] [LON$] = xto_ll[LON$];
+
+   return SUCCESS;
+}
+
+/* ************************************************************************* */
+
+INT load_label()
+{
+   DOUBLE   at_ll[2], xat_ll[2];
+   PROJECTION_ID projection_id;
+   INT status;
+
+   llmove (at_ll, record+SW_CORNER_LL$);
+   status = transform (xat_ll, at_ll);
+   if ( status )
+      {
+      return QUIET_FAIL;
+      }
+   smove (text, record+TEXT$, (INT)TEXT_);
+   strcpy (text_object.text, ts_snowhite(text));
+   if(geode_flag)
+	strcpy (text_object.align, "LL");
+   else
+	strcpy (text_object.align, "C");
+
+/*  if the label is in the exclude list then ignore it. */
+
+   status = ts_switch(text_object.text, exclude_labels);
+   if ( status != -1 )
+       {
+       return IGNORE ;
+       }
+
+   text_object.angle  = dmove (record+ANGLE$, ANGLE_, 2);
+   text_object.font   = imove (record+FONT$,  FONT_);
+   text_object.ht     = imove (record+SIZE$,  SIZE_);
+   text_object.wd     = text_object.ht / 1.3;
+   text_object.sp     = text_object.wd * .3;
+   text_object.linesp = 2 * text_object.ht;
+   text_object.color  = line_attributes[llevel] [0];
+
+   if (area_projection->spheroid_units == 2)
+	    text_object.ht = (text_object.ht / 3.28); /* feet to meters */
+
+
+   /* shift location point from Lower Left Corner to Left Center of string  */
+   if(! geode_flag)
+	{
+	xat_ll[LON$] = xat_ll[LON$] + ((text_object.ht / 2.0) * sin ( D_TO_R(text_object.angle)));
+	xat_ll[LAT$] = xat_ll[LAT$] + ((text_object.ht / 2.0) * cos ( D_TO_R(text_object.angle)));
+	}
+
+   text_object.ll_x = xat_ll[LON$];
+   text_object.ll_y = xat_ll[LAT$];
+   text_object.ur_x = xat_ll[LON$];
+   text_object.ur_y = xat_ll[LAT$];
+
+   i = text_object.angle;
+   switch (i) {
+      case   0 :
+      case 180 :
+      case 270 :
+	 text_object.precision = 1;
+	 break;
+      case 360 :
+	 text_object.angle     = 0.0;
+	 text_object.precision = 1;
+	 break;
+      default  :
+	 text_object.precision = 2;
+	 break;
+   }
+
+   node_object.lon = at_ll[LON$];
+   node_object.lat = at_ll[LAT$];
+   node_object.x   = xat_ll[LON$];
+   node_object.y   = xat_ll[LAT$];
+
+#ifdef DEBUG
+      RESET_STARS;
+      printf ("label:%s\nangle = %5.1f, ht = %5.1f, wd = %5.1f, location = %7.5f, %8.5f\n",
+	       text_object.text, text_object.angle, text_object.ht,
+	       text_object.wd, xat_ll[LAT$], xat_ll[LON$]);
+#endif
+
+   status = store_label();
+   return ( status );
+
+}
+
+/* ************************************************************************* */
+
+INT  store_label()
+{
+   if (lb_first[llevel] == 0) {
+      lb_first[llevel] = ALLOCATE (LB_NODE);
+      lb_current[llevel] = lb_first[llevel];
+   }
+   else {
+      lb_current[llevel]->next = ALLOCATE (LB_NODE);
+      lb_current[llevel] = lb_current[llevel]->next;
+   }
+
+/* check the status of the allocate */
+   if ( lb_current[llevel] != (LB_NODE *) NULL )
+       {
+       store_text_object (lb_current[llevel]);
+       return SUCCESS;
+       }
+   else
+       {
+       strcpy(errtxt, "Unable to allocate memory");
+       log_error(ERRTXT);
+       return QUIET_FAIL;
+       }
+}
+
+/* ************************************************************************* */
+
+INT  store_text_object (lbp)
+     LB_NODE *lbp;
+{
+   lbp->wd = text_object.wd; lbp->ht     = text_object.ht;
+   lbp->sp = text_object.sp; lbp->linesp = text_object.linesp;
+
+   lbp->angle = text_object.angle; lbp->color     = text_object.color;
+   lbp->font  = text_object.font;  lbp->precision = text_object.precision;
+
+   lbp->ll[LON$] = text_object.ll_x; lbp->ll[LAT$] = text_object.ll_y;
+   lbp->ur[LON$] = text_object.ur_x; lbp->ur[LAT$] = text_object.ur_y;
+
+   lbp->node_xy[LAT$] = node_object.y;   lbp->node_xy[LON$] = node_object.x;
+   lbp->node_ll[LAT$] = node_object.lat; lbp->node_ll[LON$] = node_object.lon;
+
+   strcpy (lbp->text,  text_object.text);
+   strcpy (lbp->align, text_object.align);
+
+   return SUCCESS;
+}
+
+/* ************************************************************************* */
+
+INT  purge_nl ()
+{
+   display_stats ();
+   write_labels ();
+   write_nlists ();
+   write_object_headers();
+   return SUCCESS;
+}
+
+/* ************************************************************************* */
+
+INT  display_stats()
+{
+   INT      i, n_labels, n_points, n_poly;
+   LB_NODE *lbp;
+   NLIST_HEADER nlist;
+
+   for ( i=0 ; i < MAX_DEFINED_LEVELS ; i++ ) {
+      n_poly   = n_loaded[i];
+      n_labels = 0;
+      for (lbp = lb_first[i] ; lbp ; lbp = lbp->next) n_labels++;
+
+      nlist = pl[i];
+      nl_inq_nlist_int (nlist, NL_NLIST_NPOINTS,  &n_points);
+
+      if ( (n_poly > 0) OR (n_points > 0) OR (n_labels > 0) ) {
+	 total_poly[i]   = total_poly[i]   + n_poly;
+	 total_points[i] = total_points[i] + n_points;
+	 total_labels[i] = total_labels[i] + n_labels;
+	 printf ("%-22s: %5d polygon%s %5d point%s and %5d label%s.\n",
+		 line_names[i],
+		 n_poly,   ((n_poly   == 1) ? " " : "s"),
+		 n_points, ((n_points == 1) ? " " : "s"),
+		 n_labels, ((n_labels == 1) ? ""  : "s") );
+      }
+   }
+
+   printf ("\n");
+   return SUCCESS;
+}
+
+/* ************************************************************************* */
+
+INT  write_labels()
+{
+   INT      i, status, n_labels_saved, ct_put_text();
+   LB_NODE  *lbp;
+   TEXT     text_data;
+   INT      old_object;
+   INT      dr_create_object_type();
+   privatedef BOOL     first = TRUE;
+
+   EXEC SQL BEGIN DECLARE SECTION;
+      privatedef int      next_text_id;
+      privatedef int      object_id;
+   EXEC SQL END DECLARE SECTION;
+
+   if (first)
+   {
+      stmt.len = sprintf ((char *)stmt.arr,
+      "INSERT INTO %s.GRAPHIC_OBJECT_CORRELATIONS \
+	    (OBJECT_ID, ITEM_ID, ITEM_CLASS) \
+	 VALUES \
+	    (:v1, :v2, 'TEXT')",         project   );
+      EXEC SQL PREPARE S1 FROM :stmt;
+      first = FALSE;
+   }
+
+   tc_zeroes(&text_data, sizeof text_data);
+   text_data.text_up_y = 1;
+   text_data.text_expansion_factor = 1.0;
+
+   EXEC SQL WHENEVER SQLERROR CONTINUE;
+
+   for (i=0 ; i<MAX_DEFINED_LEVELS ; i++) {
+      if (lb_first[i] != 0) {
+	 RESET_STARS;
+	 printf ("saving '%s' labels  (one '*' per %d labels).\n",
+		  line_names[i], LABELS_PER_ID);
+
+	 old_object = dr_create_object_type (line_names[i]);
+	 dr_new_project_id (&object_id);
+	 object_ids[i] = object_id;
+
+	 n_labels_saved = 1;
+	 for (lbp=lb_first[i] ; lbp ; lbp=lbp->next) {
+	    if (n_labels_saved > LABELS_PER_ID) { n_labels_saved = 1; STAR; }
+
+	    dr_new_project_id (&next_text_id);
+	    text_data.text_id           = next_text_id;
+	    lu_text_to_index ("TEXT_PATH",&text_data.text_path,"RIGHT");
+
+	    text_data.text_up_x 	= - sin (D_TO_R (lbp->angle));
+	    text_data.text_up_y 	= cos (D_TO_R (lbp->angle));
+	    text_data.text_font         = lbp->font;
+	    text_data.text_color        = lbp->color;
+	    text_data.text_precision    = lbp->precision;
+	    text_data.text_size         = lbp->wd;
+	    text_data.text_line_spacing = lbp->linesp;
+	    text_data.text_position.x   = lbp->node_xy[LON$];
+	    text_data.text_position.y   = lbp->node_xy[LAT$];
+	    text_data.text_string       = lbp->text;
+	    if(ARE_SAME(lbp->align,"LL"))
+		{
+                             /* Lower Left alignment */
+                             /* horizontal alignment = 1(left)*/
+                             /* vertical alignment = 4 (base) */
+		text_data.text_alignment[0] = 1;
+		text_data.text_alignment[1] = 4;
+		}
+
+	    update_extents (i, lbp->node_xy[LON$], lbp->node_xy[LAT$],
+			       lbp->node_xy[LON$], lbp->node_xy[LAT$] );
+
+	    status = dr_put_text(&text_data, &dr_data);
+	    if (status) {
+	       RESET_STARS;
+	       printf ("dr_put_text: %s\n\n", mg_message(status));
+	    }
+	    else {
+	       n_labels_saved++;
+	       EXEC SQL EXECUTE S1 USING :object_id, :next_text_id;
+		if (OR_STATUS < 0)
+		    {
+		   RESET_STARS;
+		   printf (" Error in WRITE_LABEL:\n  '%-70s'\n",
+			       ts_snowhite(OR_MESSAGE) );
+		   printf (" Last SQL statement: %s\n\n",
+			       stmt.arr );
+		    }
+		else
+		    {
+		    EXEC SQL COMMIT WORK;
+		    }
+	    }
+	 }
+	 STAR;
+      }
+   }
+
+   printf ("\n\n");
+
+   return (SUCCESS);
+}
+
+/* ************************************************************************* */
+
+INT write_nlists()
+{
+   INT    i, n_points, status, ct_put_line();
+   INT    old_object, dr_create_object_type();
+   privatedef UINT dim_list[2] = { 1, 2 };
+   VOIDPTR Var_List[2];
+   FLOAT x_min, x_max, y_min, y_max;
+
+   FILENAME nlist_name, nlist_file;
+   LINE line_data;
+   NLIST_HEADER nlist;
+   privatedef BOOL     first = TRUE;
+
+   EXEC SQL BEGIN DECLARE SECTION;
+      privatedef int      next_line_id;
+      privatedef int      object_id;
+   EXEC SQL END DECLARE SECTION;
+
+   EXEC SQL WHENEVER SQLERROR GOTO write_nlist_error;
+
+   if (first)
+   {
+      stmt.len = sprintf ((char *)stmt.arr,
+      "INSERT INTO %s.GRAPHIC_OBJECT_CORRELATIONS \
+	    (OBJECT_ID, ITEM_ID, ITEM_CLASS) \
+	 VALUES \
+	    (:v1, :v2, 'LINE')",         project   );
+      EXEC SQL PREPARE S2 FROM :stmt;
+      first = FALSE;
+   }
+
+   for (i=0 ; i<MAX_DEFINED_LEVELS ; i++) {
+      nlist = pl[i];
+      nl_inq_nlist_int (nlist, NL_NLIST_NPOINTS, &n_points);
+      if (n_points > 0) {
+	 RESET_STARS;
+	 printf ("Saving n-List for '%s'.", line_names[i]);
+	 strcpy( nlist_name, line_names[i] );
+
+#ifdef vms
+	 strcat( nlist_name, "." );
+#endif
+	 ho_add_path ("ESI$CULTURE", nlist_name,
+			sizeof nlist_file, nlist_file);
+
+	 /* set the line name for CT_PUT_LINE to use.  */
+	 nl_set_nlist_string (nlist, NL_NLIST_NAME, line_names[i]);
+
+	 /* get the min/max from the nlist and update the extents. */
+	 Var_List[0] = (VOIDPTR)&x_min; Var_List[1] = (VOIDPTR)&y_min;
+	 nl_inq_nlist_info (nlist, NL_NLIST_MIN, 2, dim_list, Var_List);
+
+	 Var_List[0] = (VOIDPTR)&x_max; Var_List[1] = (VOIDPTR)&y_max;
+	 nl_inq_nlist_info (nlist, NL_NLIST_MAX, 2, dim_list, Var_List);
+
+	 update_extents (i, (DOUBLE)x_min, (DOUBLE)y_min, (DOUBLE)x_max,
+	 	(DOUBLE)y_max);
+
+	 /* if this object had no labels we will need to get an ID for it. */
+	 if ( object_ids[i] == 0 ) {
+	    old_object = dr_create_object_type (line_names[i]);
+	    dr_new_project_id (&object_id);
+	    object_ids[i] = object_id;
+	 }
+	 dr_new_project_id (&next_line_id);
+
+	 /* set up the structure for CT_PUT_LINE.  */
+	 tc_zeroes (&line_data, sizeof (LINE));
+	 line_data.line_id        = next_line_id;
+	 line_data.line.color     = line_attributes [i] [0];
+	 line_data.line.style     = line_attributes [i] [1];
+	 line_data.line.width = line_attributes [i] [2];
+	 line_data.line_nlist     = nlist;
+	 strcpy (line_data.line_name, line_names[i]);
+	 object_id = object_ids[i];
+
+	 status = dr_put_line(&line_data, nlist_file, &dr_data, FALSE, NULL);
+
+	 if (status == 0) {
+	    EXEC SQL EXECUTE S2 USING :object_id, :next_line_id;
+	    printf ("\n");
+	 }
+	 else {
+	    printf ("...failed.\n");
+	    printf ("dr_put_line: %s\n\n", mg_message(status));
+	 }
+      }
+   }
+
+   return (SUCCESS);
+
+write_nlist_error:
+   RESET_STARS;
+   printf ("\n SQL error detected in write_nlists, error code is %d\n",
+	   OR_STATUS);
+   printf (" Error message is  --\n  '%-70s'\n",
+	       OR_MESSAGE );
+   printf (" Last SQL statement was  --\n  '%s'\n\n",
+	       ts_snowhite((char *)stmt.arr) );
+   return (OR_STATUS);
+}
+
+/* ************************************************************************* */
+
+INT write_object_headers ()
+{
+   INT  i;
+   privatedef BOOL     first = TRUE;
+
+   EXEC SQL BEGIN DECLARE SECTION;
+      privatedef VARCHAR object_name[40];
+      privatedef int     object_id;
+      privatedef double  llx, lly, urx, ury;
+   EXEC SQL END DECLARE SECTION;
+   EXEC SQL WHENEVER SQLERROR GOTO write_object_header_err;
+
+   if (first)
+   {
+      stmt.len = sprintf ((char *)stmt.arr,
+	 "INSERT INTO %s.GRAPHIC_OBJECTS \
+	       (OBJECT_NAME, OBJECT_ID, OBJECT_UNIT, \
+		LOWER_LEFT_X, LOWER_LEFT_Y, \
+		UPPER_RIGHT_X, UPPER_RIGHT_Y) \
+	    VALUES \
+	       ( :object_name, :object_id, 'FEET', \
+		 :llx, :lly, \
+		 :urx, :ury)",      project);
+
+      EXEC SQL PREPARE S3 FROM :stmt;
+      first = FALSE;
+   }
+
+   for (i=0 ; i<MAX_DEFINED_LEVELS ; i++) {
+      if (object_extents[i].init) {
+	 V_FROMC ( object_name, line_names[i] );
+	 object_id = object_ids[i];
+	 llx = object_extents[i].xmin;
+	 lly = object_extents[i].ymin;
+	 urx = object_extents[i].xmax;
+	 ury = object_extents[i].ymax;
+
+	 EXEC SQL EXECUTE S3 USING
+	    :object_name, :object_id,
+	    :llx, :lly,
+	    :urx, :ury;
+      }
+   }
+   return (SUCCESS);
+
+write_object_header_err:
+   printf ("\n SQL error detected in write_label, error code is %d\n",
+	   OR_STATUS);
+   printf (" Error message is  --\n  '%-70s'\n",
+	       OR_MESSAGE);
+   printf (" Last SQL statement was  --\n  '%s'\n\n",
+	       ts_snowhite((char *)stmt.arr) );
+   return (OR_STATUS);
+}
+
+/* ************************************************************************* */
+
+INT update_extents (idx, lx, ly, ux, uy)
+    INT    idx;
+    DOUBLE lx, ly, ux, uy;
+{
+   if (extents.init) {
+      extents.xmin = MIN (extents.xmin, lx);
+      extents.ymin = MIN (extents.ymin, ly);
+      extents.xmax = MAX (extents.xmax, ux);
+      extents.ymax = MAX (extents.ymax, uy);
+   }
+   else {
+      extents.xmin = lx;
+      extents.ymin = ly;
+      extents.xmax = ux;
+      extents.ymax = uy;
+      extents.init = TRUE;
+   }
+
+   if (object_extents[idx].init) {
+      object_extents[idx].xmin = MIN (object_extents[idx].xmin, lx);
+      object_extents[idx].ymin = MIN (object_extents[idx].ymin, ly);
+      object_extents[idx].xmax = MAX (object_extents[idx].xmax, ux);
+      object_extents[idx].ymax = MAX (object_extents[idx].ymax, uy);
+   }
+   else {
+      object_extents[idx].xmin = lx;
+      object_extents[idx].ymin = ly;
+      object_extents[idx].xmax = ux;
+      object_extents[idx].ymax = uy;
+      object_extents[idx].init = TRUE;
+   }
+
+   return SUCCESS;
+}
+
+/* ************************************************************************* */
+
+INT  transform ( dest, source )
+     DOUBLE dest[], source[];
+{
+   dest[0]     = 0.0;        /* return 0.0 if an error occurs             */
+   dest[1]     = 0.0;
+
+   gtp_error = ct_transform_point(source[LON$], source[LAT$],
+				  tobin_projection,
+				  &dest[LON$], &dest[LAT$],
+				  area_projection  );
+
+   if (gtp_error != 0) return LD_TL_ERROR_IN_GTP;
+
+   /*  apply the offset after conversion if this is a offset load.  */
+   if (use_offset) {
+      dest[LAT$] = dest[LAT$] + xy_offset[LAT$];
+      dest[LON$] = dest[LON$] + xy_offset[LON$];
+   }
+
+   return SUCCESS;
+}
+
+/* ************************************************************************* */
+
+INT  read_record ()
+{
+
+/* fgets does not clear unused space in record, so we will.    */
+
+   tc_zeroes (record, sizeof record );
+
+/* read until a non blank record is found or End Of File is reached.  */
+/* keep track of current record number for error messages.            */
+
+   while ( IS_EMPTY_STRING(record) AND (input_status != END_OF_FILE) ) {
+      if ( fgets (record, sizeof record, fin) == NULL)
+	    input_status = END_OF_FILE;
+      record_no++;
+   }
+
+   ts_snowhite (record);
+
+   return SUCCESS;
+}
+
+/* ************************************************************************* */
+
+INT shut_down()
+{
+   INT grand_loaded=0, grand_points=0, grand_labels=0;
+
+   printf ("\n====  Total for all files loaded  ====\n");
+   printf ("----  %d file%s loaded.\n", nfiles, ((nfiles == 1) ? "" : "s") );
+   printf ("                        Total      Total Number  Total Number\n");
+   printf ("Data Type               Polygons   of Points     of Labels\n");
+   printf ("----------------------  ---------  ------------  ------------\n");
+   for (i=0 ; i<MAX_DEFINED_LEVELS ; i++)
+      if (total_poly[i]) {
+	 printf ("%-22s  %9d  %12d  %12d\n", line_names[i],
+		 total_poly[i], total_points[i], total_labels[i]);
+	 grand_loaded = grand_loaded + total_poly[i];
+	 grand_points = grand_points + total_points[i];
+	 grand_labels = grand_labels + total_labels[i];
+      }
+   printf ("%22s  =========  ============  ============\n", " ");
+   printf ("%22s  %9d  %12d  %12d\n\n\n", " ",
+	   grand_loaded, grand_points, grand_labels);
+
+   printf ("====  Total extents of data loaded  ====\n");
+   printf ("              X             Y\n");
+   printf ("        ------------  ------------\n");
+   printf ("   min: %12.0f, %12.0f\n", extents.xmin, extents.ymin);
+   printf ("   max: %12.0f, %12.0f\n", extents.xmax, extents.ymax);
+   printf ("====  ============================  ====\n\n\n");
+
+   end_time = time(0);
+   dtime = end_time - start_time;
+   hours = dtime / 3600;
+   mins  = (dtime - (hours * 3600)) / 60;
+   secs  = dtime - (hours * 3600) - (mins * 60);
+
+   printf ("====  Time stats for data load  ====\n");
+   printf ("   Started on %s", ctime(&start_time));
+   printf ("   Ended on   %s", ctime(&end_time));
+   printf ("   Total running time  %4d:%02d:%02d\n", hours, mins, secs);
+   printf ("====  ========================  ====\n\n\n");
+
+   for (i=0; i<MAX_DEFINED_LEVELS ; i++) nl_free_nlist (pl[i]);
+
+   return SUCCESS;
+}
+
+/* ************************************************************************* */
+
+CHAR *smove (out, cp, len)
+      CHAR *cp, *out;
+      INT   len;
+{
+   hoblockmove(cp, out, len);
+   out[len] = '\0';
+   return (out);
+}
+
+/*  */
+/* ************************************************************************* */
+
+INT imove (cp, len)
+      CHAR *cp;
+      INT   len;
+{
+   CHAR temp[33];
+   INT  ival;
+
+   hoblockmove(cp, temp, len);
+   temp[len] = '\0';
+   ival = atoi (temp);
+   return (ival);
+}
+
+/*  */
+/* ************************************************************************* */
+
+DOUBLE dmove (cp, len, dp)
+      CHAR *cp;
+      INT   len, dp;
+{
+/*  dp is the implied decimal position of the field.  */
+
+   CHAR temp[33];
+   DOUBLE fval;
+
+   hoblockmove(cp, temp, len);
+   temp[len] = '\0';
+
+   if (dp)
+	{
+	fval = atof (temp) / ( pow( 10.0, (DOUBLE)dp ) );
+	}
+   else
+	{
+	fval = atof (temp);
+	}
+
+   return (fval);
+}
+
+/*  */
+/* ************************************************************************* */
+
+INT llmove (dest, cp)
+    DOUBLE dest[2];
+    CHAR   *cp;
+{
+   dest[LAT$] = lat_val * dmove(cp, 7, 5);
+   dest[LON$] = lon_val * dmove(cp+7, 8, 5);
+
+   return SUCCESS;
+}
+
+/* ************************************************************************* */
+
+INT initialize (argc, argv)
+    INT  argc;
+    CHAR **argv;
+{
+  CHAR lon_tmp[2];
+  CHAR lat_tmp[2];
+  INT idx, i, status;
+  ORACLE_NAME account_name, database_name;
+  PROJECTION_ID projection_id;
+   privatedef INT units[2]     = { 0, 0};
+   privatedef INT data_type[2] = { FLOAT_TYPE, FLOAT_TYPE};
+   /* dr_write_nlist (called from dr_put_line) requires data as float */
+   privatedef size_t data_size[2] = { sizeof(FLOAT ), sizeof(FLOAT ) };
+   privatedef INT value_inc[2] = { VALUE_LIST, VALUE_LIST};
+   privatedef CHAR *keywords[] = { "-PROJECT","-INPUT","-SUBSET","-ALL",
+			       "-OFFSET","-LON","-LAT", 0 };
+
+   lon_val = 0.0;
+   lat_val = 0.0;
+   strcpy (project, "");
+   strcpy (dir_name, "");
+   strcpy (subset_file, "");
+   strcpy (account_name, "");
+   strcpy (database_name, "");
+   type = LOAD_ALL; use_offset = FALSE;
+
+   for (i=0 ; i<argc ; i++) {
+      ts_sto_upper (*(argv+i));
+      switch ( ts_switch( *(argv+i), keywords ) ) {
+	 case 0: /* -PROJECT */
+	    if ( (i+1 < argc)              AND
+		 (IS_STRING(*(argv+i+1))) AND
+		 (**(argv+i+1) != '-')        ) {
+	       i++;
+	       strcpy (project, *(argv+i) );
+	       ts_sto_upper (project);
+	    }
+	    else {
+	       printf ("The keyword '%s' ", *(argv+1));
+	       printf ("must be followed by a parameter.\n");
+	       printf ("%s aborting.\n", program_name);
+	       return (FAIL);
+	    }
+	    break;
+
+	 case 1: /* -INPUT   */
+	    if ( (i+1 < argc)              AND
+		 (IS_STRING(*(argv+i+1))) AND
+		 (**(argv+i+1) != '-')        ) {
+	       i++;
+	       strcpy (dir_name, *(argv+i) );
+	    }
+	    else {
+	       printf ("The keyword '%s' ", *(argv+i) );
+	       printf ("must be followed by a parameter.\n");
+	       printf ("%s aborting.\n", program_name);
+	       return (FAIL);
+	    }
+	    break;
+
+	 case 2: /* -SUBSET  */
+	    if ( (i+1 < argc)              AND
+		 (IS_STRING(*(argv+i+1))) AND
+		 (**(argv+i+1) != '-')        ) {
+	       i++;
+	       type = LOAD_SUBSET;
+	       strcpy (subset_file, *(argv+i) );
+	    }
+	    else {
+	       printf ("The keyword '%s' ", *(argv+1));
+	       printf ("must be followed by a parameter.\n");
+	       printf ("%s aborting.\n", program_name);
+	       return (FAIL);
+	    }
+	    break;
+
+	 case 3: /* -ALL     */
+	    type = LOAD_ALL;
+	    break;
+
+	 case 4: /* -OFFSET  */
+	    if ( (i+2 < argc)              AND
+		 (IS_STRING(*(argv+i+1))) AND
+		 (IS_STRING(*(argv+i+2)))    ) {
+	       i++; sscanf (*(argv+i), "%f", &xy_offset[LAT$] );
+	       i++; sscanf (*(argv+i), "%f", &xy_offset[LON$] );
+	       use_offset = TRUE;
+	    }
+	    else {
+/*             printf ("The keyword '%s' ", *(argv+i) );                */
+/*             printf ("must be followed by the X/Y offsets.\n");       */
+/*             printf ("%s aborting.\n", program_name);                 */
+/*             return (FAIL);                                           */
+
+/*             Use a default offset instead.                            */
+	       use_offset = TRUE;
+	       xy_offset[LAT$] = -23000.0;
+	       xy_offset[LON$] = 154000.0;
+	    }
+	    break;
+
+	case 5:  /* -LON specified longitude direction East or West */
+	    if (i+1 < argc)
+	    {
+		if (ARE_SAME(*(argv+i+1),"E") OR ARE_SAME(*(argv+i+1),"e"))
+		{
+		   lon_val = 1.0;
+		}
+		else if (ARE_SAME(*(argv+i+1),"W") OR ARE_SAME(*(argv+i+1),"w"))
+		{
+		   lon_val = -1.0;
+		}
+		else
+		{
+		   printf ("The keyword '%s' ", *(argv+i));
+		   printf ("must be followed by a longitudinal direction:(E/W).\n");
+		   printf ("%s aborting.\n", program_name);
+		   return (FAIL);
+		}
+	       i++;
+	       strcpy (lon_tmp, *(argv+i));
+	    }
+	    else
+	    {
+	       printf ("The keyword '%s' ", *(argv+i));
+	       printf ("must be followed by a parameter.\n");
+	       printf ("%s aborting.\n", program_name);
+	       return (FAIL);
+	    }
+	    break;
+
+	case 6:  /* -LAT specified latitude direction North or South */
+	    if (i+1 < argc)
+	    {
+		if (ARE_SAME(*(argv+i+1),"N") OR ARE_SAME(*(argv+i+1),"n"))
+		{
+		   lat_val = 1.0;
+		}
+		else if (ARE_SAME(*(argv+i+1),"S") OR ARE_SAME(*(argv+i+1),"s"))
+		{
+		   lat_val = -1.0;
+		}
+		else
+		{
+		   printf ("The keyword '%s' ", *(argv+i));
+		   printf ("must be followed by a latitudinal direction:(N/S).\n");
+		   printf ("%s aborting.\n", program_name);
+		   return (FAIL);
+		}
+		i++;
+	        strcpy (lat_tmp, *(argv+i));
+	    }
+	    else
+	    {
+	       printf ("The keyword '%s' ", *(argv+1));
+	       printf ("must be followed by a parameter.\n");
+	       printf ("%s aborting.\n", program_name);
+	       return (FAIL);
+	    }
+	    break;
+
+	 default:
+	    if (**(argv+i) == '-') {
+	       printf ("Unknown keyword '%s'\n", *(argv+i) );
+	       printf ("%s aborting.\n", program_name);
+	       return (FAIL);
+	    }
+	    break;
+      }
+   }
+
+   if ( or_login(argc, argv) ) return (FAIL);
+   qs_inq_c (QS_FINDER_ACCOUNT, account_name, (INT *) 0);
+   qs_inq_c (QS_DATABASE, database_name, (INT *) 0);
+   if (IS_EMPTY_STRING(database_name)) strcpy (database_name, "{default}");
+
+   if (IS_EMPTY_STRING(project)) {
+      printf ("Enter a Finder Project name : ");
+      gets(project);
+      if (IS_EMPTY_STRING(project)) return (FAIL);
+      ts_sto_upper(project);
+   }
+
+   qs_set_c (QS_PROJECT_NAME, project, 0);
+   status = finder_config_project(FALSE);/*set up the logical names for this project*/
+   if (status != SUCCESS)
+   {
+       printf ("finder_config_project: %s\n\n", mg_message(status));
+       printf ("%s aborting.\n", program_name);
+       return (FAIL);
+   }
+
+   if (IS_EMPTY_STRING(dir_name)) {
+      printf ("Enter input file specification (wildcards are allowed).\n");
+      printf ("==: ");
+      gets (dir_name);
+      if (IS_EMPTY_STRING(dir_name)) return (FAIL);
+   }
+
+   /* Prompt user to enter longitude direction: East or West */
+
+   if (lon_val EQUALS 0.0)	/* if longitude direction is not defined */
+   {
+      lon_val = 1.0;
+      strcpy (lon_tmp, "W");
+   /*
+      printf ("Enter longitudinal direction of data: (E)ast or (W)est : ");
+      gets(lon_tmp);
+      if (ARE_SAME(lon_tmp,"E") OR ARE_SAME(lon_tmp,"e"))
+      {
+	 lon_val = 1.0;
+      }
+      else if (ARE_SAME(lon_tmp,"W") OR ARE_SAME(lon_tmp,"w"))
+      {
+	 lon_val = -1.0;
+      }
+      if (IS_EMPTY_STRING(lon_tmp))
+      {
+	 lon_val = 1.0;
+         strcpy (lon_tmp, "W");
+      }
+      else	
+      {
+ 	 printf ("Enter 'E' or 'e' for eastern hemisphere\n");
+ 	 printf ("Enter 'W' or 'w' for western hemisphere\n");
+	 printf ("%s aborting.\n", program_name);
+	 return (FAIL);
+      }
+   */
+   }
+
+   /* Prompt user to enter latitude direction: North or South */
+
+   if (lat_val EQUALS 0.0)	/* if latitude direction is not defined */
+   {
+      lat_val = 1.0;
+      strcpy (lat_tmp, "N");
+/*
+      printf ("Enter latitudinal direction of data: (N)orth or (S)outh : ");
+      gets(lat_tmp);
+      if (ARE_SAME(lat_tmp,"N") OR ARE_SAME(lat_tmp,"n"))
+      {
+	 lat_val = 1.0;
+      }
+      else if (ARE_SAME(lat_tmp,"S") OR ARE_SAME(lat_tmp,"s"))
+      {
+	 lat_val = -1.0;
+      }
+      else if (IS_EMPTY_STRING(lat_tmp))
+      {
+	 lat_val = 1.0;
+         strcpy (lat_tmp, "N");
+      }
+      else
+      {
+ 	 printf ("Enter 'N' or 'n' for northern hemisphere\n");
+ 	 printf ("Enter 'S' or 's' for southern hemisphere\n");
+	 printf ("%s aborting.\n", program_name);
+	 return (FAIL);
+      }
+*/
+   }
+
+   if (type == LOAD_SUBSET) {
+      printf ("LOAD SUBSET is not available yet.  Changing to LOAD ALL.\n");
+      type = LOAD_ALL;
+   }
+
+   for (idx=0; idx<MAX_DEFINED_LEVELS; idx++)
+      nl_init_nlist(&pl[idx], 2, units, data_size, data_type, value_inc, 20);
+
+
+				    /* get the LAT/LON projection definition */
+   ct_get_projection ("GEODETIC", &tobin_projection);
+
+				/*  find out what the project default
+				    projection is and get the definition */
+   ct_get_default_project (projection_id);
+   ct_get_projection (projection_id, &area_projection);
+
+   /*  this will make CT_PROJECT_XY leave things alone !  */
+   qs_inq_c(QS_PROJECT_PROJECTION,projection_id,0);
+   if(ARE_SAME(projection_id,"GEODETIC"))
+	geode_flag=TRUE;
+
+   qs_set_c (QS_PROJECT_PROJECTION, projection_id, 0);
+   qs_set_c (QS_MAP_PROJECTION, projection_id, 0);
+
+   tc_zeroes (errtxt,       sizeof errtxt       );
+   tc_zeroes (current_path, sizeof current_path );
+   tc_zeroes (record,       sizeof record       );
+   tc_zeroes (n_loaded,     sizeof n_loaded     );
+   tc_zeroes (last_ll_init, sizeof last_ll_init );
+   tc_zeroes (last_ll,      sizeof last_ll      );
+   tc_zeroes (lb_first,     sizeof lb_first     );
+   tc_zeroes (lb_current,   sizeof lb_current   );
+   tc_zeroes (total_poly,   sizeof total_poly   );
+   tc_zeroes (total_points, sizeof total_points );
+   tc_zeroes (total_labels, sizeof total_labels );
+
+   previous_llevel = -1;
+   file_table_index = -1;
+   fin = (FILE *)NULL;
+
+   tc_zeroes (&text_object,   sizeof text_object    );
+   tc_zeroes (&line_object,   sizeof line_object    );
+   tc_zeroes (&node_object,   sizeof node_object    );
+   tc_zeroes (object_extents, sizeof object_extents );
+
+   start_time = time(0);       /* set up vars for total running time. */
+   end_time = start_time;
+
+   printf ("\n\nTobin Loader starting on %s\n", ctime(&start_time));
+   printf (" -- loading into database : %s\n", database_name);
+   printf (" -- loading into project  : %s\n", project);
+   printf (" -- using Finder Account  : %s\n", account_name);
+
+   if (type == LOAD_ALL) printf (" -- loading ALL data...\n");
+      else printf (" -- loading SUBSET of data...\n");
+
+   printf (" -- from flat file(s)     : %s\n", dir_name);
+
+   if (type == LOAD_SUBSET)
+      printf (" -- with subset list in   : %s\n", subset_file);
+
+   if (use_offset) {
+      printf (" -- using offsets:  X-(lon):%12.5f, Y-(lat):%12.5f\n",
+			xy_offset[LON$], xy_offset[LAT$] );
+   }
+   printf (" -- using Longitudinal Direction : %s\n",
+	 (ARE_SAME(ts_sto_upper(lon_tmp),"E")) ? "East" : "West");
+   printf (" -- using Latitudinal Direction   : %s\n",
+	 (ARE_SAME(ts_sto_upper(lat_tmp),"N")) ? "North" : "South");
+
+   printf ("\n");
+
+   return SUCCESS;
+}
+
+/* ************************************************************************* */
+
+INT  log_error (code)
+     INT code;
+{
+   CHAR em[81];
+
+   if (code == 0) return SUCCESS;
+
+   switch (code) {
+      case END_OF_FILE:   /* no messages for these error codes.  */
+      case QUIET_FAIL:
+	 strcpy (em, "");
+	 break;
+      case LD_TL_ERROR_IN_GTP:
+	 strcpy (em, mg_message(code));
+	 translate_gtp_error (errtxt, gtp_error);
+	 break;
+      case ERRTXT:
+         break;
+      default:
+	 strcpy (em, mg_message(code));
+	 break;
+   }
+
+   if ( (code != QUIET_FAIL) AND (code != END_OF_FILE) ) {
+      RESET_STARS;
+      if ( code != ERRTXT )
+         {
+         printf ("\n%s\n", em);
+         strcpy (em, "");  /* clear em */
+         }
+
+      if (IS_STRING(errtxt))
+         {
+	 printf ("::: %s\n", errtxt);
+	 strcpy (errtxt, ""); /* clear errtxt  */
+         }
+
+      if ( input_status	 != END_OF_FILE )
+	 {
+	 printf ("--- Currently processing record # %d\n", record_no);
+         if ( IS_STRING(current_path) AND  IS_STRING(dir_name) )
+            {
+	    printf ("--- Directory:'%s' File:'%s'\n", dir_name, current_path);
+            }
+	 printf ("--- Data type '%s', Named '%s'\n", line_names[llevel],
+                  current_name);
+         }
+      printf ("\n");
+   }
+
+   return QUIET_FAIL;
+}
+
+/* ************************************************************************* */
+
+INT translate_gtp_error (string, ecode)
+    CHAR *string;
+    INT  ecode;
+{
+   PROJECTION_STRUCTURE *ps;
+   CHAR prefix[20], io[20], parm[20];
+
+   if (ecode > 8) {
+      sprintf (string, mg_message(LD_TL_ERROR_INFO), ecode);
+      return;
+   }
+
+   strcpy (prefix, "Invalid");
+
+   if ( ecode == ((ecode / 2) * 2) ) {    /* if ecode is even */
+      strcpy (io, "INPUT");
+      ps = tobin_projection;
+   }
+   else {
+      strcpy (io, "OUTPUT");
+      ps = area_projection;
+   }
+
+   switch (ecode) {
+      case 1:
+      case 2:
+	 sprintf (parm, mg_message(LD_TL_SYSTEM_CODE), ps->projection_type);
+	 break;
+      case 3:
+      case 4:
+	 sprintf (parm, mg_message(LD_TL_UNIT_CODE), ps->spheroid_units);
+	 break;
+      case 5:
+      case 6:
+	 strcpy (prefix, "Inconsistant");
+	 sprintf (parm, mg_message(LD_TL_SYSTEM_UNIT),
+			 ps->spheroid_units, ps->projection_type);
+	 break;
+      case 7:
+      case 8:
+	 sprintf (parm, mg_message(LD_TL_ZONE_CODE), ps->zone_code);
+	 break;
+   }
+
+   sprintf (string, "%s %s %s", prefix, io, parm);
+   return;
+}
+/* END-CODE */

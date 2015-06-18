@@ -1,0 +1,341 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element VI_GET_TS_INFO.PC */
+/* *5    28-JUN-1991 17:56:23 JESSIE "(SPR 0) fix compile warning on VMS" */
+/* *4    27-JUN-1991 13:43:33 JESSIE "(SPR 0) code cleanup" */
+/* *3    27-JUN-1991 13:23:43 JESSIE "(SPR 0) add one more selector " */
+/* *2    11-JUN-1991 14:28:49 JESSIE "(SPR 0) get info for Transform Surface" */
+/* *1    11-JUN-1991 14:15:57 JESSIE "VI user interface" */
+/* DEC/CMS REPLACEMENT HISTORY, Element VI_GET_TS_INFO.PC */
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_am.h"
+#include "esi_tc.h"
+#include "esi_ts.h"
+#include "esi_wi.h"
+#include "esi_oracle.h"
+#include "esi_qs.h"
+#include "esi_sl.h"
+#include "esi_sl_err.h"
+#include "esi_vi.h"
+#include "esi_se.h"
+#include "vi_ts_cdlgs.rh"
+#define NullString ""
+static CHAR VI_RESOURCE_FILE[] = "VI_TS_CDLGS";
+
+/* File Description ---------------------------------------------------------
+Overview:
+
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT vi_get_grid_info (VI_STRUCT *pvi)
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT vi_get_grid_info (VI_STRUCT *pvi);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    pvi		-(VI_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    CANCEL
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+#if USE_PROTOTYPES
+publicdef INT vi_get_ts_info (VI_STRUCT *pvi)
+#else
+publicdef INT vi_get_ts_info (pvi)
+VI_STRUCT *pvi;
+#endif
+  {
+  BOOL done = FALSE;
+  INT status; 
+  INT i,count;
+  SEIS_SURFACE_DATA_TYPE set_buttom;
+  CHAR vtype[10];
+  INT  s_type;
+  INT  s_wt;
+  BOOL res_mode;
+  INT src_id = 0;
+  INT event_id = 0;
+  INT event_class = 0;
+  INT item;
+  INT t_item;
+  INT v_item;
+  INT time_selected[1];
+  INT vel_selected[1];
+  INT selected_items[2];
+  CHAR data_type_name[32];
+  CHAR *vel_src_string = (CHAR *) 0;
+  CHAR *vel_src_string2 = (CHAR *) 0;
+  TCP time_tcp = (TCP) 0;
+  TCP vel_tcp = (TCP) 0;
+  PROJECT_NAME project;
+  CHAR vtype_temp[10];
+    
+  EXEC SQL BEGIN DECLARE SECTION;
+  VARCHAR vel_src_name[80];
+  VARCHAR stmt[1000];
+  int num_hor;
+  EXEC SQL END DECLARE SECTION;
+    
+    
+/********************************************************/
+/* display choose sources dialog on screen              */
+/********************************************************/
+  status = am_define_resource (AM_DIALOG, VI_RESOURCE_FILE, VI_TRANS_SURFACE,
+                                 NULL_FUNCTION_PTR, &src_id, NULL);
+  fi_push();
+  qs_inq_c (QS_PROJECT_NAME, project, (INT *) 0);
+   
+ /*****************************/
+ /* set default velocity type */
+ /*****************************/
+ 
+ strcpy(vtype_temp, pvi->vtype);
+
+ if (strcmp(pvi->vtype, "INT") == SUCCESS)
+   {
+   wi_set_dialog_value (src_id, VI_TS_INT, ON);
+   set_buttom = SE_VEL_INT;
+   }
+ else
+   {
+   wi_set_dialog_value (src_id, VI_TS_STK, ON);
+   strcpy(pvi->vtype, "STK");
+   set_buttom = SE_VEL_STK;
+   }
+
+  /*******************************************/
+  /* retrieve time source from data base     */
+  /*******************************************/
+  
+  stmt.len = sprintf ((CHAR *) stmt.arr,
+  "SELECT DISTINCT SOURCE FROM %s.SEIS_SURFACE WHERE LINE_ID IN \
+  (SELECT LINE_ID FROM TEMP_SEISMIC_LISTS WHERE TEMP_LIST_NAME = '%s') \
+  AND DATA_TYPE = %d ORDER BY SOURCE", project,pvi->list_name,SE_TIME);
+
+  EXEC SQL PREPARE S1 FROM :stmt;
+  EXEC SQL DECLARE C1 CURSOR FOR S1;
+  EXEC SQL OPEN C1 ;
+
+  EXEC SQL FETCH C1 INTO :vel_src_name;
+  for (i = 0; OR_STATUS == SUCCESS; i++)
+    {
+    V_SETZERO (vel_src_name);
+    ts_tcp_append (&time_tcp,(CHAR *) vel_src_name.arr);
+    EXEC SQL FETCH C1 INTO :vel_src_name;
+    }
+  EXEC SQL CLOSE C1;
+  
+  vel_src_string = ts_pack_strings (i,time_tcp);
+
+  if (i == 0)
+    {
+    wi_beep(1);
+    am_message (AM_ALERT,"No time source was retrieved.");
+    wi_set_dialog_text (src_id,VI_TS_SELECTOR,NullString);
+    }
+  else
+    {
+    wi_set_dialog_text (src_id,VI_TS_SELECTOR,vel_src_string);
+    wi_set_default_sel (src_id, VI_TS_SELECTOR, 1);
+    }
+
+  wiopcd(src_id);
+  /*******************************************/
+  /* retrieve velocity source from data base */
+  /*******************************************/
+  stmt.len = sprintf ((CHAR *) stmt.arr,
+  "SELECT DISTINCT SOURCE FROM %s.SEIS_SURFACE WHERE LINE_ID IN \
+  (SELECT LINE_ID FROM TEMP_SEISMIC_LISTS WHERE TEMP_LIST_NAME = '%s') \
+  AND DATA_TYPE = %d ORDER BY SOURCE", project,pvi->list_name,set_buttom);
+
+  EXEC SQL PREPARE S2 FROM :stmt;
+  EXEC SQL DECLARE C2 CURSOR FOR S2;
+  EXEC SQL OPEN C2 ;
+
+  EXEC SQL FETCH C2 INTO :vel_src_name;
+  for (i = 0; OR_STATUS == SUCCESS; i++)
+    {
+    V_SETZERO (vel_src_name);
+    ts_tcp_append (&vel_tcp,(CHAR *) vel_src_name.arr);
+    EXEC SQL FETCH C2 INTO :vel_src_name;
+    }
+  EXEC SQL CLOSE C2;
+  
+  vel_src_string2 = ts_pack_strings (i,vel_tcp);
+
+  if (i == 0)
+    {
+    wi_beep(1);
+    am_message (AM_ALERT,"No velocity source was retrieved.");
+    wi_set_dialog_text (src_id,VI_TS_SELECTOR2,NullString);
+    }
+  else
+    {
+    wi_set_dialog_text (src_id,VI_TS_SELECTOR2,vel_src_string2);
+    wi_set_default_sel (src_id, VI_TS_SELECTOR2, 1);
+    }
+
+  
+  done = FALSE;
+  while (done == FALSE)
+    {
+    wi_request_event (0, &event_class, &event_id, &item);
+    switch (item)
+      {
+      case VI_TS_STK:
+		wi_set_dialog_value(src_id, VI_TS_STK, ON);
+		strcpy (pvi->vtype, "STK");
+  /*******************************************/
+  /* retrieve velocity source from data base */
+  /*******************************************/
+  stmt.len = sprintf ((CHAR *) stmt.arr,
+  "SELECT DISTINCT SOURCE FROM %s.SEIS_SURFACE WHERE LINE_ID IN \
+  (SELECT LINE_ID FROM TEMP_SEISMIC_LISTS WHERE TEMP_LIST_NAME = '%s') \
+  AND DATA_TYPE = %d ORDER BY SOURCE", project,pvi->list_name,SE_VEL_STK);
+
+  EXEC SQL PREPARE S3 FROM :stmt;
+  EXEC SQL DECLARE C3 CURSOR FOR S3;
+  EXEC SQL OPEN C3 ;
+
+  EXEC SQL FETCH C3 INTO :vel_src_name;
+  vel_tcp = (TCP) 0;
+  for (i = 0; OR_STATUS == SUCCESS; i++)
+    {
+    V_SETZERO (vel_src_name);
+    ts_tcp_append (&vel_tcp,(CHAR *) vel_src_name.arr);
+    EXEC SQL FETCH C3 INTO :vel_src_name;
+    }
+  EXEC SQL CLOSE C3;
+  
+  vel_src_string2 = ts_pack_strings (i,vel_tcp);
+
+  if (i == 0)
+    {
+    wi_beep(1);
+    am_message (AM_ALERT,"No velocity source was retrieved.");
+    wi_set_dialog_text (src_id,VI_TS_SELECTOR2,NullString);
+    }
+  else
+    {
+    wi_set_dialog_text (src_id,VI_TS_SELECTOR2,vel_src_string2);
+    wi_set_default_sel (src_id, VI_TS_SELECTOR2, 1);
+    }
+		break;
+
+      case VI_TS_INT:
+		wi_set_dialog_value(src_id, VI_TS_INT, ON);
+		strcpy (pvi->vtype, "INT");
+  /*******************************************/
+  /* retrieve velocity source from data base */
+  /*******************************************/
+  stmt.len = sprintf ((CHAR *) stmt.arr,
+  "SELECT DISTINCT SOURCE FROM %s.SEIS_SURFACE WHERE LINE_ID IN \
+  (SELECT LINE_ID FROM TEMP_SEISMIC_LISTS WHERE TEMP_LIST_NAME = '%s') \
+  AND DATA_TYPE = %d ORDER BY SOURCE", project,pvi->list_name,SE_VEL_INT);
+
+  EXEC SQL PREPARE S4 FROM :stmt;
+  EXEC SQL DECLARE C4 CURSOR FOR S4;
+  EXEC SQL OPEN C4 ;
+
+  EXEC SQL FETCH C4 INTO :vel_src_name;
+  vel_tcp = (TCP) 0;
+  for (i = 0; OR_STATUS == SUCCESS; i++)
+    {
+    V_SETZERO (vel_src_name);
+    ts_tcp_append (&vel_tcp,(CHAR *) vel_src_name.arr);
+    EXEC SQL FETCH C4 INTO :vel_src_name;
+    }
+  EXEC SQL CLOSE C4;
+  
+  vel_src_string2 = ts_pack_strings (i,vel_tcp);
+
+  if (i == 0)
+    {
+    wi_beep(1);
+    am_message (AM_ALERT,"No velocity source was retrieved.");
+    wi_set_dialog_text (src_id,VI_TS_SELECTOR2,NullString);
+    }
+  else
+    {
+    wi_set_dialog_text (src_id,VI_TS_SELECTOR2,vel_src_string2);
+    wi_set_default_sel (src_id, VI_TS_SELECTOR2, 1);
+    }
+		break;
+
+      case VI_TS_CANCEL:
+	strcpy(pvi->vtype, vtype_temp);
+        done = TRUE;
+        status = FAIL;
+        break;
+                
+      case VI_TS_OK:
+        wi_query_selections (src_id,VI_TS_SELECTOR,&t_item, time_selected );
+        if (t_item != 1)
+          {
+          wi_beep (1);
+          am_message (AM_ALERT,"Please select Time Source.");
+          }
+        else
+          {
+          wi_query_selections (src_id,VI_TS_SELECTOR2,&v_item, vel_selected );
+          if (v_item != 1)
+            {
+            wi_beep (1);
+            am_message (AM_ALERT,"Please select Velocity Source.");
+            }
+	  else
+	    {
+            done = TRUE;
+	    status = SUCCESS;
+	  
+	    pvi->source = (TCP) 0;
+	    pvi->hor_source = (TCP) 0;
+
+	  /* copy whatever on selector box into stucture */
+	    ts_tcp_append (&pvi->hor_source, time_tcp[time_selected[0] -1]);
+	    ts_tcp_append (&pvi->source, vel_tcp[vel_selected[0] -1]);
+	  
+	    break;
+	    }
+	  }
+        } /* switch */
+      }   /* while  */
+
+  if (vel_src_string != (CHAR *) 0)
+    tc_free (vel_src_string);
+  am_release_resource (src_id);
+  fi_pop ();
+  return status;
+  }

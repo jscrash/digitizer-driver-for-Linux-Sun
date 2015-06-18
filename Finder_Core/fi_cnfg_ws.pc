@@ -1,0 +1,425 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element FI_CNFG_WS.PC*/
+/* *16   14-AUG-1990 22:50:28 GILLESPIE "(SPR 5644) Fix problems with last checkin"*/
+/* *15   14-AUG-1990 13:13:37 VINCE "(SPR 5644) Header Standardization"*/
+/* *14    2-MAR-1990 11:43:12 PURNA "(SPR 6012) fix ifdef USE_X == 0"*/
+/* *13    2-MAR-1990 11:13:11 PURNA "(SPR 6012) fix up USE_X logic to be IFDEF only"*/
+/* *12   26-FEB-1990 18:57:38 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+/* *11   23-FEB-1990 10:19:43 GILLESPIE "(SPR 1) RELEASE CURSORS USING ORACLE OPTIONS"*/
+/* *10    6-FEB-1990 00:17:19 JULIAN "(SPR -1) X Version "*/
+/* *9    21-NOV-1989 10:14:01 GILLESPIE "(SPR 1) Fix tablet driver path"*/
+/* *8    13-NOV-1989 13:33:28 JULIAN "(SPR 1) Integrate external tablet functions into finder."*/
+/* *7    28-SEP-1989 14:43:34 VINCE "(SPR -1) added more castings"*/
+/* *6    25-SEP-1989 11:15:08 GORDON "(SPR 201) Add castings"*/
+/* *5    21-SEP-1989 13:56:17 VINCE "(SPR -1) moved setting of mac_device out of sun specific code."*/
+/* *4    18-JUL-1989 09:50:17 GORDON "(SPR 100) merge changes"*/
+/* *3     1-JUL-1989 15:44:05 JULIAN "(SPR 5) added database startup  of tablet driver."*/
+/* *2    26-JUN-1989 10:43:54 GILLESPIE "(SPR 20) Fix castings"*/
+/* *1    19-JUN-1989 12:31:51 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element FI_CNFG_WS.PC*/
+/************************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_am.h"
+#include "esi_am_stat.h"
+#include "esi_er.h"
+#include "esi_ho.h"
+#include "esi_ho_files.h"
+#include "esi_oracle.h"
+#include "esi_tc.h"
+#include "esi_qs.h"
+#include "esi_wm.h"
+#include "esi_wi.h"
+#include "esi_mg.h"
+#include "esi_ug.h"
+#include "esi_fi_msg.h"
+#include "esi_conf_ws.h"
+#include "esi_tablet_ws.h"
+#include "esi_tb_defs.h"
+#include "esi_fi_err.h"
+
+extern INT gkz_set_workstation ();
+
+EXEC ORACLE OPTION (RELEASE_CURSOR=YES);
+EXEC ORACLE OPTION (HOLD_CURSOR=NO);
+
+/* Function Description -----------------------------------------------------
+Description:
+    FINDER_CONFIG_WORKSTATION is that part of the Finder initialization and
+    configuration procedure which initializes a graphics workstation for
+    the session. The configuration process is driven by parameters in the
+    database file WORKSTATION.CONFIGURATION.
+
+    It is a system management function, outside the scope of
+    FINDER_CONFIG_WORKSTATION, to configure the workstations by creating
+    applicable records in the WORKSTATION.CONFIGURATION file.
+
+Prototype:
+    publicdef INT finder_config_workstation();
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+    
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:                                                                           */
+#if USE_PROTOTYPES
+publicdef INT finder_config_workstation (void)
+#else
+publicdef INT finder_config_workstation ()
+#endif
+    {
+EXEC SQL BEGIN DECLARE SECTION;
+    int graphics_terminal_type;     /* graphics terminal type                       */
+    int terminal_type;              /* non-graphics terminal type                   */
+    VARCHAR graphics_terminal_type_o[21];
+    VARCHAR graphics_device_o[21];  /* Graphics line type                           */
+    VARCHAR graphics_tablet_type_o[21]; /* Tablet type                              */
+    int graphics_tablet_code;       /* numeric tablet code                          */
+    int *pgraphics_heads;
+    int *pgraphics_planes;
+    int tablet_mode;
+    VARCHAR port_name[12];
+    VARCHAR tablet_name[21];
+    VARCHAR tablet_type[21];
+    
+    int options;
+    
+    VARCHAR workstation_name[31];   /* Workstation name                             */
+    char *string;
+    VARCHAR mac_device[31];         /* Mac I/O redirection for Sun only             */
+    
+EXEC SQL END DECLARE SECTION;
+    
+    INT status;                     /* Completion status                            */
+    unsigned int ModeMask;          /* encoded tablet mode mask                     */
+    WKS_ID wks_id;                  /* Protocol structure for gks init              */
+    CHAR text[241];                 /* Messages                                     */
+    TABLET_WORKSPACE *t;            /* pointer to the tablet workspace              */
+    CONFIGURATION_WORKSPACE *c;     /* Pointer to CONFIGURATION global workspace    */
+    CONFIGURATION_WORKSPACE c4;     /* Only needed for version 4                    */
+    INT junk;                       /* Garbage                                      */
+    CHAR pname[25];                 /* tablet port device name                      */
+    CHAR tname[25];                 /* Tablet name                                  */
+    INT st;                         /* temp status for am check                     */
+    
+    /* **********************************************************************       */
+    
+    /*   Assume Success.                                                            */
+    
+    status = SUCCESS;
+    
+    /*   Access CONFIGURATION global workspace.                                     */
+    /*   as well as the TABLET global workspace                                     */
+    if (am_static ()->initialized)
+        {
+        if (am_open_workspace ("TABLET", AM_GLOBAL, (VOIDPTR *) & t) != SUCCESS)
+            am_define_workspace ("TABLET", AM_GLOBAL, sizeof(TABLET_WORKSPACE),
+                                 (VOIDPTR *) & t);
+        
+        if ((st = am_open_workspace ("CONFIGURATION", AM_GLOBAL,
+                                     (VOIDPTR *) & c)) != SUCCESS)
+            {
+            sprintf (text, "FI_CNFG_WS: %s\n", mg_message (st));
+            am_message (AM_STATUS, text);
+            er_log (text);          /* log to the finder error log                  */
+            }
+        }
+    else
+        {
+        tc_zeroes (&c4, sizeof(CONFIGURATION_WORKSPACE));
+        c = &c4;
+        qs_inq_c (QS_WORKSTATION_NAME, c->workstation_name, &junk);
+        qs_inq_c (QS_TERMINAL_TYPE, c->terminal_type, &junk);
+        }
+    /*   If there is a graphics workstation
+         specified, then open the file
+         WORKSTATION.CONFIGURATION. */
+    
+    if (c->workstation_name[0])
+        {
+        
+        /* prepare the host variables for communication with ORACLE                 */
+        
+        pgraphics_heads = &c->graphics_heads;
+        pgraphics_planes = &c->graphics_planes;
+        V_FROMC (workstation_name, c->workstation_name);
+        
+        EXEC SQL SELECT
+                GRAPHICS_DEVICE,
+                GRAPHICS_TERMINAL_TYPE,
+                    GRAPHICS_TABLET_TYPE,
+                GRAPHICS_HEADS,
+                    GRAPHICS_PLANES,
+                    NVL(OPTIONS,0)
+               INTO
+            :graphics_device_o,
+            :graphics_terminal_type_o,
+                    :graphics_tablet_type_o,
+            :pgraphics_heads,
+                :pgraphics_planes,
+                    :options
+           FROM ESI.WORKSTATION_CONFIGURATION
+           WHERE WORKSTATION_NAME = UPPER(:workstation_name);
+        
+        /* move non-numbers into their final destination and nul-terminate          */
+        
+        if (OR_STATUS == SUCCESS)
+            {
+            V_FROMV (c->graphics_device, graphics_device_o);
+            V_FROMV (c->graphics_terminal_type, graphics_terminal_type_o);
+            V_FROMV (c->graphics_tablet_type, graphics_tablet_type_o);
+            
+            /* Initialize the workstation related Finder subsystems                 */
+            qs_set_c (QS_WORKSTATION_TYPE, c->graphics_device,
+                      strlen (c->graphics_device));
+            status = SUCCESS;
+            }
+        else
+            {
+            status = FAIL;
+            sprintf (text, mg_message (FI_INVALID_WORKSTATION), c->workstation_name);
+            am_message (AM_STATUS, text);
+            er_log (text);
+            c->maconly = TRUE;
+            }
+        }
+    else
+        c->maconly = TRUE;
+    
+    /*   Translate terminal type.                                                   */
+    
+    if (status == SUCCESS)
+        {
+        string = c->terminal_type;
+        EXEC SQL SELECT CODE
+                     INTO :terminal_type
+                     FROM CODES.TERMINAL_TYPES
+                     WHERE NAME = UPPER(:string);
+        if (OR_STATUS == 0)
+            {
+            status = SUCCESS;
+            }
+        else
+            {
+            status = FAIL;
+            sprintf (text, mg_message (FI_INVALID_TERMINAL_TYPE), c->terminal_type,
+                     c->terminal_line_id);
+            er_log (text);
+            c->maconly = TRUE;
+            }
+        }
+    /*
+         The following code is required by the Raster Tech firmware bugs.  These
+         bugs are that, for some firmware levels the tablet values are divided by 
+         two (2). Additionally, some firmware levels have an offset of 1000
+         applied to the tablet values.  Both conditions must be corrected 
+         for in the TG_SET_TABLET_TYPE routine.  Communications of the needed
+         corrections for this display is done, here,  using QS variables.
+         Two QS variables are set to indicate which (if either) of the two 
+         possible corrections are needed for this particular display.
+    
+              December 20, 1988, by Anthony P. Lucido.
+    */
+    if (status >= SUCCESS)
+        {
+        if (qs_set_i (QS_DIVIDE_BY_2, (INT)(((options == 1) ||
+                                             (options == 2)) ? TRUE : FALSE)) !=
+            SUCCESS)
+            status = FAIL;
+        if (qs_set_i (QS_ADD_1K, (INT)((options == 1) ? TRUE : FALSE)) != SUCCESS)
+            status = FAIL;
+        }
+    /*   Translate graphics terminal type.                                          */
+    
+    if (status == SUCCESS)
+        {
+        if (c->graphics_terminal_type[0] == 0)
+            graphics_terminal_type = WTYPE_NONGRAPHIC;
+        else
+            {
+            string = c->graphics_terminal_type;
+            EXEC SQL SELECT CODE
+                INTO :graphics_terminal_type
+                FROM CODES.GRAPHICS_TERMINAL_TYPES
+                WHERE NAME = UPPER(:string);
+            
+            if (OR_STATUS == 0)
+                status = SUCCESS;
+            else
+                {
+                status = FAIL;
+                sprintf (text, mg_message (FI_INVALID_GRAPHICS_TYPE),
+                         c->graphics_terminal_type, c->workstation_name);
+                er_log (text);
+                c->maconly = TRUE;
+                }
+            }
+        }
+    /*   Assign graphics device.                                                    */
+    
+    if ((status == SUCCESS) && (!c->maconly))
+        {
+        
+        status = SUCCESS;
+        mac_device.len = 0;
+        mac_device.arr[0] = NUL;
+        
+        EXEC SQL SELECT MAC_DEVICE
+                 INTO   :mac_device
+                 FROM   ESI.WORKSTATION_CONFIGURATION
+                 WHERE  WORKSTATION_NAME = UPPER(:workstation_name);
+        
+        qs_set_c (QS_WORKSTATION_MAC_DEVICE, (CHAR *)mac_device.arr,
+                  (INT)mac_device.len);
+        
+        if (ug_if_gpx ())
+            status = SUCCESS;
+        else
+            status = hoopenio (&c->graphics_channel, c->graphics_device);
+        
+        /*   If cant assign device, complain.                                       */
+        
+        if (status == SUCCESS)
+            {
+            wks_id.channel = c->graphics_channel;
+            wks_id.type = graphics_terminal_type;
+            
+            EXEC SQL SELECT CODE
+                INTO :graphics_tablet_code
+                FROM CODES.GRAPHICS_TABLET_TYPES
+                WHERE NAME = UPPER(:graphics_tablet_type_o);
+            
+            if (OR_STATUS == 0)
+                {
+                wks_id.tablet_type = graphics_tablet_code;
+                
+                /*      Set GKS Raster driver statics as to workstation configuration
+                        as GKS cannot reference the configuration workspace if it is
+                        built as a VMS shareable image
+                */
+                status = gkz_set_workstation (atoi (c->graphics_terminal_type),
+                                              c->graphics_heads, c->graphics_planes);
+                status = ug_init_gks (&wks_id);
+                
+                /*  If GKS initialized, then put up logo.                           */
+                
+                if (status >= SUCCESS)
+                    wm_logo ();
+                }
+            else
+                {
+                status = FAIL;
+                sprintf (text, mg_message (FI_INVALID_TABLET), c->graphics_tablet_type,
+                         c->workstation_name);
+                er_log (text);
+                }
+            if (status != SUCCESS)
+                am_message (AM_STATUS, mg_message (status));
+            }
+        else
+            {
+            c->graphics_terminal_type[0] = 0;
+            sprintf (text, mg_message (FI_WORKSTATION_BUSY), c->workstation_name);
+            am_message (AM_STATUS, text);
+            c->maconly = TRUE;
+            }
+        }
+    /*   If everything is OK so far, then
+         initialize workstation interface. */
+#ifndef USE_X 
+    if (status == SUCCESS)
+        status = wiinit (1, graphics_terminal_type, terminal_type, c->record_play_mode,
+                         c->record_play_file);
+#endif
+    if (ug_if_gpx ())
+        {
+        /* Grab the params needed to init the external tablet from DB.              */
+        
+        EXEC SQL SELECT TABLET_NAME,PORT_NAME,TABLET_MODE
+        INTO :tablet_name,:port_name,:tablet_mode 
+        FROM ESI.TABLET_CONFIGURATION
+        WHERE TABLET_NAME = UPPER(:workstation_name);
+        
+        /*   If everything is OK so far, then
+                 initialize workstation interface. */
+        tc_zeroes (t, sizeof(TABLET_WORKSPACE));
+        t->init = FALSE;
+        t->init_status = FAIL;
+        
+        if (OR_STATUS == 0)
+            {
+            
+            V_FROMV (t->tablet_port, port_name);
+            V_FROMV (t->tablet_name, tablet_name);
+            
+            ho_add_path ("ESI$BIN", "tbh_driver.exe", sizeof t->driver, t->driver);
+            ho_translate_filename (t->driver, t->driver);
+            
+            t->tablet_type = graphics_tablet_code;
+            t->modemask = (unsigned)tablet_mode;
+            if (t->tablet_type != 0)
+                {
+                if (t->modemask == 0)
+                    {
+#if 0
+                    t->modemask = (TB_M_POINT_MODE | TB_M_ENGLISH_UNITS |
+                                   TB_M_ALARM_ON | TB_M_HIGH_RES);
+#endif
+                    }
+                /* Startup/Initialize the external tablet driver.                   */
+                
+                t->init_status = tbh_initialize (t->tablet_type,/* Brand/Model id code. */
+                        t->tablet_port,/* Device tablet is connected to             */
+                        t->modemask,/* Setup bitmap                                 */
+                        t->driver); /* Name of driver executable to use.            */
+                
+                if (t->init_status == SUCCESS)
+                    {
+                    /* Fill out the max x,y tablet device                           */
+                    /* coord extents. Used for def. reg.                            */
+                    t->init = TRUE;
+                    tbh_inq_tablet (TB_INQ_EXTENTS, (BYTE *) & t->dext);
+                    }
+                else
+                    {
+                    sprintf (text,
+                             "Error initializing external tablet.  Code=%d\n%s\n",
+                             status, mg_message (t->init_status));
+                    er_log (text);
+                    am_message (AM_STATUS, mg_message (t->init_status));
+                    t->init = FALSE;
+                    }
+                }
+            }
+        }
+    return status;
+    }
+/* END:                                                                             */

@@ -1,0 +1,317 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_INF_VER.PC*/
+/* *3    17-AUG-1990 22:17:06 VINCE "(SPR 5644) Code Cleanup"*/
+/* *2    25-JUL-1989 20:02:56 GILLESPIE "(SPR 50) Seismic system revamp"*/
+/* *1    19-JUN-1989 12:36:42 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element SE_INF_VER.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_se_int.h"
+
+#ifndef ESI_NL_H
+
+#include "esi_nl.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#define NDIM 1
+static BOOL first = TRUE;
+
+/* Function Description -----------------------------------------------------
+Description:
+    Used to get  list of versions for a given surface
+    with  given surface type attribute and format. 
+
+Prototype:
+    publicdef INT se_inf_version (CHAR *surf_code,INT surf_type , INT data_type,CHAR *line_name, 
+        CHAR *survey ,CHAR *source, SEIS_ATTRIBUTE_DATA_TYPE attribute , INT format,
+        INT line_type , NLIST_HEADER *nl_version );
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+CHAR *line_name ;
+CHAR *survey ;
+CHAR *surf_code ;
+INT surf_type ;
+INT data_type ;
+SEIS_ATTRIBUTE_DATA_TYPE attribute ;
+INT format ;
+INT line_type ;
+CHAR *source ; 
+NLIST_HEADER *nl_version ;
+    (I) surf_code   -(CHAR *) Name of the surface.
+    (I) line_name   -(CHAR *) Name of the line.
+    (I) survey      -(CHAR *) Name of the survey.
+    (I) surf_type   -(INT) Type of the surface to be stored.    
+    (I) data_type   -(INT) Type of the data  stored for the surface. 
+    (I) attribute   -(SEIS_ATTRIBUTE_DATA_TYPE) Gives the attribute of the seismic 
+                        traces where data was picked.
+    (I) format      -(INT) Format in which the data is stored in the nlist.
+    (I) line_type   -(INT) Type of the seismic line.        
+    (I) source      -(CHAR *) Source of the interpretation.
+    (O) nl_version  -(NLIST_HEADER *) One dimensionnal nlist containing the result 
+                        of the query first dimension is  :  version.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    OR_STATUS
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT se_inf_version (CHAR *surf_code, INT surf_type, INT data_type,
+                              CHAR *line_name, CHAR *survey, CHAR *source,
+                              SEIS_ATTRIBUTE_DATA_TYPE attribute, INT format,
+                              INT line_type, NLIST_HEADER *nl_version)
+#else
+publicdef INT se_inf_version (surf_code, surf_type, data_type, line_name, survey,
+                              source, attribute, format, line_type, nl_version)
+CHAR *line_name;
+CHAR *survey;
+CHAR *surf_code;
+INT surf_type;
+INT data_type;
+SEIS_ATTRIBUTE_DATA_TYPE attribute;
+INT format;
+INT line_type;
+CHAR *source;
+NLIST_HEADER *nl_version;
+#endif
+    {
+    
+    /*    declare  local variables  */
+    
+    INT istatus, k, rest, tot;
+    BOOL fetch;
+    INT MAX_ARR = 20;
+    CHAR source_hori[31];
+    INT version;
+    UINT stroke;
+    
+    /*     definition of  variables use for nlist manipulations  */
+    
+    INT datatype[NDIM];
+    size_t datawidth[NDIM];
+    INT units[NDIM];
+    VOIDPTR value_list[1];
+    UINT dimlist[NDIM];
+    INT value_inc[NDIM];
+    INT blocksize = 10;
+    UINT ndim = NDIM;
+    
+    /*   declare variables used in PRO*C   statements    */
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    
+    VARCHAR select[1024];
+    VARCHAR s_source[21];
+    int s_surf_type;
+    int s_data_type;
+    VARCHAR s_surf_code[31];
+    VARCHAR s_line_name[21];
+    VARCHAR s_survey[21];
+    int s_attribute;
+    int s_format;
+    int s_line_type;
+    int s_version[20];
+    
+    EXEC SQL END DECLARE SECTION;
+    
+    /*  initialize complex auto variables */
+    
+    datatype[0] = INT_TYPE;
+    datawidth[0] = 4;
+    units[0] = 0;
+    dimlist[0] = 1;
+    value_inc[0] = VALUE_LIST;
+    
+    /* -----------------------------------   
+        set returned status to SUCCESS
+       -----------------------------------   */
+    
+    istatus = SUCCESS;
+    /* set pointer to version nlist   to 0  */
+    
+    *nl_version = (NLIST_HEADER)0;
+    
+    /* ---------------------------------------------            
+        fill source for the surface to store
+        if the source is null we take the current oracle account 
+       ---------------------------------------------  */
+    
+    sez_fillsource (source, source_hori);
+    
+    
+    EXEC SQL WHENEVER SQLERROR GOTO errsql;
+    
+    /*     ------------------------------------------------------
+           prepare the SQL statement only the first time we enter
+           this routine
+          -------------------------------------------------------  */
+    
+    if (first)
+        {
+        PROJECT_NAME project_name;
+        TABLE_NAME table_hor;
+        
+        /*    inquire project name to build the table name */
+        
+        qs_inq_c (QS_PROJECT_NAME, project_name, (INT *)0);
+        sez_table_name (SEIS_SURFACE_TABLE, table_hor);
+        
+        select.len = sprintf ((char *)select.arr, 
+" SELECT VERSION \
+                FROM %s.%s  WHERE SURFACE_CODE = :s_surf_code AND \
+               LINE_NAME =:line_name AND SURVEY =: survey \
+               AND SURFACE_TYPE =:surf_type AND DATA_TYPE=:data_type AND\
+               LINE_TYPE=:line_type AND ATTRIBUTE =:attribute \
+               AND FORMAT =:format AND SOURCE =: source \
+                 "
+                , project_name, table_hor);
+        
+        /*  prepare the statement  */
+        
+        EXEC SQL PREPARE S1 FROM : select;
+        
+        /* declare a cursor   */
+        
+        EXEC SQL DECLARE C1 CURSOR FOR S1;
+        
+        first = FALSE;
+        
+        }
+    /*  ---------------------------------------------
+        fill all variables used in the SQL statement   
+        ---------------------------------------------    */
+    
+    V_FROMC (s_surf_code, surf_code);
+    V_FROMC (s_line_name, line_name);
+    V_FROMC (s_survey, survey);
+    V_FROMC (s_source, source_hori);
+    s_line_type = (INT)line_type;
+    s_surf_type = (INT)surf_type;
+    s_data_type = (INT)data_type;
+    s_attribute = (INT)attribute;
+    s_format = (INT)format;
+    
+    
+    /*   -------------------------------- 
+                open the cursor     
+         --------------------------------- */
+    
+    EXEC SQL OPEN C1 USING : s_surf_code,  : s_line_name,  : s_survey,  : s_surf_type,
+        : s_data_type,  : s_line_type,  : s_attribute,  : s_format,  : s_source;
+    
+    /*   -------------------------------- 
+        execute the FETCH statement    
+         --------------------------------- */
+    
+    fetch = TRUE;
+    tot = 0;
+    rest = 0;
+    
+    /*   -------------------------------- 
+         initialise the nlist     
+         --------------------------------- */
+    
+    istatus = nl_init_nlist (nl_version, NDIM, units, datawidth, datatype, value_inc,
+                             blocksize);
+    
+    istatus = nl_start_stroke (*nl_version, &stroke);
+    
+    /* in case of error in the nlist initialisation 
+       return to the caller with the nl error
+    */
+    
+    if (istatus)
+        return istatus;
+    
+    /*   -------------------------------- 
+         fetch the result of the query     
+         --------------------------------- */
+    
+    
+    value_list[0] = (VOIDPTR)version;
+    
+    while (fetch)
+        {
+        
+        EXEC SQL FETCH C1 INTO : s_version;
+        
+        rest = OR_ROWCOUNT - tot;
+        tot = OR_ROWCOUNT;
+        
+        for (k = 0; k < rest; k++)
+            {
+            
+            version = s_version[k];
+            
+            /*    add new point in the nlist     */
+            
+            istatus = nl_add_points (*nl_version, 1, ndim, dimlist, value_list);
+            
+            }
+        if (rest < MAX_ARR)
+            fetch = FALSE;
+        
+        }
+    /*       end  while     */
+    
+    
+    return SUCCESS;
+    /*********************/
+    
+    
+    /*    ---------------------------------------------
+          we come here in case of SQL error 
+          ---------------------------------------------             */
+    
+    errsql : printf (" oracle error  in se_inf_version : %d \n oracle  message %s ",
+                     OR_STATUS, OR_MESSAGE);
+    
+    istatus = OR_STATUS;
+    
+    /*** return  ERROR  ***/
+    return istatus;
+    /*********************/
+    
+    
+    }
+/* END:     */

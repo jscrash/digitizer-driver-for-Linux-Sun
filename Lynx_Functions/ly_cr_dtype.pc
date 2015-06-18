@@ -1,0 +1,136 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_CR_DTYPE.PC */
+/* *4    13-SEP-1991 12:28:00 LOEBL "(SPR 3951) Eliminate Core Dump and Performance Enhancements" */
+/* *3    23-JUL-1990 13:24:15 VINCE "(SPR 5628) Make LYNX functions internally consistant" */
+/* *2    24-APR-1990 14:51:55 VINCE "(SPR 1) Initial Coding" */
+/* *1    23-APR-1990 15:14:53 VINCE "create a new lynx data_type." */
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_CR_DTYPE.PC */
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_gl_defs.h"
+#include "esi_ly_err.h"
+#include "esi_qs.h"
+#include "esi_ts.h"
+#include "esi_oracle.h"
+
+#ifndef OR_DUPLICATE
+
+#define OR_DUPLICATE -1
+
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT ly_create_data_type (CHAR *data_type, CHAR *desc);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    data_type       -(CHAR *)
+    desc            -(CHAR *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    OR_STATUS - Status returned by Oracle.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT ly_create_data_type (CHAR *data_type, CHAR *desc) 
+#else
+publicdef INT ly_create_data_type (data_type, desc)
+CHAR *data_type;
+CHAR *desc;
+#endif
+    {
+    CHAR project[40];
+    INT project_len;
+    static BOOL first_time = TRUE;
+    static save_data_type[31];
+    
+/*     EXEC ORACLE OPTION REBIND = YES; */
+    EXEC ORACLE OPTION (HOLD_CURSOR = YES);
+
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[1000];
+    VARCHAR data_type_V[31];
+    VARCHAR desc_V[241];
+    EXEC SQL END DECLARE SECTION;
+    
+    if (first_time)
+       {
+       qs_inq_c (QS_PROJECT_NAME, project, &project_len);
+       if (project_len == 0)
+        return LY_NO_CURRENT_PROJECT;
+    
+       stmt.len = sprintf ((char *)stmt.arr, 
+       "INSERT INTO %s.LYNX_DATA_TYPES (DATA_TYPE, DESCRIPTION) \
+        VALUES (:data_type_V, :desc_V)",  project);
+    
+       EXEC SQL PREPARE INSERT_LYNX_DATA_TYPE FROM :stmt;
+       first_time = FALSE;
+       }
+
+       if (data_type[0] == NUL)
+        return LY_NO_NAME_GIVEN;
+       if (strlen (data_type) > 32)
+        return LY_NAME_TOO_LONG;
+
+
+    V_FROMC ( data_type_V, data_type );
+
+    /* if no description is given use the keyword NULL, otherwise quote it */
+    
+    if (desc[0] EQUALS NUL)
+	{
+        V_FROMC ( desc_V, "NULL" );
+	}
+    else
+        {
+        V_FROMC ( desc_V, desc );
+        }
+    
+    if (strcmp( save_data_type, data_type ) EQUALS 0)
+	{
+	return SUCCESS;
+	}
+
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL EXECUTE INSERT_LYNX_DATA_TYPE USING
+    :data_type_V, :desc_V ;
+
+    if ((OR_STATUS != SUCCESS) && (OR_STATUS != OR_DUPLICATE))
+        return OR_STATUS;
+    
+    /* save the current data type, so that we will not have to 
+    reexecute the SQL if the data type does not change */
+
+    strcpy( save_data_type, data_type );
+
+    return SUCCESS;
+    }
+/* END:     */

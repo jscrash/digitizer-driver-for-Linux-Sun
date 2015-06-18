@@ -1,0 +1,320 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SEZ_DEL.PC*/
+/* *8    15-OCT-1990 16:13:42 GILLESPIE "(SPR 1000) Merge Ernie deltas"*/
+/*  5B1  12-OCT-1990 17:50:23 GILLESPIE "Merge Ernie Deltas"*/
+/* *7     4-SEP-1990 16:36:40 PURNA "(SPR 0) resolve compiling error"*/
+/* *6    17-AUG-1990 22:15:12 VINCE "(SPR 5644) Code Cleanup"*/
+/* *5    29-JUN-1990 19:03:25 GILLESPIE "(SPR 1) Changes for fault posting; removal of underbrush"*/
+/* *4     1-NOV-1989 10:12:54 GILLESPIE "(SPR 30) Adjust for include file changes; add pragmas to HO routines"*/
+/* *3    14-SEP-1989 16:19:20 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *2    25-JUL-1989 19:59:59 GILLESPIE "(SPR 50) Seismic system revamp"*/
+/* *1    19-JUN-1989 12:36:10 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element SEZ_DEL.PC*/
+/* DEC/CMS REPLACEMENT HISTORY, Element SEZ_DEL.PC                                  */
+/* *2    11-OCT-1990 14:08:45 EXTERMINATOR "(SPR 0) bug fixes in seismic mistie"    */
+/* *1    13-AUG-1990 17:09:07 SYSTEM "Finder 6.1"                                   */
+/* DEC/CMS REPLACEMENT HISTORY, Element SEZ_DEL.PC                                  */
+/* DEC/CMS REPLACEMENT HISTORY, Element SEZ_DEL.PC                                  */
+/* *5    29-JUN-1990 19:03:25 GILLESPIE "(SPR 1) Changes for fault posting; removal of underbrush"  */
+/* *4     1-NOV-1989 10:12:54 GILLESPIE "(SPR 30) Adjust for include file changes; add pragmas to HO routines"  */
+/* *3    14-SEP-1989 16:19:20 GORDON "(SPR 100) Gulf/Sun/Unix mods"                 */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Exploration Systems, Inc. 1989                          */
+/*                    Unpublished -- All rights reserved                            */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY   */
+/*CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE      */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*                            Exploration Systems                                   */
+/*                            c/o Finder Graphics Systems                           */
+/*                            201 Tamal Vista Blvd.                                 */
+/*                            Corte Madera, CA  94925                               */
+/*                            (415) 927-0100                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+
+/*******************************************************************                */
+/*                                                                                  */
+/*    MODULE  :  sez_del                                                            */
+/*                                                                                  */
+/*    AUTHOR :  REMI DORET         JULY 1988                                        */
+/*                                                                                  */
+/*                                                                                  */
+/*************************************************************************          */
+
+#include "esi_c_lib.h"
+#include "esi_se_int.h"
+
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#include "esi_se_err.h"
+
+static BOOL first = TRUE;
+
+/* Function Description -----------------------------------------------------       */
+/*Description:                                                                      */
+/*    Used to delete  seismic surface data from SEIS_SURFACE.                       */
+/*                                                                                  */
+/*Prototype:                                                                        */
+/*    publicdef INT sez_del  (CHAR *surf_code ,SEIS_SURFACE_DATA_CLASS surf_type ,SEIS_SURFACE_DATA_TYPE data_type, */
+/*        FULL_LINE_NAME *line, CHAR *source , SEIS_ATTRIBUTE_DATA_TYPE attribute , SEIS_SURFACE_NLIST_TYPE format,     */
+/*        INT version ) ;                                                           */
+/*                                                                                  */
+/*Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)        */
+/*    surf_code       -(CHAR *) Name of the surface to be stored.                   */
+/*    surf_type       -(SEIS_SURFACE_DATA_CLASS) Type of the surface to be stored.  */
+/*    data_type       -(SEIS_SURFACE_DATA_TYPE) Type of the data  stored for the surface.   */
+/*    line            -(FULL_LINE_NAME *) Line name and survey structure pointer.   */
+/*    source          -(CHAR *) Source to which pertains the data.                  */
+/*    attribute       -(SEIS_ATTRIBUTE_DATA_TYPE) Gives the attribute of the seismic traces     */
+/*                        where data was picked.                                    */
+/*    format          -(SEIS_SURFACE_NLIST_TYPE) Format in which the data is stored in the  */
+/*                        nlist.                                                    */
+/*    version         -(INT) Version number for the pick.                           */
+/*                                                                                  */
+/*Return Value/Status:                                                              */
+/*    SUCCESS - Successful completion.                                              */
+/*    Function returns nlist error code if pb in write nlist or                     */
+/*    oracle error code if pb in oracle.                                            */
+/*                                                                                  */
+/*Scope:                                                                            */
+/*    PUBLIC                                                                        */
+/*                                                                                  */
+/*Limitations/Assumptions:                                                          */
+/*                                                                                  */
+/*-----------------------------------------------------------------------------     */
+
+/* BEGIN:                                                                           */
+#if USE_PROTOTYPES
+publicdef INT sez_del (CHAR *surf_code, SEIS_SURFACE_DATA_CLASS surf_type,
+                       SEIS_SURFACE_DATA_TYPE data_type, FULL_LINE_NAME *line,
+                       CHAR *source, SEIS_ATTRIBUTE_DATA_TYPE attribute,
+                       SEIS_SURFACE_NLIST_TYPE format, INT version)
+#else
+publicdef INT sez_del (surf_code, surf_type, data_type, line, source, attribute,
+                       format, version)
+CHAR *surf_code;
+SEIS_SURFACE_DATA_CLASS surf_type;
+SEIS_SURFACE_DATA_TYPE data_type;
+FULL_LINE_NAME *line;
+CHAR *source;
+SEIS_ATTRIBUTE_DATA_TYPE attribute;
+SEIS_SURFACE_NLIST_TYPE format;
+INT version;
+#endif
+    {
+    
+    /*    declare  local variables                                                  */
+    
+    INT istatus;
+    PROJECT_NAME project_name;
+    TABLE_NAME table_hor;
+    FLOAT upper_time;
+    FLOAT lower_time;
+    CDP_FLOAT first_cdp;
+    CDP_FLOAT last_cdp;
+    FLOAT upper_time_spe;
+    FLOAT lower_time_spe;
+    CDP_FLOAT first_cdp_spe;
+    CDP_FLOAT last_cdp_spe;
+    NLIST_ID nlist_id;
+    FILENAME nlist_file;
+    FILENAME full_filename;
+    BOOL nl_error;
+    SEIS_SURFACE_HDR surface;
+    
+    /*   declare variables used in PRO*C   statements                               */
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    
+    VARCHAR select[1024];
+    VARCHAR s_surf_code[31];
+    int s_surf_type;
+    int s_data_type;
+    VARCHAR s_source[21];
+    int s_line_id;
+    int s_attribute;
+    int s_format;
+    int s_version;
+    
+    EXEC SQL END DECLARE SECTION;
+    
+    /* -----------------------------------                                          */
+    /*    set returned status to SUCCESS                                            */
+    /*   -----------------------------------                                        */
+    
+    istatus = SUCCESS;
+    
+    /* ---------------------------------------------                                */
+    /*    fill source for the surface to store                                      */
+    /*    if the source is null we take the current oracle account                  */
+    /*   ---------------------------------------------                              */
+    
+    sez_fillsource (source, surface.source);
+    
+    /* ------------------------------------------------------------------           */
+    /*   first we need to retrieve the name of the nlist from the data base         */
+    /*    in order to be able to delete it                                          */
+    /*   ------------------------------------------------------------------         */
+    
+    istatus = sez_get (surf_code, surf_type, data_type, line, source, attribute,
+                       format, &version, &upper_time, &lower_time, &first_cdp,
+                       &last_cdp, &upper_time_spe, &lower_time_spe, &first_cdp_spe,
+                       &last_cdp_spe, nlist_id, nlist_file);
+    
+    /*  -----------------------------------------------                             */
+    /*   istatus = SE_NO_DATA  means that there is no data                          */
+    /*   to delete in the data base (we just return SUCCESS)                        */
+    /*   -------------------------------------------------                          */
+    
+    if (istatus EQUALS SE_NO_DATA)
+        {
+        return SUCCESS;
+        /****************************************************************************/
+        }
+    /*  -----------------------------------------------                             */
+    /*   istatus not equal SUCCESS means that there was a problem                   */
+    /*   when retrieving in the data base                                           */
+    /*   (we just return the status of get)                                         */
+    /*   -------------------------------------------------                          */
+    
+    if (istatus != SUCCESS)
+        {
+        return istatus;
+        /****************************************************************************/
+        }
+    /*  ----------------------------------------------                              */
+    /*    we are now sure that there is something to delete                         */
+    /*    ----------------------------------------------                            */
+    
+    EXEC SQL WHENEVER SQLERROR GOTO errsql;
+    
+    /*     ------------------------------------------------------                   */
+    /*       prepare the SQL statement only the first time we enter                 */
+    /*       this routine                                                           */
+    /*      -------------------------------------------------------                 */
+    
+    if (first)
+        {
+        
+        /*    inquire project name to build the table name                          */
+        
+        qs_inq_c (QS_PROJECT_NAME, project_name, (INT *)0);
+        sez_table_name (SEIS_SURFACE_TABLE, table_hor);
+        
+        select.len = sprintf ((char *)select.arr, 
+"\
+DELETE FROM %s.%s \
+WHERE SURFACE_CODE=:surf_code AND \
+    SURFACE_TYPE =:surf_type AND DATA_TYPE=:data_type AND \
+    LINE_ID = :line_id AND SOURCE=:source AND \
+    ATTRIBUTE =:attribute AND FORMAT =:format AND VERSION =:version"
+                , project_name, table_hor);
+        
+        /*  prepare the statement                                                   */
+        
+        EXEC SQL PREPARE S1 FROM : select;
+        
+        }
+    /*  ---------------------------------------------                               */
+    /*    fill all variables used in the SQL statement                              */
+    /*    ---------------------------------------------                             */
+    
+    V_FROMC (s_source, surface.source);
+    V_FROMC (s_surf_code, surf_code);
+    s_line_id = line->id;
+    s_surf_type = (INT)surf_type;
+    s_data_type = (INT)data_type;
+    s_attribute = (INT)attribute;
+    s_format = (INT)format;
+    s_version = version;
+    
+    /*   --------------------------------                                           */
+    /*    execute the DELETE statement                                              */
+    /*     ---------------------------------                                        */
+    
+    EXEC SQL EXECUTE  S1 USING  :s_surf_code,:s_surf_type,:s_data_type,
+              :s_line_id, :s_source, :s_attribute, :s_format, :s_version ;
+    
+    /*  ---------------------------------------------------------                   */
+    /*     now try to delete  the nlist  containing the seismic data                */
+    /*    ---------------------------------------------------------                 */
+    
+    /* first build the full name of the nlist file                                  */
+    
+    strcpy (surface.name, surf_code);
+    
+    se_bld_nlist_ids (line, &surface, SEIS_SURFACE_DATA, nlist_id, nlist_file,
+                      full_filename);
+    
+    if (!istatus)
+        {
+        
+        istatus = nl_delete_nlist (full_filename, nlist_id);
+        
+        if (istatus)
+            {
+            nl_error = TRUE;
+            }
+        else
+            {
+            nl_error = FALSE;
+            }
+        }
+    else
+        {
+        /*** return  ERROR  **                                                      */
+        return istatus;
+        /****************************************************************************/
+        }
+    /*    ----------------------------------------------                            */
+    /*      if there are no errors we can commit                                    */
+    /*      ----------------------------------------------                          */
+    
+    if (!nl_error)
+        {
+        EXEC SQL COMMIT WORK;
+        return SUCCESS;
+        /****************************************************************************/
+        }
+    /*    ---------------------------------------------                             */
+    /*      we come here in case of SQL error or nlist delete error                 */
+    /*      nl_error is TRUE  if we have an nlist error                             */
+    /*      ---------------------------------------------                           */
+    
+    errsql : if (!nl_error)
+        {
+        
+        printf (" error when deleting in SEIS_SURFACE : %d \n oracle message %s ",
+                OR_STATUS, OR_MESSAGE);
+        
+        istatus = OR_STATUS;
+        
+        }
+    /*   -------------------------------------                                      */
+    /*    rollback data base operation                                              */
+    /*     -------------------------------------                                    */
+    
+    EXEC SQL ROLLBACK WORK;
+    
+    /*** return  ERROR  **                                                          */
+    return istatus;
+    /********************************************************************************/
+    }
+/* END:                                                                             */

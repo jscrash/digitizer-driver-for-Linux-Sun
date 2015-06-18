@@ -1,0 +1,187 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element TO_DRAW_TEXT.PC */
+/* *16   13-SEP-1991 12:31:02 LOEBL "(SPR 3951) Eliminate Core Dump and Performance Enhancements" */
+/* *15   11-JUN-1991 13:48:13 PURNA "(SPR 0) lynx_temp_areas to temp_lynx_lists" */
+/* *14    6-MAY-1991 16:49:01 PURNA "(SPR 0) add select list in culture overlay for data mover" */
+/* *13   27-NOV-1990 10:29:09 PURNA "(SPR 0) remove transform point" */
+/* *12    6-NOV-1990 15:30:55 PURNA "(SPR 6156) township & section labels mods" */
+/* *11   19-JUL-1990 17:25:58 JESSIE "(SPR 5628) Make LYNX functions internally consistant" */
+/* *10   18-JUL-1990 18:07:16 JESSIE "(SPR 1) change include files" */
+/* *9    22-JUN-1990 16:16:48 MING "(SPR 0) fix ct_trannsform_point arguments" */
+/* *8     1-JUN-1990 15:44:19 PURNA "(SPR 0) remove session_id from to_draw_text parameter" */
+/* *7    19-APR-1990 16:10:06 PURNA "(SPR 0) add qs_set map_projection, fix map def for stand alone" */
+/* *6    26-MAR-1990 23:24:49 PURNA "(SPR 5095) text bundle mods" */
+/* *5    23-MAR-1990 15:31:59 PURNA "(SPR 5095) change method in text clip" */
+/* *4    22-MAR-1990 10:37:42 PURNA "(SPR 5095) change on external variable, add township labeling & text clip" */
+/* *3    21-MAR-1990 16:27:30 PURNA "(SPR 0) more changes" */
+/* *2    16-MAR-1990 09:10:31 PURNA "(SPR 5095) culture" */
+/* *1    16-MAR-1990 08:50:01 PURNA "culture overlay" */
+/* DEC/CMS REPLACEMENT HISTORY, Element TO_DRAW_TEXT.PC */
+/* DEC/CMS REPLACEMENT HISTORY, Element TO_DRAW_TEXT.PC*/
+/* *1    13-AUG-1990 17:16:29 SYSTEM "Finder 6.1"*/
+/* DEC/CMS REPLACEMENT HISTORY, Element TO_DRAW_TEXT.PC*/
+
+/*
+ * FILE: TO_DRAW_TEXT.C
+ */
+
+/* include files */
+#include "esi_ly.h"
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_MP_H
+#include "esi_mp.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+/************************************************************/
+
+publicdef INT to_draw_text(data_type,nlist)
+CHAR *data_type;
+NLIST_HEADER *nlist;
+{
+INT status;
+PROJECT_NAME project;
+UINT table_number;
+TEXT_GC text;
+INT zero;
+MAP_STRUCTURE   *mapdef;         
+INT len;
+BOOL no_map=FALSE;
+static BOOL first_time=TRUE;
+
+static VOIDPTR  value_array[9];
+static UINT     ndim            = 9;
+static UINT     dim_array[9]   = { 1,2,3,4,5,6,7,8,9};
+
+/* EXEC ORACLE OPTION REBIND=YES; */
+EXEC ORACLE OPTION (HOLD_CURSOR=YES);
+
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR  sqlstmt[1000];
+    static int text_id;
+    static VARCHAR  text_string[81];
+    static double x_offset,y_offset,node_x,node_y;
+    static double text_up_x,text_up_y;
+    static int offset_units;
+    static int session_id;
+    VARCHAR    data_type_V[31];
+EXEC SQL END DECLARE SECTION;
+
+EXEC SQL WHENEVER SQLERROR GOTO :orcerr;
+
+    if (first_time)
+        {
+        qs_inq_c(QS_PROJECT_NAME,project,(INT *)0);
+
+        EXEC SQL SELECT USERENV('SESSIONID')
+        INTO   :session_id
+        FROM   DUAL;
+
+
+        sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+          "SELECT TEXT_UP_X,TEXT_UP_Y \
+           FROM %s.LYNX_TEXT_GC \
+           WHERE TEXT_ID=:text_id",project);
+
+           EXEC SQL PREPARE S_TEXT_UP FROM :sqlstmt;
+           EXEC SQL DECLARE C_TEXT_UP CURSOR FOR S_TEXT_UP;
+
+        sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+       "SELECT A.TEXT_ID,A.TEXT_STRING,\
+         B.NODE_X, B.NODE_Y, A.X_OFFSET, A.Y_OFFSET, A.OFFSET_UNITS \
+        FROM %s.LYNX_TEXT A, %s.NODES B, %s.LYNX_CULTURE C, TEMP_LYNX_LISTS D \
+        WHERE A.LYNX_ID=D.LYNX_ID \
+          AND C.LYNX_ID=D.LYNX_ID \
+          AND A.NODE_ID=B.NODE_ID \
+          AND D.TEMP_PROCESS_ID= :session_id \
+          AND C.DATA_TYPE || ''= :data_type_V",    
+                project,project,project);
+
+        EXEC SQL PREPARE S_TEXT FROM :sqlstmt;
+        EXEC SQL DECLARE C_TEXT CURSOR FOR S_TEXT;
+
+        first_time = FALSE;
+        }
+
+
+status = mp_get_current_map( &mapdef );
+if (status != SUCCESS)
+    {
+    no_map=TRUE;
+    }
+
+
+#ifdef DEBUG
+#ifdef VMS
+lib$show_timer();
+#endif
+printf ("in OPEN GET_TEXT\n");
+#endif
+
+status=ly_get_text_bundle (data_type,0,0,&text);
+
+status=nl_start_table(*nlist,&table_number);
+status=nl_set_table_string(*nlist,table_number,NL_TABLE_NAME,data_type);
+status=nl_set_table_user_struct(*nlist,table_number,(VOIDPTR)&text.text_bundle_id,sizeof(INT));
+
+V_FROMC( data_type_V, data_type);
+EXEC SQL OPEN C_TEXT USING :session_id, :data_type_V;
+
+value_array[0] = (VOIDPTR)&text_id;
+value_array[1] = (VOIDPTR)text_string.arr;
+value_array[2] = (VOIDPTR)&node_x;
+value_array[3] = (VOIDPTR)&node_y;
+value_array[4] = (VOIDPTR)&x_offset;
+value_array[5] = (VOIDPTR)&y_offset;
+value_array[6] = (VOIDPTR)&offset_units;
+value_array[7] = (VOIDPTR)&text_up_x;
+value_array[8] = (VOIDPTR)&text_up_y;
+FOREVER 
+{
+    EXEC SQL FETCH C_TEXT INTO :text_id,:text_string,:node_x,:node_y,
+	:x_offset,:y_offset,:offset_units;
+    if(OR_STATUS EQUALS OR_EOF) break;
+    V_SETZERO(text_string);
+    EXEC SQL OPEN C_TEXT_UP USING :text_id;
+    text_up_x=0.0;
+    text_up_y=1.0;
+    EXEC SQL FETCH C_TEXT_UP INTO :text_up_x,:text_up_y;
+    if(OR_STATUS EQUALS OR_EOF) 
+	{
+	text_up_x=0.0;
+	text_up_y=1.0;
+	}
+
+    if(offset_units EQUALS 0 && no_map)
+	{
+	node_x += x_offset;
+	node_y += y_offset;
+	}
+    else
+	{
+	node_x += x_offset/mapdef->wcs_to_inches;
+	node_y += y_offset/mapdef->wcs_to_inches;
+	}
+    
+    status=nl_add_rows(*nlist, 1, ndim, dim_array, value_array);    
+}
+EXEC SQL CLOSE C_TEXT_UP;
+EXEC SQL CLOSE C_TEXT;
+    return status;
+orcerr:
+    return OR_STATUS;
+}

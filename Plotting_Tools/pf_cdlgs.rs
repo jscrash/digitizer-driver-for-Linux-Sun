@@ -1,0 +1,541 @@
+*UX
+*T CDLG 
+,20
+*N PF_QUERY
+*S PR 1 PU 0 
+42 54 360 488
+Select A Plotter
+17 
+
+*I PF_QUERY_CANCEL 
+BtnItem Enabled
+280 20 305 105 
+CANCEL
+
+*I PF_QUERY_INFO
+BtnItem Enabled
+280 330 305 415
+INFO
+
+*I PF_QUERY_SELECT 
+BtnItem Enabled
+60 320 85 395
+SELECT
+
+*I PF_QUERY_CHOOSE 
+StatText Enabled
+0 17 30 400
+Choose a plotter and press "Select"
+
+*I PF_QUERY_TEXT1
+StatText Enabled 
+105 20 130 100 
+# of Pens
+
+*I PF_QUERY_TEXT2
+StatText Enabled 
+105 105 130 185
+Status
+
+*I PF_QUERY_TEXT3
+StatText Enabled 
+105 195 130 350
+Plotter Name
+
+*I PF_QUERY_RECT1
+Rectitem Enabled
+30 25 70 175 
+
+*I PF_QUERY_RECT2
+Rectitem Enabled
+30 175 70 315
+
+SETGROUP 16
+*I PF_QUERY_PENS
+Selector Enabled
+127 17 264 115
+8
+16
+
+*I PF_QUERY_STATUS
+Selector Enabled
+127 102 264 205
+Online
+Paper Out
+
+*I PF_QUERY_NAME
+Selector Enabled
+127 192 264 388
+Versetec
+Calcomp
+
+*I PF_QUERY_VSCROLL
+Vscroll Enabled
+135 395 256 407
+
+
+SETGROUP 17
+*I PF_QUERY_ALLPLOTTERS
+RadioItem Disabled 
+40 30 60 170 
+All Plotters
+
+*I PF_QUERY_ONLINEPLOTTERS
+RadioItem Disabled 
+60 30 95 170 
+Online
+
+SETGROUP 18
+*I PF_QUERY_USEDEFAULTS
+RadioItem Disabled 
+40 180 60 310
+Use Default
+
+*I PF_QUERY_RETRIEVEDB
+RadioItem Disabled 
+60 180 95 310
+Retrieve From DB.
+
+*T CDLG
+,50
+*N PF_FILE_CDLG
+*S PR 1 PU 0 
+51 26 425 480 
+Plotter Control Cdlg
+26
+
+*I PF_FILE_XSIZE_EDT
+EditText Enabled
+75 72 107 122 
+<X>
+
+*I PF_FILE_YSIZE_EDT
+EditText Enabled
+110 72 142 122 
+<Y>
+
+*I PF_FILE_STR_STATUS
+StatText Disabled
+145 11 175 69
+Status:
+
+*I PF_FILE_STR_PENS
+StatText Disabled
+110 130 140 188 
+#Pens
+
+*I PF_FILE_PENS_EDT
+EditText Enabled
+75 140 107 179 
+16
+
+*I PF_FILE_STATUS_EDT
+EditText Enabled
+145 72 177 181 
+<Status>
+
+*I PF_FILE_STR_YSIZE
+StatText Enabled
+110 11 140 69
+Y Size:
+
+*I PF_FILE_QUEUE_EDT
+EditText Enabled
+180 72 212 181 
+<Queue>
+
+*I PF_FILE_STR_QUEUE
+StatText Enabled
+180 11 210 69 
+Queue:
+
+*I PF_FILE_STR_DRIVER
+StatText Enabled
+215 11 245 69 
+Driver:
+
+*I PF_FILE_DRIVER_EDT
+EditText Enabled
+215 72 247 181 
+<Driver>
+
+*I PF_FILE_PLOTTER_EDT
+EditText Enabled
+40 72 72 179 
+<Plotter>
+
+*I PF_FILE_STR_XSIZE
+StatText Enabled
+75 11 105 68 
+X Size:
+
+*I PF_FILE_STR_PLOTTER
+StatText Enabled
+40 11 70 69 
+Plotter:
+
+*I PF_FILE_BTN_PROCEED
+BtnItem Enabled
+340 333 365 410 
+PROCEED
+
+*I PF_FILE_MSG_WINDOW
+StatText Enabled
+0 17 30 436 
+
+*I PF_FILE_BTN_CANCEL
+BtnItem Enabled
+340 220 365 290 
+CANCEL
+
+*I PF_FILE_BTN_SEL_FILE
+BtnItem Enabled
+147 236 173 378 
+SELECT PLOT FILE
+
+*I PF_FILE_BTN_SEL_PLOTTER
+BtnItem Enabled
+340 28 365 156 
+SELECT PLOTTER
+
+SETGROUP 23
+*I PF_FILE_PLOTTER_SELECTOR
+Selector Enabled
+250 11 330 152 
+<Plotter_1>
+<Plotter_2>
+<Plotter_3>
+
+*I PF_FILE_PLOTTER_VSCROLL
+Vscroll Enabled
+250 162 330 181 
+
+SETGROUP 24
+*I PF_FILE_FILE_SELECTOR
+Selector Enabled
+36 208 140 405 
+<File_1>
+<File_2>
+
+*I PF_FILE_FILE_VSCROLL
+Vscroll Enabled
+36 415 140 434 
+
+SETGROUP 25
+*I PF_FILE_ALL_RB
+RadioItem Enabled
+180 205 220 442 
+Find ALL plot files.
+
+*I PF_FILE_LOCAL_RB
+RadioItem Enabled
+205 205 245 431 
+Search locally for Plot files.
+
+*I PF_FILE_RECT1
+RectItem Enabled
+250 200 320 447
+
+*T CDLG
+,60
+*N PF_SELECT_PLOTTER
+*S PR 1 PU 0
+126 130 235 369
+Select a Plotter
+7
+
+*I PF_SELPLOT_RECT
+RectItem Enabled
+38 76 58 226
+
+*I PF_SELPLOT_MSG
+StatText Enabled
+0 8 30 230
+
+*I PF_SELPLOT_SELECT_BTN
+BtnItem Enabled
+40 10 65 75
+Select
+
+*I PF_SELPLOT_PLOTTER_DISP
+StatText Enabled
+40 79 65 224
+
+*I PF_SELPLOT_INFO_BTN
+BtnItem Enabled
+75 10 100 75
+Info
+
+*I PF_SELPLOT_CANCEL_BTN
+BtnItem Enabled
+75 90 100 153
+Cancel
+
+*I PF_SELPLOT_ACCEPT_BTN
+BtnItem Enabled
+75 167 100 230
+Accept
+
+*UM
+*T CDLG 
+,20
+*N PF_QUERY
+*S PR 1 PU 0 
+42 54 331 474
+Select A Plotter
+17 
+
+*I PF_QUERY_CANCEL 
+BtnItem Enabled
+245 20 280 105 
+CANCEL
+
+*I PF_QUERY_INFO
+BtnItem Enabled
+245 315 280 400
+INFO
+
+*I PF_QUERY_SELECT 
+BtnItem Enabled
+40 320 61 395
+SELECT
+
+*I PF_QUERY_CHOOSE 
+StatText Enabled
+5 17 22 400
+Choose a plotter and press "Select"
+
+*I PF_QUERY_TEXT1
+StatText Enabled 
+80 20 96 100 
+# of Pens
+
+*I PF_QUERY_TEXT2
+StatText Enabled 
+80 105 96 185
+Status
+
+*I PF_QUERY_TEXT3
+StatText Enabled 
+80 195 96 350
+Plotter Name
+
+*I PF_QUERY_RECT1
+Rectitem Enabled
+30 25 70 175 
+
+*I PF_QUERY_RECT2
+Rectitem Enabled
+30 175 70 315
+
+SETGROUP 16
+*I PF_QUERY_PENS
+Selector Enabled
+97 17 234 115
+8
+
+*I PF_QUERY_STATUS
+Selector Enabled
+97 102 234 205
+Online
+
+*I PF_QUERY_NAME
+Selector Enabled
+97 192 234 388
+
+*I PF_QUERY_VSCROLL
+Vscroll Enabled
+105 395 226 407
+
+
+SETGROUP 17
+*I PF_QUERY_ALLPLOTTERS
+RadioItem Disabled 
+35 30 51 170 
+All Plotters
+
+*I PF_QUERY_ONLINEPLOTTERS
+RadioItem Disabled 
+50 30 66 170 
+Online
+
+SETGROUP 18
+*I PF_QUERY_USEDEFAULTS
+RadioItem Disabled 
+35 180 51 310
+Use Default
+
+*I PF_QUERY_RETRIEVEDB
+RadioItem Disabled 
+50 180 66 310
+Retrieve From DB.
+
+
+*T CDLG
+,50
+*N PF_FILE_CDLG
+*S PR 1 PU 0 
+51 26 324 482 
+Plotter Control Cdlg
+26
+
+*I PF_FILE_XSIZE_EDT
+EditText Enabled
+60 72 76 112 
+
+*I PF_FILE_YSIZE_EDT
+EditText Enabled
+84 72 100 112 
+
+*I PF_FILE_STR_STATUS
+StatText Disabled
+108 19 121 68 
+Status:
+
+*I PF_FILE_STR_PENS
+StatText Disabled
+81 140 96 188 
+#Pens
+
+*I PF_FILE_PENS_EDT
+EditText Enabled
+60 155 76 179 
+
+*I PF_FILE_STATUS_EDT
+EditText Enabled
+108 72 124 181 
+
+*I PF_FILE_STR_YSIZE
+StatText Enabled
+85 21 99 66 
+Y Size:
+
+*I PF_FILE_QUEUE_EDT
+EditText Enabled
+132 72 148 181 
+
+*I PF_FILE_STR_QUEUE
+StatText Enabled
+132 21 148 67 
+Queue:
+
+*I PF_FILE_STR_DRIVER
+StatText Enabled
+156 21 172 67 
+Driver:
+
+*I PF_FILE_DRIVER_EDT
+EditText Enabled
+156 72 172 181 
+
+*I PF_FILE_PLOTTER_EDT
+EditText Enabled
+36 72 52 179 
+
+*I PF_FILE_STR_XSIZE
+StatText Enabled
+62 21 78 68 
+X Size:
+
+*I PF_FILE_STR_PLOTTER
+StatText Enabled
+36 15 51 67 
+Plotter:
+
+*I PF_FILE_BTN_PROCEED
+BtnItem Enabled
+238 333 260 400 
+PROCEED
+
+*I PF_FILE_MSG_WINDOW
+StatText Enabled
+7 17 26 436 
+
+*I PF_FILE_BTN_CANCEL
+BtnItem Enabled
+239 220 261 290 
+CANCEL
+
+*I PF_FILE_BTN_SEL_FILE
+BtnItem Enabled
+133 236 152 378 
+SELECT PLOT FILE
+
+*I PF_FILE_BTN_SEL_PLOTTER
+BtnItem Enabled
+245 28 262 146 
+SELECT PLOTTER
+
+SETGROUP 23
+*I PF_FILE_PLOTTER_SELECTOR
+Selector Enabled
+187 25 236 152 
+
+*I PF_FILE_PLOTTER_VSCROLL
+Vscroll Enabled
+187 162 236 181 
+
+SETGROUP 24
+*I PF_FILE_FILE_SELECTOR
+Selector Enabled
+36 208 124 405 
+
+*I PF_FILE_FILE_VSCROLL
+Vscroll Enabled
+36 415 123 434 
+
+SETGROUP 25
+*I PF_FILE_ALL_RB
+RadioItem Enabled
+175 205 192 442 
+Find ALL plot files.
+
+*I PF_FILE_LOCAL_RB
+RadioItem Enabled
+193 205 209 431 
+Search locally for Plot files.
+
+*I PF_FILE_RECT1
+RectItem Enabled
+170 200 214 447
+
+*T CDLG
+,60
+*N PF_SELECT_PLOTTER
+*S PR 1 PU 0
+126 130 228 369
+Select a Plotter
+7
+
+*I PF_SELPLOT_RECT
+RectItem Enabled
+38 76 58 226
+
+*I PF_SELPLOT_MSG
+StatText Enabled
+6 8 25 230
+
+*I PF_SELPLOT_SELECT_BTN
+BtnItem Enabled
+40 10 55 63
+Select
+
+*I PF_SELPLOT_PLOTTER_DISP
+StatText Enabled
+40 79 57 224
+
+*I PF_SELPLOT_INFO_BTN
+BtnItem Enabled
+72 10 98 75
+Info
+
+*I PF_SELPLOT_CANCEL_BTN
+BtnItem Enabled
+72 90 98 153
+Cancel
+
+*I PF_SELPLOT_ACCEPT_BTN
+BtnItem Enabled
+72 167 98 230
+Accept
+

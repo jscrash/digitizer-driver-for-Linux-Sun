@@ -1,0 +1,28 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element WELL_LATLONG_XY.SQL */
+/* *4    26-NOV-1990 11:50:21 ERIC "(SPR 1) Removed wellname/# from select phrase to shorten output." */
+/* *3    26-MAR-1990 11:40:56 DOROTHY "(SPR -1) Schema fix." */
+/* *2    26-JAN-1990 14:44:49 MING "(SPR 0) change A.TOP_POSITION = B.NODE_ID to A.NODE_ID = B.NODE_ID for unique node_id" */
+/* *1    19-JUN-1989 14:53:55 SYSTEM "" */
+/* DEC/CMS REPLACEMENT HISTORY, Element WELL_LATLONG_XY.SQL */
+DOC
+	ESI Well Latlong Report
+	p1 = Project Name
+	p2 = name of control list table
+#
+
+CLEAR 	BREAKS;
+
+BREAK ON WELLNAME SKIP 1
+
+COLUMN UWI FORMAT A17
+COL NODE_X FORMAT 99,999,999.9
+COL NODE_Y FORMAT 99,999,999.9
+COL LATITUDE FORMAT 999.99999
+COL LONGITUDE FORMAT 9999.99999
+TTITLE 	CENTER ' -->  --> &1 Well Locations <--  <--' SKIP CENTER 'Sorted by Well Name';
+
+SELECT  A.UWI,
+B.NODE_X, B.NODE_Y, B.LATITUDE, B.LONGITUDE
+FROM 	&1..WELL_HDR A, &1..NODES B
+WHERE	A.NODE_ID = B.NODE_ID
+ORDER BY A.UWI;

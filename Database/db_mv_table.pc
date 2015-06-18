@@ -1,0 +1,150 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_MV_TABLE.PC */
+/* *4    17-JUL-1991 18:29:40 CHEW "(SPR 8465) Drop table from the system tablespace" */
+/* *3    14-AUG-1990 13:09:27 VINCE "(SPR 5644) Header Standardization" */
+/* *2    11-AUG-1989 13:51:54 CONROY "(SPR 9999) Initial checkin" */
+/* *1    11-AUG-1989 13:25:12 CONROY "Move a table to correct tablespace" */
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_MV_TABLE.PC */
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_gl_defs.h"
+#include "esi_db.h"
+#include "esi_db_err.h"
+#include "esi_am.h"
+#include "esi_oracle.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+    Routine to move a table from one tablespace to another.
+
+Prototype:
+    publicdef INT db_move_table(CHAR *table, CHAR *type);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) table       -(CHAR *) Table to move.
+    (I) type        -(CHAR *) Type to move.
+    
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT db_move_table (CHAR *table, CHAR *type) 
+#else
+publicdef INT db_move_table (table, type)
+CHAR *table;
+CHAR *type;
+#endif
+/* * VARIABLE LIST * */
+/* ----------------- */
+    {
+    CHAR storage[500];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[500];
+    VARCHAR dummy[31];
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ********************************************************************** */
+    
+    EXEC SQL DROP TABLE ZZZXXX;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO finished;
+    EXEC SQL WHENEVER NOT FOUND GOTO finished;
+    
+    /* * GET DEFAULT TABLESPACE * */
+    /* -------------------------- */
+    
+    EXEC ORACLE OPTION ( RELEASE_CURSOR=yes);
+    EXEC SQL SELECT TABLESPACE_NAME INTO :
+                                                                                         dummy
+                                                                                          
+                                                                                         FROM
+                                                                                          
+                                                                                         ACCOUNT_TB_DEFS
+                                                                                          
+                                                                                         WHERE
+                                                                                          
+                                                                                         TABLE_NAME
+                                                                                          
+                                                                                         =
+                                                                                          'XXX_DEFAULT_TABLESPACE'
+                                                                                         ;
+    EXEC ORACLE OPTION ( RELEASE_CURSOR=no);
+        
+    V_SETZERO (dummy);
+    
+    /* * MAKE SURE NEED TO MOVE * */
+    /* -------------------------- */
+    
+    sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"SELECT A.TABLE_NAME FROM ACCOUNT_TB_DEFS A,USER_TABLES U WHERE \
+DECODE(A.TABLESPACE_NAME,NULL,'%s',A.TABLESPACE_NAME) != U.TABLESPACE_NAME \
+AND A.TABLE_NAME = U.TABLE_NAME AND A.TABLE_NAME = '%s'"
+            , dummy.arr, table);
+    EXEC ORACLE OPTION ( RELEASE_CURSOR=yes);
+    EXEC SQL PREPARE S1 FROM : sqlstmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1;
+    EXEC SQL FETCH C1 INTO : dummy;
+    EXEC SQL CLOSE C1;
+    EXEC ORACLE OPTION ( RELEASE_CURSOR=no);
+    
+    /* * GET STORAGE FOR TABLE * */
+    /* ------------------------- */
+    
+    db_get_storage_string (table, type, storage);
+    
+    /* * CREATE TABLE IN PROPER TABLESPACE * */
+    /* ------------------------------------- */
+    
+    sqlstmt.len = sprintf ((char *)sqlstmt.arr,
+                           "CREATE TABLE ZZZXXX %s AS SELECT * FROM %s", storage,
+                           table);
+    EXEC ORACLE OPTION ( RELEASE_CURSOR=yes);
+    EXEC SQL EXECUTE IMMEDIATE : sqlstmt;
+    EXEC ORACLE OPTION ( RELEASE_CURSOR=no);
+    
+    /* * DROP OLD TABLE * */
+    /* ------------------ */
+    
+    sqlstmt.len = sprintf ((char *)sqlstmt.arr, "DROP TABLE %s", table);
+    EXEC SQL EXECUTE IMMEDIATE : sqlstmt;
+    
+    /* * RENAME TABLE * */
+    /* ---------------- */
+    
+    sqlstmt.len = sprintf ((char *)sqlstmt.arr, "RENAME ZZZXXX to %s", table);
+    EXEC SQL EXECUTE IMMEDIATE : sqlstmt;
+    
+finished:
+    return SUCCESS;
+    }
+/* END:     */

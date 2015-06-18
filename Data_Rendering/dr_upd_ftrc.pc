@@ -1,0 +1,175 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_UPD_FTRC.PC*/
+/* *5     7-DEC-1990 11:10:15 VINCE "(SPR 6176) Added lookup of real nlist id from the seis_fault_trace table"*/
+/* *4    28-SEP-1990 14:32:26 GILLESPIE "(SPR 1) Merge beta deltas"*/
+/*  1B1  24-SEP-1990 16:16:38 GILLESPIE "Beta Deltas"*/
+/* *3    20-AUG-1990 17:07:06 KEE "(SPR -1) fixing compile error at sun"*/
+/* *2    14-AUG-1990 21:56:17 GILLESPIE "(SPR 2001) Use LINE_ATTRIBUTEs"*/
+/* *1    19-JUL-1990 17:55:44 GILLESPIE "Add support for fault traces"*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_UPD_FTRC.PC*/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Finder Graphics Systems, Inc.
+			201 Tamal Vista Blvd
+			Corte Madera, CA  USA 94925
+			(415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+/*****************************************************************************
+
+NAME:           dr_update_fault_trace
+
+DESCRIPTION:    Update a fault trace for the specified horizon.
+
+     Input:     horizon name    - The name of a seismic horizon.
+
+     Output:    line - a pointer to a line structure.
+
+     Status:    SUCCESS
+                Oracle errors
+                
+******************************************************************************/
+
+#include "esi_dr.h"
+#include "esi_gks.h"
+#include "esi_se.h"
+#include "esi_oracle.h"
+
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+
+#ifndef ESI_MM_H
+#include "esi_mm.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_LU_H
+#include "esi_lu.h"
+#endif
+
+/*****************************************************************************/
+#if USE_PROTOTYPES
+publicdef INT dr_update_fault_trace(DR_DATA *dr_data, CHAR *horizon, INT seq,
+                                    LINE *line)
+#else
+publicdef INT dr_update_fault_trace(dr_data, horizon, seq, line)
+DR_DATA *dr_data;
+CHAR *horizon;
+INT  seq;
+LINE *line;
+#endif
+    {
+    INT   status = SUCCESS;
+    UINT  nCol   = 2;
+    UINT  Col_List[2];
+    CHAR  line_color[16];
+    CHAR  line_width[16];
+    CHAR  line_style[16];
+
+    FILENAME  filename;
+    FILENAME  full_filename;
+    NLIST_ID  nlist_id;
+
+    PROJECT_NAME      project;
+    SEIS_FAULT_TRACE  ftrace;
+    FULL_LINE_NAME    line_name;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[1024];
+        VARCHAR digi_ref[62];
+    EXEC SQL END DECLARE SECTION;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO sqlerrorpt;
+    
+    qs_inq_c(QS_PROJECT_NAME, project, (INT *)0);
+
+    tc_zeroes((VOIDPTR)&ftrace, sizeof ftrace);
+
+    strcpy(ftrace.hor_code, horizon);
+    strcpy(ftrace.fault_name, line -> line_name);
+
+    sez_fillsource(ftrace.source, ftrace.source);
+
+    filename[0] = 0;
+    nlist_id[0] = 0;
+
+    tc_zeroes(&line_name, sizeof line_name);
+    status = se_bld_nlist_ids(&line_name, (VOIDPTR)&ftrace, SEIS_FTRACE_DATA, 
+            nlist_id, filename, full_filename);
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+        return status;
+        }
+
+    /* ---------------------------------------------------------------- */
+    /* The sequence number is really the unique key into the		*/
+    /* SEIS_FAULT_TRACE table.  Use it to look up the real nList-id.	*/
+    /* ---------------------------------------------------------------- */
+
+    sqlstmt.len = sprintf ((char *)sqlstmt.arr,
+    "SELECT DIGITAL_REF \
+     FROM   %s.SEIS_FAULT_TRACE \
+     WHERE  SEQ = %d",
+    project, seq);
+
+    EXEC SQL PREPARE S1 FROM :sqlstmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1;
+    EXEC SQL FETCH C1 INTO :digi_ref;
+    EXEC SQL CLOSE C1;
+
+    V_FROMV (nlist_id, digi_ref)
+
+    Col_List[0] = 1, Col_List[1] = 2;
+    status = dr_update_nlist (line->line_nlist, full_filename, nlist_id,
+                             Col_List, 0.0, dr_data);
+    if (status IS_NOT_EQUAL_TO SUCCESS)
+        {
+        return status;
+        }
+
+    lu_index_to_text("COLOR",      line_color, (INT)line -> line.color);
+    lu_index_to_text("LINE_STYLE", line_style, (INT)line -> line.style);
+    lu_index_to_text("THICKNESS",  line_width, (INT)line -> line.width);
+    
+    sqlstmt.len = sprintf((char *)sqlstmt.arr, 
+    "UPDATE %s.SEIS_FAULT_TRACE \
+     SET    XMIN = %lf, XMAX = %lf, \
+            YMIN = %lf, YMAX = %lf, \
+            DIGITAL_REF = '%s', DIGITAL_REF_VOLUME = '%s', \
+            LINE_COLOR  = '%s', LINE_STYLE = '%s', LINE_THICKNESS = '%s', \
+            LAST_UPDATE = SYSDATE \
+     WHERE  HOR_CODE   = '%s' AND \
+            FAULT_CODE = '%s' AND \
+            SEQ        =  %d  AND \
+            SOURCE     = '%s'",
+    project,
+    dr_data->lower_left_extent.x, dr_data->upper_right_extent.x,
+    dr_data->lower_left_extent.y, dr_data->upper_right_extent.y,
+    nlist_id, filename,
+    line_color, line_style, line_width, 
+    horizon, line->line_name, seq, ftrace.source);
+        
+    EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+    
+    return status;
+    
+sqlerrorpt:
+    /* Honest to God error */
+    return OR_STATUS;
+    }

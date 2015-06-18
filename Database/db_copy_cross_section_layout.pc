@@ -1,0 +1,136 @@
+/*****************************************************************************
+
+                Copyright Exploration Systems, Inc. 1991
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_oracle.h"
+#include "esi_am.h"
+
+#if USE_PROTOTYPES
+INT db_copy_cross_section_layout()
+#else
+INT db_copy_cross_section_layout()
+#endif
+    {
+        char message[80];
+        int error_status = 0;
+        int insert_count = 0;
+	BOOL key_parm_match = FALSE;
+
+        EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR source[31];
+        VARCHAR layout_name[41];
+        VARCHAR verb[26];
+        VARCHAR key_parm[8000];
+        VARCHAR key_parm2[8000];
+        EXEC SQL END DECLARE SECTION;
+        
+        EXEC SQL WHENEVER SQLERROR GOTO sqlerror;
+        EXEC SQL DECLARE default_cursor CURSOR FOR
+             SELECT 
+                SOURCE, 
+                LAYOUT_NAME,
+                VERB,
+                KEY_PARM
+             FROM DEFAULT_PROJECT.CROSS_SECTION_LAYOUTS;
+	
+        EXEC SQL DECLARE key_parm_cursor CURSOR FOR
+             SELECT KEY_PARM 
+             FROM CROSS_SECTION_LAYOUTS
+             WHERE  source = :source
+                    and layout_name = :layout_name
+                    and verb = :verb;
+	
+        EXEC SQL OPEN default_cursor;
+        for (;;)
+        {
+            EXEC SQL WHENEVER NOT FOUND GOTO end_default_cursor_loop;
+            EXEC SQL FETCH default_cursor INTO
+                :source,
+                :layout_name,
+                :verb,
+                :key_parm;
+
+            V_SETZERO (key_parm);
+
+	    EXEC SQL OPEN key_parm_cursor;
+
+	    key_parm_match = FALSE;
+	    for (;;)
+	    {
+                EXEC SQL WHENEVER NOT FOUND GOTO end_key_parm_cursor_loop;
+                EXEC SQL FETCH key_parm_cursor
+		     INTO  key_parm2;
+
+                V_SETZERO (key_parm2);
+                if (strcmp ((char *)key_parm.arr, 
+			    (char *)key_parm2.arr) EQUALS 0)
+                {
+		    key_parm_match = TRUE;
+		    break;
+                }
+
+            }	
+end_key_parm_cursor_loop:
+
+            EXEC SQL CLOSE key_parm_cursor;
+
+            if ( ! key_parm_match )
+            {
+                 EXEC SQL
+                 INSERT INTO CROSS_SECTION_LAYOUTS 
+                      ( SOURCE,  
+                        LAYOUT_NAME,  
+                        VERB,
+			KEY_PARM ) 
+                          VALUES 
+                      ( :source, 
+                        :layout_name, 
+                        :verb,
+			:key_parm  );
+
+                 insert_count++;
+            }
+      }
+end_default_cursor_loop:
+
+      EXEC SQL COMMIT WORK;
+
+      if( insert_count > 0)
+      {
+	  sprintf (message, "%d row%scopied to table CROSS_SECTION_LAYOUTS",
+	      insert_count,  (insert_count EQUALS 1 ? " " : "s ") );
+          am_message (AM_STATUS, message);
+      }
+      EXEC SQL CLOSE default_cursor;
+      return SUCCESS;
+
+sqlerror:
+          error_status = sqlca.sqlcode;
+          am_message (AM_STATUS, "Error processing CROSS_SECTION_LAYOUTS");
+          sprintf (message, "...%.70s", (char *)sqlca.sqlerrm.sqlerrmc);
+          am_message (AM_STATUS, message);
+          EXEC SQL WHENEVER SQLERROR CONTINUE;
+          EXEC SQL ROLLBACK WORK;
+          EXEC SQL CLOSE default_cursor;
+          EXEC SQL CLOSE key_parm_cursor;
+          return error_status;
+
+}
+

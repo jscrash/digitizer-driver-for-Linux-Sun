@@ -1,0 +1,280 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_DEL_ACCT.PC*/
+/*  7     9-MAR-1992 09:31:13 LOEBL "(SPR 6056) Add functionality to detect Oracle tablespace file"*/
+/* *6    15-AUG-1991 16:52:14 LOEBL "(SPR 3521) Cleanly delete the project directories, display decimal messages"*/
+/* *5     2-AUG-1991 17:39:17 LOEBL "(SPR 2238) Standardize hold/release cursor handling"*/
+/* *4    27-JUN-1991 17:01:49 LOEBL "(SPR 7460) Added commit work release at stratgic points to free up tables;"*/
+/* *3    14-AUG-1990 13:09:03 VINCE "(SPR 5644) Header Standardization"*/
+/* *2    21-SEP-1989 12:37:01 GILLESPIE "(SPR 101) Use USER_OBJECTS instead of CATALOG (V6 change)"*/
+/* *1    19-JUN-1989 12:30:11 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_DEL_ACCT.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#ifndef ESI_C_LIB_H
+
+#include "esi_c_lib.h"
+
+#endif
+
+#ifndef ESI_AM_H
+
+#include "esi_am.h"
+
+#endif
+
+#ifndef ESI_DB_H
+
+#include "esi_db.h"
+
+#endif
+
+#ifndef ESI_MG_H
+
+#include "esi_mg.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_OR_H
+
+#include "esi_or.h"
+
+#endif
+
+#ifndef ESI_DB_MSG_H
+
+#include "esi_db_msg.h"
+
+#endif
+
+#ifndef ESI_ASP_YESNO_H
+
+#include "esi_asp_yesno.h"
+
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+    Delete all tables, views, synonyms, clusters, forms and OS directories
+    in current account.
+
+Prototype:
+    publicdef INT dba_delete_account(DB_ACCOUNT_STRUCT *db_account);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) db_account  -(DB_ACCOUNT_STRUCT *) Account structure to be deleted.
+    
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT dba_delete_account (DB_ACCOUNT_STRUCT *db_account) 
+#else
+publicdef INT dba_delete_account (db_account)
+DB_ACCOUNT_STRUCT *db_account;
+#endif
+    {
+    PROGNAME ("DBA_DELETE_ACCOUNT");
+    BOOL esi_project_deleted;
+    INT status;
+    INT i;
+    CHAR text[512];
+    ASP_YESNO_WORKSPACE a;
+    CHAR drop_table_format[128];
+    CHAR drop_form_format[128];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR outstring[128];
+    VARCHAR directory[241];
+    VARCHAR logical_name[81];
+    VARCHAR tname[31];
+    VARCHAR account[31];
+    VARCHAR formname[31];
+    VARCHAR ttype[11];
+    int count;
+    EXEC SQL END DECLARE SECTION;
+    
+    strcpy (drop_table_format, mg_message (DB_DELETE_TABLE_MSG));
+    strcpy (drop_form_format, mg_message (DB_DROP_FORM_MESSAGE));
+    /* put message in journal window */
+    sprintf (text, mg_message (DB_DELETE_ACCOUNT), db_account->scope,
+             db_account->name);
+    am_message (AM_STATUS, text);
+    am_message (AM_DIALOG, text);
+    
+    /* Get COUNT of directories to delete */
+    
+    outstring.len = sprintf ((char *)outstring.arr,
+            "SELECT COUNT(*) FROM %s.LOGICAL_NAMES WHERE SHARED IS NULL",
+                             db_account->name);
+    
+    EXEC SQL WHENEVER SQLERROR GOTO drop_tables;
+    
+    EXEC ORACLE OPTION (HOLD_CURSOR=NO);
+    EXEC ORACLE OPTION (RELEASE_CURSOR=YES);
+    EXEC SQL PREPARE S1 FROM : outstring;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1;
+    EXEC SQL FETCH C1 INTO : count;
+    
+    /* Get list of directories to delete */
+    
+    outstring.len = sprintf ((char *)outstring.arr, 
+"SELECT LOGICAL_NAME, TRANSLATION \
+FROM %s.LOGICAL_NAMES \
+WHERE SHARED IS NULL \
+ORDER BY decode(logical_name,'ESI$PROJECT',0,1), NVL(CONCEAL,'Z'), \
+logical_name" , db_account->name);
+
+    
+    EXEC SQL PREPARE S1 FROM :outstring;
+    EXEC SQL OPEN C1;
+    EXEC SQL FETCH C1 INTO :logical_name, :directory;
+    
+    a.cancel = TRUE;
+    esi_project_deleted = FALSE;
+    for (i = 1; OR_STATUS EQUALS SUCCESS; i++)
+        {
+        V_SETZERO (logical_name);
+        V_SETZERO (directory);
+        /* verify each directory deletion */
+        if (esi_project_deleted && 
+            strncmp( (char *)directory.arr, "ESI$PROJECT" ,11) EQUALS 0)
+            {
+            a.status = SUCCESS;
+            a.answer = FALSE;
+            }
+        else
+            {
+            sprintf (a.question, mg_message (DB_DELETE_DIRECTORY_MSG), 
+                directory.arr, i, count);
+            asp_yesno (&a);
+            }
+        if (a.status EQUALS SUCCESS)
+            {
+            if (a.answer EQUALS TRUE)
+                {
+		status = ho_absolute_path( (char *)directory.arr ); 
+                status = ho_delete_directory ((char *)directory.arr);
+                if (status)
+                    {
+                    sprintf (text, mg_message (DB_CANT_DELETE_DIRECTORY),
+                             directory.arr, status);
+                    am_message (AM_ALERT, text);
+                    }
+                else
+                    {
+                    if (strcmp ((char *)logical_name.arr, "ESI$PROJECT") 
+                                         EQUALS 0)
+                        {
+                        esi_project_deleted = TRUE;
+                        }
+                    }
+                }
+            }
+        else
+            {
+            break;
+            }
+        EXEC SQL FETCH C1 INTO :logical_name, :directory;
+        }
+drop_tables:
+    
+    EXEC SQL CLOSE C1;
+    
+    /* Now drop the tables, clusters, views and synonyms */
+
+    V_FROMC (account, db_account->name);
+    
+    EXEC SQL WHENEVER SQLERROR GOTO wayout;
+    EXEC SQL SELECT COUNT (*) INTO :count FROM USER_OBJECTS
+	     WHERE OBJECT_TYPE != 'INDEX';
+    
+    
+    /* get list of tables */
+    EXEC SQL DECLARE TABLE_CURSOR CURSOR FOR 
+        SELECT'DROP ' || OBJECT_TYPE || ' ' ||
+           OBJECT_NAME, OBJECT_NAME, LOWER (OBJECT_TYPE)
+        FROM USER_OBJECTS 
+        WHERE OBJECT_TYPE != 'INDEX' 
+        ORDER BY OBJECT_TYPE DESC, OBJECT_NAME;
+    
+    EXEC SQL OPEN TABLE_CURSOR;
+    
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL FETCH TABLE_CURSOR INTO :outstring,  :tname,  :ttype;
+    
+    for (i = 1; OR_STATUS IS_NOT_EQUAL_TO OR_EOF; i++)
+        {
+        V_SETZERO (tname);
+        V_SETZERO (ttype);
+        sprintf (text, drop_table_format, ttype.arr, tname.arr, i, count);
+        am_message (AM_DIALOG, text);
+        
+        EXEC SQL EXECUTE IMMEDIATE :outstring;
+        EXEC SQL FETCH TABLE_CURSOR INTO :outstring,  :tname,  :ttype;
+        }
+wayout:
+    EXEC SQL CLOSE TABLE_CURSOR;
+    
+    /* drop any/all forms which belong to this account */
+    
+    EXEC SQL DECLARE FORMS CURSOR FOR 
+    SELECT APPNAME 
+    FROM SYSTEM.IAPAPP
+    WHERE APPOWNER = :account
+    ORDER BY APPNAME ;
+        
+    
+    EXEC SQL OPEN FORMS;
+    
+    EXEC SQL FETCH FORMS INTO : formname;
+    while (OR_STATUS EQUALS SUCCESS)
+        {
+        V_SETZERO (formname);
+        sprintf (text, drop_form_format, formname.arr);
+        am_message (AM_DIALOG, text);
+        or_drop_oracle_form ((char *)formname.arr);
+        EXEC SQL FETCH FORMS INTO : formname;
+        }
+    EXEC SQL CLOSE FORMS;
+    
+    status = ((OR_STATUS > 0) ? SUCCESS : OR_STATUS);
+    
+    am_message (AM_DIALOG, NULL);
+    
+    return status;
+    }
+/* END:     */

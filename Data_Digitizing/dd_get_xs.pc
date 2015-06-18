@@ -1,0 +1,49 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DD_GET_XS.PC */
+/* *3    15-OCT-1990 12:36:48 GILLESPIE "(SPR 1000) Move from Ernie" */
+/* *2     8-OCT-1990 08:34:41 ALLAWAY "(SPR -1) INITIAL CHECKIN" */
+/* *1     8-OCT-1990 08:33:52 ALLAWAY "USER EXIT TO READ CURRENT LAYOUT NAME IN A FORM" */
+/* DEC/CMS REPLACEMENT HISTORY, Element DD_GET_XS.PC */
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#if USE_PROTOTYPES
+publicdef INT dd_get_xs (void)
+#else
+publicdef INT dd_get_xs ()
+#endif
+{
+  EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR xs_name[44];
+  EXEC SQL END DECLARE SECTION;
+
+  qs_inq_c (QS_CUR_XS_LAYOUT,(CHAR *) xs_name.arr,(INT *) 0);
+
+  if (IS_EMPTY_STRING (xs_name.arr))
+    {
+    am_message (AM_STATUS,"Cross section is not defined.");
+    return IAPFAIL;
+    } 
+    
+  V_SETLEN (xs_name);
+
+  EXEC IAF PUT GLOBAL.TITLE_BLOCK_NAME VALUES (:xs_name);
+
+  return IAPSUCC;
+
+}
+
+  
+

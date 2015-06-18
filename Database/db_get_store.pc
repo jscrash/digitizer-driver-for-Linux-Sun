@@ -1,0 +1,321 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_GET_STORE.PC */
+/*  12    9-MAR-1992 09:37:22 LOEBL "(SPR 6701) Correctly handle null value for tablespace_name" */
+/* *11    2-AUG-1991 17:39:53 LOEBL "(SPR 2238) Standardize hold/release cursor handling" */
+/* *10   17-JUL-1991 18:30:54 CHEW "(SPR 8465) Set release cursor to yes." */
+/* *9    14-JAN-1991 10:40:47 VINCE "SPR 6524) Added V_SetZero to default_tablespace" */
+/* *8    10-JAN-1991 14:49:31 VINCE "(SPR 1) corrected initialization for default_tablespace" */
+/* *7     4-JAN-1991 11:35:58 VINCE "(SPR 1) added close cursor to error handeler" */
+/* *6    31-DEC-1990 11:35:36 VINCE "(SPR 6205) Improved handeling of processing of INDEX type storage parameters" */
+/* *5    23-AUG-1990 15:29:16 PURNA "(SPR 0) fix compiling error" */
+/* *4    14-AUG-1990 13:09:09 VINCE "(SPR 5644) Header Standardization" */
+/* *3    19-SEP-1989 13:35:58 GILLESPIE "(SPR 100) GULF MODS" */
+/* *2    11-AUG-1989 13:50:32 CONROY "(SPR 9999) Initial checkin" */
+/* *1    11-AUG-1989 13:22:21 CONROY "Gets string holding table storage parameters" */
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_GET_STORE.PC */
+
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_gl_defs.h"
+#include "esi_db.h"
+#include "esi_ts.h"
+#include "esi_oracle.h"
+
+/* ::+::=::+::=::+::=::+::=::+::=::+::=::+::=::+::=::+::=::+::=::+::=::+:: */
+/* ----------------------------------------------------------------------- */
+/* this macro will append a keyword and a VARCHAR value onto a string if   */
+/* the value has a length greater than zero.                               */
+/* ----------------------------------------------------------------------- */
+#define ADD_PARAMETER(str, keyword, value) \
+    { if (V_LEN(value) > 0) \
+	{ \
+	  strcat (str, keyword); \
+	  strcat (str, (char *)V_STRING(value)); \
+	} \
+    }
+/* ::+::=::+::=::+::=::+::=::+::=::+::=::+::=::+::=::+::=::+::=::+::=::+:: */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Routine to get the table storage parameters from ACCOUNT_TB_DEFS and
+    put them into a SQL clause to be used in object (DATA TABLE OR INDEX)
+    creation.
+
+    If there is no definition for the storage this routine will return a
+    string containing a single space.
+
+Prototype:
+    publicdef INT db_get_storage_string (CHAR *table_name,
+					 CHAR *type,
+					 CHAR *storage);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) table_name  -(CHAR *) Table name to get string.
+    (I) type        -(CHAR *) Type of table.
+    (O) storage     -(CHAR *) Storage string output.
+    
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT db_get_storage_string (CHAR *table_name, CHAR *type,
+				     CHAR *storage) 
+#else
+publicdef INT db_get_storage_string (table_name, type, storage)
+CHAR *table_name;
+CHAR *type;
+CHAR *storage;
+#endif
+{
+    CHAR part_1[80];
+    CHAR part_2[80];
+    BOOL c1_opened, c2_opened;
+
+    /* NOTE: We are retrieving all numeric items as characters to make */ 
+    /*       processing easy later on.                                 */
+    EXEC SQL BEGIN DECLARE SECTION;
+	VARCHAR	sqlstmt[1200];
+	VARCHAR	tablespace_name[33];
+	VARCHAR default_tablespace[33];
+	VARCHAR	pct_free[30];
+	VARCHAR	pct_used[30];
+	VARCHAR	ini_trans[30];
+	VARCHAR	max_trans[30];
+	VARCHAR	initial_extent[30];
+	VARCHAR	next_extent[30];
+	VARCHAR	min_extents[30];
+	VARCHAR	max_extents[30];
+	VARCHAR	pct_increase[30];
+    EXEC SQL END DECLARE SECTION;
+
+    c1_opened = c2_opened = FALSE;
+    V_CLEAR (default_tablespace);
+
+    /* -------------------------------------------------------------------- */
+    /* We can't get a storage string for ACCOUNT_TB_DEFS or any of its	    */
+    /* indexes, just return the default blank string.			    */
+    /* -------------------------------------------------------------------- */
+
+    if ((table_name[0] == 'A') &&
+	(strncmp(table_name, "ACCOUNT_TB_DEFS", 15) == 0))
+	{
+	goto no_storage;
+	}
+
+    /* ----------------------------------------------------- */
+    /* First get the default tablespace for this account, if */
+    /* none is defined use SYSTEM.  If type is INDEX use the */
+    /* index default otherwise use the data default.         */
+    /* ----------------------------------------------------- */
+
+    sqlstmt.len = sprintf ((char *)sqlstmt.arr,
+    "SELECT NVL(TABLESPACE_NAME, 'SYSTEM') \
+     FROM   ACCOUNT_TB_DEFS \
+     WHERE  TABLE_NAME = 'XXX_%s_TABLESPACE'",
+    (strcmp(type,"INDEX") == 0 ? "INDEX" : "DEFAULT"));
+
+    EXEC SQL PREPARE S1 FROM :sqlstmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC ORACLE OPTION ( RELEASE_CURSOR = YES);
+    EXEC ORACLE OPTION ( HOLD_CURSOR = NO);
+    EXEC SQL OPEN C1;
+    c1_opened = TRUE;
+
+    EXEC SQL FETCH C1 INTO :default_tablespace;
+    V_SETZERO (default_tablespace);
+
+    EXEC SQL CLOSE C1;
+    c1_opened = FALSE;
+
+
+    /* -------------------------------------------------------------- */
+    /* if there was any oracle error len will remain zero, use SYSTEM */
+    /* in that case.                                                  */
+    /* -------------------------------------------------------------- */
+
+    if (default_tablespace.len == 0)
+      {
+	/* let the RDBMS choose the appropriate tablespace */
+      }
+
+    /* ------------------------------------------------------------------ */
+    /* get the storage parameters using the default tablespace from above */
+    /* incase there is no specific tablespace defined.                    */
+    /* ------------------------------------------------------------------ */
+
+    sqlstmt.len = sprintf ((char *)sqlstmt.arr,
+	"SELECT NVL(TABLESPACE_NAME, ''), \
+		PCT_FREE,       \
+		PCT_USED,       \
+		INI_TRANS,      \
+		MAX_TRANS,      \
+		INITIAL_EXTENT, \
+		NEXT_EXTENT,    \
+		MIN_EXTENTS,    \
+		MAX_EXTENTS,    \
+		PCT_INCREASE    \
+	FROM	ACCOUNT_TB_DEFS \
+	WHERE	TABLE_NAME = '%s' AND \
+		TYPE       = '%s'",
+        table_name, type);
+
+    /* ------------------------------------------------------------ */
+    /* there are several reasons why the following select may fail, */
+    /* in any case just abort and return the empty string.          */
+    /* ------------------------------------------------------------ */
+
+    EXEC SQL WHENEVER SQLERROR  GOTO no_storage;
+    EXEC SQL WHENEVER NOT FOUND GOTO no_storage;
+
+    EXEC SQL PREPARE S2 FROM :sqlstmt;
+    EXEC SQL DECLARE C2 CURSOR FOR S2;  /*used to be bug - s1 */
+    EXEC SQL OPEN C2;
+    c2_opened = TRUE;
+
+    /* ------------------- */
+    /* clear all variables */
+    /* ------------------- */
+
+    V_CLEAR (tablespace_name);
+    V_CLEAR (pct_free);
+    V_CLEAR (pct_used);
+    V_CLEAR (ini_trans);
+    V_CLEAR (max_trans);
+    V_CLEAR (initial_extent);
+    V_CLEAR (next_extent);
+    V_CLEAR (min_extents);
+    V_CLEAR (max_extents);
+    V_CLEAR (pct_increase);
+
+    /* ---------------------------- */
+    /* fetch the storage parameters */
+    /* ---------------------------- */
+
+    EXEC SQL FETCH C2 INTO
+		:tablespace_name,
+		:pct_free,
+		:pct_used,
+		:ini_trans,
+		:max_trans,
+		:initial_extent,
+		:next_extent,
+		:min_extents,
+		:max_extents,
+		:pct_increase;
+
+    EXEC SQL CLOSE C2;
+    c2_opened = FALSE;
+
+    /* ----------------------------------------- */
+    /* set the zero byte on each returned string */
+    /* ----------------------------------------- */
+
+    V_SETZERO (tablespace_name);
+    V_SETZERO (pct_free);
+    V_SETZERO (pct_used);
+    V_SETZERO (ini_trans);
+    V_SETZERO (max_trans);
+    V_SETZERO (initial_extent);
+    V_SETZERO (next_extent);
+    V_SETZERO (min_extents);
+    V_SETZERO (max_extents);
+    V_SETZERO (pct_increase);
+
+    /* ---------------------------------------------------- */
+    /* build the storage string from any parameters fetched */
+    /* ---------------------------------------------------- */
+
+
+    part_1[0] = NUL;
+    part_2[0] = NUL;
+
+    if (V_LEN(tablespace_name) > 0) 
+       ADD_PARAMETER (part_1, " TABLESPACE ", tablespace_name);
+    if (V_LEN(ini_trans) > 0) 
+       ADD_PARAMETER (part_1, " INITRANS ",   ini_trans);
+    if (V_LEN(max_trans) > 0) 
+       ADD_PARAMETER (part_1, " MAXTRANS ",   max_trans);
+    if (V_LEN(pct_free) > 0) 
+       ADD_PARAMETER (part_1, " PCTFREE ",    pct_free);
+
+    if (ARE_DIFFERENT(type, "INDEX"))
+        {
+        if (V_LEN(pct_used) > 0) 
+            ADD_PARAMETER (part_1, " PCTUSED ", pct_used);
+        }
+
+    if (V_LEN(initial_extent) > 0) 
+        ADD_PARAMETER (part_2, " INITIAL ",     initial_extent);
+    if (V_LEN(next_extent) > 0) 
+        ADD_PARAMETER (part_2, " NEXT ",        next_extent);
+    if (V_LEN(min_extents) > 0) 
+        ADD_PARAMETER (part_2, " MINEXTENTS ",  min_extents);
+    if (V_LEN(max_extents) > 0) 
+        ADD_PARAMETER (part_2, " MAXEXTENTS ",  max_extents);
+    if (V_LEN(pct_increase) > 0) 
+        ADD_PARAMETER (part_2, " PCTINCREASE ", pct_increase);
+
+    /* --------------------------------- */
+    /* assemble the final storage string */
+    /* --------------------------------- */
+
+    if (part_2[0] == NUL)
+      strcpy (storage, part_1);
+    else
+      sprintf (storage, "%s STORAGE (%s )", part_1, part_2);
+
+    strcat (storage, " ");
+
+    return SUCCESS;
+
+no_storage:
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    if (c1_opened)
+	{
+	EXEC SQL CLOSE C1;
+	}
+
+    if (c2_opened)
+	{
+	EXEC SQL CLOSE C2;
+	}
+
+    /* --------------------------------------------------------------- */
+    /* Try to return at least the default tablespace name.  If there   */
+    /* wasn't even a default tablespace the following code will result */
+    /* in a string containing a single blank character.                */
+    /* --------------------------------------------------------------- */
+
+    strcpy (storage, " ");
+    ADD_PARAMETER (storage, "TABLESPACE ", default_tablespace);
+
+    return SUCCESS;
+}
+/* END:     */

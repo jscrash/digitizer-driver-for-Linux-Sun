@@ -1,0 +1,1623 @@
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Finder Graphics Systems, Inc.
+			201 Tamal Vista Blvd
+			Corte Madera, CA  USA 94925
+			(415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+
+/*****************************************************************************
+ This program is a standlone program to convert plot files into FM control.
+
+ To run the program:
+
+ pf_conv_util analyst/password -proj project
+
+ The idea behind the conversion utility is to put information into
+ Oracle tables FM_HDR, MAP_PLOTFILE_HDR, CROSS_SECTION_PLOTFILE_HDR
+ and copy the plot file and parameter file into corresponding directory
+ with the FM file name.
+******************************************************************************/
+
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+
+#ifndef ESI_GTYPES_H
+#include "esi_gtypes.h"
+#endif
+
+#ifndef ESI_GKS_H
+#include "esi_gks.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_FI_H
+#include "esi_fi.h"
+#endif
+
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+#ifndef ESI_WI_H
+#include "esi_wi.h"
+#endif
+
+#ifndef ESI_WM_CLS_H
+#include "esi_wm_cls.h"
+#endif
+
+#ifndef ESI_AM_ERR_H
+#include "esi_am_err.h"
+#endif
+
+#ifndef ESI_WM_H
+#include "esi_wm.h"
+#endif
+
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+
+#ifndef ESI_PF_H
+#include "esi_pf.h"
+#endif
+
+#ifndef ESI_LH_H
+#include "esi_lh.h"
+#endif
+
+#ifndef ESI_HO_H
+#include "esi_ho.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_GL_PROJECT_H
+#include "esi_gl_project.h"
+#endif
+
+#include "pf_conv_util.rh"
+
+privatedef CHAR PF_RESOURCE_FILE[] = "PF_CONV_UTIL";
+
+
+/* plot file format list. each system has its own list */
+#if PRIOR_GKS
+privatedef CHAR *plot_file_format_list[] = {"CGMB",
+					    "CGMC",
+					    "CGMT", 
+					    0};
+#else
+privatedef CHAR *plot_file_format_list[] = {"CGMC",
+					    "CGMT", 
+					    0};
+#endif
+
+/* Map Plot file Workspace */
+typedef struct 
+    {
+    INT            id;                  /* dialog resource id */
+    INT            file_id;             /* FM file id for the plot file */
+    FILENAME       plot_file_name;      /* the name of the plot file */ 
+    PATHNAME       os_pathname;         /* the path of the original CGM file */
+    ORACLE_NAME    plot_file_format;    /* format of the plot file */
+    BOOL           with_layout;         /* flag to check if the plot with plot layout */
+    FILENAME       plot_layout;         /* the name of the plot layout */
+    DOUBLE         width;               /* the width of the plot */
+    DOUBLE         height;              /* the height of the plot */
+    ORACLE_NAME    map_name;            /* map name of the weekend */
+    ORACLE_NAME    map_scale_str;       /* map scale : 2000 M/M */
+    DOUBLE         map_scale;           /* the numerial part of the scale */
+    ORACLE_NAME    map_scale_unit;      /* the uom part of the scale */
+    DOUBLE         ll_x, ll_y, ur_x, ur_y; /* map extent */
+    ORACLE_NAME    ll_str;              /* the display of the lower left corner */
+    ORACLE_NAME    ur_str;              /* display str of the upper right corner */
+    ORACLE_NAME    projection;          /* map projection */
+    TCP            projection_list;     /* all projections in the project */
+    ORACLE_NAME    coordinate_system;   /* should be deleted */
+    BOOL           permanent;           /* flag to see file is permanent */
+    ORACLE_NAME    expiration_date;     /* expiration date of the plot file */
+    CHAR           description[240];    /* description of the plot file */
+    BOOL           file_exist;          /* flag to see if plot file is already in the system */
+    } PF_MP_CONV_WS;           
+
+/* XSect Plot file Workspace */
+typedef struct 
+    {
+    INT            id;                  /* dialog resource id */
+    INT            file_id;             /* FM file id */
+    FILENAME       plot_file_name;      /* name of the plot file */
+    PATHNAME       os_pathname;         /* the original path of the file */
+    ORACLE_NAME    plot_file_format;    /* plot file format */
+    BOOL           with_layout;         /* flag to see if plot file come with plot layout */
+    FILENAME       plot_layout;         /* plat layout name */
+    DOUBLE         width;               /* plot width */
+    DOUBLE         height;              /* plot height */
+    ORACLE_NAME    xs_name;             /* xsect layout name */
+    BOOL           permanent;           /* permanent flag for plot file */
+    ORACLE_NAME    expiration_date;     /* expiration date of the plot file */
+    CHAR           description[240];    /* description of the plot file */
+    BOOL           file_exist;          /* flag to see file is in FM control */
+    } PF_XS_CONV_WS;           
+
+#if USE_PROTOTYPES
+privatedef INT pf_mp_conv_util_server (INT id, INT item, PF_MP_CONV_WS *map);
+privatedef INT pf_mp_conv_initialize (PF_MP_CONV_WS *map);
+privatedef INT pf_mp_convert (PF_MP_CONV_WS *map);
+privatedef INT pf_mp_get_values (PF_MP_CONV_WS *map);
+privatedef INT pf_get_map_corner (CHAR *corner_str, DOUBLE *x, DOUBLE *y);
+privatedef INT pf_mp_get_plot_size (PF_MP_CONV_WS *map);
+privatedef INT pf_mp_file_exist (CHAR *pf);
+privatedef INT pf_mp_save_pf (PF_MP_CONV_WS *map);
+privatedef INT pf_xs_conv_util_server (INT id, INT item, PF_XS_CONV_WS *xs);
+privatedef INT pf_xs_conv_initialize (PF_XS_CONV_WS *xs);
+privatedef INT pf_xs_convert (PF_XS_CONV_WS *xs);
+privatedef INT pf_xs_get_values (PF_XS_CONV_WS *xs);
+privatedef INT pf_xs_get_plot_size (PF_XS_CONV_WS *xs);
+privatedef INT pf_xs_file_exist (CHAR *pf);
+privatedef INT pf_xs_save_pf (PF_XS_CONV_WS *xs);
+#else
+privatedef INT pf_mp_conv_util_server ();
+privatedef INT pf_mp_conv_initialize ();
+privatedef INT pf_mp_convert ();
+privatedef INT pf_mp_get_values ();
+privatedef INT pf_get_map_corner ();
+privatedef INT pf_mp_get_plot_size ();
+privatedef INT pf_mp_file_exist ();
+privatedef INT pf_mp_save_pf ();
+privatedef INT pf_xs_conv_util_server ();
+privatedef INT pf_xs_conv_initialize ();
+privatedef INT pf_xs_convert ();
+privatedef INT pf_xs_get_values ();
+privatedef INT pf_xs_get_plot_size ();
+privatedef INT pf_xs_file_exist ();
+privatedef INT pf_xs_save_pf ();
+#endif
+
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[1000];
+    VARCHAR mp_name[100];
+    VARCHAR xs_name[100];
+    VARCHAR pf_format[20];
+    VARCHAR mp_projection[100];
+    double ll_x;
+    double ll_y;
+    double ur_x;
+    double ur_y;
+    double mp_scale;
+    VARCHAR mp_scale_unit[40];
+    double pf_width;
+    double pf_height;
+    VARCHAR pl_name[100];
+    long file_id;
+    VARCHAR pf_name[250];
+EXEC SQL END DECLARE SECTION;
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    Server for Map Plot File Conversion Utility dialog box
+
+Prototype:
+    publicdef INT pf_mp_conv_util_server ()
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) INT id;
+    (I) INT item;
+    (M) PF_MP_CONV_WS *map;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+#if USE_PROTOTYPES
+privatedef INT pf_mp_conv_util_server (INT id, INT item, PF_MP_CONV_WS *map)
+#else
+privatedef INT pf_mp_conv_util_server (id, item, map)
+INT id;
+INT item;
+PF_MP_CONV_WS *map;
+#endif
+{
+    INT status = SUCCESS;
+    INT value;
+    CHAR temp_buffer[256];
+
+    switch (item)
+	{
+    case PF_MP_QUIT:
+	ts_tcp_free (map->projection_list);
+	am_message (AM_DIALOG, "");
+	am_quit ();
+	break;
+
+    case PF_MP_CONVERT:
+	status = pf_mp_convert (map);
+	break;
+
+    case PF_MP_PERMANENT: /* enable the expiration date edit text box */
+	wi_query_dialog_item (map->id, PF_MP_PERMANENT, &value, temp_buffer);
+	if (value == TRUE)
+	    {
+	    strcpy (temp_buffer, "");
+	    wi_set_dialog_text (map->id, PF_MP_EXPIRATION_DATE, temp_buffer);
+	    wi_enable_dialog_item (map->id, PF_MP_EXPIRATION_DATE, OFF);
+	    }
+        else
+	    {
+            ho_get_dtime ("SYSDATE+1","DD-MON-YYYY",temp_buffer);
+	    wi_enable_dialog_item (map->id, PF_MP_EXPIRATION_DATE, ON);
+	    wi_set_dialog_text (map->id, PF_MP_EXPIRATION_DATE, temp_buffer);
+	    }
+	break;
+
+    case PF_MP_PLOT_FILE_WITH_LAYOUT:  /* enable plot layout edit text box */
+	wi_enable_dialog_item (map->id, PF_MP_PLOT_LAYOUT_NAME, ON);
+	break;
+	
+    case PF_MP_PLOT_FILE_WITH_NO_LAYOUT: /* disable plot layout edit text box */
+	wi_enable_dialog_item (map->id, PF_MP_PLOT_LAYOUT_NAME, OFF);
+	break;
+
+        }
+
+    return status;
+}
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    Map Plot File Conversion Utility dialog box main routine.
+
+Prototype:
+    publicdef INT pf_mp_conv_util ()
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+#if USE_PROTOTYPES
+publicdef INT pf_mp_conv_util ()
+#else
+publicdef INT pf_mp_conv_util ()
+#endif
+{
+    INT status = SUCCESS;
+    PF_MP_CONV_WS *map;
+
+    status = am_define_workspace ("PF_MP_CONV_WS",AM_APPLICATION,
+				  sizeof (PF_MP_CONV_WS),(VOIDPTR *)&map);
+
+    status = am_define_resource (AM_DIALOG, PF_RESOURCE_FILE, PF_MP_CONV_UTIL,
+			         pf_mp_conv_util_server, &map->id,map);
+
+    status = pf_mp_conv_initialize (map); /* initialize the structure */
+
+    if (status != SUCCESS)
+	{
+	am_message (AM_DIALOG, "");
+	am_quit ();
+	}
+
+    status = wi_open_dialog (map->id);
+
+    return status;
+}
+
+
+
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    Initialize Map Plot File Conversion Utility dialog box.
+
+Prototype:
+    publicdef INT pf_mp_conv_initialize (map)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (M) PF_MP_CONV_WS *map;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+#if USE_PROTOTYPES
+privatedef INT pf_mp_conv_initialize (PF_MP_CONV_WS *map)
+#else
+privatedef INT pf_mp_conv_initialize (map)
+PF_MP_CONV_WS *map;
+#endif
+{
+    INT status = SUCCESS;
+    PROJECT_DEFAULT *project_default;
+    CHAR temp_buffer[256];
+    INT nitems;
+    INT index;
+
+    status = am_open_workspace ("PROJECT_DEFAULTS",AM_GLOBAL,
+					  (VOIDPTR *) &project_default);
+
+    map->with_layout = TRUE;
+
+    map->permanent = TRUE;
+
+    strcpy (map->plot_file_name, "UNTITLED");
+
+    strcpy (map->plot_layout, project_default->plot_layout);
+
+    strcpy (map->projection, project_default->projection);
+
+    strcpy (map->coordinate_system, project_default->map.coordinate_system);
+
+    map->map_scale = project_default->map.scale;  
+    strcpy (map->map_scale_unit, project_default->map.scale_unit);
+    sprintf (map->map_scale_str, "%.0f %s", project_default->map.scale,
+				          project_default->map.scale_unit);
+    
+    map->ll_x = project_default->map.lower_left_x;
+    map->ll_y = project_default->map.lower_left_y;
+    map->ur_x = project_default->map.upper_right_x;
+    map->ur_y = project_default->map.upper_right_y;
+
+
+    wi_set_dialog_text (map->id, PF_MP_PLOT_FILE_NAME, map->plot_file_name);
+
+    wi_set_dialog_text (map->id, PF_MP_OS_PATHNAME, map->os_pathname);
+
+    wi_set_dialog_value (map->id, PF_MP_PLOT_FILE_WITH_LAYOUT, ON);
+
+    wi_set_dialog_text (map->id, PF_MP_PLOT_LAYOUT_NAME, map->plot_layout);
+
+    wi_set_dialog_text (map->id, PF_MP_MAP_SCALE, map->map_scale_str);
+
+    wi_create_option_menu (map->id, PF_MP_PLOT_FILE_FORMAT, plot_file_format_list);
+
+    /* get a list of projections defined in the project */
+    ct_projection_list (&map->projection_list, &nitems, TRUE);
+    if (nitems <= 0)
+        {
+	am_message (AM_ALERT, "Error! No Map Projection defined in the project.");
+	return FAIL;
+	}
+
+    wi_create_option_menu (map->id, PF_MP_MAP_PROJECTION, map->projection_list);
+    index = ts_switch (map->projection, map->projection_list) + 1;
+    index = (index == 0) ? 0: index;
+    wi_set_dialog_value (map->id, PF_MP_MAP_PROJECTION, index);
+
+    sprintf (temp_buffer, "%.2f,%.2f", map->ll_x, map->ll_y);
+    wi_set_dialog_text (map->id, PF_MP_MAP_CORNER_LL, temp_buffer);
+
+    sprintf (temp_buffer, "%.2f,%.2f", map->ur_x, map->ur_y);
+    wi_set_dialog_text (map->id, PF_MP_MAP_CORNER_UR, temp_buffer);
+
+    wi_set_dialog_value (map->id, PF_MP_PERMANENT, ON);
+
+    wi_enable_dialog_item (map->id, PF_MP_PLOT_LAYOUT_NAME, ON);
+    wi_enable_dialog_item (map->id, PF_MP_EXPIRATION_DATE, ON);
+
+    return status;
+
+}
+
+
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    Convert Map Plot file.
+
+Prototype:
+    publicdef INT pf_mp_convert (map)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (M) PF_MP_CONV_WS *map;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+#if USE_PROTOTYPES
+privatedef INT pf_mp_convert (PF_MP_CONV_WS *map)
+#else
+privatedef INT pf_mp_convert (map)
+PF_MP_CONV_WS *map;
+#endif
+{
+    INT status = SUCCESS;
+    BOOL yes;
+    CHAR temp_buffer[256];
+    CHAR unit1[20];
+    CHAR unit2[20];
+
+    status = pf_mp_get_values (map);  /* get values from dialog box */
+
+    status = ho_chk_fname (map->plot_file_name,strlen (map->plot_file_name));
+
+    if (status != SUCCESS)
+	{
+	am_message (AM_ALERT, "Error! Invalid Plot File Name");
+	return FAIL;
+	}
+
+    if (! hoexists (map->os_pathname))
+        {
+	am_message (AM_ALERT, "Error! Original OS Pathname is incorrect. Please check if the path exists in the system.");
+	return FAIL;
+	}
+
+    if (ho_chk_fname (map->map_name, strlen (map->map_name)) != SUCCESS)
+	{
+	am_message (AM_ALERT, "Error! Invalid Map Name.");
+	return FAIL;
+	}
+     
+    /* check scale format 2000M/M */
+    if (tu_parse_unit (map->map_scale_str, &map->map_scale,    
+					  unit1, unit2) != SUCCESS)
+        {
+	am_message (AM_ALERT, "Error! Invalid Map Scale Format.");
+	return FAIL;
+	}
+    sprintf (map->map_scale_unit,"%s/%s",unit1,unit2);  /* reconstruct map scale unit */
+
+    /* get map corner from corner string "234545, 237838" */
+    if (pf_get_map_corner (map->ll_str, &map->ll_x, &map->ll_y) != SUCCESS) 
+	{
+	am_message (AM_ALERT, "Error! Lower Left Map Corner is not in correct format.");
+	return FAIL;
+	}
+
+    if (pf_get_map_corner (map->ur_str, &map->ur_x, &map->ur_y) != SUCCESS)
+	{
+	am_message (AM_ALERT, "Error! Upper Right Map Corner is not in correct format.");
+	return FAIL;
+	}
+
+
+    if (map->permanent == FALSE)
+	{
+        if (ho_check_date (map->expiration_date, "DD-MON-YYYY") == FALSE)
+	    {
+	    am_message (AM_ALERT, "Error! Invalid Expiration Date Format.");
+	    return FAIL;
+	    }
+        }
+
+
+
+    /* if the plot file name is already in the FM control */
+    if ((map->file_exist = pf_mp_file_exist (map->plot_file_name)) == TRUE)
+	{
+	wiyesno ("Plot File already exists. Do you want to replace it?",
+		 "", &yes, &status);
+
+        if (!yes)
+	    {
+	    return FAIL;
+	    }
+        }
+
+    status = pf_mp_get_plot_size (map); /* get map plot size from parameter file */
+
+    if (status != SUCCESS)
+	{
+	return FAIL;
+	}
+
+    sprintf (temp_buffer,"Converting Plot File \"%s\"...",map->plot_file_name);
+    am_message (AM_DIALOG,temp_buffer);
+
+    status = pf_mp_save_pf (map);
+
+    sprintf (temp_buffer,"Finish saving converted Plot File \"%s\. Please continue.",map->plot_file_name);
+    am_message (AM_DIALOG,temp_buffer);
+                
+    return SUCCESS;
+}
+    
+/* Function Description -----------------------------------------------------
+Description: 
+    Get values for dialog box.
+
+Prototype:
+    publicdef INT pf_mp_get_values (map)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (M) PF_MP_CONV_WS *map;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+#if USE_PROTOTYPES
+privatedef INT pf_mp_get_values (PF_MP_CONV_WS *map)
+#else
+privatedef INT pf_mp_get_values (map)
+PF_MP_CONV_WS *map;
+#endif
+{
+    INT value;
+    CHAR temp_buffer[256];
+
+    wi_query_dialog_item (map->id, PF_MP_PLOT_FILE_NAME, &value,
+						  map->plot_file_name);
+    ts_snowhite (map->plot_file_name);
+    ts_sto_upper (map->plot_file_name);
+    wi_set_dialog_text (map->id, PF_MP_PLOT_FILE_NAME, map->plot_file_name);
+
+    wi_query_dialog_item (map->id, PF_MP_OS_PATHNAME, &value,
+						  map->os_pathname);
+    ho_translate_filename (map->os_pathname, map->os_pathname);
+
+    wi_query_dialog_item (map->id, PF_MP_PLOT_FILE_WITH_LAYOUT, &value, temp_buffer);
+    if (value == TRUE)
+	{
+	map->with_layout = TRUE;
+        wi_query_dialog_item (map->id, PF_MP_PLOT_LAYOUT_NAME, &value, map->plot_layout);
+	ts_snowhite (map->plot_layout);
+        ts_sto_upper (map->plot_layout);
+        wi_set_dialog_text (map->id, PF_MP_PLOT_LAYOUT_NAME, map->plot_layout);
+	}
+    else
+	{
+	map->with_layout = FALSE;
+	strcpy (map->plot_layout, "");
+	}
+
+    wi_query_dialog_item (map->id, PF_MP_PLOT_FILE_FORMAT, &value, temp_buffer);
+    strcpy (map->plot_file_format, plot_file_format_list[value-1]);
+
+    wi_query_dialog_item (map->id, PF_MP_MAP_NAME, &value, map->map_name);
+    ts_snowhite (map->map_name);
+    ts_sto_upper (map->map_name);
+    wi_set_dialog_text (map->id, PF_MP_MAP_NAME, map->map_name);
+
+    wi_query_dialog_item (map->id, PF_MP_MAP_SCALE, &value, map->map_scale_str);
+
+    wi_query_dialog_item (map->id, PF_MP_MAP_CORNER_LL, &value, map->ll_str);
+
+    wi_query_dialog_item (map->id, PF_MP_MAP_CORNER_UR, &value, map->ur_str);
+
+    wi_query_dialog_item (map->id, PF_MP_MAP_PROJECTION, &value, temp_buffer);
+    strcpy (map->projection, map->projection_list[value-1]);
+
+    wi_query_dialog_item (map->id, PF_MP_PERMANENT, &map->permanent, temp_buffer);
+
+    wi_query_dialog_item (map->id, PF_MP_EXPIRATION_DATE, &value,
+                                                    map->expiration_date);
+    wi_query_dialog_item (map->id, PF_MP_DESCRIPTION, &value, map->description);
+
+    return SUCCESS;
+}
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    get map corner 
+    input string "12345, 23456"
+    convert ',' to ' '
+    sscanf %lf %lf
+
+Prototype:
+    publicdef INT pf_get_map_corner (corner_str, x, y)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) CHAR *corner_str
+    (O) DOUBLE *x
+    (O) DOUBLE *y
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+#if USE_PROTOTYPES 
+privatedef INT pf_get_map_corner (CHAR *corner_str, DOUBLE *x, DOUBLE *y)
+#else
+privatedef INT pf_get_map_corner (corner_str, x, y)
+CHAR *corner_str;
+DOUBLE *x, *y;
+#endif
+{
+    CHAR temp_buffer[256];
+    DOUBLE temp_x, temp_y;
+    INT convert_result;
+    INT len;
+
+    strcpy (temp_buffer, corner_str);
+    len = strlen (temp_buffer);
+
+    ts_str_convert (temp_buffer, len, ',', ' ');
+
+    convert_result = sscanf (temp_buffer, "%lf %lf", &temp_x, &temp_y);
+
+    /* return value is the number of string and make sure that */
+    /* the values are positive                                 */
+    if (convert_result != 2 OR temp_x <= 0.0 OR temp_y <= 0.0)
+	{
+	return FAIL;
+	}
+
+    *x = temp_x;
+    *y = temp_y;
+
+    return SUCCESS;
+}
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    get plot size from parameter file.
+
+    parameter file format:
+
+    vdc_extent (0.00000, 1.000000, 0.00000, 0.797443)
+    vdc_viewport (0.00000, 432.63739, 0.00000, 342.23484)
+
+Prototype:
+    publicdef INT pf_mp_get_plot_size (map)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (M) PF_CONV_WS *map
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+    parameter file must exist.
+
+-----------------------------------------------------------------------------*/
+#if USE_PROTOTYPES
+privatedef INT pf_mp_get_plot_size (PF_MP_CONV_WS *map)
+#else
+privatedef INT pf_mp_get_plot_size (map)
+PF_MP_CONV_WS *map;
+#endif
+{
+    PATHNAME par_file;
+    CHAR temp_buffer[256];
+    CHAR *dot;
+    CHAR *p;
+    DOUBLE xmin, ymin, xmax, ymax;
+    FILE *fd;
+
+    strcpy (par_file, map->os_pathname);
+
+    dot = strrchr (par_file, '.');
+
+    if (dot == (CHAR *) NULL)
+	{
+	strcat (par_file, ".PAR");
+	}
+    else
+	{
+	strcpy (dot, ".PAR");
+	}
+
+    if (! hoexists (par_file))
+	{
+	am_message (AM_ALERT,"Error! Parameter File does not exist.");
+	return FAIL;
+	}
+
+    fd = fopen (par_file, "r");
+
+    fgets (temp_buffer, 256, fd);  /* skip this buffer, we don't need the vdc extent info */
+
+    fgets (temp_buffer, 256, fd);
+
+    p = strchr (temp_buffer, '(') +1;
+    sscanf (p, "%lf", &xmin);
+
+    p = strchr (p, ',') + 1;
+    sscanf (p, "%lf", &ymin);
+
+    p = strchr (p, ',') + 1;
+    sscanf (p, "%lf", &xmax);
+
+    p = strchr (p, ',') + 1;
+    sscanf (p, "%lf", &ymax);
+
+    fclose (fd);
+
+    if (xmin < 0.0 OR ymin < 0.0 OR xmax < 0.0 OR ymax < 0.0 OR xmin > xmax OR ymin > ymax)
+        {
+	am_message (AM_ALERT, "Error! Parameter File is not in correct format.");
+	return FAIL;
+	}
+
+    /* xmax and ymax are in mm, convert it to inch */
+    map->width = xmax / 25.4;
+    map->height = ymax / 25.4;
+
+    return SUCCESS;
+}
+    
+    
+
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    check if plot file exist in FM management.
+
+Prototype:
+    publicdef INT pf_mp_file_exist (pf)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    CHAR *pf;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+#if USE_PROTOTYPES
+privatedef INT pf_mp_file_exist (CHAR *pf)
+#else
+privatedef INT pf_mp_file_exist (pf)
+CHAR *pf;
+#endif
+{
+    privatedef BOOL first = TRUE;
+    CHAR project[240];
+
+    EXEC SQL WHENEVER SQLERROR GOTO file_exist_error;
+
+    if (first) 
+        {
+	qs_inq_c (QS_PROJECT_NAME, project, (INT *) 0);
+
+	stmt.len = sprintf (stmt.arr,
+"SELECT A.FILE_ID FROM %s.FM_HDR A, %s.MAP_PLOTFILE_HDR B \
+WHERE A.FILE_ID = B.FILE_ID AND A.FINDER_FILENAME = :v1", 
+	project, project);
+
+	EXEC SQL PREPARE S1 FROM :stmt;
+	EXEC SQL DECLARE C1 CURSOR FOR S1;
+	}
+
+    V_FROMC (pf_name,pf);
+
+    EXEC SQL OPEN C1 USING :pf_name;
+    EXEC SQL FETCH C1 INTo :file_id;
+
+    if (OR_STATUS == OR_EOF)
+	{
+	return FALSE;
+	}
+    
+    return TRUE;
+
+file_exist_error:
+
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    am_message (AM_STATUS,OR_MESSAGE);
+    return FAIL;
+
+}
+
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+   save plot file 
+   put record into FM_HDR using FM routine
+   put record into MAP_PLOTFILE_HDR
+
+Prototype:
+    publicdef INT pf_mp_save_pf (map)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    PF_MP_CONV_WS *map
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+#if USE_PROTOTYPES
+privatedef INT pf_mp_save_pf (PF_MP_CONV_WS *map)
+#else
+privatedef INT pf_mp_save_pf (map)
+PF_MP_CONV_WS *map;
+#endif
+{
+    INT status = SUCCESS;
+    privatedef BOOL first = TRUE;
+    PROJECT_NAME project;
+    CHAR command[200];
+    PATHNAME new_par_file;
+    PATHNAME old_par_file;
+    PATHNAME os_pathname;
+    CHAR *dot;
+
+    if (first)
+	{
+	first = FALSE;
+
+	qs_inq_c (QS_PROJECT_NAME, project, (INT *) 0);
+
+        stmt.len = sprintf (stmt.arr, "UPDATE %s.MAP_PLOTFILE_HDR \
+	SET MAP_NAME = :v1, PLOT_FILE_FORMAT = :v2, PROJECTION = :v3, \
+        LOWER_LEFT_X = :v4, LOWER_LEFT_Y = :v5, UPPER_RIGHT_X = :v6, \
+	UPPER_RIGHT_Y = :v7, MAP_SCALE = :v8, MAP_SCALE_UNIT = :v9, \
+	OVERLAYS = 0, DISPLAY_LINES = 0, PLOT_WIDTH = :v10, PLOT_HEIGHT = :v11, \
+	PLOT_LAYOUT_NAME = :v12 WHERE FILE_ID = :v13", project);
+
+        EXEC SQL PREPARE S2 FROM :stmt;
+
+        stmt.len = sprintf (stmt.arr, "INSERT INTO %s.MAP_PLOTFILE_HDR \
+	(MAP_NAME, PLOT_FILE_FORMAT, PROJECTION, LOWER_LEFT_X, LOWER_LEFT_Y, \
+	UPPER_RIGHT_X, UPPER_RIGHT_Y, MAP_SCALE, MAP_SCALE_UNIT, OVERLAYS, \
+	DISPLAY_LINES, PLOT_WIDTH, PLOT_HEIGHT, PLOT_LAYOUT_NAME, FILE_ID) \
+	VALUES (:v1, :v2, :v3, :v4, :v5, :v6, :v7, :v8, :v9, 0, 0, :v10, :v11, \
+	:v12, :v13)", project); 
+
+	EXEC SQL PREPARE S3 FROM :stmt;
+
+	stmt.len = sprintf (stmt.arr,"DELETE %s.MAP_PLOTFILE_OVERLAYS \
+	WHERE FILE_ID = :v1", project);
+
+	EXEC SQL PREPARE S9 FROM :stmt;
+
+	}
+
+    status = fm_init_file ("ESI$PLOTS", map->plot_file_name,"PLOTFILE","w",map->permanent,
+		      map->description, NULL_FUNCTION_PTR, os_pathname, "MAPPING");
+ 
+    map->file_id = fm_get_file_id ("ESI$PLOTS", map->plot_file_name, "PLOTFILE");
+
+    if (map->permanent)
+	{
+        ho_get_dtime ("SYSDATE+3000","DD-MON-YYYY",map->expiration_date);
+        fm_update_expiration_date ("ESI$PLOTS", map->plot_file_name, "PLOTFILE",
+	                                                    map->expiration_date);
+        }
+    else
+	{
+        fm_update_expiration_date ("ESI$PLOTS", map->plot_file_name, "PLOTFILE",
+	                                                    map->expiration_date);
+        }
+
+    strcpy (old_par_file, map->os_pathname);
+    dot = strrchr (old_par_file,'.');
+
+    if (dot == (CHAR *) NULL)
+        {
+        strcat (old_par_file,".PAR");
+        }
+    else
+        {
+        strcpy (dot, ".PAR");
+        }
+
+    sprintf (new_par_file, "%s.PAR", os_pathname);
+
+#if UNIX 
+    sprintf (command, "cp %s %s", map->os_pathname, os_pathname);
+    ho_syscom (command);
+    sprintf (command, "cp %s %s", old_par_file, new_par_file);
+    ho_syscom (command);
+#endif
+
+#if vms
+    sprintf (command, "copy %s %s", map->os_pathname, os_pathname);
+    ho_syscom (command);
+    sprintf (command, "copy %s %s", old_par_file, new_par_file);
+    ho_syscom (command);
+#endif
+    status = fm_release_file ("ESI$PLOTS",map->plot_file_name, "PLOTFILE");
+
+
+    file_id = map->file_id;
+    V_FROMC (mp_name, map->map_name);
+    V_FROMC (pf_format, map->plot_file_format);
+    V_FROMC (mp_projection, map->projection);
+    ll_x = map->ll_x;
+    ll_y = map->ll_y;
+    ur_x = map->ur_x;
+    ur_y = map->ur_y;
+    mp_scale = map->map_scale;
+    V_FROMC (mp_scale_unit, map->map_scale_unit);
+    pf_width = map->width;
+    pf_height = map->height;
+    V_FROMC (pl_name, map->plot_layout);
+
+    if (map->file_exist)
+        {    /* update */
+        EXEC SQL EXECUTE S2 USING :mp_name, :pf_format, :mp_projection, :ll_x, :ll_y,
+	    :ur_x, :ur_y, :mp_scale, :mp_scale_unit, :pf_width, :pf_height, pl_name, :file_id;
+
+             /* delete record in MAP_PLOTFILE_OVERLAYS to make sure */
+	     /* the created plot file from this utility has no map  */
+	     /* overlay                                             */
+        EXEC SQL EXECUTE S9 USING :file_id;
+
+	}
+    else
+	{   /* insert */
+	EXEC SQL EXECUTE S3 USING :mp_name, :pf_format, :mp_projection, :ll_x, :ll_y,
+	    :ur_x, :ur_y, mp_scale, :mp_scale_unit, :pf_width, :pf_height, :pl_name, :file_id;
+	}
+
+    EXEC SQL COMMIT WORK;
+
+    return SUCCESS;
+}
+
+
+
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    Server for Cross Section Plot File Conversion Utility dialog box
+
+Prototype:
+    publicdef INT pf_xs_conv_util_server ()
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) INT id;
+    (I) INT item;
+    (M) PF_MP_CONV_WS *map;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+
+
+#if USE_PROTOTYPES
+privatedef INT pf_xs_conv_util_server (INT id, INT item, PF_XS_CONV_WS *xs)
+#else
+privatedef INT pf_xs_conv_util_server (id, item, xs)
+INT id;
+INT item;
+PF_XS_CONV_WS *xs;
+#endif
+{
+    INT status = SUCCESS;
+    INT value;
+    CHAR temp_buffer[256];
+
+    switch (item)
+	{
+    case PF_XS_QUIT:
+	am_message (AM_DIALOG, "");
+	am_quit ();
+	break;
+
+    case PF_XS_CONVERT:
+	status = pf_xs_convert (xs);
+	break;
+
+    case PF_XS_PERMANENT:
+	wi_query_dialog_item (xs->id, PF_XS_PERMANENT, &value, temp_buffer);
+	if (value == TRUE)
+	    {
+	    strcpy (temp_buffer, "");
+	    wi_set_dialog_text (xs->id, PF_XS_EXPIRATION_DATE, temp_buffer);
+	    wi_enable_dialog_item (xs->id, PF_XS_EXPIRATION_DATE, OFF);
+	    }
+        else
+	    {
+            ho_get_dtime ("SYSDATE+1","DD-MON-YYYY",temp_buffer);
+	    wi_enable_dialog_item (xs->id, PF_XS_EXPIRATION_DATE, ON);
+	    wi_set_dialog_text (xs->id, PF_XS_EXPIRATION_DATE, temp_buffer);
+	    }
+	break;
+
+        }
+
+    return status;
+}
+
+
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    Cross Section Plot File Conversion Utility dialog box main routine.
+
+Prototype:
+    publicdef INT pf_xs_conv_util ()
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+#if USE_PROTOTYPES
+publicdef INT pf_xs_conv_util ()
+#else
+publicdef INT pf_xs_conv_util ()
+#endif
+{
+    INT status = SUCCESS;
+    PF_XS_CONV_WS *xs;
+
+    status = am_define_workspace ("PF_XS_CONV_WS",AM_APPLICATION,
+				  sizeof (PF_XS_CONV_WS),(VOIDPTR *)&xs);
+
+    status = am_define_resource (AM_DIALOG, PF_RESOURCE_FILE, PF_XS_CONV_UTIL,
+			         pf_xs_conv_util_server, &xs->id,xs);
+
+    status = pf_xs_conv_initialize (xs); /* initialize the structure */
+
+    if (status != SUCCESS)
+	{
+	am_message (AM_DIALOG, "");
+	am_quit ();
+	}
+
+    status = wi_open_dialog (xs->id);
+
+    return status;
+}
+
+
+
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    Initialize Cross Section Plot File Conversion Utility dialog box.
+
+Prototype:
+    publicdef INT pf_xs_conv_initialize (map)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (M) PF_MP_CONV_WS *map;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+#if USE_PROTOTYPES
+privatedef INT pf_xs_conv_initialize (PF_XS_CONV_WS *xs)
+#else
+privatedef INT pf_xs_conv_initialize (xs)
+PF_XS_CONV_WS *xs;
+#endif
+{
+    INT status = SUCCESS;
+    PROJECT_DEFAULT *project_default;
+
+    status = am_open_workspace ("PROJECT_DEFAULTS",AM_GLOBAL,
+					  (VOIDPTR *) &project_default);
+
+    xs->with_layout = TRUE;
+
+    xs->permanent = TRUE;
+
+    strcpy (xs->plot_file_name, "UNTITLED");
+
+    strcpy (xs->plot_layout, project_default->plot_layout);
+
+    wi_set_dialog_text (xs->id, PF_XS_PLOT_FILE_NAME, xs->plot_file_name);
+
+    wi_set_dialog_text (xs->id, PF_XS_OS_PATHNAME, xs->os_pathname);
+
+    wi_set_dialog_text (xs->id, PF_XS_PLOT_LAYOUT_NAME, xs->plot_layout);
+
+    wi_create_option_menu (xs->id, PF_XS_PLOT_FILE_FORMAT, plot_file_format_list);
+
+
+    wi_enable_dialog_item (xs->id, PF_XS_EXPIRATION_DATE, ON);
+
+    return status;
+
+}
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    Convert Cross Section Plot file.
+
+Prototype:
+    publicdef INT pf_xs_convert (xs)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (M) PF_XS_CONV_WS *xs;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+#if USE_PROTOTYPES
+privatedef INT pf_xs_convert (PF_XS_CONV_WS *xs)
+#else
+privatedef INT pf_xs_convert (xs)
+PF_XS_CONV_WS *xs;
+#endif
+{
+    INT status = SUCCESS;
+    BOOL yes;
+    CHAR temp_buffer[256];
+
+    status = pf_xs_get_values (xs);
+
+    status = ho_chk_fname (xs->plot_file_name,strlen (xs->plot_file_name));
+
+    if (status != SUCCESS)
+	{
+	am_message (AM_ALERT, "Error! Invalid Plot File Name");
+	return FAIL;
+	}
+
+    if (! hoexists (xs->os_pathname))
+        {
+	am_message (AM_ALERT, "Error! Original OS Pathname is incorrect. Please check if the path exists in the system.");
+	return FAIL;
+	}
+
+    if (ho_chk_fname (xs->xs_name, strlen (xs->xs_name)) != SUCCESS)
+	{
+	am_message (AM_ALERT, "Error! Invalid Map Name.");
+	return FAIL;
+	}
+     
+    if (xs->permanent == FALSE)
+	{
+        if (ho_check_date (xs->expiration_date, "DD-MON-YYYY") == FALSE)
+	    {
+	    am_message (AM_ALERT, "Error! Invalid Expiration Date Format.");
+	    return FAIL;
+	    }
+        }
+
+    if ((xs->file_exist = pf_xs_file_exist (xs->plot_file_name)) == TRUE)
+	{
+	wiyesno ("Plot File already exists. Do you want to replace it?",
+		 "", &yes, &status);
+
+        if (!yes)
+	    {
+	    return FAIL;
+	    }
+        }
+
+    status = pf_xs_get_plot_size (xs);
+
+    if (status != SUCCESS)
+	{
+	return FAIL;
+	}
+
+    sprintf (temp_buffer,"Converting Plot File \"%s\"...",xs->plot_file_name);
+    am_message (AM_DIALOG,temp_buffer);
+    status = pf_xs_save_pf (xs);
+    sprintf (temp_buffer,"Finish saving converted Plot File \"%s\". Please continue",xs->plot_file_name);
+    am_message (AM_DIALOG,temp_buffer);
+                
+    return SUCCESS;
+}
+    
+/* Function Description -----------------------------------------------------
+Description: 
+    Get values for dialog box.
+
+Prototype:
+    publicdef INT pf_xs_get_values (xs)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (M) PF_XS_CONV_WS *xs;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+#if USE_PROTOTYPES
+privatedef INT pf_xs_get_values (PF_XS_CONV_WS *xs)
+#else
+privatedef INT pf_xs_get_values (xs)
+PF_XS_CONV_WS *xs;
+#endif
+{
+    INT value;
+    CHAR temp_buffer[256];
+
+    wi_query_dialog_item (xs->id, PF_XS_PLOT_FILE_NAME, &value,
+						  xs->plot_file_name);
+    ts_snowhite (xs->plot_file_name);
+    ts_sto_upper (xs->plot_file_name);
+    wi_set_dialog_text (xs->id, PF_XS_PLOT_FILE_NAME, xs->plot_file_name);
+
+    wi_query_dialog_item (xs->id, PF_XS_OS_PATHNAME, &value,
+						  xs->os_pathname);
+    ho_translate_filename (xs->os_pathname, xs->os_pathname);
+
+    wi_query_dialog_item (xs->id, PF_XS_PLOT_FILE_FORMAT, &value, temp_buffer);
+    strcpy (xs->plot_file_format, plot_file_format_list[value-1]);
+
+    wi_query_dialog_item (xs->id, PF_XS_LAYOUT_NAME, &value, xs->xs_name);
+    ts_snowhite (xs->xs_name);
+    ts_sto_upper (xs->xs_name);
+    wi_set_dialog_text (xs->id, PF_XS_LAYOUT_NAME, xs->xs_name);
+
+    wi_query_dialog_item (xs->id, PF_XS_PLOT_LAYOUT_NAME, &value, xs->plot_layout);
+    ts_snowhite (xs->plot_layout);
+    ts_sto_upper (xs->plot_layout);
+    wi_set_dialog_text (xs->id, PF_XS_LAYOUT_NAME, xs->plot_layout);
+
+    wi_query_dialog_item (xs->id, PF_XS_PERMANENT, &xs->permanent, temp_buffer);
+
+    wi_query_dialog_item (xs->id, PF_XS_EXPIRATION_DATE, &value,
+                                                    xs->expiration_date);
+    wi_query_dialog_item (xs->id, PF_XS_DESCRIPTION, &value, xs->description);
+
+    return SUCCESS;
+}
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    get plot size from parameter file.
+
+    parameter file format:
+
+    vdc_extent (0.00000, 1.000000, 0.00000, 0.797443)
+    vdc_viewport (0.00000, 432.63739, 0.00000, 342.23484)
+
+Prototype:
+    publicdef INT pf_xs_get_plot_size (xs)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (M) PF_CONV_WS *map
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+    parameter file must exist.
+
+-----------------------------------------------------------------------------*/
+#if USE_PROTOTYPES
+privatedef INT pf_xs_get_plot_size (PF_XS_CONV_WS *xs)
+#else
+privatedef INT pf_xs_get_plot_size (xs)
+PF_XS_CONV_WS *xs;
+#endif
+{
+    PATHNAME par_file;
+    CHAR temp_buffer[256];
+    CHAR *dot;
+    CHAR *p;
+    DOUBLE xmin, ymin, xmax, ymax;
+    FILE *fd;
+
+    strcpy (par_file, xs->os_pathname);
+
+    dot = strrchr (par_file, '.');
+
+    if (dot == (CHAR *) NULL)
+	{
+	strcat (par_file, ".PAR");
+	}
+    else
+	{
+	strcpy (dot, ".PAR");
+	}
+
+    if (! hoexists (par_file))
+	{
+	am_message (AM_ALERT,"Error! Parameter File does not exist.");
+	return FAIL;
+	}
+
+    fd = fopen (par_file, "r");
+
+    fgets (temp_buffer, 256, fd);  /* skip this buffer, we don't need the vdc extent info */
+
+    fgets (temp_buffer, 256, fd);
+
+    p = strchr (temp_buffer, '(') +1;
+    sscanf (p, "%lf", &xmin);
+
+    p = strchr (p, ',') + 1;
+    sscanf (p, "%lf", &ymin);
+
+    p = strchr (p, ',') + 1;
+    sscanf (p, "%lf", &xmax);
+
+    p = strchr (p, ',') + 1;
+    sscanf (p, "%lf", &ymax);
+
+    fclose (fd);
+
+    if (xmin < 0.0 OR ymin < 0.0 OR xmax < 0.0 OR ymax < 0.0 OR xmin > xmax OR ymin > ymax)
+        {
+	am_message (AM_ALERT, "Error! Parameter File is not in correct format.");
+	return FAIL;
+	}
+
+    xs->width = xmax / 25.4;
+    xs->height = ymax / 25.4;
+
+    return SUCCESS;
+}
+    
+    
+
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    check if plot file exist in FM management.
+
+Prototype:
+    publicdef INT pf_xs_file_exist (pf)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    CHAR *pf;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+#if USE_PROTOTYPES
+privatedef INT pf_xs_file_exist (CHAR *pf)
+#else
+privatedef INT pf_xs_file_exist (pf)
+CHAR *pf;
+#endif
+{
+    privatedef BOOL first = TRUE;
+    CHAR project[240];
+
+    EXEC SQL WHENEVER SQLERROR GOTO xs_file_exist_error;
+
+    if (first) 
+        {
+	qs_inq_c (QS_PROJECT_NAME, project, (INT *) 0);
+
+	stmt.len = sprintf (stmt.arr,
+"SELECT A.FILE_ID FROM %s.FM_HDR A, %s.CROSS_SECTION_PLOTFILE_HDR B \
+WHERE A.FILE_ID = B.FILE_ID AND A.FINDER_FILENAME = :v1", 
+	project, project);
+
+	EXEC SQL PREPARE S4 FROM :stmt;
+	EXEC SQL DECLARE C4 CURSOR FOR S4;
+	}
+
+    V_FROMC (pf_name,pf);
+
+    EXEC SQL OPEN C4 USING :pf_name;
+    EXEC SQL FETCH C4 INTo :file_id;
+
+    if (OR_STATUS == OR_EOF)
+	{
+	return FALSE;
+	}
+    
+    return TRUE;
+
+xs_file_exist_error:
+
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    am_message (AM_STATUS,OR_MESSAGE);
+    return FAIL;
+
+}
+
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+   save plot file 
+   put record into FM_HDR using FM routine
+   put record into CROSS_SECTION_PLOTFILE_HDR
+
+Prototype:
+    publicdef INT pf_xs_save_pf (map)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    PF_MP_CONV_WS *map
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+#if USE_PROTOTYPES
+privatedef INT pf_xs_save_pf (PF_XS_CONV_WS *xs)
+#else
+privatedef INT pf_xs_save_pf (xs)
+PF_XS_CONV_WS *xs;
+#endif
+{
+    INT status = SUCCESS;
+    privatedef BOOL first = TRUE;
+    PROJECT_NAME project;
+    CHAR command[200];
+    PATHNAME new_par_file;
+    PATHNAME old_par_file;
+    PATHNAME os_pathname;
+    CHAR *dot;
+
+    if (first)
+	{
+	first = FALSE;
+
+	qs_inq_c (QS_PROJECT_NAME, project, (INT *) 0);
+
+        stmt.len = sprintf (stmt.arr, "UPDATE %s.CROSS_SECTION_PLOTFILE_HDR \
+	SET CROSS_SECTION_LAYOUT = :v1, PLOT_FILE_FORMAT = :v2, \
+	PLOT_WIDTH = :v3 , PLOT_HEIGHT = :v4, PLOT_LAYOUT_NAME = :v5 \
+	WHERE FILE_ID = :v6", project);
+
+        EXEC SQL PREPARE S5 FROM :stmt;
+
+        stmt.len = sprintf (stmt.arr, "INSERT INTO %s.CROSS_SECTION_PLOTFILE_HDR \
+	(CROSS_SECTION_LAYOUT, PLOT_FILE_FORMAT, PLOT_WIDTH, PLOT_HEIGHT, \
+	PLOT_LAYOUT_NAME, FILE_ID) \
+	VALUES (:v1, :v2, :v3, :v4, :v5, :v6)", project); 
+
+	EXEC SQL PREPARE S6 FROM :stmt;
+
+	}
+
+    status = fm_init_file ("ESI$PLOTS", xs->plot_file_name,"PLOTFILE","w",xs->permanent,
+		      xs->description, NULL_FUNCTION_PTR, os_pathname, "XSECT");
+ 
+    xs->file_id = fm_get_file_id ("ESI$PLOTS", xs->plot_file_name, "PLOTFILE");
+
+    if (xs->permanent)
+	{
+        ho_get_dtime ("SYSDATE+3000","DD-MON-YYYY",xs->expiration_date);
+        fm_update_expiration_date ("ESI$PLOTS", xs->plot_file_name, "PLOTFILE",
+	                                                    xs->expiration_date);
+        }
+    else
+	{
+        fm_update_expiration_date ("ESI$PLOTS", xs->plot_file_name, "PLOTFILE",
+	                                                    xs->expiration_date);
+        }
+
+    strcpy (old_par_file, xs->os_pathname);
+    dot = strrchr (old_par_file,'.');
+
+    if (dot == (CHAR *) NULL)
+        {
+        strcat (old_par_file,".PAR");
+        }
+    else
+        {
+        strcpy (dot, ".PAR");
+        }
+
+    sprintf (new_par_file, "%s.PAR", os_pathname);
+
+#if UNIX 
+    sprintf (command, "cp %s %s", xs->os_pathname, os_pathname);
+    ho_syscom (command);
+    sprintf (command, "cp %s %s", old_par_file, new_par_file);
+    ho_syscom (command);
+#endif
+
+#if vms
+    sprintf (command, "copy %s %s", xs->os_pathname, os_pathname);
+    ho_syscom (command);
+    sprintf (command, "copy %s %s", old_par_file, new_par_file);
+    ho_syscom (command);
+#endif
+    status = fm_release_file ("ESI$PLOTS",xs->plot_file_name, "PLOTFILE");
+
+
+    file_id = xs->file_id;
+    V_FROMC (xs_name, xs->xs_name);
+    V_FROMC (pf_format, xs->plot_file_format);
+    pf_width = xs->width;
+    pf_height = xs->height;
+    V_FROMC (pl_name, xs->plot_layout);
+
+    if (xs->file_exist)
+        {
+        EXEC SQL EXECUTE S5 USING :xs_name, :pf_format, :pf_width, :pf_height, pl_name, :file_id;
+
+	}
+    else
+	{
+        EXEC SQL EXECUTE S6 USING :xs_name, :pf_format, :pf_width, :pf_height, pl_name, :file_id;
+	}
+
+    EXEC SQL COMMIT WORK;
+
+    return SUCCESS;
+}
+
+
+

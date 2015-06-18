@@ -1,0 +1,275 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element CT_NODE_TOOLS.PC*/
+/* *6    14-AUG-1990 23:38:07 GILLESPIE "(SPR 5644) Fix up last checkin"*/
+/* *5    14-AUG-1990 13:06:51 VINCE "(SPR 5644) Header Standardization"*/
+/* *4    10-FEB-1990 09:55:19 MING "(SPR 6007) Change NODE_ID to INTEGER"*/
+/* *3    10-OCT-1989 09:42:27 PURNA "(SPR 5020) Mods for CT parameter change"*/
+/* *2    14-SEP-1989 16:14:35 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *1    19-JUN-1989 12:29:24 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element CT_NODE_TOOLS.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#ifndef ESI_GL_DEFS_H
+#include "esi_gl_defs.h"
+#endif
+
+#ifndef ESI_GL_TOP_H
+#include "esi_gl_top.h"
+#endif
+
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+
+#ifndef ESI_CT_ERR_H
+#include "esi_ct_err.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+/* File Description ---------------------------------------------------------
+Overview:
+    These set of functions provide tools for operating on nodes.
+    
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    Get a node:
+    publicdef INT ct_get_node(NODE_ID node_id, COORD *x, COORD *y);
+    
+    Put a node:
+    publicdef INT ct_put_node(COORD x, COORD y, NODE_ID *node_id);
+
+    Update a node:
+    publicdef INT ct_update_node(NODE_ID node_id, COORD x, COORD y);
+    
+Private_Functions:
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+    This tool retrieves a node of a given node id. Converted from project
+    to map coordinates.
+
+Prototype:
+    publicdef INT ct_get_node(NODE_ID node_id, COORD *x, COORD *y);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) node_id     -(NODE_ID) A node id from the nodes table of the current 
+                        project.
+    (O) x           -(COORD *) Pointer to the x and y locations of the node.
+    (O) y           -(COORD *) Pointer to the x and y locations of the node.
+
+Return Value/Status:
+    SUCCESS - Successful completion
+    CT_ORACLE_EOF - Error retrieving node.
+    Function also returns <oracle error number>.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT ct_get_node (NODE_ID node_id, COORD *x, COORD *y) 
+#else
+publicdef INT ct_get_node (node_id, x, y)
+NODE_ID node_id;
+COORD *x, *y;
+#endif
+    {
+    INT status;
+    PROJECT_NAME project;
+    static BOOL first = TRUE;
+    
+/*     EXEC ORACLE OPTION (REBIND = NO); */
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt1[100];
+    static long query_node_id;
+    static double var_x;
+    static double var_y;
+    EXEC SQL END DECLARE SECTION;
+    
+    status = SUCCESS;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO orcerr;
+    EXEC SQL WHENEVER NOT FOUND GOTO not_found;
+    
+    if (first)
+        {
+        first = FALSE;
+        /* get project name. */
+        qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+        
+        sqlstmt1.len = sprintf ((char *)sqlstmt1.arr,
+                        "SELECT NODE_X,NODE_Y FROM %s.NODES WHERE NODE_ID = :node_id",
+                                project);
+        
+        EXEC SQL PREPARE S FROM : sqlstmt1;
+        EXEC SQL DECLARE C CURSOR FOR S;
+        }
+    query_node_id = node_id;
+    EXEC SQL OPEN C USING : query_node_id;
+    EXEC SQL FETCH C INTO : var_x,  : var_y;
+    
+    /* convert from project to map coordinates */
+    ct_map_xy (var_x, var_y, x, y);
+    
+    /* return status */
+    return(status);
+    
+not_found:
+    status = CT_ORACLE_EOF;
+    return(status);
+    
+orcerr:
+    status = OR_STATUS;
+    return(status);
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    This tool converts from map to project coordinates and inserts a node of 
+    a specified node_id and x,y coordinates.
+
+Prototype:
+    publicdef INT ct_put_node(COORD x, COORD y, NODE_ID *node_id);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) node_id     -(NODE_ID) A node id from the nodes table of the current 
+                        project.
+    (I) x           -(COORD *) Pointer to the x and y locations of the node.
+    (I) y           -(COORD *) Pointer to the x and y locations of the node.
+
+Return Value/Status:
+    SUCCESS - Successful completion
+    Function also returns <oracle error number>.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT ct_put_node (COORD x, COORD y, NODE_ID *node_id) 
+#else
+publicdef INT ct_put_node (x, y, node_id)
+COORD x, y;
+NODE_ID *node_id;
+#endif
+    {
+    /* CONVERT FROM MAP TO PROJECT COORDINATES */
+    ct_project_xy (x, y, &x, &y);
+    
+    return ly_process_node (x, y, 0.0, node_id);
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    This tool converts from map to project coordinates and inserts a node 
+    of a specified node_id and x,y coordinates.
+
+Prototype:
+    publicdef INT ct_update_node(NODE_ID node_id, COORD x, COORD y);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) node_id     -(NODE_ID) A node id from the nodes table of the current 
+                        project.
+    (I) x           -(COORD) X location of the node.
+    (I) y           -(COORD) Y locations of the node.
+
+Return Value/Status:
+    SUCCESS - Successful completion
+    CT_ORACLE_EOF - Error retrieving node.
+    Function also returns <oracle error number>.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT ct_update_node (NODE_ID node_id, COORD x, COORD y) 
+#else
+publicdef INT ct_update_node (node_id, x, y)
+NODE_ID node_id;
+COORD x, y;
+#endif
+    {
+    INT status;
+    PROJECT_NAME project;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt3[512];
+    EXEC SQL END DECLARE SECTION;
+    
+    status = SUCCESS;
+    
+    /* get project name. */
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    
+    /* convert from map to project coordinates */
+    ct_project_xy (x, y, &x, &y);
+    
+    /* create and execute the SQL statement */
+    sqlstmt3.len = sprintf ((char *)sqlstmt3.arr, "UPDATE %s.NODES \
+SET NODE_X = %f, NODE_Y = %f \
+WHERE NODE_ID = %ld"
+                            , project, x, y, node_id);
+    
+    EXEC SQL WHENEVER SQLERROR GOTO orcerr;
+    EXEC SQL WHENEVER NOT FOUND GOTO not_found;
+    EXEC SQL EXECUTE IMMEDIATE : sqlstmt3;
+    
+    /* return status */
+    return(status);
+    
+not_found:
+    status = CT_ORACLE_EOF;
+    return(status);
+    
+orcerr:
+    status = OR_STATUS;
+    return(status);
+    }
+/* END:     */

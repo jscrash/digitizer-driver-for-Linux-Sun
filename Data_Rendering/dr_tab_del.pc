@@ -1,0 +1,78 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_TAB_DEL.PC*/
+/* *2    15-OCT-1990 16:59:59 GILLESPIE "(SPR 1000) Merge Ernie deltas"*/
+/* *1    19-JUN-1989 12:31:26 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_TAB_DEL.PC*/
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/******************************************************************************
+
+NAME:          	dr_table_delete
+
+DESCRIPTION:   	Delete a specified code row from the specified
+				table (must be of standard NAME | CODE| DESCRIPTION form)
+
+
+	Input:		table_name	- Name of "code" table.
+     			name		- String defining code name to delete.
+     			
+	Output:   	None
+
+	Status:   	SUCCESS
+               	xx_OBJECT_TYPE_EXISTS
+               
+******************************************************************************/
+
+#include    "esi_dr.h"
+#include    "esi_c_lib.h"
+#include    "esi_am.h"
+#include    "esi_oracle.h"
+
+publicdef INT dr_table_delete (table_name, name)
+CHAR 	*table_name;
+CHAR 	*name;
+{
+    INT status = 0;
+    CHAR mg[71];
+
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[250];
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO sqlerrorpt;
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+    "DELETE FROM %s WHERE NAME = '%s'", table_name, name);
+    
+    EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+
+    dr_commit (TRUE);
+    
+    return SUCCESS;
+
+sqlerrorpt:
+    strncpy(mg, sqlca.sqlerrm.sqlerrmc, 70);
+    mg[70] = 0;
+    am_message(AM_STATUS, (CHAR *)sqlstmt.arr);
+    am_message(AM_ALERT, mg);
+    status = OR_STATUS;
+    return (status);
+}

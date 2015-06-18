@@ -1,0 +1,187 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element PL_DRAW_TTL_TEXT.PC */
+/* *4    11-OCT-1991 13:27:47 MING "(SPR 4473) increase string length of title block text to allow 80 characters" */
+/* *3     5-APR-1991 12:16:19 JESSIE "(SPR 0) change height of text area" */
+/* *2    27-DEC-1990 17:15:33 MING "(SPR 6277) change pl_ttlblk to plot_layout_ttlblk" */
+/* *1    12-OCT-1990 17:41:55 GILLESPIE "Merge Ernie Deltas" */
+/* DEC/CMS REPLACEMENT HISTORY, Element PL_DRAW_TTL_TEXT.PC */
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                        Finder Graphics Systems, Inc.
+                        201 Tamal Vista Blvd
+                        Corte Madera, CA  USA 94925
+                        (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT func (arg);
+
+Parameters:         (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) arg     - description
+
+Return Value/Status:
+    SUCCESS     - Successfull completion
+    FAIL        - Unsuccessfull completion
+
+Scope:
+    PUBLIC
+    PRIVATE to <module_description>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+
+#ifndef ESI_GKS_H
+#include "esi_gks.h"
+#endif
+
+#ifndef ESI_ORCALE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_PL_H
+#include "esi_pl.h"
+#endif
+
+publicdef INT pl_draw_ttlblk_text (name,bw_type,width,height,unit)
+CHAR *name;
+INT bw_type;
+GKS_REAL width;
+GKS_REAL height;
+GKS_REAL unit;
+{
+  EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[1000];
+    VARCHAR ttl_name_v[44];
+    VARCHAR text[84];
+    VARCHAR color_v[24];
+    VARCHAR account[44];
+    VARCHAR justification_v[24];
+    VARCHAR font_v[24];
+    VARCHAR lyt_type[40];
+    int     size;
+    int     line; 
+  EXEC SQL END DECLARE SECTION;
+ 
+  INT status = SUCCESS;
+  INT color;
+  INT font;
+  INT justification;
+  PROJECT_NAME project;
+  CHAR ttlblk_text[80];
+  GKS_REAL  dsize;
+  GKS_REAL x[2],y[2];
+  static GKS_REAL line_y[5] = {0.722, 0.646, 0.57, 0.494, 0.418};
+  static GKS_REAL fsize[5] = {0.25, 0.375, 0.5, 0.625, 0.75};
+  static CHAR *justification_codes[] = 
+    {
+    "LEFT",
+    "CENTER",
+    "RIGHT",
+    0 };
+
+  qs_inq_c (QS_PROJECT_NAME,project,(INT *) 0);
+
+  V_FROMC (ttl_name_v,name);
+  stmt.len = sprintf((CHAR *) stmt.arr,
+"SELECT TEXT,FSIZE,FONT,COLOR,JUSTIFICATION,LINE \
+ FROM %s.PLOT_LAYOUT_TTLBLK WHERE TTLNAME = :ttl_name_v \
+ AND SOURCE = :source AND TTLTYPE = :lyt_type",project);
+
+  qs_inq_c (QS_FINDER_ACCOUNT,(CHAR *)account.arr,(INT *) 0);
+  V_SETLEN (account);
+
+  if (bw_type == PL_MAP)
+    {
+    V_FROMC (lyt_type,"MAP");
+    }
+  else
+    {
+    V_FROMC (lyt_type,"XSECT");
+    }
+
+
+  EXEC SQL WHENEVER SQLERROR GOTO err;
+
+  EXEC SQL PREPARE S1 FROM :stmt;
+  EXEC SQL DECLARE C1 CURSOR FOR S1;
+  EXEC SQL OPEN C1 USING :ttl_name_v, :account, :lyt_type;
+
+  EXEC SQL FETCH C1 INTO :text, :size, :font_v, 
+                         :color_v, :justification_v, :line;
+
+/* -------------------------------------------------------------------- */
+/*    Put the texts to the corresponding position on the screen         */
+/* -------------------------------------------------------------------- */
+
+    while (OR_STATUS == SUCCESS)
+      {
+         lu_text_to_index ("FONT",&font,(CHAR *) font_v.arr);
+         wm_gstxfp(font,GSTRKP);
+         wm_gstxp (GRIGHT);
+         wm_gschup (0.0,1.0);
+
+         V_SETZERO (color_v);
+         lu_text_to_index ("COLOR",&color,(CHAR *)color_v.arr);
+         wm_gstxci(color);
+
+         dsize = fsize[size - 1];
+         wm_gschh(unit*dsize);
+
+         V_FROMV (ttlblk_text,text);
+
+         V_SETZERO (justification_v);
+         switch (ts_switch ((CHAR *)justification_v.arr,justification_codes))
+         {
+         case 0: /* Left justication */
+           wm_gstxal(GAHNOR,GAHALF);
+           wm_gtx(0.1*width,line_y[line-1]*height,ttlblk_text);
+           break;
+
+         case 1: /* Center justication */
+           wm_gstxal(GACENT,GAHALF);
+           wm_gtx(0.5*width,line_y[line-1]*height,ttlblk_text);
+           break;
+
+         case 2: /* Right justication */
+           wm_gstxal(GARITE,GAHALF);
+           wm_gtx(0.9*width,line_y[line-1]*height,ttlblk_text);
+           break;
+         }
+
+      EXEC SQL FETCH C1 INTO :text, :size, :font_v,
+                             :color_v, :justification_v, :line;
+     }
+  EXEC SQL CLOSE C1;
+  EXEC SQL WHENEVER SQLERROR CONTINUE;
+  EXEC SQL COMMIT WORK;
+  return status ;
+
+err:
+  printf ("%s\n",OR_MESSAGE);
+  EXEC SQL WHENEVER SQLERROR CONTINUE;
+  EXEC SQL ROLLBACK WORK;
+  return FAIL;
+} 
+

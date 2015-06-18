@@ -1,0 +1,22 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element WELL_HDR_BY_OPERATOR_SL.SQL */
+/* *2    26-MAR-1990 11:54:26 DOROTHY "(SPR 1) New SQL scripts" */
+/* *1    26-MAR-1990 11:51:37 DOROTHY "SQL script" */
+/* DEC/CMS REPLACEMENT HISTORY, Element WELL_HDR_BY_OPERATOR_SL.SQL */
+DOC
+	ESI Well Header Report
+	p1 = Project Name
+	p2 = name of control list table
+        p3 = name of original select list
+#
+
+CLEAR 	BREAKS;
+BREAK ON OPERATOR SKIP 1
+
+TTITLE 	CENTER ' -->  --> &1 Well Header Using Control List "&3" <--  <--' SKIP CENTER 'Sorted by Operator';
+
+SELECT  A.OPERATOR, A.WELL_NAME||' #'||A.WELL_NUMBER WELLNAME, 
+B.SECTION||'-'||B.TOWNSHIP||B.NORTH_SOUTH||'-'||B.RANGE||B.EAST_WEST STR,
+A.ELEVATION, A.ELEVATION_REF, A.DRILLERS_TD,A.UWI
+FROM 	&1..WELL_HDR A, &1..WELL_LOCATIONS B, &2 C
+WHERE	A.NODE_ID = B.NODE_ID(+) AND A.UWI = C.UWI
+ORDER BY A.OPERATOR, A.WELL_NAME, A.WELL_NUMBER;

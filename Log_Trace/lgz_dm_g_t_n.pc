@@ -1,0 +1,135 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LGZ_DM_G_T_N.PC*/
+/* *8    17-JUL-1991 16:31:02 JANTINA "(SPR 0) Removed retrieval of top,base,increment"*/
+/* *7    19-NOV-1990 11:18:26 MING "(SPR 6192) fix rename and delete options in logDB"*/
+/* *6    23-AUG-1990 17:37:32 JESSIE "(SPR 1) fix include files"*/
+/* *5    14-SEP-1989 16:16:19 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *4    13-AUG-1989 01:46:02 GILLESPIE "(SPR 5) Change WLL_LOG_TRACE_HDR to WELL_LOG_CURVE; always release cursor"*/
+/* *3     8-AUG-1989 10:44:21 VINCE "(SPR -1) added Gulf mods; static in SQL declare section"*/
+/* *2    19-JUL-1989 15:15:08 GORDON "(SPR 100) 100"*/
+/* *1    19-JUN-1989 12:33:09 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element LGZ_DM_G_T_N.PC*/
+
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+
+/* ****************************************************************************
+
+    Author:   James Chang
+    ************************************************************************* */
+
+#ifndef ESI_LG_LDEFS_H
+#include "esi_lg_ldefs.h"
+#endif
+#ifndef ESI_LG_ERR_H
+#include "esi_lg_err.h"
+#endif
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#include "esi_oracle.h"
+
+/* ***************************************************************************
+
+    ROUTINE:  LGZ_GET_TRACE_NAMES
+
+         A internal help routine of Log Trace Data Manager.  The function of this
+         rotuine is to retrieve the file name and Nlist name from <AREA>.LOGS
+         table in the database for Trace File.
+
+    ************************************************************************* */
+publicdef INT lgz_get_trace_names( traceStruct )
+    /**************************************************************************/
+
+LOG_TRACE_STRUCT *traceStruct;    /* the pointer of requested trace.         */
+{
+    INT status;
+    PROJECT_NAME project;
+ 
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR	select[512];
+    VARCHAR	source[31];
+    VARCHAR	service[13];
+    int         trace_id;
+    VARCHAR     nlist_id[65];
+    VARCHAR     filename[81];
+EXEC SQL END DECLARE SECTION;
+
+/* ************************************************************************** */
+
+                                  /* if there is no version number, take the */
+                                  /* lastest version to be the given version.*/
+
+    if(    traceStruct -> version  <= 0  )   
+    {
+         status = lgz_inq_last_version(   traceStruct,  FALSE   );
+         if(  status )
+              return status;
+    }
+    qs_inq_c(QS_PROJECT_NAME, project, (INT *) 0);
+
+                                  /* construct the searching phrase.          */
+
+    EXEC SQL WHENEVER SQLERROR GOTO errrpt;
+    EXEC SQL WHENEVER NOT FOUND GOTO errnfd;
+
+	select.len = sprintf((char *)select.arr,
+"SELECT  TRACE_ID, SOURCE, SERVICE, \
+DIGITAL_REF, DIGITAL_REF_VOLUME \
+FROM %s.WELL_LOG_CURVE_HDR \
+WHERE UWI = '%s' AND TRACE_TYPE = '%s' AND VERSION = %d", project,
+	traceStruct -> uwi, traceStruct -> trace, traceStruct -> version);
+
+     EXEC SQL PREPARE GET_NAME_S1 FROM :select;
+     EXEC SQL DECLARE GET_NAME_C1 CURSOR FOR GET_NAME_S1;
+
+     
+     EXEC SQL OPEN GET_NAME_C1;
+
+     EXEC SQL FETCH GET_NAME_C1 INTO :trace_id, :source, :service,
+	:nlist_id, :filename;
+
+     traceStruct -> trace_id = trace_id;
+     V_FROMV(traceStruct -> source, source);
+     V_FROMV(traceStruct -> service, service);
+     V_FROMV(traceStruct -> nlist_id, nlist_id);
+     V_FROMV(traceStruct -> filename, filename);
+
+     status = SUCCESS;
+     goto way_out;
+
+errnfd:
+     status = LG_TRACE_NOT_FOUND;
+     goto way_out;
+
+errrpt:
+    status = OR_STATUS;
+way_out:
+	EXEC SQL WHENEVER SQLERROR CONTINUE;
+	EXEC SQL CLOSE GET_NAME_C1;
+	return status;
+}

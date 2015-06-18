@@ -1,0 +1,96 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element CT_GET_DEF_PR.PC*/
+/* *3    28-NOV-1990 16:07:10 GILLESPIE "(SPR 1) Clean up some ugly sql"*/
+/* *2    14-AUG-1990 13:06:29 VINCE "(SPR 5644) Header Standardization"*/
+/* *1    19-JUN-1989 12:29:06 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element CT_GET_DEF_PR.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_ct.h"
+#include "esi_oracle.h"
+#include "esi_qs.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+    Get the default projection for the current exploration project.
+
+Prototype:
+    publicdef INT ct_get_default_project(PROJECTION_ID projection_id_out);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (O) projection_id_out   -(PROJECTION_ID) default projection.
+    
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT ct_get_default_project (PROJECTION_ID projection_id_out) 
+#else
+publicdef INT ct_get_default_project (projection_id_out)
+PROJECTION_ID projection_id_out;
+#endif
+    {
+    PROJECT_NAME project;
+    
+    /*  SQL Definition of the PROJECTIONS Table                  */
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR default_value[40];
+    VARCHAR sqlstmt[200];
+    EXEC SQL END DECLARE SECTION;
+    
+    /*  Load the projection id      */
+    
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT DEFAULT_VALUE FROM %s.PROJECT_DEFAULTS WHERE DEFAULT_NAME = 'PROJECT_PROJECTION'",
+    project);
+    
+    EXEC SQL PREPARE S1 FROM : sqlstmt;
+    
+    EXEC SQL DECLARE D_CUR CURSOR FOR S1;
+    
+    EXEC SQL OPEN D_CUR;
+    
+    if (OR_STATUS != SUCCESS)
+        return OR_STATUS;
+    
+    EXEC SQL FETCH D_CUR INTO : default_value;
+    
+    /*  Move data to output area  */
+    
+    V_FROMV (projection_id_out, default_value);
+    
+    EXEC SQL CLOSE D_CUR;
+    return SUCCESS;
+    }
+/* END:     */

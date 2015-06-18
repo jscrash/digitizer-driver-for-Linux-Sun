@@ -1,0 +1,389 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element MP_PRJ_PRMLST.PC*/
+/*  14    2-MAR-1992 14:45:18 JILL "(SPR 0) order by LITHOSTRAT code"*/
+/* *13    2-AUG-1991 17:19:19 MING "(SPR 0) fix plotfile overlay sql statement"*/
+/* *12   13-JUN-1991 18:08:23 MING "(SPR 0) fix seis_surface_data_type sql statement"*/
+/* *11   12-JUN-1991 14:59:24 PURNA "(SPR 0) create new table for lease attributes"*/
+/* *10   10-JUN-1991 17:48:41 MING "(SPR 0) fix a boo-boo from last checkin"*/
+/* *9     7-JUN-1991 09:55:21 MING "(SPR 0) add SEIS_SURFACE_DATA_TYPE "*/
+/* *8     6-JUN-1991 15:33:53 MING "(SPR 0) add PLOT FILE query"*/
+/* *7     5-DEC-1990 12:12:24 PURNA "(SPR 6261) restructure sql stmt for lynx_data_types"*/
+/* *6    19-NOV-1990 14:52:00 PURNA "(SPR 6171) add fault source case"*/
+/* *5    24-SEP-1990 17:11:08 GILLESPIE "Merge: Beta Deltas"*/
+/*  3B1  24-SEP-1990 17:10:25 GILLESPIE "Beta Deltas"*/
+/* *4    27-AUG-1990 14:09:46 PURNA "(SPR 0) bug fixes from ernie"*/
+/* *3    22-MAR-1990 18:35:02 PURNA "(SPR 0) add size of inited"*/
+/* *2    20-FEB-1990 10:14:30 PURNA "(SPR 5095) culture overlay"*/
+/* *1    19-JUN-1989 12:34:51 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element MP_PRJ_PRMLST.PC*/
+
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/******************************************************************************
+
+NAME:           mp_project_parm_list
+
+DESCRIPTION:    Load a TCP of project dependent parameter selections
+
+
+     Input:     key - the key structure
+
+     Output:    parm_list - A TCP of parameter selections
+                no_items - The number of items in parm_list
+
+     Status:    SUCCESS
+                MP_ORACLE_ERROR
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_mp.h"
+#include "esi_ho.h"
+#include "esi_md.h"
+#include "esi_tc.h"
+#include "esi_ts.h"
+#include "esi_qs.h"
+#include "esi_oracle.h"
+
+#define MAX_INDEX 11
+/* EXEC ORACLE OPTION (REBIND = NO); */
+
+publicdef INT mp_project_parm_list(key,parm_list,no_items)
+MD_KEY_INFO *key;
+CHAR ***parm_list;
+INT *no_items;
+{
+INT status;
+CHAR *str_new, *str_old, *punder;
+INT old_len, new_len;
+INT i;
+INT new_rec,nrec;
+PROJECT_NAME project_name;
+INT index;
+BOOL inited[MAX_INDEX] ;
+ORACLE_NAME map_projection;
+
+EXEC SQL BEGIN DECLARE SECTION;
+    static VARCHAR code_name[30][241];
+    VARCHAR sql_phrase[512];
+    VARCHAR map_proj[41];
+EXEC SQL END DECLARE SECTION;
+
+/****************************************************************************/
+
+for(i=0;i<MAX_INDEX;i++)
+    inited[i]=FALSE;
+
+status = SUCCESS;
+
+EXEC SQL WHENEVER SQLERROR GOTO error_label;
+
+qs_inq_c(QS_PROJECT_NAME, project_name, (INT *)0);
+
+
+/* * DETERMINE WHICH QUERY TO USE * */
+/* -------------------------------- */
+
+if (strcmp(key->val_arg, "LITHOSTRAT_CODES") == 0)
+    {
+    index = 0;
+    if (NOT inited[index])
+	{
+	sql_phrase.len = sprintf((char *)sql_phrase.arr, "%s%s%s",
+		"SELECT CODE FROM ", project_name, ".LITHOSTRAT_CODES");
+	EXEC SQL PREPARE S0 FROM :sql_phrase;
+	EXEC SQL DECLARE C0 CURSOR FOR S0;
+	inited[index] = TRUE;
+	}
+
+    EXEC SQL OPEN C0;
+    }
+
+else if (strcmp(key->val_arg, "SEIS_HOR_CODES") == 0)
+    {
+    index = 1;
+    if (NOT inited[index])
+	{
+	sql_phrase.len = sprintf((char *)sql_phrase.arr, "%s%s%s",
+		"SELECT HOR_CODE FROM ", project_name, ".SEIS_HOR_CODES");
+	EXEC SQL PREPARE S1 FROM :sql_phrase;
+	EXEC SQL DECLARE C1 CURSOR FOR S1;
+	inited[index] = TRUE;
+	}
+
+    EXEC SQL OPEN C1;
+    }
+
+else if (strcmp(key->val_arg, "SEIS_FAULT_CODES") == 0)
+    {
+    index = 2;
+    if (NOT inited[index])
+	{
+	sql_phrase.len = sprintf((char *)sql_phrase.arr, "%s%s%s",
+		"SELECT FAULT_CODE FROM ", project_name, ".SEIS_FAULT_CODES");
+	EXEC SQL PREPARE S2 FROM :sql_phrase;
+	EXEC SQL DECLARE C2 CURSOR FOR S2;
+	inited[index] = TRUE;
+	}
+
+    EXEC SQL OPEN C2;
+    }
+
+else if (strcmp(key->val_arg, "GRAPHIC_OBJECT_CODES") == 0)
+    {
+    index = 3;
+    if (NOT inited[index])
+	{
+	sql_phrase.len = sprintf((char *)sql_phrase.arr, "%s%s%s",
+		"SELECT NAME FROM ",project_name,
+		".GRAPHIC_OBJECT_CODES WHERE NAME != 'LAST_CODE_USED'");
+	EXEC SQL PREPARE S3 FROM :sql_phrase;
+	EXEC SQL DECLARE C3 CURSOR FOR S3;
+	inited[index] = TRUE;
+	}
+
+    EXEC SQL OPEN C3;
+    }
+else if (strcmp(key->val_arg, "LYNX_DATA_TYPES") == 0)
+    {
+    index = 4;
+    if (NOT inited[index])
+	{
+	sql_phrase.len = sprintf((char *)sql_phrase.arr,
+		"SELECT DATA_TYPE FROM %s.LYNX_DATA_TYPES \
+	WHERE NOT(DATA_TYPE LIKE '%s')",project_name,"C_%");
+	EXEC SQL PREPARE S4 FROM :sql_phrase;
+	EXEC SQL DECLARE C4 CURSOR FOR S4;
+	inited[index] = TRUE;
+	}
+
+    EXEC SQL OPEN C4;
+    }
+else if (strcmp(key->val_arg, "LYNX_CULTURE") == 0)
+    {
+    index = 5;
+    if (NOT inited[index])
+	{
+	sql_phrase.len = sprintf((char *)sql_phrase.arr,
+		"SELECT DATA_TYPE FROM %s.LYNX_DATA_TYPES",project_name);
+	EXEC SQL PREPARE S5 FROM :sql_phrase;
+	EXEC SQL DECLARE C5 CURSOR FOR S5;
+	inited[index] = TRUE;
+	}
+
+    EXEC SQL OPEN C5;
+    }
+else if (strcmp(key->val_arg, "SEISMIC_SOURCES") == 0)
+    {
+    index = 6;
+    if (NOT inited[index])
+        {
+        sql_phrase.len = sprintf((char *)sql_phrase.arr,
+                "SELECT DISTINCT SOURCE FROM %s.SEIS_SURFACE",project_name);
+        EXEC SQL PREPARE S6 FROM :sql_phrase;
+        EXEC SQL DECLARE C6 CURSOR FOR S6;
+        inited[index] = TRUE;
+        }
+
+    EXEC SQL OPEN C6;
+    }
+else if (strcmp(key->val_arg, "FAULT_SOURCES") == 0)
+    {
+    index = 7;
+    if (NOT inited[index])
+	{
+        sql_phrase.len = sprintf((char *)sql_phrase.arr,
+                "SELECT DISTINCT SOURCE FROM %s.SEIS_FAULT_TRACE",project_name);
+        EXEC SQL PREPARE S7 FROM :sql_phrase;
+	EXEC SQL DECLARE C7 CURSOR FOR S7;
+	inited[index] = TRUE;
+	}
+
+    EXEC SQL OPEN C7;
+    }
+
+else if (strcmp(key->val_arg, "COLOR_FILL_ATTRIBUTE") == 0)
+    {
+    index = 8;
+    if (NOT inited[index])
+        {
+        sql_phrase.len = sprintf((char *)sql_phrase.arr,
+            "SELECT DISTINCT ATTRIBUTE_NAME FROM %s.LEASE_ATTRIBUTES",
+          project_name);
+        EXEC SQL PREPARE S8 FROM :sql_phrase;
+        EXEC SQL DECLARE C8 CURSOR FOR S8;
+        inited[index] = TRUE;
+        }
+
+    EXEC SQL OPEN C8;
+    }
+
+else if (strcmp(key->val_arg, "PLOTFILE_NAME") == 0)
+    {
+    index = 9;
+    if (NOT inited[index])
+        {
+        sql_phrase.len = sprintf((char *)sql_phrase.arr,
+                "SELECT DISTINCT A.CREATOR_ANALYST || ':' || A.FINDER_FILENAME \
+		 FROM %s.FM_HDR A,%s.MAP_PLOTFILE_HDR B \
+		 WHERE \(B.PLOT_FILE_FORMAT LIKE 'CGM%%' OR \
+		 B.PLOT_FILE_FORMAT = 'GKSM' \) AND A.DELETE_FLAG = 'F' \
+		 AND A.FILE_ID = B.FILE_ID AND B.PROJECTION = :v1 AND \
+		 B.PLOT_LAYOUT_NAME IS NULL",
+		 project_name,project_name);
+        EXEC SQL PREPARE S9 FROM :sql_phrase;
+	EXEC SQL DECLARE C9 CURSOR FOR S9;
+        inited[index] = TRUE;
+        }
+    }
+else if (strcmp(key->val_arg, "SEIS_SURFACE_DATA_TYPE") == 0)
+    {
+    index = 10;
+    if (NOT inited[index])
+        {
+        sql_phrase.len = sprintf((char *)sql_phrase.arr,
+                "SELECT DISTINCT DISPLAY_NAME \
+		FROM %s.SEIS_SURFACE A, %s.SEIS_SURFACE_CODES B \
+		WHERE A.DATA_TYPE = B.DATA_TYPE \
+		ORDER BY DISPLAY_NAME",project_name,project_name);
+        EXEC SQL PREPARE S10 FROM :sql_phrase;
+        EXEC SQL DECLARE C10 CURSOR FOR S10;
+        inited[index] = FALSE;
+        }
+    EXEC SQL OPEN C10;
+    }
+else
+    {
+    status = FAIL;
+    goto finished;
+    }
+
+
+/* * BUILD THE STRING * */
+/* -------------------- */
+
+*no_items = 0;
+old_len = 0;
+str_old = NULL;
+new_rec = 0;
+
+while(OR_STATUS != OR_EOF)
+    {
+    switch (index)
+	{
+	case 0:
+	    EXEC SQL FETCH C0 INTO :code_name;
+	    break;
+
+	case 1:
+	    EXEC SQL FETCH C1 INTO :code_name;
+	    break;
+
+	case 2:
+	    EXEC SQL FETCH C2 INTO :code_name;
+	    break;
+
+	case 3:
+	    EXEC SQL FETCH C3 INTO :code_name;
+	    break;
+
+	case 4:
+	    EXEC SQL FETCH C4 INTO :code_name;
+	    break;
+
+        case 5:
+	    EXEC SQL FETCH C5 INTO :code_name;
+	    break;
+
+        case 6:
+	    EXEC SQL FETCH C6 INTO :code_name;
+	    break;
+
+        case 7:
+	    EXEC SQL FETCH C7 INTO :code_name;
+	    break;
+
+        case 8:
+	    EXEC SQL FETCH C8 INTO :code_name;
+	    break;
+
+        case 9:
+	    qs_inq_c (QS_MAP_PROJECTION,map_projection,(INT *)0);
+	    V_FROMC (map_proj,map_projection);
+            EXEC SQL OPEN C9 using :map_proj;
+	    EXEC SQL FETCH C9 INTO :code_name;
+	    break;
+
+        case 10:
+	    EXEC SQL FETCH C10 INTO :code_name;
+	    break;
+
+	}
+        
+    new_rec = OR_ROWCOUNT - new_rec;
+    for (nrec=0; nrec<new_rec; nrec++)
+        {
+        V_SETZERO(code_name[nrec]);
+        new_len = old_len + code_name[nrec].len +1;
+        str_new = (CHAR *)tc_zalloc(new_len);
+        if (str_old != (CHAR *)NULL)
+	    {
+            hoblockmove(str_old, str_new, old_len);
+	    }
+
+        V_V_TO_C((str_new+old_len),code_name[nrec]);
+        if(str_old != (CHAR *)NULL)
+	    {
+            tc_free(str_old);
+	    }
+
+        str_old = str_new;
+        old_len = new_len;
+        *no_items += 1;
+    }
+    new_rec = OR_ROWCOUNT;
+    if (OR_STATUS EQUALS OR_EOF)
+	{
+	break;
+	}
+}
+
+/* * BUILD AND SORT THE TCP * */
+/* -------------------------- */
+
+*parm_list = ts_make_tcp(str_old,*no_items);
+ts_tcp_sort(*parm_list);
+goto finished;
+
+
+/* * ORACLE ERROR * */
+/* ---------------- */
+
+error_label:
+status = OR_STATUS;
+
+
+/* * RETURN * */
+/* ---------- */
+
+finished:
+return status;
+}

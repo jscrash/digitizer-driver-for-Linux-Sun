@@ -1,0 +1,377 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_FORMS_CDLG.PC*/
+/*  6    19-NOV-1991 15:47:34 LOEBL "(SPR 0) Convert to sqlforms30"*/
+/* *5    25-JUL-1990 19:57:13 VINCE "(SPR 5644) Header Standardization"*/
+/* *4     4-DEC-1989 11:51:52 JULIAN "(SPR 100) New FORM_STRUCT for server, eliminate static variables."*/
+/* *3    24-OCT-1989 11:12:10 PURNA "(SPR 0) sl_free_tcp to ts_tcp_free"*/
+/* *2     6-SEP-1989 08:58:18 GORDON "(SPR 200) Gulf changes (August trip)"*/
+/* *1    19-JUN-1989 12:35:26 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_FORMS_CDLG.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#ifndef ESI_C_LIB_H
+
+#include "esi_c_lib.h"
+
+#endif
+
+#ifndef ESI_AM_H
+
+#include "esi_am.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_SL_H
+
+#include "esi_sl.h"
+
+#endif
+
+#ifndef ESI_NL_H
+
+#include "esi_nl.h"
+
+#endif
+
+#ifndef ESI_WI_H
+
+#include "esi_wi.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+
+#ifndef OR_FORMS_CDLG_RH
+
+#include "or_forms_cdlg.rh"
+
+#endif
+
+#ifndef ESI_HO_H
+
+#include "esi_ho.h"
+
+#endif
+
+#ifndef ESI_OR_FORMS_H
+
+#include "esi_or_forms.h"
+
+#endif
+
+#if USE_PROTOTYPES
+static INT or_load_form_cdlg (INT id, FORM_STRUCT *pForm);
+static INT or_form_cdlg_server (INT id, INT item, FORM_STRUCT *pForm);
+
+#else       /* no prototypes */
+static INT or_load_form_cdlg ();
+static INT or_form_cdlg_server ();
+
+#endif      /* of #if USE_PROTOTYPES */
+static CHAR OR_FORMS_RESOURCE[] = "OR_FORMS_CDLG";
+
+/* File Description ---------------------------------------------------------
+Overview:
+
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT or_select_form_app (VOIDPTR ptr);
+
+Private_Functions:
+    static INT or_load_form_cdlg (INT id, FORM_STRUCT *pForm);
+    
+    static INT or_form_cdlg_server (INT id, INT item, FORM_STRUCT *pForm);
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT or_select_form_app (VOIDPTR ptr);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    ptr             -(VOIDPTR)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT or_select_form_app (VOIDPTR ptr)
+#else
+publicdef INT or_select_form_app (ptr)
+VOIDPTR ptr;
+#endif
+    {
+    INT ndim = 2;
+    INT Units[2];
+    INT Data_Types[2];
+    INT Data_Widths[2];
+    INT Value_Inc[2];
+    INT id;
+    INT status;
+    FORM_STRUCT *pForm;
+    
+    am_declare ("Form Selection");
+    
+    status = am_open_workspace ("OR_FORM", AM_GLOBAL, (VOIDPTR *) & pForm);
+    if (status != SUCCESS)
+        {
+        status = am_define_workspace ("OR_FORM", AM_GLOBAL, sizeof(FORM_STRUCT),
+                                      (VOIDPTR *) & pForm);
+        strcpy (pForm->data_type, "WELLS");
+        }
+    Units[0] = Units[1] = 0;
+    Data_Types[0] = Data_Types[1] = CHAR_TYPE;
+    Data_Widths[0] = Data_Widths[1] = sizeof(FILENAME);
+    Value_Inc[0] = Value_Inc[1] = VALUE_LIST;
+    status = nl_init_nlist (&pForm->nlist, ndim, Units, (size_t *)Data_Widths,
+                            Data_Types, Value_Inc, 0);
+    status = am_define_resource (AM_DIALOG, OR_FORMS_RESOURCE, OR_FORMS_CDLG,
+                                 or_form_cdlg_server, &id, pForm);
+    
+    if (status == SUCCESS)
+        {
+        or_load_form_cdlg (id, pForm);
+        
+        if (strcmp (pForm->data_type, "WELLS") == 0)
+            {
+            wiscdv (id, CDLG_222_WELLS_RB, ON);
+            }
+        else if (strcmp (pForm->data_type, "SEISMIC") == 0)
+            {
+            wiscdv (id, CDLG_222_SEISMIC_RB, ON);
+            }
+        else
+            {
+            wiscdv (id, CDLG_222_OTHER_RB, ON);
+            }
+        wi_query_front_dialog (&pForm->front_dialog_id);
+        status = wi_open_dialog (id);
+        am_release_workspace ("DATABASE", AM_GLOBAL);
+        }
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Select an Oracle form.
+    
+Prototype:
+    static INT or_form_cdlg_server (INT id, INT item, FORM_STRUCT *pForm);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    id              -(INT)
+    item            -(INT)
+    pForm           -(FORM_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE to <or_forms_cdlg.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT or_form_cdlg_server (INT id, INT item, FORM_STRUCT *pForm)
+#else
+static INT or_form_cdlg_server (id, item, pForm)
+INT id;
+INT item;
+FORM_STRUCT *pForm;
+#endif
+    {
+    INT nselected;
+    INT selected[1];
+    UINT nitems;
+    INT status;
+    UINT Dim_List[1];
+    VOIDPTR Value_List[1];
+    FILENAME formname;
+    
+    switch (item)
+        {
+    case CDLG_222_WELLS_RB:
+        strcpy (pForm->data_type, "WELLS");
+        status = or_load_form_cdlg (id, pForm);
+        break;
+    case CDLG_222_SEISMIC_RB:
+        strcpy (pForm->data_type, "SEISMIC");
+        status = or_load_form_cdlg (id, pForm);
+        break;
+    case CDLG_222_OTHER_RB:
+        strcpy (pForm->data_type, "OTHER");
+        status = or_load_form_cdlg (id, pForm);
+        break;
+    case CDLG_222_EXECUTE:
+        status = wiqsel (id, CDLG_222_SELECTOR, &nselected, selected);
+        status = nl_set_current_point (pForm->nlist, selected[0], 1);
+        Dim_List[0] = 1;
+        Value_List[0] = (VOIDPTR)formname;
+        status = nl_get_points (pForm->nlist, 1, 1, Dim_List, Value_List, &nitems);
+        status = or_run_oracle_form (formname);
+        break;
+    case CDLG_222_DONE:
+        nl_free_nlist (pForm->nlist);
+        am_quit ();
+        /* put the old dialog back up in        */
+        /* front of the message window      */
+        /* wi_open_dialog (pForm->front_dialog_id); */
+        status = SUCCESS;
+        break;
+    default:
+        status = FAIL;
+        break;
+        }
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT or_load_form_cdlg (INT id, FORM_STRUCT *pForm);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    id              -(INT)
+    pForm           -(FORM_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PRIVATE to <or_forms_cdlg.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT or_load_form_cdlg (INT id, FORM_STRUCT *pForm)
+#else
+static INT or_load_form_cdlg (id, pForm)
+INT id;
+FORM_STRUCT *pForm;
+#endif
+    {
+    INT status;
+    CHAR **pnames;
+    UINT nitems;
+    UINT ndim;
+    UINT stroke_num;
+    UINT Dim_List[2];
+    VOIDPTR Value_List[2];
+    PROJECT_NAME project;
+    FILENAME test_name;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR text[255];
+    VARCHAR description[255];
+    VARCHAR stmt[255];
+    EXEC SQL END DECLARE SECTION;
+    
+    ndim = 2;
+    Dim_List[0] = 1, Value_List[0] = (VOIDPTR)text.arr;
+    Dim_List[1] = 2, Value_List[1] = (VOIDPTR)description.arr;
+    
+    status = nl_clear_nlist (pForm->nlist);
+    status = nl_start_stroke (pForm->nlist, &stroke_num);
+    
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT NAME,DESCRIPTION FROM ESI.ORACLE_FORMS WHERE TYPE = '%s' \
+UNION \
+SELECT NAME,DESCRIPTION FROM %s.ORACLE_FORMS WHERE TYPE = '%s' \
+ORDER BY 2"
+            , pForm->data_type, project, pForm->data_type);
+    
+    EXEC SQL PREPARE S1 FROM : stmt;
+    EXEC SQL DECLARE FORMS CURSOR FOR S1;
+    
+    EXEC SQL OPEN FORMS;
+    
+    EXEC SQL FETCH FORMS INTO : text,  : description;
+    
+    while (OR_STATUS == SUCCESS)
+        {
+        V_SETZERO (text);
+        V_SETZERO (description);
+        
+        /* lower case the form name
+           for operating systems that
+           care about such things. */
+        ts_sto_lower ((CHAR *)text.arr);
+        
+        status = ho_add_path ("ESI$FORMS", (CHAR *)text.arr, sizeof test_name,
+                              test_name);
+        
+        /* test that the script exists 
+           (or that we have read access) */
+        if ((status == SUCCESS) && (hoexists (test_name) == TRUE))
+            {
+            status = nl_add_points (pForm->nlist, 1, ndim, Dim_List, Value_List);
+            }
+        EXEC SQL FETCH FORMS INTO : text;
+        }
+    EXEC SQL CLOSE FORMS;
+    
+    status = nl_inq_nlist_int (pForm->nlist, NL_NLIST_NPOINTS, (INT *) & nitems);
+    status = sl_make_tcp (&pnames, pForm->nlist, 2);
+    status = wisselt (id, CDLG_222_SELECTOR, CDLG_222_VSCROLL, nitems, 1, pnames);
+    status = ts_tcp_free (pnames);
+    
+    return SUCCESS;
+    }
+/* END:     */

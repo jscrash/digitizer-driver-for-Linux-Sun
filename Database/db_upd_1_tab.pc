@@ -1,0 +1,268 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_UPD_1_TAB.PC */
+/* *6    27-AUG-1990 07:52:40 VINCE "(SPR 1) Fixed WHENEVER SQLERROR problem caused by CPRINT" */
+/* *5    14-AUG-1990 13:10:39 VINCE "(SPR 5644) Header Standardization" */
+/* *4    30-MAR-1990 17:04:34 GILLESPIE "(SPR 1) Fix some broken SQL logic for updating existing columns" */
+/* *3    16-FEB-1990 15:21:39 PURNA "(SPR 1) Fix logic to handle NOT NULL column additions" */
+/* *2    14-OCT-1989 16:00:17 VINCE "(SPR -1) mods for new update schem" */
+/* *1    14-OCT-1989 15:59:47 VINCE "update a single oracle table" */
+/* DEC/CMS REPLACEMENT HISTORY, Element DB_UPD_1_TAB.PC */
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_db.h"
+#include "esi_am.h"
+#include "esi_db_msg.h"
+#include "esi_db_err.h"
+#include "esi_mg.h"
+#include "esi_oracle.h"
+/* EXEC ORACLE OPTION (REBIND = NO); */
+EXEC ORACLE OPTION (RELEASE_CURSOR = YES);
+
+/* Function Description -----------------------------------------------------
+Description:
+    Routine to update a single table in ORACLE.
+
+Prototype:
+    publicdef INT dba_update_1_table(DB_ACCOUNT_STRUCT *db_account, 
+                                    TABLE_NAME table_name);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) db_account  -(DB_ACCOUNT_STRUCT *) Account structure.
+    (I) table_name  -(TABLE_NAME) Table name to update.
+
+Return Value/Status:
+    SUCCESS - Successful completion
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT dba_update_1_table (DB_ACCOUNT_STRUCT *db_account,
+                                  TABLE_NAME table_name) 
+#else
+publicdef INT dba_update_1_table (db_account, table_name)
+DB_ACCOUNT_STRUCT *db_account;
+TABLE_NAME table_name;
+#endif
+    {
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[1024];
+    VARCHAR tname[40];
+    VARCHAR cname[40];
+    VARCHAR ctype[10];
+    int width;
+    int scale;
+    VARCHAR nulls[10];
+    EXEC SQL END DECLARE SECTION;
+    
+    CHAR size[40];
+    CHAR info[200];
+    INT status;
+    
+    static CHAR add_fmt[128];
+    static CHAR mod_fmt[128];
+    static CHAR err_fmt[128];
+    static BOOL first_time = TRUE;
+    
+    if (first_time)
+        {
+        strcpy (add_fmt, mg_message (DB_TABLE_ADD_MSG));
+        strcpy (mod_fmt, mg_message (DB_TABLE_MODIFY_MSG));
+        strcpy (err_fmt, mg_message (DB_ORACLE_ERROR_FMT));
+        first_time = FALSE;
+        }
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    
+    V_FROMC (tname, table_name);
+    
+    /* if the table does not exist do a create and return   */
+    EXEC SQL SELECT NULL FROM USER_TABLES WHERE TABLE_NAME =  : tname;
+    
+    if (OR_STATUS == OR_EOF)
+        {
+        status = db_create_table (db_account, table_name);
+        return status;
+        }
+    /* the table does already exist; find any new columns to be added.      */
+    
+    EXEC SQL DECLARE NEW_COLUMNS CURSOR FOR SELECT CNAME, CTYPE, NVL (WIDTH, 0),
+        NVL (SCALE, 0), NVL (NULLS, 'NULL')
+    FROM ESI.FINDER_COLUMNS WHERE TNAME =  :
+                                          tname AND NOT EXISTS (
+                                                     SELECT NULL FROM USER_TAB_COLUMNS 
+                                                                WHERE TABLE_NAME =  :
+                                                                tname AND CNAME =
+                                                                COLUMN_NAME)
+    ORDER BY COLNUM;
+    
+    EXEC SQL OPEN NEW_COLUMNS;
+    
+    EXEC SQL FETCH NEW_COLUMNS INTO : cname,  : ctype,  : width,  : scale,  : nulls;
+    
+    while (OR_STATUS == SUCCESS)
+        {
+        V_SETZERO (cname);
+        V_SETZERO (ctype);
+        V_SETZERO (nulls);
+        
+        size[0] = NUL;
+        if ((width > 0) && (scale > 0))
+            sprintf (size, "(%d,%d)", width, scale);
+        else if (width > 0)
+            sprintf (size, "(%d)", width);
+        
+        stmt.len = sprintf ((CHAR *)stmt.arr, "ALTER TABLE %s ADD %s %s%s %s",
+                            table_name, cname.arr, ctype.arr, size, nulls.arr);
+        
+        EXEC SQL EXECUTE IMMEDIATE : stmt;
+        
+        printf (add_fmt, cname.arr, ctype.arr, size, nulls.arr);
+        putchar ('\n');
+        if (OR_STATUS != SUCCESS)
+            {
+            printf (err_fmt, OR_MESSAGE);
+            putchar ('\n');
+            /* handle the special case where the column to be added has a NOT NULL
+            qualifier and there exists rows in the database.  Try stripping the
+            NOT NULL qualifier and trying again, as it is less of an error to have
+            a column added that should not be null, as opposed to not having the column
+            available at all...
+            Since the NOT NULL qualifier is being removed, it will not be possible
+            to generate this error on the second pass
+            jgg */
+            if (OR_STATUS EQUALS - 1758)
+                {
+                stmt.len = sprintf ((char *)stmt.arr, "ALTER TABLE %s ADD %s %s%s",
+                                    table_name, cname.arr, ctype.arr, size);
+                EXEC SQL EXECUTE IMMEDIATE : stmt;
+                /* error -1430 is "column already exists in table" */
+                if (OR_STATUS != SUCCESS AND OR_STATUS != -1430)
+                    {
+                    printf (err_fmt, OR_MESSAGE);
+                    putchar ('\n');
+                    }
+                }
+            }
+        EXEC SQL FETCH NEW_COLUMNS INTO : cname,  : ctype,  : width,  : scale,
+            : nulls;
+        }
+    /*  now find any columns that need to be modified */
+    
+    EXEC SQL WHENEVER SQLERROR GOTO oops;
+    
+    EXEC SQL DECLARE UPD_COLUMNS CURSOR FOR SELECT CNAME, CTYPE, NVL (WIDTH, 0),
+        NVL (SCALE, 0), DECODE (NULLS, NULL, DECODE (NULLABLE, 'N', 'NULL', NULL),
+                                'NULL', DECODE (NULLABLE, 'N', 'NULL', NULL),
+                                'NOT NULL', DECODE (NULLABLE, 'Y', 'NOT NULL', NULL),
+                                ' ')
+    FROM ESI.FINDER_COLUMNS A,
+                                                                USER_TAB_COLUMNS B 
+                                                                WHERE TNAME =
+                                                                TABLE_NAME AND 
+                                                                TABLE_NAME =  :
+                                                                tname AND CNAME =
+                                                                COLUMN_NAME 
+                                                                AND (CTYPE !=
+                                                                     DATA_TYPE OR 
+                                                                     NVL (
+                                                                  WIDTH,
+                                                                0) !=
+                                                                   DECODE (
+                                                                   DATA_TYPE,
+                                                                       'NUMBER',
+                                                                  NVL (
+                                                                     DATA_PRECISION,
+                                                                       0),
+                                                                      'DATE',
+                                                                  0,
+                                                                  NVL (
+                                                                    DATA_LENGTH,
+                                                                       0)) OR 
+                                                                     NVL (
+                                                                        A.
+                                                                  SCALE,
+                                                                0) !=
+                                                                   DECODE (
+                                                                   DATA_TYPE,
+                                                                       'NUMBER',
+                                                                      NVL (
+                                                                         DATA_SCALE,
+                                                                           0),
+                                                                           0) OR 
+                                                                     NVL (
+                                                                       A.
+                                                                     NULLS,
+                                                                   'NULL') !=
+                                                                     DECODE (
+                                                                         NULLABLE,
+                                                                          'Y',
+                                                                          'NULL',
+                                                                      'N',
+                                                                   'NOT NULL', 'NULL'))
+    ORDER BY COLNUM;
+    
+    EXEC SQL OPEN UPD_COLUMNS;
+    
+    EXEC SQL FETCH UPD_COLUMNS INTO : cname,  : ctype,  : width,  : scale,  : nulls;
+    
+    while (OR_STATUS == SUCCESS)
+        {
+        V_SETZERO (cname);
+        V_SETZERO (ctype);
+        V_SETZERO (nulls);
+        
+        size[0] = NUL;
+        if ((width > 0) && (scale > 0))
+            sprintf (size, "(%d,%d)", width, scale);
+        else if (width > 0)
+            sprintf (size, "(%d)", width);
+        
+        stmt.len = sprintf ((CHAR *)stmt.arr, "ALTER TABLE %s MODIFY %s %s%s %s",
+                            table_name, cname.arr, ctype.arr, size, nulls.arr);
+        
+        EXEC SQL WHENEVER SQLERROR CONTINUE;
+        EXEC SQL EXECUTE IMMEDIATE : stmt;
+        
+        printf (mod_fmt, cname.arr, ctype.arr, size, nulls.arr);
+        putchar ('\n');
+        if (OR_STATUS != SUCCESS)
+            {
+            printf (err_fmt, OR_MESSAGE);
+            putchar ('\n');
+            }
+        EXEC SQL WHENEVER SQLERROR goto oops;
+        EXEC SQL FETCH UPD_COLUMNS INTO : cname,  : ctype,  : width,  : scale,
+            : nulls;
+        }
+    EXEC SQL CLOSE NEW_COLUMNS;
+    EXEC SQL CLOSE UPD_COLUMNS;
+    
+oops:
+    status = SUCCESS;
+    return status;
+    }
+/* END:     */

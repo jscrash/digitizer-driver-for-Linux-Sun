@@ -1,0 +1,169 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_MAIN.PC */
+/* *2     1-MAY-1991 21:53:47 KEE "(SPR -1) Landmark Import" */
+/* *1     1-MAY-1991 21:21:48 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_MAIN.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* TITLE : Landmark landmark_importer */
+
+/* START-HISTORY :
+   05/07/90	Rod Hanks	Original development.
+   END-HISTORY */
+
+/* START-CODE : */
+/*
+   **                                 INCLUDE FILES
+*/
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+#ifndef ESI_WI_H
+#include "esi_wi.h"
+#endif
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+#ifndef LD_LM2_IMP_WORK_H
+#include "ld_lm2_imp_work.h"
+#endif
+
+#include "ld_lm2_imp_main.rh"  
+
+/*  */
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+   **
+   **   ROUTINE:  ld_lm2_imp_server (application entry point)
+   **
+   **   DESCRIPTION:
+   **
+   **        Initialize application. Accesses the necessary
+   **        resource files and loads them into the MAC terminal.
+   **        The application manager is given the name of the function
+   **        for handling resource events.
+   **
+   **   PARAMETERS:
+   **
+   **        pointer        Required Application Manager BYTE pointer.
+   **                       It is not utilized in this application.
+   **
+*/
+
+#if USE_PROTOTYPES
+publicdef INT ld_lm2_imp_main (BYTE *pointer)
+#else
+publicdef INT ld_lm2_imp_main (pointer)
+BYTE *pointer;
+#endif
+{
+    LANDMARK_IMPSPACE     *workspace;
+    INT status;
+    PROJECTION_ID default_projection;
+    INT	    hiliteSel;
+    CHAR    text[30];
+    CHAR    buffer[30];
+
+    EXEC SQL BEGIN DECLARE SECTION;
+	VARCHAR userName[30];
+    EXEC SQL END DECLARE SECTION;
+/*
+				Oracle variable declarations.
+*/
+    EXEC SQL SELECT USER INTO :userName FROM DUAL;
+    if (OR_STATUS != SUCCESS) ld_show_error(OR_STATUS, "Selecting user name");
+
+    if (status = am_declare("Landmark Import 2d"))
+	wi_alert(0, "", "am_declare", mg_message(status));
+
+    if (status = am_define_workspace("LandMark Import 2d", AM_APPLICATION,
+                         sizeof(LANDMARK_IMPSPACE), (VOIDPTR *)&workspace))
+	wi_alert(0, "", "am_define_workspace", mg_message(status));
+
+    if (status = am_define_resource( AM_DIALOG, "LD_LM2_IMP_MAIN", LandMarkImp,
+                         ld_lm2_imp_server,
+                         &workspace->dialogID, workspace))
+	wi_alert(0, "", "am_define_resource", mg_message(status));
+
+    ct_projection_list(&workspace->projectionList, 
+		       &workspace->projectionCount, TRUE);
+
+    if (status = wi_set_selections(workspace->dialogID, LMP_PROJECTION, 
+                                LMP_PROJSCROLL, workspace->projectionCount,
+                                1, workspace->projectionList))
+        wi_alert(0, "", "wi_set_selections", mg_message(status));
+
+    status = ct_get_default_project(default_projection);
+    if (status != SUCCESS) wi_alert(0, "", "ct_get_default_project",
+                                                mg_message(status));
+
+    hiliteSel = 0;
+    while (hiliteSel < workspace->projectionCount
+        && strcmp(workspace->projectionList[hiliteSel], 
+                  default_projection) != 0)
+        {
+        hiliteSel++;
+        }
+    if (hiliteSel < workspace->projectionCount)
+        {
+        hiliteSel++;
+        status = wi_set_default_sel(workspace->dialogID, LMP_PROJECTION,
+                                        hiliteSel);
+        }
+/*
+                                        Set up the finder default projection
+                                        as the default in the selector box.
+*/
+    if (status = wi_set_default_button(workspace->dialogID, LMP_OKAY, 1))
+	wi_alert(0, "", "wi_set_default_button", mg_message(status));
+
+    if (status = wi_enable_dialog_item(workspace->dialogID, LMP_EDITHRZ, FALSE))
+	wi_alert(0, "", "wi_enable_dialog_item", mg_message(status));
+
+    strncpy(text, (CHAR *)userName.arr, userName.len);
+    text[userName.len] = 0;
+    if (strlen(text) > 6)
+	{
+	text[6] = 0;
+	}
+    ho_date_tag(buffer);
+    buffer[6] = 0;
+    strcat(text, buffer);
+    status = wi_set_dialog_text(workspace->dialogID, LMP_SOURCE, text);
+/*
+					Make a default source from the first
+					6 characters of the user name and the
+					MMDDYY.
+*/
+    if (status = wi_open_dialog(workspace->dialogID))
+	wi_alert(0, "", "wi_open_dialog", mg_message(status));
+
+    return SUCCESS;
+
+}
+

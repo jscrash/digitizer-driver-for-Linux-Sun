@@ -1,0 +1,196 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element FI_TERM.PC*/
+/* *7    27-JUN-1990 17:25:15 KEE "(SPR -1) New wi data structure using 2-D array"*/
+/* *6     6-MAR-1990 20:18:22 JULIAN "(SPR 6010) Dont call hocloseio from UNIX"*/
+/* *5     2-MAR-1990 11:14:04 PURNA "(SPR 6012) fix up USE_X logic to be IFDEF only"*/
+/* *4     6-FEB-1990 00:17:59 JULIAN "(SPR -1) X Version "*/
+/* *3    20-NOV-1989 09:41:26 JULIAN "(SPR 1) removed call to gbterm"*/
+/* *2    26-JUN-1989 10:44:28 GILLESPIE "(SPR 20) Fix castings"*/
+/* *1    19-JUN-1989 12:31:54 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element FI_TERM.PC*/
+
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1989
+           Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+            Finder Graphics Systems, Inc.
+            201 Tamal Vista Blvd
+            Corte Madera, CA  USA 94925
+            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+/* ************************************************************************
+
+   NAME:    FINDER_TERMINATE
+
+   AUTHOR:  W. A. Jaeck, 23-Apr-86
+
+   DESCRIPTION:
+
+    FINDER_TERMINATE terminates the Finder system.
+
+    After calling FINDER_TERMINATE, the caller should return.
+
+    FINDER_TERMINATE should be called only by the main() program, not
+    by application programs or their servers.
+
+   ************************************************************************ */
+
+#include "esi_c_lib.h"
+#ifndef ESI_WI_INT_X
+#include "esi_wi_int.x"
+#endif
+
+#ifdef USE_X
+#include "ansixt.h"
+#endif	
+
+#ifndef ESI_RS_H
+#include "esi_rs.h"
+#endif
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+#ifndef ESI_AM_STAT_H
+#include "esi_am_stat.h"
+#endif
+#ifndef ESI_CI_H
+#include "esi_ci.h"
+#endif
+#ifndef ESI_PS_H
+#include "esi_ps.h"
+#endif
+#ifndef ESI_GKS_H
+#include "esi_gks.h"
+#endif
+#ifndef ESI_WM_H
+#include "esi_wm.h"
+#endif
+#ifndef ESI_CONF_WS_H
+#include "esi_conf_ws.h"
+#endif
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_HO_H
+#include "esi_ho.h"
+#endif
+#ifndef ESI_FM_H
+#include "esi_fm.h"
+#endif
+
+/* ********************************************************************** */
+publicdef INT finder_terminate()
+/* ********************************************************************** */
+{
+    PROGNAME("FINDER_TERMINATE");
+    BOOL maconly;                 /* Macintosh only - no graphics device */
+    INT graphics_channel;         /* Physical channel # */
+    INT i;		
+    CONFIGURATION_WORKSPACE *c;   /* Pointer to CONFIGURATION workspace */
+
+    EXEC SQL BEGIN DECLARE SECTION;
+    EXEC SQL END DECLARE SECTION;
+
+/* ********************************************************************** */
+
+                                  /*   Become application manager. */
+
+    am_static()->application_id = 0;
+
+                                  /*   Access CONFIGURATION global workspace. */
+
+    am_open_workspace("CONFIGURATION",AM_GLOBAL,(VOIDPTR *)(VOIDPTR *)&c);
+
+                                  /*   Get graphics channel number. */
+
+    graphics_channel = c->graphics_channel;
+
+                                  /*   Get graphics terminal type. */
+
+    maconly = c->maconly;
+
+
+                                  /*   Terminate file management system. */
+
+    fm_sys_term();
+
+                                  /*   Terminate application manager. */
+
+    am_terminate();
+
+                                  /*   Terminate command interpreter. */
+
+    ci_term();
+
+                                  /*   Terminate Parameter Stack utility. */
+
+    ps_term();
+
+                                  /*   Terminate workstation interface. */
+
+    witerm();
+
+                                  /*   If there is a graphics device attached
+                                       for this session ... */
+
+    if (!maconly) {
+
+                                  /*   Terminate gks only if it was
+                                       initialized. */
+
+         ug_term_gks(graphics_channel);
+
+                                  /*   Unassign graphics terminal. */
+#if ! UNIX
+         hoclosio(graphics_channel);
+#endif
+         }
+
+                                  /*   Terminate resource manager. */
+
+    rsterm();
+
+				  /* clean out the temporary list tables */
+
+    EXEC SQL DELETE TEMP_GRAPHIC_OBJECT_LISTS 
+	    WHERE TEMP_PROCESS_ID = USERENV('SESSIONID');
+    EXEC SQL DELETE TEMP_MAP_LISTS
+	    WHERE TEMP_PROCESS_ID = USERENV('SESSIONID');
+    EXEC SQL DELETE TEMP_SEISMIC_LISTS
+	    WHERE TEMP_PROCESS_ID = USERENV('SESSIONID');
+    EXEC SQL DELETE TEMP_WELL_LISTS
+	    WHERE TEMP_PROCESS_ID = USERENV('SESSIONID');
+
+
+                               /*   Release from ORACLE. */
+	or_logout(TRUE);
+#ifdef USE_X
+    for (i=1; i<=wiv.dialog_menu_count; i++)   /* free dialogs and menus */
+      {	
+	wiz_delete_widget(i);
+      }	
+    tc_free(wiv.dialog_menu);
+
+    ts_tcp_free(wiv.text_list);   /* free text object list - tcp */
+
+    for (i=0; i<wiv.num_main_dialog_menu; i++)   /* free main dialogs and menus */
+      {	
+	XtUnmanageChild(wiv.main_dialog_menu[i]);
+        XtDestroyWidget(wiv.main_dialog_menu[i]);
+      }
+    tc_free(wiv.main_dialog_menu);
+#endif	
+
+    return SUCCESS;
+
+}

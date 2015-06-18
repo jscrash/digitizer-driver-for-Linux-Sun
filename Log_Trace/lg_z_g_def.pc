@@ -1,0 +1,106 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LG_Z_G_DEF.PC*/
+/* *4    12-JUL-1991 14:46:19 JANTINA "(SPR 0) Changed TOP_HORIZON to TOP_HORIZON_SQL_PHRASE and BASE_HORIZON to*/
+/*BASE_HORIZON_SQL_PHRASE"*/
+/* *3    23-AUG-1990 17:59:39 JESSIE "(SPR 1) fix include files"*/
+/* *2    13-AUG-1989 01:48:03 GILLESPIE "(SPR 5) Change WLL_LOG_TRACE_HDR to WELL_LOG_CURVE; always release cursor"*/
+/* *1    19-JUN-1989 12:33:51 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element LG_Z_G_DEF.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_qs.h"
+#include "esi_oracle.h"
+#include "esi_lg_zdefs.h"
+#include "esi_lg_err.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+    LG_ZONE_GET_DEFINITION receives a pointer to a table of pointers to 
+    the zone db cursors, and the zone name.  It returns the select phrases 
+    for the top and base horizons in the tops table.                                       */
+
+/*
+Prototype : publicdef INT lg_zone_get_definition (CHAR zone[], CHAR top_horizon[],
+                                                  CHAR base_horizon[]);
+
+Parameters : (indicate (I) / (O) / (M)for input / output / input-and-modified)
+zone-(CHAR[])
+top_horizon-(CHAR[])
+base_horizon-(CHAR[])
+Return Value / Status : SUCCESS-Successful completion.LG_ZONE_NOT_DEFINED Scope :
+PUBLIC Limitations / Assumptions :
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lg_zone_get_definition (CHAR zone[], CHAR top_horizon[],
+                                      CHAR base_horizon[])  
+#else
+publicdef INT lg_zone_get_definition (zone, top_horizon, base_horizon)
+CHAR zone[]; 
+CHAR top_horizon[];
+CHAR base_horizon[];
+#endif
+    {
+    INT status;
+    PROJECT_NAME project_name;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR select[512];
+    VARCHAR top_db[121];
+    VARCHAR base_db[121];
+    char *sel_zone;
+    EXEC SQL END DECLARE SECTION;
+    
+    sel_zone = zone;
+    qs_inq_c (QS_PROJECT_NAME, project_name, (INT *)0)
+        ;
+    
+    select.len = sprintf ((char *)select.arr, "SELECT TOP_HORIZON_SQL_PHRASE, \
+    BASE_HORIZON_SQL_PHRASE \
+    FROM %s.ZONE_DEFINITION WHERE ZONE = :sel_zone"
+                          , project_name);
+    
+    EXEC SQL WHENEVER SQLERROR GOTO errvec;
+    EXEC SQL WHENEVER NOT FOUND GOTO errvec;
+    
+    EXEC SQL PREPARE S1 FROM : select;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1 USING : sel_zone;
+    EXEC SQL FETCH C1 INTO : top_db,  : base_db;
+    
+    V_FROMV (top_horizon, top_db);
+    V_FROMV (base_horizon, base_db);
+    
+    status = SUCCESS;
+    goto way_out;
+    
+errvec:
+    status = LG_ZONE_NOT_DEFINED;
+    
+way_out:
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL CLOSE C1;
+    return status;
+    }
+/* END:     */

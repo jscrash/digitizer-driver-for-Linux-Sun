@@ -1,0 +1,197 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_DEL_OBJ.PC*/
+/* *4    15-OCT-1990 16:51:18 GILLESPIE "(SPR 1000) Merge Ernie deltas"*/
+/* *3    24-SEP-1990 16:09:47 GILLESPIE "Beta Deltas"*/
+/* *2    18-JUL-1990 07:24:56 GILLESPIE "(SPR 1) Add esi_dr_err.h; change to DR_OBJECT_TYPE_T"*/
+/* *1    19-JUN-1989 12:30:58 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element DR_DEL_OBJ.PC*/
+
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/******************************************************************************
+
+NAME:          	dr_delete_object
+
+DESCRIPTION:   	Deletes the current graphic object.
+		The object is deleted from WM tree, associated space is freed,
+		and all associated rows are deleted from database if the object
+		exists in the database.
+
+
+     Input:    	dr_data, where dr_data->current_object_key identifies the
+     			dbase key of object to be deleted.
+
+     Output:   	None
+
+     Status:   	SUCCESS 	if all deletes effected,
+		OR_STATUS 	if Oracle error encountered,
+		status		from dr_delete_element if database delete failed.
+
+******************************************************************************/
+
+#include    "esi_dr.h"
+#include    "esi_am.h"
+#include    "esi_qs.h"
+#include    "esi_gks.h"
+#include    "esi_oracle.h"
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+
+#include "esi_dr_err.h"
+#include "esi_dr_msg.h"
+
+#if USE_PROTOTYPES
+publicdef INT dr_delete_object( DR_DATA *dr_data )
+#else
+publicdef INT dr_delete_object( dr_data )
+DR_DATA *dr_data;
+#endif
+{
+    INT status = SUCCESS;
+    PROJECT_NAME project;
+    CHAR mg_text[71];
+    INT nlen;
+    DR_OBJECT_TYPE_T type_code;
+    INT main_wkid = MAIN_WKID;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+        int item_id;
+        VARCHAR item_class[10];
+        VARCHAR sqlstmt[250];
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO sqlerrorpt;
+
+ 			     /*	     Delete the associated lines/text/...
+			     	     from database only if object exists in
+			     	     database				    */
+
+
+    if ( !dr_data->new_object )
+    {
+	qs_inq_c(QS_PROJECT_NAME,project,&nlen);
+
+			     /*	 Setup for delete of the graphics object    */
+			     /*	 table					    */
+	
+	sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"DELETE FROM %s.GRAPHIC_OBJECTS WHERE OBJECT_ID = %d",
+	    project, dr_data->current_object_key);
+	EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+	
+			     /*	 Setup a cursor for the			    */
+			     /*	 graphic_object_correlations		    */
+	
+	sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT ITEM_ID,ITEM_CLASS FROM %s.GRAPHIC_OBJECT_CORRELATIONS \
+WHERE OBJECT_ID = %d",
+	    project, dr_data->current_object_key);
+	EXEC SQL PREPARE S2 FROM :sqlstmt;
+	EXEC SQL DECLARE GO_CUR CURSOR FOR S2;
+	    
+			     /*	 Delete each sub-object from database	    */
+	
+	EXEC SQL OPEN GO_CUR;
+	EXEC SQL WHENEVER NOT FOUND GOTO done;
+
+	FOREVER
+	{
+	    EXEC SQL FETCH GO_CUR INTO :item_id,:item_class;
+	    V_SETZERO(item_class);
+	    if(strcmp((char *)item_class.arr,"LINE") EQUALS 0)
+	    {
+		type_code = DR_LINE_OBJECT;
+	    }
+	    else if(strcmp((char *)item_class.arr,"TEXT") EQUALS 0)
+	    {
+		type_code = DR_TEXT_OBJECT;
+	    }
+	        
+			     /*	     Locate the element in the element list
+			     	     in order to determine if element is in
+			     	     the database			    */
+
+	
+	    status = dr_find_element( dr_data, item_id, 0, type_code);
+            if (status >= 0 AND !dr_data->new_object)
+            {
+            	status = dr_delete_element( dr_data->current_object_type,
+					    dr_data->current_object_key,
+					    item_id, 
+					    type_code,
+					    dr_data->current_marker,
+					    dr_data->current_line->line_name );
+	    }    	 				
+	}
+
+done:
+	EXEC SQL CLOSE GO_CUR;
+	    
+			     /*	     Commit or rollback all the deletes	    */
+
+	if (status EQUALS SUCCESS)
+	{
+	    dr_commit( TRUE );		
+	    sprintf(mg_text, mg_message(DR_OBJECT_DELETED),
+				    dr_data->current_object_key);
+	    am_message(AM_DIALOG, mg_text);
+
+			     /*	     Delete from Window manager tree	    */
+
+	    wmgclose( dr_data->current_object );
+	    status = wmgdelete( dr_data->current_object );
+	    if (status != SUCCESS)
+		{		
+		sprintf(mg_text, mg_message(DR_GROUP_NOT_DELETED),
+			    status,
+			    dr_data->current_object_key,
+			    dr_data->current_object );
+       		am_message(AM_DIALOG, mg_text);
+		}
+	    else
+		{
+	    	wm_grsgwk( main_wkid ); /*	Redraw to erase			    */
+		}
+			
+			     /*	     Release all associated space -- set    */
+			     /*	     state to no current object		    */
+			
+	    dr_reset_object( dr_data );
+	}
+	else
+	{
+	    dr_commit( FALSE );		
+	    sprintf(mg_text, mg_message(DR_OBJECT_NOT_DELETED),
+		dr_data->current_object_key);
+	    am_message(AM_DIALOG, mg_text);
+	}
+    }
+	
+    return status;
+
+sqlerrorpt:
+    strncpy(mg_text, OR_MESSAGE, 70);
+    mg_text[70] = 0;
+    am_message(AM_STATUS, (char *)sqlstmt.arr);
+    am_message(AM_STATUS, mg_text);
+    return( OR_STATUS );
+}

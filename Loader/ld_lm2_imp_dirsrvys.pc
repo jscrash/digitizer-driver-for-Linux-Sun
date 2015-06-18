@@ -1,0 +1,547 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_DIRSRVYS.PC */
+/* *2     1-MAY-1991 21:53:20 KEE "(SPR -1) Landmark Import" */
+/* *1     1-MAY-1991 21:18:15 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_DIRSRVYS.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* ************************************************************************
+
+   NAME: LD_LM2_IMP_DIRSRVYS.PC
+
+   DATE:   December 18th, 1990
+   DESCRIPTION: Load directional survey information (well, dx, dy, tvd, md)
+		from a file output by Landmark.
+
+   ************************************************************************ */
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+#ifndef LD_LM2_IMP_WORK_H
+#include "ld_lm2_imp_work.h"
+#endif
+
+#if USE_PROTOTYPES
+publicdef INT ld_lm2_imp_dirsrvys (FILENAME fileName, PROJECT_NAME project,
+			BOOL convertProj, PROJECTION_STRUCTURE *defaultProj, 
+                        PROJECTION_STRUCTURE *inputProj, CHAR *source, 
+			INT overwrite)
+#else
+publicdef INT ld_lm2_imp_dirsrvys (fileName, project, 
+			convertProj, defaultProj, inputProj,
+			source, overwrite)
+FILENAME	      fileName;
+PROJECT_NAME	      project;
+BOOL	              convertProj;
+PROJECTION_STRUCTURE *defaultProj;
+PROJECTION_STRUCTURE *inputProj;
+CHAR		     *source;
+INT		      overwrite;
+#endif
+{
+/****************************************************************************
+
+	V a r i a b l e   D e c l a r a t i o n s .
+
+******************************************************************************/
+
+  INT 	   status;
+  FILE	   *spfile;
+  CHAR	  *inputWell;
+  CHAR	   inputUWI[50];
+  CHAR	   lastWell[80];
+  INT      moreFlag;
+  BOOL	   skipOne;
+  static first_time = TRUE;
+
+#ifdef USE_OLDPARSING
+  CHAR	  *inputDx;
+  CHAR	  *inputDy;
+  CHAR	  *inputMd;
+  CHAR	  *inputTvd;
+  CHAR	  *pos;
+  CHAR	   dummy[255];
+#else
+    LD_SCANNER_STRUCT ld_scan;	
+#endif
+
+/*
+				General variable declarations.
+*/
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[400];
+        VARCHAR thisUWI[21];
+        VARCHAR thisSource[13];
+	int     survey_no;
+	int     nodeID;
+	double  thisMd;
+	double  thisDx;
+	double  thisDy;
+	double  thisTvd;	
+    EXEC SQL END DECLARE SECTION;
+/*
+				Oracle variable declarations.
+*/
+/****************************************************************************
+
+	I n i t i a l i z a t i o n .
+
+******************************************************************************/
+
+  if (first_time)
+    {
+	    sqlstmt.len = sprintf((char *)sqlstmt.arr, 
+"SELECT UWI FROM %s.WELL_HDR \
+WHERE UWI = :thisUWI", project);
+	    EXEC SQL PREPARE S1 FROM :sqlstmt;
+            EXEC SQL DECLARE C1 CURSOR FOR S1;
+            if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s1");
+
+	    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"INSERT INTO %s.WELL_HDR \
+(UWI, NODE_ID, PRIMARY_SOURCE, DEVIATION_FLAG) \
+VALUES (:thisUWI, :nodeID, '%s', 'Y')", project, source);
+	    EXEC SQL PREPARE S2 FROM :sqlstmt;
+            if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s2");
+
+	    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"UPDATE %s.WELL_HDR \
+SET DEVIATION_FLAG = 'Y' \
+WHERE UWI = :thisUWI ", project);
+	    EXEC SQL PREPARE S3 FROM :sqlstmt;
+            if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s3");
+
+	    sqlstmt.len = sprintf((char *)sqlstmt.arr, 
+"SELECT UWI, SURVEY_NO, SOURCE FROM %s.WELL_DIR_SRVY_HDR \
+WHERE UWI = :thisUWI", project);
+	    EXEC SQL PREPARE S4 FROM :sqlstmt;
+            EXEC SQL DECLARE C4 CURSOR FOR S4;
+            if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s4");
+
+	    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"INSERT INTO %s.WELL_DIR_SRVY_HDR \
+(UWI, SOURCE, SURVEY_NO, SURVEY_DATE, \
+SURVEY_REMARKS, SURVEY_DIGITAL_REF, SURVEY_DIGITAL_REF_VOLUME) \
+VALUES (:thisUWI, :thisSource, 1, SYSDATE, \
+'Survey is imported from Landmark', 1, :thisUWI)", project);
+	    EXEC SQL PREPARE S5 FROM :sqlstmt;
+            if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s5");
+
+	    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"UPDATE %s.WELL_DIR_SRVY_HDR \
+SET SURVEY_NO = :survey_no, SURVEY_DIGITAL_REF = :survey_no, \
+SURVEY_DATE = SYSDATE \
+WHERE UWI = :thisUWI AND SOURCE = :thisSource", project);
+	    EXEC SQL PREPARE S6 FROM :sqlstmt;
+            if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s6");
+
+	    sqlstmt.len = sprintf((char *)sqlstmt.arr, 
+"SELECT UWI FROM %s.WELL_DIR_SRVY_PTS \
+WHERE UWI = :thisUWI AND SOURCE = :thisSource \
+AND MD = :thisMd", project);
+	    EXEC SQL PREPARE S7 FROM :sqlstmt;
+            EXEC SQL DECLARE C7 CURSOR FOR S7;
+            if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s7");
+
+	    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"INSERT INTO %s.WELL_DIR_SRVY_PTS \
+(UWI, SOURCE, SURVEY_NO, MD, DX, DY, TVD) \
+VALUES (:thisUWI, :thisSource, 1, :thisMd, :thisDx, :thisDy, :thisTvd)", project);
+	    EXEC SQL PREPARE S8 FROM :sqlstmt;
+            if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s8");
+
+	    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"UPDATE %s.WELL_DIR_SRVY_PTS \
+SET SURVEY_NO = :survey_no, DX = :thisDx, DY = :thisDy, TVD = :thisTvd \
+WHERE UWI = :thisUWI AND SOURCE = :thisSource \
+AND MD = :thisMd", project);
+	    EXEC SQL PREPARE S9 FROM :sqlstmt;
+            if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s9");
+
+	    sqlstmt.len = sprintf((char *)sqlstmt.arr, 
+"SELECT UWI FROM %s.WELL_DIR_SRVY_PTS \
+WHERE UWI = :thisUWI AND \
+SOURCE = :thisSource AND \
+DX BETWEEN :thisDx-0.002 AND :thisDx+0.002 AND \
+DY BETWEEN :thisDy-0.002 AND :thisDy+0.002 AND \
+MD = :thisMd AND TVD = :thisTvd", project);
+	    EXEC SQL PREPARE S10 FROM :sqlstmt;
+            EXEC SQL DECLARE C10 CURSOR FOR S10;
+            if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s10");
+
+      first_time = FALSE;
+    }
+
+    spfile = ho_open(fileName, "r", NULL);
+    if (spfile == (FILE *)NULL)
+      {
+	printf("Unable to open directional survey file named %s", fileName);
+      }
+    else
+      {
+        printf("loading well directional surveys from %s\n", fileName);
+	lastWell[0] = 0;
+#ifdef USE_OLDPARSING
+	pos = fgets(dummy, 255, spfile); /* get the first line - header */
+	ts_sto_upper(pos);
+	if (ts_like(pos,"*EV_MD*",'*') == FALSE || ts_like(pos,"*EV_TD*",'*') == FALSE)
+          {
+             printf("Import abort: Invalid header format of %s\n", fileName);
+             return;
+          }
+
+/*****************************************************************************
+
+	M a i n   L o g i c .
+
+*****************************************************************************/
+
+	moreFlag = TRUE;
+        while (moreFlag)
+          {
+	    do
+	      {
+		pos = fgets(dummy, 255, spfile);
+	      }
+	    while (pos != (CHAR *) 0 && strlen(dummy) < 5);
+
+	    if (pos == (CHAR *) 0)
+	      {
+		moreFlag = FALSE;
+	      }
+/*
+				Get next line from file, if any, and
+				set a flag when no more.  We want to
+				fall thru the loop one last time in
+				this case in order to output the last
+				line.
+*/
+	    if (moreFlag)
+	      {
+	        inputWell = pos;
+	        pos += (21-1+1);
+                *pos = 0;
+                inputWell = ts_snowhite(inputWell);
+	        pos++;
+	        while (*pos == ' ')
+		  {
+		    pos++;
+		  }
+	        inputDx = pos;
+	        while (*pos != ' ' && *pos != 0)
+		  {
+		    pos++;
+		  }
+	        *pos = 0;
+	        pos++;
+	        while (*pos == ' ')
+		  {
+		    pos++;
+		  }
+	        inputDy = pos;
+	        while (*pos != ' ' && *pos != 0)
+		  {
+		    pos++;
+		  }
+	        *pos = 0;
+	        pos++;
+	        while (*pos == ' ')
+		  {
+		    pos++;
+		  }
+	        inputTvd = pos;
+	        while (*pos != ' ' && *pos != 0)
+		  {
+		    pos++;
+		  }
+		if (*pos != 0)
+		  {	
+  	            *pos = 0;
+	            pos++;
+	            while (*pos == ' ')
+		      {
+		        pos++;
+		      }
+	            inputMd = pos;
+	            while (*pos != ' ' && *pos != 0)
+		      {
+		        pos++;
+		      }
+	            *pos = 0;
+                  }
+	        else /* no md data - use tvd then */
+	          {
+		    inputMd = inputTvd;
+                  }
+   	        if (strlen(inputWell) == 0
+	           || strlen(inputDx) == 0
+	           || strlen(inputDy) == 0
+	           || strlen(inputTvd) == 0
+	           || strlen(inputMd) == 0)
+		  {
+		    skipOne = TRUE;
+		    printf("Incorrectly formatted line being skipped...\n\
+%s %s %s %s %s", inputWell, inputDx, inputDy, inputTvd, inputMd);
+		  }
+		else
+		  {
+		    skipOne = FALSE;
+                  }
+	      }
+	    if (moreFlag == TRUE && skipOne == FALSE && 
+		strcmp(lastWell, inputWell) != 0)
+#else
+        tc_zeroes(&ld_scan, sizeof(LD_SCANNER_STRUCT));	
+        ld_scan.in.fix_format = TRUE;
+	ld_scan.in.snowhite = TRUE;
+        ld_scan.in.num_pair = 5;
+        ld_scan.in.start[0] = 1;     ld_scan.in.end[0] = 21;
+        ld_scan.in.start[1] = 22;    ld_scan.in.end[1] = 35;
+        ld_scan.in.start[2] = 37;    ld_scan.in.end[2] = 49;
+        ld_scan.in.start[3] = 51;    ld_scan.in.end[3] = 60;
+        ld_scan.in.start[4] = 62;    ld_scan.in.end[4] = 71;
+	ld_scan_line(spfile, &ld_scan);
+	ts_sto_upper(ld_scan.line);
+	if (ts_like(ld_scan.line,"*EV_MD*",'*') == FALSE || 
+	    ts_like(ld_scan.line,"*EV_TD*",'*') == FALSE)
+          {
+             printf("Import abort: Invalid header format of %s\n", fileName);
+             return;
+          }
+	while (ld_scan.eof == FALSE)
+	  {
+	    ld_scan_line(spfile, &ld_scan);
+	    /* check all items are there or empty line  */
+	    if (ld_scan.out_nitems == 0)
+	      {
+		continue;
+              }
+            else if ((ld_scan.out_nitems != ld_scan.in.num_pair AND 
+                      ld_scan.out_nitems != (ld_scan.in.num_pair-1)) OR
+		     ld_scan.out[0].parmtype != LD_STRING OR	  
+		     ld_scan.out[1].parmtype != LD_DOUBLE OR
+		     ld_scan.out[2].parmtype != LD_DOUBLE OR
+		     ld_scan.out[3].parmtype != LD_DOUBLE OR
+		     (ld_scan.out_nitems == ld_scan.in.num_pair AND
+	 	      ld_scan.out[4].parmtype != LD_DOUBLE))
+	      {
+		printf("Invalid line format - following line will be skipped\n ");
+		printf("%s",ld_scan.line);
+		continue;
+              }
+	    else 
+	      {
+		moreFlag = !ld_scan.eof;
+	        inputWell = ld_scan.out[0].parmval.cval;
+	        thisDx = ld_scan.out[1].parmval.dbval;
+	        thisDy = ld_scan.out[2].parmval.dbval;
+	        thisTvd = ld_scan.out[3].parmval.dbval;
+		thisMd = (ld_scan.out_nitems == ld_scan.in.num_pair) ?
+		             ld_scan.out[4].parmval.dbval :
+				thisTvd;
+              }
+	    if (moreFlag == TRUE && strcmp(lastWell, inputWell) != 0)
+#endif
+	      { /* if a new well encounter */
+		inputUWI[0] = 0;
+		skipOne = FALSE;
+   	        status = ld_lm2_get_uwi(project, inputWell, inputUWI);
+	    	if (status != SUCCESS)
+		  {
+		    printf("Well %s not in database, top not loaded\n", inputWell);
+		  }
+	        else
+		  {
+	            V_FROMC(thisUWI, inputUWI);
+  		    strcpy(lastWell, inputWell);
+      	            EXEC SQL OPEN C1 USING :thisUWI;
+                    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "open s1");
+                    EXEC SQL FETCH C1 INTO :thisUWI;
+                    /* insert/update deviation_flag of well_hdr */
+                    if (OR_STATUS == SUCCESS) 
+                      {
+                        EXEC SQL EXECUTE S3 USING :thisUWI;
+                        if (OR_STATUS != 0) ld_show_error(OR_STATUS, "execute s3");                      
+                      }
+                    else
+                      {
+			EXEC SQL SELECT ESI.LYNX_ID_SEQ.NEXTVAL 
+			INTO :nodeID FROM DUAL;
+    		        if (OR_STATUS != 0) 
+			  {
+			    ld_show_error(OR_STATUS, "Node ID nextval");
+			  }
+                        EXEC SQL EXECUTE S2 USING :thisUWI, :nodeID;
+                        if (OR_STATUS != 0) ld_show_error(OR_STATUS, "execute s2");
+                      }
+		    EXEC SQL COMMIT WORK;
+		    EXEC SQL CLOSE C1;
+                    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "close s1");
+
+		    survey_no = 0;
+      	            EXEC SQL OPEN C4 USING :thisUWI;
+                    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "open s4");
+                    EXEC SQL FETCH C4 INTO :thisUWI, :survey_no, :thisSource;
+	            V_SETZERO(thisSource);
+	            V_SETZERO(thisUWI);
+		    if (thisSource.len != 0 AND
+			strcmp(source, (CHAR *)thisSource.arr) != 0)
+		      {
+			printf("Source %s of Well %s directional survey \
+already existed, not overwritten\n",
+(CHAR *)thisSource.arr, (CHAR *)thisUWI.arr);
+			skipOne = TRUE;
+		      }
+                    else 
+	              {
+  	                V_FROMC(thisSource, source);
+			if (OR_STATUS == SUCCESS) 
+                          {
+			    if (overwrite == TRUE) /* update survey_no if 
+						      overwrite flag is true */
+			      {
+			        survey_no++;
+                                EXEC SQL EXECUTE S6 USING :survey_no, 
+						      :survey_no, 
+						      :thisUWI, :thisSource;
+                                if (OR_STATUS != 0) 
+				  ld_show_error(OR_STATUS, "execute s6");
+ 		                EXEC SQL COMMIT WORK;
+                              }
+                          }
+                        else
+                          {
+                            EXEC SQL EXECUTE S5 USING :thisUWI, :thisSource, 
+				                      :thisUWI;
+                            if (OR_STATUS != 0) 
+			      ld_show_error(OR_STATUS, "execute s5");
+  	                    EXEC SQL COMMIT WORK;
+	                  }
+                      }
+		    EXEC SQL CLOSE C4;
+                    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "close s4");
+                  }
+	      }
+
+#ifdef USE_OLDPARSING
+	    if (moreFlag == TRUE && skipOne == FALSE && inputUWI[0] != 0)
+	      {
+		sscanf(inputDx, "%lf", &thisDx);
+		sscanf(inputDy, "%lf", &thisDy);
+		sscanf(inputMd, "%lf", &thisMd);
+		sscanf(inputTvd, "%lf", &thisTvd);
+#else
+	    if (moreFlag == TRUE && skipOne == FALSE && inputUWI[0] != 0)
+	      {
+#endif
+	        if (convertProj)
+		  {
+		    ct_transform_point(thisDx, thisDy, inputProj, 
+				       &thisDx, &thisDy, defaultProj);
+		  }
+      	        EXEC SQL OPEN C10 USING :thisUWI, :thisSource, :thisDx, :thisDx,
+					:thisDy, :thisDy, :thisMd, :thisTvd;
+                if (OR_STATUS != 0) ld_show_error(OR_STATUS, "open s10");
+                EXEC SQL FETCH C10 INTO :thisUWI;
+		status = OR_STATUS;
+		EXEC SQL CLOSE C10;
+                if (OR_STATUS != 0) ld_show_error(OR_STATUS, "close s10");
+
+      	        EXEC SQL OPEN C7 USING :thisUWI, :thisSource, :thisMd;
+                if (OR_STATUS != 0) ld_show_error(OR_STATUS, "open s7");
+                EXEC SQL FETCH C7 INTO :thisUWI;
+                if (status != SUCCESS) /* no same md, dx, dy, tvd exist for a uwi */
+                  {
+		    if (OR_STATUS == SUCCESS)
+		      {
+		        if (overwrite == TRUE) 
+		          {
+                            EXEC SQL EXECUTE S9 USING :survey_no, :thisDx, :thisDy,
+					              :thisTvd, :thisUWI, 
+						      :thisSource, :thisMd;
+                            if (OR_STATUS != 0) ld_show_error(OR_STATUS, "execute s9");
+ 		            EXEC SQL COMMIT WORK;
+                         }
+                      }
+                    else
+                      {
+                         EXEC SQL EXECUTE S8 USING :thisUWI, :thisSource, 
+						   :thisMd,
+						   :thisDx, :thisDy,
+					           :thisTvd;
+                        if (OR_STATUS != 0 && OR_STATUS != -1) 
+                          {
+			    ld_show_error(OR_STATUS, "execute s8");
+                          }
+			else if (OR_STATUS == -1)
+		          {	
+			    if (overwrite == FALSE)
+			      {
+#ifdef USE_OLDPARSING
+			        printf("Different DX, DY or TVD already exist for MD %s, not overwritten\n",inputMd);
+#else
+			        printf("Different DX, DY or TVD already exist for MD %.1f, not overwritten\n",thisMd);
+#endif			      
+			      }
+			    else
+			      {
+                                 EXEC SQL EXECUTE S9 USING :survey_no, :thisDx, :thisDy,
+				   	                   :thisTvd, :thisUWI, 
+						           :thisSource, :thisMd;
+                                 if (OR_STATUS != 0) ld_show_error(OR_STATUS, "execute s9");
+                                 EXEC SQL COMMIT WORK;
+
+			     }
+                          }
+			else /* success */
+			  {
+                            EXEC SQL COMMIT WORK;
+			  }
+                      }
+		    EXEC SQL CLOSE C7;
+                    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "close s7");
+                  }
+	      }		
+	  }
+     }
+/*****************************************************************************
+
+	C l e a n   U p   A n d   E x i t .
+
+******************************************************************************/
+  if (spfile != (FILE *)NULL) fclose(spfile);
+  return SUCCESS;
+}
+
+
+
+
+
+

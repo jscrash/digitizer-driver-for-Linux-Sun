@@ -1,0 +1,3204 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element PF_MANAGER.PC */
+/* *16    9-OCT-1991 10:15:57 MING "(SPR 4243) check expiration_date when getting the file list" */
+/* *15   28-AUG-1991 15:56:35 MING "(SPR 0) I just checkin no-change code in last checkin, this is the real one" */
+/* *14   28-AUG-1991 15:47:55 MING "(SPR 0) add am_quit when there are no existing plot files" */
+/* *13   21-AUG-1991 16:27:28 MING "(SPR 0) do not get plotters list after choose PLOT " */
+/* *12   21-AUG-1991 12:44:38 MING "(SPR 0) revert default plotter and plot layout to use project_defualts and add xsect info" */
+/* *11    7-AUG-1991 11:01:17 MING "(SPR 0) put messages in FINDER_MESSAGES,use logical symbol for plotter and plot layouts" */
+/* *10   23-JUL-1991 13:57:36 MING "(SPR 0) get available plotters for the file selected when the dialog box first bring up" */
+/* *9    18-JUL-1991 15:07:33 MING "(SPR 0) set default for fname selector and the way to handle the plotter list" */
+/* *8    11-JUL-1991 14:01:13 MING "(SPR 0) do not bring up dialog box if there is no plot file " */
+/* *7     8-JUL-1991 15:34:53 MING "(SPR 0) change Plotfile to Plot File " */
+/* *6    18-JUN-1991 10:58:22 MING "(SPR 0) do not dialog option menu before it is being created" */
+/* *5    12-JUN-1991 16:05:20 MING "(SPR 0) fix a PRIOR_GKS dependent problem" */
+/* *4     7-JUN-1991 13:48:53 MING "(SPR 0) change #if PRIOR_GKS to #ifdef PRIOR_GKS" */
+/* *3     6-JUN-1991 15:41:25 MING "(SPR 0) new verison" */
+/* *2     6-JUN-1991 15:37:45 MING "(SPR 0) new checkin" */
+/* *1     6-JUN-1991 15:35:24 MING "PLOT FILE MANAGER" */
+/* DEC/CMS REPLACEMENT HISTORY, Element PF_MANAGER.PC */
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND
+MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+			Finder Graphics Systems, Inc.
+			201 Tamal Vista Blvd
+			Corte Madera, CA  USA 94925
+			(415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+
+#ifndef ESI_GTYPES_H
+#include "esi_gtypes.h"
+#endif
+
+#ifndef ESI_GKS_H
+#include "esi_gks.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_FI_H
+#include "esi_fi.h"
+#endif
+
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+#ifndef ESI_WI_H
+#include "esi_wi.h"
+#endif
+
+#ifndef ESI_WM_CLS_H
+#include "esi_wm_cls.h"
+#endif
+
+#ifndef ESI_AM_ERR_H
+#include "esi_am_err.h"
+#endif
+
+#ifndef ESI_WM_H
+#include "esi_wm.h"
+#endif
+
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+
+#ifndef ESI_PF_H
+#include "esi_pf.h"
+#endif
+
+#ifndef ESI_LH_H
+#include "esi_lh.h"
+#endif
+
+#ifndef ESI_HO_H
+#include "esi_ho.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_GL_PROJECT_H
+#include "esi_gl_project.h"
+#endif
+
+#include "esi_md_basis.x"
+#include "esi_md_err.h"
+#include "esi_pf_msg.h"
+#include "esi_pf_err.h"
+
+#include "pf_mgr_cdlg.rh"
+static CHAR PF_RESOURCE_FILE[] = "PF_MGR_CDLG";
+static INT pfz_mgr_cdlg_cntl ();
+static INT pf_mgr_get_plotters ();
+static INT pfz_get_xs_pf_info ();
+static INT pfz_mgr_save_map_pf ();
+static INT pf_mgr_erase_pf_srvr ();
+static INT pfz_mgr_save_xs_pf ();
+publicdef INT pf_mgr_erase_pf ();
+
+/* Plotfile Manager Workspace */
+typedef struct 
+  {
+  INT nfiles;
+  INT file_selected[1];  
+  INT ncopies;           /* no. of copies user want to plot the plotfile */
+  BOOL all;              /* flag - plotfile list contain all sources */
+  TCP file_list;         /* list of available plotfiles */
+  TCP app_list;          /* application for plotfiles in file_list */
+  TCP source_list;       /* anaylst source for plotfiles in file_list */
+  TCP path_list;         /* OS path for plotfiles in file_list */
+  TCP plottype_list;     /* plotfile type for plotfiles in file_list */
+  TCP plotter_list;      /* available plotter list     */
+  lh_listhead *display;  /* displayed plotfile list    */
+  } PF_MGR_WS;           
+
+/* Displayed Plotfile Workspace */
+typedef struct
+  {
+  INT win_id; 
+  INT tnr_id;
+  INT seg_id;
+  FILENAME filename;
+  ORACLE_NAME creator;
+  ORACLE_NAME application;
+  } PF_MGR_DSP_STRUCT;
+
+/* Plotfile erase Workspace */
+typedef struct
+   {
+   PF_MGR_WS *mgr_ws;
+   TCP flist;
+   TCP srclist;
+   TCP applist;
+   } ERASE_WS;  
+
+typedef CHAR PF_MGR_DSP_KEY[400];
+
+
+#if USE_PROTOTYPES
+static INT pf_manager_srvr (INT id, INT item, PF_MGR_WS *mgr_ws);
+static INT pfz_mgr_cdlg_cntl (INT id, PF_MGR_WS *mgr_ws);
+static INT pf_send_plotfile (INT ncopies,PATHNAME file,CHAR *driver,CHAR *queue);
+static INT pfz_build_flist (PF_MGR_WS *mgr_ws);
+static INT pf_mgr_display_pf (PF_MGR_WS *mgr_ws);
+static INT pf_mgr_erase_pf_srvr (INT id, INT item,ERASE_WS *ers_ws);
+static INT pf_mgr_delete_pf (PF_MGR_WS *mgr_ws);
+static INT pf_mgr_term (PF_MGR_WS *mgr_ws);
+static INT pfz_build_dsp_lists (INT id, lh_listhead *display, CHAR ***flist,
+				    CHAR ***srclist,CHAR ***applist);
+static INT pf_mgr_pf_info (PF_MGR_WS *mgr_ws);
+static INT pf_mgr_mp_pf_info (PF_MGR_WS *mgr_ws);
+static INT pf_mgr_xs_pf_info (PF_MGR_WS *mgr_ws);
+static INT pfz_mgr_save_map_pf (PF_INFO *pf_info,CHAR *name,CHAR *date,CHAR *remark);
+static INT pfz_get_map_pf_info (INT fid, PF_INFO *pf_info);
+static INT pfz_get_xs_pf_info (INT fid, PF_INFO *pf_info);
+#else
+static INT pf_manager_srvr ();
+static INT pfz_mgr_cdlg_cntl ();
+static INT pf_send_plotfile ();
+static INT pfz_build_flist ();
+static INT pf_mgr_display_pf ();
+static INT pf_mgr_erase_pf_srvr ();
+static INT pf_mgr_delete_pf ();
+static INT pf_mgr_term ();
+static INT pfz_build_dsp_lists ();
+static INT pf_mgr_pf_info ();
+static INT pf_mgr_mp_pf_info ();
+static INT pf_mgr_xs_pf_info ();
+static INT pfz_mgr_save_map_pf ();
+static INT pfz_get_map_pf_info ();
+static INT pfz_get_xs_pf_info ();
+#endif
+
+/* Function Description -----------------------------------------------------
+Description: Plotfile manager server
+
+Prototype:
+    static INT pf_manager_srvr (INT id, INT item, PF_MGR_WS *mgr_ws)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) INT id;
+    (I) INT item;
+    (I) PF_MGR_WS *mgr_ws;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Scope:
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+
+#if USE_PROTOTYPES
+static INT pf_manager_srvr (INT id, INT item, PF_MGR_WS *mgr_ws)
+#else
+static INT pf_manager_srvr (id,item,mgr_ws)
+INT id;
+INT item;
+PF_MGR_WS *mgr_ws;
+#endif
+{
+  INT status = SUCCESS;
+  INT plotter_selected;
+  INT nplotters;
+  INT nfiles;
+  INT file_selected[1];
+  INT i;
+  INT value;
+  INT ncopies;
+  CHAR content[80];
+  PDS pinfo;
+
+  switch (item)
+    {
+    /* fini-do */
+    case PF_MGR_DONE:  
+      pf_mgr_term (mgr_ws);
+      am_quit ();
+      break;
+
+    /* one source - user only */
+    case PF_MGR_MINE:
+      wi_set_dialog_value (id,PF_MGR_MINE,ON);
+      mgr_ws->all = FALSE;
+      pfz_mgr_cdlg_cntl (id,mgr_ws);
+      break;
+                
+    /* all the sources */
+    case PF_MGR_ALL:
+      wi_set_dialog_value (id,PF_MGR_ALL,ON);
+      mgr_ws->all = TRUE;
+      pfz_mgr_cdlg_cntl (id,mgr_ws);
+      break;
+
+    /* send plotfile to plotter */
+    case PF_MGR_PLOT:
+      wi_query_selections (id,PF_MGR_FNAME_SELECTOR,&nfiles,mgr_ws->file_selected);
+      if (nfiles != 1)
+	{
+	status = PF_SELECT_PLOT_FILE;
+	am_message (AM_ALERT,mg_message(status));
+	return FAIL;
+	}
+
+      wi_query_dialog_item (id,PF_MGR_PLOTTER,&plotter_selected,content);
+      if (plotter_selected <= 0)
+	{
+	status = PF_SELECT_PLOTTER;
+	am_message (AM_ALERT,mg_message(status));
+	return FAIL;
+	}
+      wi_query_dialog_item (id,PF_MGR_COPIES,&value,content);
+      ncopies = atoi(content);
+      if (ncopies <= 0 || ncopies > 10)
+	{
+	status = PF_INVALID_NUMBER_OF_COPIES;
+	am_message (AM_ALERT,mg_message(status));
+	return FAIL;
+	}
+
+      mgr_ws->ncopies = ncopies;
+
+      /* -------------------------- */
+      /* inquire plotter infomation */
+      /* -------------------------- */
+      pf_inq_plotter (mgr_ws->plotter_list[plotter_selected-1],&pinfo);
+
+      if (ARE_DIFFERENT (pinfo.meta_type,
+			 mgr_ws->plottype_list[mgr_ws->file_selected[0]-1]))
+          {
+	  status = PF_NO_PLOTTER_FOR_THIS_FORMAT;
+	  am_message (AM_ALERT,mg_message (status));
+	  break;
+	  }
+
+      /* --------------- */
+      /* send to plotter */
+      /* --------------- */
+      status = pf_send_plotfile (mgr_ws->ncopies,mgr_ws->path_list[mgr_ws->file_selected[0]-1],
+				 pinfo.driver,pinfo.queue);
+      break;
+
+      /* display the plotfile */
+    case PF_MGR_DISPLAY:
+      wi_query_selections (id,PF_MGR_FNAME_SELECTOR,&nfiles,mgr_ws->file_selected);
+      if (nfiles != 1)
+	{
+	status = PF_SELECT_PLOT_FILE;
+	am_message (AM_ALERT,mg_message(status));
+	return FAIL;
+	}
+      pf_mgr_display_pf (mgr_ws);
+
+      /* ----------------------- */
+      /* update the Erase button */
+      /* ----------------------- */
+      pfz_mgr_cdlg_cntl (id,mgr_ws);
+      break;
+
+    /* erase the plotfile preview */
+    case PF_MGR_ERASE:
+      pf_mgr_erase_pf (mgr_ws);
+
+      /* ----------------------- */
+      /* update the Erase button */
+      /* ----------------------- */
+      pfz_mgr_cdlg_cntl (id,mgr_ws);
+      break;
+
+    /* get the plotfile info */
+    case PF_MGR_INFO:
+      wi_query_selections (id,PF_MGR_FNAME_SELECTOR,&nfiles,mgr_ws->file_selected);
+      if (nfiles != 1)
+	{
+	status = PF_SELECT_PLOT_FILE;
+	am_message (AM_ALERT,mg_message (status));
+	return FAIL;
+	}
+      pf_mgr_pf_info (mgr_ws);
+
+      /* ------------------------------------------------------------------- */
+      /* additional plotfile may be created after the plotfile info function */
+      /* need to update the manager workspace                                */
+      /* ------------------------------------------------------------------- */
+      pfz_mgr_cdlg_cntl (id,mgr_ws);
+      break;
+
+    case PF_MGR_DELETE:
+      wi_query_selections (id,PF_MGR_FNAME_SELECTOR,&nfiles,mgr_ws->file_selected);
+      if (nfiles != 1)
+	{
+	status = PF_SELECT_PLOT_FILE;
+	am_message (AM_ALERT,mg_message (status));
+	return FAIL;
+	}
+      pf_mgr_delete_pf (mgr_ws);
+      pfz_mgr_cdlg_cntl (id,mgr_ws);
+      break;
+
+    case PF_MGR_FNAME_SELECTOR:
+      wi_query_selections (id,PF_MGR_FNAME_SELECTOR,&nfiles,file_selected);
+
+      /* --------------------------------------------------- */
+      /* try to make selection in the selectors synchronized */
+      /* --------------------------------------------------- */
+      if (nfiles == 1)
+	{
+	if (file_selected[0] <= mgr_ws->nfiles)
+	  {
+	  mgr_ws->file_selected[0] = file_selected[0];
+	  wi_set_default_sel (id,PF_MGR_SOURCE_SELECTOR,mgr_ws->file_selected[0]);
+	  wi_set_default_sel (id,PF_MGR_APP_SELECTOR,mgr_ws->file_selected[0]);
+
+          /* ---------------------------------------- */
+          /* get plotter list and set default plotter */
+          /* ---------------------------------------- */
+          status = pf_mgr_get_plotters (id,&nplotters, &mgr_ws->plotter_list,
+                      mgr_ws->plottype_list[mgr_ws->file_selected[0]-1]);
+#if 0
+          if (status != SUCCESS)
+	    {
+	    status = PF_NO_PLOTTER_FOR_THIS_FORMAT;
+            am_message (AM_ALERT,mg_message(status));
+            }
+#endif
+          }
+        else
+	  {
+	  wi_set_default_sel (id,PF_MGR_FNAME_SELECTOR,mgr_ws->file_selected[0]);
+	  }
+	}
+
+      break;
+
+    case PF_MGR_APP_SELECTOR:
+      wi_query_selections (id,PF_MGR_APP_SELECTOR,&nfiles,file_selected);
+      if (nfiles == 1)
+	{
+	if (file_selected[0] <= mgr_ws->nfiles)
+	  {
+	  mgr_ws->file_selected[0] = file_selected[0];
+	  wi_set_default_sel (id,PF_MGR_FNAME_SELECTOR,mgr_ws->file_selected[0]);
+	  wi_set_default_sel (id,PF_MGR_SOURCE_SELECTOR,mgr_ws->file_selected[0]);
+
+          /* ---------------------------------------- */
+          /* get plotter list and set default plotter */
+          /* ---------------------------------------- */
+          status = pf_mgr_get_plotters (id,&nplotters, &mgr_ws->plotter_list,
+                      mgr_ws->plottype_list[mgr_ws->file_selected[0]-1]);
+          if (status != SUCCESS)
+	    {
+	    status = PF_NO_PLOTTER_FOR_THIS_FORMAT;
+	    am_message (AM_ALERT,mg_message (status));
+            }
+          }
+        else
+	  {
+	  wi_set_default_sel (id,PF_MGR_APP_SELECTOR,mgr_ws->file_selected[0]);
+	  }
+	}
+
+      break;
+    case PF_MGR_SOURCE_SELECTOR:
+      wi_query_selections (id,PF_MGR_SOURCE_SELECTOR,&nfiles,file_selected);
+      if (nfiles == 1)
+	{
+	if (file_selected[0] <= mgr_ws->nfiles)
+	  {
+	  mgr_ws->file_selected[0] = file_selected[0];
+          wi_set_default_sel (id,PF_MGR_FNAME_SELECTOR,mgr_ws->file_selected[0]);
+	  wi_set_default_sel (id,PF_MGR_APP_SELECTOR,mgr_ws->file_selected[0]);
+
+          /* ---------------------------------------- */
+          /* get plotter list and set default plotter */
+          /* ---------------------------------------- */
+          status = pf_mgr_get_plotters (id,&nplotters, &mgr_ws->plotter_list,
+                      mgr_ws->plottype_list[mgr_ws->file_selected[0]-1]);
+          if (status != SUCCESS)
+	    {
+	    status = PF_NO_PLOTTER_FOR_THIS_FORMAT;
+	    am_message (AM_ALERT,mg_message (status));
+            }
+          }
+        else
+	  {
+	  wi_set_default_sel (id,PF_MGR_SOURCE_SELECTOR,mgr_ws->file_selected[0]);
+	  }
+	}
+      break;
+
+    }
+
+  return status;
+  }
+
+
+
+
+/* Function Description -----------------------------------------------------
+Description: Plotfile manager entry call 
+
+Prototype:
+    publicdef INT pf_manager (void)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    NONE
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Scope:
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+#define DASH "<---->"
+
+#if USE_PROTOTYPES
+publicdef INT pf_manager (void)
+#else
+publicdef INT pf_manager ()
+#endif
+  {
+  BOOL done = FALSE;
+  INT status = SUCCESS; 
+  INT i;
+  INT id;
+  INT nplotters;
+  PATHNAME dummy;
+  PATHNAME directory;
+  PF_MGR_WS *mgr_ws;
+  INT index;
+
+  status = am_open_workspace ("PF_MGR_WS",AM_APPLICATION,
+                                              (VOIDPTR *) &mgr_ws);
+  if (status == AM_ERR_NOT_DEFINED)
+    {
+    status = am_define_workspace ("PF_MGR_WS",AM_APPLICATION,
+				 sizeof (PF_MGR_WS),(VOIDPTR *)&mgr_ws);
+    }
+
+  status = am_define_resource (AM_DIALOG, PF_RESOURCE_FILE, PF_MGR_CDLG,
+                               pf_manager_srvr, &id, mgr_ws);
+
+  if (status != SUCCESS)
+    {
+    am_message (AM_STATUS,"Cannot open resource file");
+    return FAIL;
+    }
+
+  /* ------------------- */
+  /* initilaize the TCPs */
+  /* ------------------- */
+  mgr_ws->file_list = (TCP) NULL;
+  mgr_ws->app_list = (TCP) NULL;
+  mgr_ws->source_list = (TCP) NULL;
+  mgr_ws->path_list = (TCP) NULL;
+  mgr_ws->plottype_list = (TCP) NULL;
+  mgr_ws->plotter_list = (TCP) NULL;
+  mgr_ws->nfiles = 0;
+
+  /* ---------------------------------------- */
+  /* get plotter list and set default plotter */
+  /* ---------------------------------------- */
+  status = pf_mgr_get_plotters (id,&nplotters, &mgr_ws->plotter_list,"ALL");
+
+  if (status != SUCCESS)
+      {
+      status = PF_NO_PLOTTER_EXISTS;
+      am_message (AM_ALERT,mg_message (status));
+      }
+
+  /* --------------------------- */
+  /* initialize the display list */
+  /* --------------------------- */
+  status = lh_initialize (&mgr_ws->display,0,sizeof(PF_MGR_DSP_KEY),
+			  FALSE,FALSE,TRUE,FALSE,sizeof(PF_MGR_DSP_STRUCT *));
+			       
+  /* --------------------------------- */
+  /* build the file list from database */
+  /* --------------------------------- */
+  mgr_ws->all = TRUE;
+  status = pfz_build_flist (mgr_ws);
+
+  if (mgr_ws->nfiles == 0) /* no file exists */
+      {
+      status = PF_NO_PLOT_FILE_EXISTS;
+      am_message (AM_ALERT,mg_message(status));
+      am_quit ();
+      return SUCCESS;
+      }
+
+  /* ------------ */
+  /* set defaults */
+  /* ------------ */
+  wi_set_dialog_value (id, PF_MGR_MINE,ON);
+  mgr_ws->all = FALSE;
+  mgr_ws->ncopies = 1;
+  wi_set_selection_limit (id,PF_MGR_FNAME_SELECTOR,1);
+  wi_set_selection_limit (id,PF_MGR_APP_SELECTOR,1);
+  wi_set_selection_limit (id,PF_MGR_SOURCE_SELECTOR,1);
+
+  /* ------------------------------------------------------------- */
+  /* disable DISPLAY function in VMS until PRIOR GKS problem fixed */
+  /* ------------------------------------------------------------- */
+#ifndef PRIOR_GKS 
+  wi_enable_dialog_item (id,PF_MGR_DISPLAY,OFF);
+#endif
+
+  /* ------------------------------------- */
+  /* update the plotfile manager workspace */
+  /* ------------------------------------- */
+  mgr_ws->all = FALSE;
+  pfz_mgr_cdlg_cntl (id,mgr_ws);
+
+  /* ---------------------------------------------------------------------- */
+  /* activate the parallel selectors in order to synchronize the selections */
+  /* ---------------------------------------------------------------------- */
+  wi_activate (id,PF_MGR_FNAME_SELECTOR,ON);
+#if 0
+  wi_activate (id,PF_MGR_SOURCE_SELECTOR,ON);
+  wi_activate (id,PF_MGR_APP_SELECTOR,ON);
+#endif
+
+  status = wi_open_dialog (id);
+
+  return SUCCESS;
+
+}
+
+#if USE_PROTOTYPES
+static INT pf_mgr_get_plotters (INT id,INT *nplotters, 
+				    CHAR ***plotter_list, CHAR *type)
+#else
+static INT pf_mgr_get_plotters (id,nplotters, plotter_list, type)
+INT id;
+INT *nplotters;
+CHAR ***plotter_list;
+CHAR *type;
+#endif
+    {
+    INT index = 0;
+    INT status;
+    PROJECT_DEFAULT *defaults;
+
+    status = pf_get_plotters (nplotters,plotter_list,type);
+
+    wi_create_option_menu (id,PF_MGR_PLOTTER,*plotter_list);
+    if (*nplotters == 0)
+      {
+      wi_enable_dialog_item (id,PF_MGR_PLOTTER,OFF); 
+      return FAIL;
+      }
+    else
+      {
+      wi_enable_dialog_item (id,PF_MGR_PLOTTER,ON); 
+
+      /* ming: 8/20/91 */
+      /* get default plotter */
+      am_open_workspace ("PROJECT_DEFAULTS",AM_GLOBAL,(VOIDPTR *)&defaults);
+      index = ts_switch (defaults->plotter,*plotter_list) + 1;
+      if (index == 0 ) index++;
+      wi_set_dialog_value (id,PF_MGR_PLOTTER,index);
+      return SUCCESS;
+      }
+    }
+
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    Update the plotfile manager workspace according to one source or
+    all sources. Update the dialog box at the same time.
+
+Prototype:
+    static INT pfz_mgr_cdlg_cntl (INT id, PF_MGR_WS *mgr_ws)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) INT id;
+    (I) PF_MGR_WS *mgr_ws;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Scope:
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+#define DASH "<---->"
+
+#if USE_PROTOTYPES
+static INT pfz_mgr_cdlg_cntl (INT id, PF_MGR_WS *mgr_ws)
+#else
+static INT pfz_mgr_cdlg_cntl (id, mgr_ws)
+INT id;
+PF_MGR_WS *mgr_ws;
+#endif
+    {
+    CHAR text[80];
+    CHAR *flist_string;
+    CHAR *applist_string;
+    CHAR *srclist_string;
+    INT status = SUCCESS;
+    INT nplotters;
+
+    /* --------------------------------- */
+    /* build the file list from database */
+    /* --------------------------------- */
+    status = pfz_build_flist (mgr_ws);
+
+    if (mgr_ws->nfiles == 0) /* no file exists */
+        {
+	/* ------------------------------ */
+	/* set parallel selectors to DASH */
+	/* ------------------------------ */
+        wi_set_dialog_text (id,PF_MGR_FNAME_SELECTOR,DASH);
+        wi_set_dialog_text (id,PF_MGR_APP_SELECTOR,DASH);
+        wi_set_dialog_text (id,PF_MGR_SOURCE_SELECTOR,DASH);
+
+	/* ------------------------------------ */
+	/* turn off all the buttons expect DONE */
+	/* ------------------------------------ */
+        wi_enable_dialog_item (id,PF_MGR_PLOT,OFF);
+        wi_enable_dialog_item (id,PF_MGR_DISPLAY,OFF);
+        wi_enable_dialog_item (id,PF_MGR_ERASE,OFF);
+        wi_enable_dialog_item (id,PF_MGR_INFO,OFF);
+        wi_enable_dialog_item (id,PF_MGR_DELETE,OFF);
+        wi_enable_dialog_item (id,PF_MGR_COPIES,OFF);
+        }
+    else
+        {
+	/* --------------------- */
+	/* Update the dialog box */
+	/* --------------------- */
+        flist_string = ts_pack_strings (mgr_ws->nfiles, mgr_ws->file_list);
+        applist_string = ts_pack_strings (mgr_ws->nfiles, mgr_ws->app_list);
+        srclist_string = ts_pack_strings (mgr_ws->nfiles, mgr_ws->source_list);
+
+        wi_set_dialog_text (id,PF_MGR_FNAME_SELECTOR,flist_string);
+        wi_set_dialog_text (id,PF_MGR_APP_SELECTOR,applist_string);
+        wi_set_dialog_text (id,PF_MGR_SOURCE_SELECTOR,srclist_string);
+        wi_set_default_sel (id,PF_MGR_FNAME_SELECTOR,1);
+        wi_set_default_sel (id,PF_MGR_APP_SELECTOR,1);
+        wi_set_default_sel (id,PF_MGR_SOURCE_SELECTOR,1);
+
+        /* ---------------------------------------- */
+        /* get plotter list and set default plotter */
+        /* ---------------------------------------- */
+        status = pf_mgr_get_plotters (id,&nplotters, &mgr_ws->plotter_list,
+                                      mgr_ws->plottype_list[0]);
+        if (status != SUCCESS)
+	  {
+	  status = PF_NO_PLOTTER_EXISTS;
+          return FAIL;
+          }
+	sprintf (text,"%4d",mgr_ws->ncopies);
+	ts_noblanks (text);
+	wi_set_dialog_text (id,PF_MGR_COPIES,text);
+        wi_enable_dialog_item (id,PF_MGR_COPIES,ON);
+        wi_enable_dialog_item (id,PF_MGR_PLOT,ON);
+#ifdef PRIOR_GKS
+        wi_enable_dialog_item (id,PF_MGR_DISPLAY,ON);
+#endif
+        wi_enable_dialog_item (id,PF_MGR_INFO,ON);
+        wi_enable_dialog_item (id,PF_MGR_DELETE,ON);
+        tc_free (flist_string);
+        tc_free (srclist_string);
+        tc_free (applist_string);
+        if (lh_count (mgr_ws->display) == 0)
+	    {
+            wi_enable_dialog_item (id,PF_MGR_ERASE,OFF);
+	    }
+        else
+	    {
+            wi_enable_dialog_item (id,PF_MGR_ERASE,ON);
+	    }
+	}
+
+    return SUCCESS;
+    }
+
+
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    Create a batch job to send the plotfile to plotter 
+
+Prototype:
+    static INT pf_send_plotfile (ncopies,file,driver)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) INT ncopies;
+    (I) PATHNAME file;
+    (I) CHAR *driver;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Scope:
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+#if USE_PROTOTYPES
+static INT pf_send_plotfile (INT ncopies,PATHNAME file,CHAR *driver,CHAR *queue)
+#else
+static INT pf_send_plotfile (ncopies,file,driver,queue)
+INT ncopies;
+PATHNAME file;
+CHAR *driver;
+CHAR *queue;
+#endif
+    {
+    CHAR arg_list[256];
+    PATHNAME cmd_file;
+
+    sprintf (arg_list,"%d,\"%s\",\"%s\",\"%s\"",ncopies,file,driver,queue);
+
+    ho_add_path ("ESI$BIN","pf_launch_plots",sizeof (PATHNAME),cmd_file);
+
+    ho_spawn (SPAWN_BATCH,cmd_file,arg_list,(INT *)0);
+
+    return SUCCESS;
+    }
+
+
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    Build Plotfile list from database
+
+Prototype:
+    static INT pfz_build_flist (mgr_ws)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I/O) PF_MGR_WS *mgr_ws;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Scope:
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+EXEC SQL BEGIN DECLARE SECTION;
+  VARCHAR user[30];
+  VARCHAR statmt[500];
+  VARCHAR filename[250];
+  VARCHAR pathname[250];
+  VARCHAR creator[30];
+  VARCHAR application[30];
+  VARCHAR plot_type[30];
+  long fid;
+EXEC SQL END DECLARE SECTION;
+
+#if USE_PROTOTYPES
+static INT pfz_build_flist (PF_MGR_WS *mgr_ws)
+#else
+static INT pfz_build_flist (mgr_ws)
+PF_MGR_WS *mgr_ws;
+#endif
+    {
+    PATHNAME path;
+    TCP tmp_flist = (TCP) NULL;
+    TCP tmp_srclist = (TCP) NULL;
+    TCP tmp_applist = (TCP) NULL;
+    TCP tmp_pathlist = (TCP) NULL;
+    TCP tmp_ptypelist = (TCP) NULL;
+    INT i, index, status, win_id, tnr_id, seg_id, dummy;
+    static BOOL first = TRUE;
+    PROJECT_NAME project;
+    CHAR *pdot;
+    PATHNAME temp;
+
+    EXEC SQL WHENEVER SQLERROR GOTO oraerr;
+
+    if (first)
+	{
+	qs_inq_c (QS_PROJECT_NAME,project,(INT*) 0);
+
+	/* ----------------------------- */
+	/* map plotfile select statement */
+	/* ----------------------------- */
+	statmt.len = sprintf ((CHAR *) statmt.arr,
+"SELECT UNIQUE A.FILE_ID,A.FINDER_FILENAME,A.OS_PATHNAME,B.PLOT_FILE_FORMAT,A.CREATOR_ANALYST,A.CREATOR_APPLICATION \
+FROM %s.FM_HDR A,%s.MAP_PLOTFILE_HDR B \
+WHERE FILE_TYPE = 'PLOTFILE' AND CREATOR_ANALYST = :v1 \
+AND EXPIRATION_DATE > SYSDATE \
+AND DELETE_FLAG = 'F' AND A.FILE_ID = B.FILE_ID ORDER BY \
+A.FINDER_FILENAME, A.CREATOR_ANALYST, A.CREATOR_APPLICATION",project,project);
+        EXEC SQL PREPARE S1 FROM :statmt;
+	EXEC SQL DECLARE C1 CURSOR FOR S1;
+
+	statmt.len = sprintf ((CHAR *) statmt.arr,
+"SELECT A.FILE_ID,A.FINDER_FILENAME,A.OS_PATHNAME,B.PLOT_FILE_FORMAT,A.CREATOR_ANALYST,A.CREATOR_APPLICATION \
+FROM %s.FM_HDR A,%s.MAP_PLOTFILE_HDR B  \
+WHERE FILE_TYPE = 'PLOTFILE' AND DELETE_FLAG = 'F' \
+AND EXPIRATION_DATE > SYSDATE \
+AND A.FILE_ID = B.FILE_ID ORDER BY \
+A.FINDER_FILENAME, A.CREATOR_ANALYST, A.CREATOR_APPLICATION",project,project);
+	EXEC SQL PREPARE S2 FROM :statmt;
+	EXEC SQL DECLARE C2 CURSOR FOR S2;
+
+	/* ------------------------------ */
+	/* cross section select statement */
+	/* ------------------------------ */
+	statmt.len = sprintf ((CHAR *) statmt.arr,
+"SELECT UNIQUE A.FILE_ID,A.FINDER_FILENAME,A.OS_PATHNAME,B.PLOT_FILE_FORMAT,A.CREATOR_ANALYST,A.CREATOR_APPLICATION \
+FROM %s.FM_HDR A,%s.CROSS_SECTION_PLOTFILE_HDR B \
+WHERE FILE_TYPE = 'PLOTFILE' AND CREATOR_ANALYST = :v1 \
+AND EXPIRATION_DATE > SYSDATE \
+AND DELETE_FLAG = 'F' AND A.FILE_ID = B.FILE_ID ORDER BY \
+A.FINDER_FILENAME, A.CREATOR_ANALYST, A.CREATOR_APPLICATION",project,project);
+        EXEC SQL PREPARE S3 FROM :statmt;
+	EXEC SQL DECLARE C3 CURSOR FOR S3;
+
+	statmt.len = sprintf ((CHAR *) statmt.arr,
+"SELECT A.FILE_ID,A.FINDER_FILENAME,A.OS_PATHNAME,B.PLOT_FILE_FORMAT,A.CREATOR_ANALYST,A.CREATOR_APPLICATION \
+FROM %s.FM_HDR A,%s.CROSS_SECTION_PLOTFILE_HDR B  \
+WHERE FILE_TYPE = 'PLOTFILE' AND DELETE_FLAG = 'F' \
+AND EXPIRATION_DATE > SYSDATE \
+AND A.FILE_ID = B.FILE_ID ORDER BY \
+A.FINDER_FILENAME, A.CREATOR_ANALYST, A.CREATOR_APPLICATION",project,project);
+	EXEC SQL PREPARE S4 FROM :statmt;
+	EXEC SQL DECLARE C4 CURSOR FOR S4;
+
+	first = FALSE;
+	}
+    
+    /* ------- */
+    /* Mapping */
+    /* ------- */
+    if (mgr_ws->all)
+        {
+	EXEC SQL OPEN C2;
+	EXEC SQL FETCH C2 INTO :fid, :filename, :pathname, :plot_type, 
+			       :creator, :application;
+	}
+    else
+	{
+	qs_inq_c (QS_FINDER_ACCOUNT,(CHAR *)user.arr,(INT *)0);
+	V_SETLEN (user);
+	EXEC SQL OPEN C1 USING :user;
+	EXEC SQL FETCH C1 INTO :fid, :filename, :pathname, :plot_type, 
+			       :creator, :application;
+	}
+
+    for (mgr_ws->nfiles = 0; OR_STATUS == SUCCESS; mgr_ws->nfiles++)
+        {
+	V_SETZERO (filename);
+	V_SETZERO (creator);
+	V_SETZERO (application);
+	V_SETZERO (pathname);
+	V_SETZERO (plot_type);
+
+	ts_tcp_append (&tmp_flist,(CHAR *) filename.arr);
+	ts_tcp_append (&tmp_srclist,(CHAR *) creator.arr);
+	ts_tcp_append (&tmp_applist,(CHAR *) application.arr);
+	ts_tcp_append (&tmp_ptypelist,(CHAR *) plot_type.arr);
+
+	/* ---------------------------------------- */
+        /* a work around for finder symbol handling */
+	/* ---------------------------------------- */
+#if UNIX
+	pdot = strchr ((CHAR *)pathname.arr,':') + 1;
+	ho_add_path ("ESI$PLOTS",pdot,sizeof(PATHNAME),temp);
+#else
+	V_FROMV (temp,pathname);
+#endif
+	ts_tcp_append (&tmp_pathlist,temp);
+
+        if (mgr_ws->all)
+	    {
+	    EXEC SQL FETCH C2 INTO :fid, :filename, :pathname, :plot_type, 
+				   :creator, :application;
+	    }
+        else
+	    {
+	    EXEC SQL FETCH C1 INTO :fid, :filename, :pathname, :plot_type,
+				   :creator, :application;
+	    }
+	}
+
+
+    /* ------------- */
+    /* Cross Section */
+    /* ------------- */
+    if (mgr_ws->all)
+        {
+	EXEC SQL OPEN C4;
+	EXEC SQL FETCH C4 INTO :fid, :filename, :pathname, :plot_type, 
+			       :creator, :application;
+	}
+    else
+	{
+	qs_inq_c (QS_FINDER_ACCOUNT,(CHAR *)user.arr,(INT *)0);
+	V_SETLEN (user);
+	EXEC SQL OPEN C3 USING :user;
+	EXEC SQL FETCH C3 INTO :fid, :filename, :pathname, :plot_type, 
+			       :creator, :application;
+	}
+
+    while (OR_STATUS == SUCCESS)
+        {
+	V_SETZERO (filename);
+	V_SETZERO (creator);
+	V_SETZERO (application);
+	V_SETZERO (pathname);
+	V_SETZERO (plot_type);
+
+	ts_tcp_append (&tmp_flist,(CHAR *) filename.arr);
+	ts_tcp_append (&tmp_srclist,(CHAR *) creator.arr);
+	ts_tcp_append (&tmp_applist,(CHAR *) application.arr);
+	ts_tcp_append (&tmp_ptypelist,(CHAR *) plot_type.arr);
+
+	/* ---------------------------------------- */
+        /* a work around for finder symbol handling */
+	/* ---------------------------------------- */
+	pdot = strchr ((CHAR *)pathname.arr,':') + 1;
+	ho_add_path ("ESI$PLOTS",pdot,sizeof(PATHNAME),temp);
+	ts_tcp_append (&tmp_pathlist,temp);
+
+        if (mgr_ws->all)
+	    {
+	    EXEC SQL FETCH C4 INTO :fid, :filename, :pathname, :plot_type, 
+				   :creator, :application;
+	    }
+        else
+	    {
+	    EXEC SQL FETCH C3 INTO :fid, :filename, :pathname, :plot_type,
+				   :creator, :application;
+	    }
+        mgr_ws->nfiles++;
+	}
+
+    /* -------- */
+    /* clean up */
+    /* -------- */
+    if (mgr_ws->file_list != (TCP) NULL)
+	{
+        ts_tcp_free (mgr_ws->file_list);
+        ts_tcp_free (mgr_ws->source_list);
+        ts_tcp_free (mgr_ws->app_list);
+        ts_tcp_free (mgr_ws->path_list);
+        ts_tcp_free (mgr_ws->plottype_list);
+	}
+
+    if (mgr_ws->nfiles <= 0)
+	{
+	mgr_ws->file_list = (TCP) NULL;
+	mgr_ws->source_list = (TCP) NULL;
+	mgr_ws->app_list = (TCP) NULL;
+	mgr_ws->path_list = (TCP) NULL;
+	mgr_ws->plottype_list = (TCP) NULL;
+	}
+    else
+	{
+        mgr_ws->file_list = tmp_flist;
+        mgr_ws->source_list = tmp_srclist;
+        mgr_ws->app_list = tmp_applist;
+        mgr_ws->path_list = tmp_pathlist;
+        mgr_ws->plottype_list = tmp_ptypelist;
+	}
+
+    if (mgr_ws->all)
+        {
+        EXEC SQL CLOSE C2;
+	}
+    else
+	{
+        EXEC SQL CLOSE C1;
+	}
+
+    return SUCCESS;
+
+oraerr:
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    printf ("%s\n",OR_MESSAGE);
+    return OR_STATUS;
+    }
+       
+
+
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    Display plotfile function
+
+Prototype:
+    static INT pf_mgr_display_pf (PF_MGR_WS *mgr_ws)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) PF_MGR_WS *mgr_ws;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Scope:
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+#if USE_PROTOTYPES
+static INT pf_mgr_display_pf (PF_MGR_WS *mgr_ws)
+#else
+static INT pf_mgr_display_pf (mgr_ws)
+PF_MGR_WS *mgr_ws;
+#endif
+    {
+    INT i;
+    INT status = SUCCESS;
+    INT def_status;
+    INT color = 0;
+    INT dummy;
+    INT defmod, regmod;
+    CHAR title[400];
+    PF_MGR_DSP_KEY key;
+    PF_MGR_DSP_STRUCT *data;
+    CHAR msg[256];
+
+    
+    /* ------------------------------------------------------------------------- */
+    /* prior GKS dependence , make sure that plotfile can be displayed using GKS */
+    /* ------------------------------------------------------------------------- */
+#ifdef PRIOR_GKS
+    if (!(ts_like (mgr_ws->plottype_list[mgr_ws->file_selected[0]-1],"CGM*",'*') 
+	|| ARE_SAME (mgr_ws->plottype_list[mgr_ws->file_selected[0]-1],"GKSM")))
+#else
+    if (ARE_DIFFERENT(mgr_ws->plottype_list[mgr_ws->file_selected[0]-1],"GKSM"))
+#endif
+	{
+	sprintf (msg,
+"The Plot File type of the chosen Plot File is %s which cannot be \
+displayed in current version of FINDER.",mgr_ws->plottype_list[mgr_ws->file_selected[0]-1]);
+	am_message (AM_ALERT,msg);
+	return FAIL;
+	}
+
+    sprintf (key,"%s%s%s",mgr_ws->file_list[mgr_ws->file_selected[0]-1],
+                          mgr_ws->source_list[mgr_ws->file_selected[0]-1],
+                          mgr_ws->app_list[mgr_ws->file_selected[0]-1]);
+
+    status = lh_find (mgr_ws->display,key,&data,&dummy);
+    
+    if (status == SUCCESS) /* plotfile is currently displayed */
+	{
+	/* ------------------ */
+	/* reuse the WM stuff */
+	/* ------------------ */
+	wmwopen (data->win_id);  
+	wmsdelete (data->seg_id);
+	}
+    else
+	{
+	/* ------------------ */
+	/* setup a new window */
+	/* ------------------ */
+	data = (PF_MGR_DSP_STRUCT *) tc_zalloc (sizeof (PF_MGR_DSP_STRUCT));
+	lu_text_to_index ("COLOR",&color,"BACKGROUND");
+	wmwallocate (&data->win_id,0.0,1.0,0.0,1.0,color);
+	wmtallocate (&data->tnr_id,0.0,1.0,0.0,1.0,0.0,1.0,0.0,1.0);
+
+	/* -------------------- */
+	/* title for the window */
+	/* -------------------- */
+	sprintf (title,"Plot Manager:%s; Creator: %s; Application: %s",
+		 mgr_ws->file_list[mgr_ws->file_selected[0]-1],
+		 mgr_ws->source_list[mgr_ws->file_selected[0]-1],
+		 mgr_ws->app_list[mgr_ws->file_selected[0]-1]);
+
+        wmoset (data->win_id,WM_CLASS_WINDOW,"",title);
+
+	/* --------------------------------- */
+	/* store data into PF_MGR_DSP_STRUCT */
+	/* --------------------------------- */
+	strcpy (data->filename,mgr_ws->file_list[mgr_ws->file_selected[0]-1]);
+	strcpy (data->creator,mgr_ws->source_list[mgr_ws->file_selected[0]-1]);
+	strcpy (data->application,mgr_ws->app_list[mgr_ws->file_selected[0]-1]);
+	data->seg_id = 0;
+
+	/* ----------------------- */
+	/* add to the display list */
+	/* ----------------------- */
+	status = lh_add (mgr_ws->display,key,&data,sizeof(PF_MGR_DSP_STRUCT *));
+        }
+    am_message (AM_DIALOG,title);
+
+    /* -------------------- */
+    /* allocate new segment */
+    /* -------------------- */
+    wmsallocate (&data->seg_id);
+    wmoset (data->seg_id,WM_CLASS_SEGMENT,"",title);
+
+    /* -------------------- */
+    /* display the plotfile */
+    /* -------------------- */
+    status = pf_display_pf (mgr_ws->path_list[mgr_ws->file_selected[0]-1],
+			    mgr_ws->plottype_list[mgr_ws->file_selected[0]-1]);
+
+    wmsclose (data->seg_id);
+#if 0
+    wm_grsgwk (MAIN_WKID);
+#endif 
+    wmwclose (data->win_id);
+
+    am_message (AM_DIALOG,"");
+    /* --------------------- */
+    /* update the segment id */
+    /* --------------------- */
+    status = lh_replace (mgr_ws->display,key,&data,sizeof(PF_MGR_DSP_STRUCT *));
+
+    return SUCCESS;
+    }
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    Erase plotfile server 
+
+Prototype:
+    static INT pf_mgr_erase_pf_srvr (INT id, INT item,ERASE_WS *ers_ws)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) INT id;
+    (I) INT item;
+    (I) ERASE_WS *ers_ws;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Scope:
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+#if USE_PROTOTYPES
+static INT pf_mgr_erase_pf_srvr (INT id, INT item,ERASE_WS *ers_ws)
+#else
+static INT pf_mgr_erase_pf_srvr (id, item,ers_ws)
+INT id;
+INT item;
+ERASE_WS *ers_ws;
+#endif
+    {
+    INT status = SUCCESS;
+    INT ndsps;
+    INT nselects;
+    INT selected[1];
+    INT dummy;
+    INT i;
+    PF_MGR_DSP_KEY key;
+    PF_MGR_DSP_STRUCT *data;
+
+        switch (item)
+            {
+	    /* fini-do*/
+            case PF_ERS_DONE:
+            if (ers_ws->flist != (TCP) NULL)
+	        {
+                ts_tcp_free (ers_ws->flist);
+                ts_tcp_free (ers_ws->applist);
+                ts_tcp_free (ers_ws->srclist);
+	        }
+
+	        am_release_resource (id);
+                break;
+                
+            /* erase image */
+            case PF_ERS_ERASE:
+                wi_query_selections (id,PF_ERS_FNAME_SELECTOR,&nselects,selected);
+		if (nselects != 1)
+		    {
+		    status = PF_SELECT_PLOT_FILE;
+		    am_message (AM_ALERT,mg_message(status));
+		    break;
+		    }
+
+		/* ------------------ */
+		/* get the erase info */
+		/* ------------------ */
+                sprintf (key,"%s%s%s",ers_ws->flist[selected[0]-1],
+                                      ers_ws->srclist[selected[0]-1],
+                                      ers_ws->applist[selected[0]-1]);
+
+                status = lh_find (ers_ws->mgr_ws->display,key,&data,&dummy);
+
+		/* ---------------- */
+                /* delete WM status */
+		/* ---------------- */
+		wmsdelete (data->seg_id);
+		wmwdelete (data->win_id);
+
+		/* -------------------------------- */
+		/* delete the entry in display list */
+		/* -------------------------------- */
+                status = lh_delete (ers_ws->mgr_ws->display,key,0);
+
+		/* ------------------------------------------ */
+		/* update the the display selector dialog box */
+		/* ------------------------------------------ */
+                status = pfz_build_dsp_lists (id,ers_ws->mgr_ws->display,&ers_ws->flist,
+                 			     &ers_ws->srclist,&ers_ws->applist);
+
+
+		break;
+
+	    case PF_ERS_FNAME_SELECTOR:
+                wi_query_selections (id,PF_ERS_FNAME_SELECTOR,&nselects,selected);
+	        wi_set_default_sel (id,PF_ERS_SOURCE_SELECTOR,selected[0]);
+	        wi_set_default_sel (id,PF_ERS_APP_SELECTOR,selected[0]);
+                break;
+
+	    case PF_ERS_APP_SELECTOR:
+                wi_query_selections (id,PF_ERS_APP_SELECTOR,&nselects,selected);
+	        wi_set_default_sel (id,PF_ERS_SOURCE_SELECTOR,selected[0]);
+	        wi_set_default_sel (id,PF_ERS_FNAME_SELECTOR,selected[0]);
+                break;
+
+	    case PF_ERS_SOURCE_SELECTOR:
+                wi_query_selections (id,PF_ERS_SOURCE_SELECTOR,&nselects,selected);
+	        wi_set_default_sel (id,PF_ERS_FNAME_SELECTOR,selected[0]);
+	        wi_set_default_sel (id,PF_ERS_APP_SELECTOR,selected[0]);
+                break;
+            }
+
+    return status;
+    }
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    Erase plotfile server 
+
+Prototype:
+    static INT pf_mgr_erase_pf_srvr (INT id, INT item,ERASE_WS *ers_ws)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) INT id;
+    (I) INT item;
+    (I) ERASE_WS *ers_ws;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Scope:
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+#if USE_PROTOTYPES
+publicdef INT pf_mgr_erase_pf (PF_MGR_WS *mgr_ws)
+#else
+publicdef INT pf_mgr_erase_pf (mgr_ws)
+PF_MGR_WS *mgr_ws;
+#endif
+    {
+    INT status = SUCCESS;
+    INT id;
+    INT event_class,event_id,item;
+    INT ndsps;
+    BOOL done;
+    INT nselects;
+    INT selected[1];
+    INT dummy;
+    INT i;
+    PF_MGR_DSP_KEY key;
+    PF_MGR_DSP_STRUCT *data;
+    ERASE_WS *ers_ws;
+
+    /* --------------------------- */
+    /* if only 1 preview, erase it */
+    /* --------------------------- */
+    if ((ndsps = lh_count (mgr_ws->display)) == 1)
+	{
+        status = lh_first (mgr_ws->display,key,&data,&dummy);
+	wmsdelete (data->seg_id);
+	wmwdelete (data->win_id);
+        status = lh_delete (mgr_ws->display,key,0);
+
+	return SUCCESS;
+	}
+
+    /* -------------------------------------------- */
+    /* more than 1, let user choose which to delete */
+    /* -------------------------------------------- */
+
+    status = am_open_workspace ("ERASE_WS",AM_APPLICATION,(VOIDPTR *)&ers_ws);
+    if (status != SUCCESS)
+       {
+       am_define_workspace ("ERASE_WS",AM_APPLICATION,sizeof(ERASE_WS),
+			    (VOIDPTR *)&ers_ws);
+       }
+
+    ers_ws->mgr_ws = mgr_ws;
+    ers_ws->flist = (TCP) 0;
+    ers_ws->srclist = (TCP) 0;
+    ers_ws->applist = (TCP) 0;
+
+    status = am_define_resource (AM_DIALOG, PF_RESOURCE_FILE, PF_ERS_CDLG,
+                                 pf_mgr_erase_pf_srvr, &id, ers_ws);
+    wi_set_selection_limit (id,PF_MGR_FNAME_SELECTOR,1);
+    wi_set_selection_limit (id,PF_MGR_APP_SELECTOR,1);
+    wi_set_selection_limit (id,PF_MGR_SOURCE_SELECTOR,1);
+
+    status = pfz_build_dsp_lists (id,ers_ws->mgr_ws->display,&ers_ws->flist,
+                 			     &ers_ws->srclist,&ers_ws->applist);
+    status = wi_open_dialog (id);
+    return SUCCESS;
+    }
+
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    Delete plotfile. Delete plotfile only belong to u 
+
+Prototype:
+    static INT pf_mgr_delete_pf (PF_MGR_WS *mgr_ws)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I/O) PF_MGR_WS *mgr_ws;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Scope:
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+#if USE_PROTOTYPES
+static INT pf_mgr_delete_pf (PF_MGR_WS *mgr_ws)
+#else
+static INT pf_mgr_delete_pf (mgr_ws)
+PF_MGR_WS *mgr_ws;
+#endif
+    {
+    INT status = SUCCESS;
+    ORACLE_NAME user;
+    BOOL yesno;
+    PROJECT_NAME project;
+
+    qs_inq_c (QS_FINDER_ACCOUNT,user,(INT *)0);
+
+    /* ----------------------------------- */
+    /* check if plotfile is belong to user */
+    /* ----------------------------------- */
+    if (ARE_SAME (user,mgr_ws->source_list[mgr_ws->file_selected[0]-1]))
+	{
+	status = PF_CONFIRM_DELETE_FILE;
+	status = wiyesno (mg_message (status), "",&yesno,&status);
+        if (yesno)
+	    {
+	    /* ------------------- */
+	    /* delete the plotfile */
+	    /* ------------------- */
+	    pfz_delete_pf (mgr_ws->file_list[mgr_ws->file_selected[0]-1],
+	                   mgr_ws->source_list[mgr_ws->file_selected[0]-1],
+	                   mgr_ws->app_list[mgr_ws->file_selected[0]-1]);
+	    }
+	}
+    else
+	{
+	status = PF_PLOT_FILE_CANNOT_DELETE;
+	am_message (AM_ALERT,mg_message(status));
+        }
+    return SUCCESS;
+    }
+
+
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    Delete plotfile. Delete plotfile only belong to u 
+
+Prototype:
+    static INT pf_mgr_delete_pf (PF_MGR_WS *mgr_ws)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I/O) PF_MGR_WS *mgr_ws;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Scope:
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+#if USE_PROTOTYPES
+publicdef INT pfz_delete_pf (CHAR *file, CHAR *src, CHAR *app)
+#else
+publicdef INT pfz_delete_pf (file,src,app)
+CHAR *file;
+CHAR *src;
+CHAR *app;
+#endif
+    {
+    INT status = SUCCESS;
+    PROJECT_NAME project;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+	VARCHAR pf_name[40];
+	VARCHAR source[40];
+	VARCHAR application[40];
+        VARCHAR stmt[256];
+    EXEC SQL END DECLARE SECTION;
+
+    V_FROMC (pf_name,file);
+    V_FROMC (source, src);
+    V_FROMC (application, app);
+
+    /* ----------------------- */
+    /* turn on the delete flag */
+    /* ----------------------- */
+    qs_inq_c (QS_PROJECT_NAME,project,(INT *)0);
+    stmt.len = sprintf ((CHAR *)stmt.arr,
+"UPDATE %s.FM_HDR SET EXPIRATION_DATE = SYSDATE-1 WHERE FINDER_FILENAME = :v1 \
+AND CREATOR_ANALYST = :v2 AND CREATOR_APPLICATION = :v3 AND \
+FILE_TYPE  = 'PLOTFILE'",project);
+     EXEC SQL PREPARE S66 FROM :stmt;
+     EXEC SQL EXECUTE S66 USING :pf_name, :source, :application;
+     EXEC SQL COMMIT WORK;
+
+     return SUCCESS;
+     }
+
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    Get a list of plotters available
+
+Prototype:
+    publicdef INT pf_get_plotters (INT *nplotters, CHAR ***tcp_list)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (O) INT *nplotters;
+    (O) CHAR ***tcp_list;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Scope:
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+#if USE_PROTOTYPES
+publicdef INT pf_get_plotters (INT *nplotters, CHAR ***tcp_list,CHAR *type)
+#else
+publicdef INT pf_get_plotters (nplotters, tcp_list, type)
+INT *nplotters;
+CHAR ***tcp_list;
+CHAR *type;
+#endif
+    {
+    EXEC SQL BEGIN DECLARE SECTION;
+      VARCHAR plotter_name[80];
+      VARCHAR ptype[10];
+    EXEC SQL END DECLARE SECTION;
+
+    /* -------------------------- */
+    /* care only those are ONLINE */
+    /* -------------------------- */
+    if (ARE_SAME(type,"ALL"))
+	{
+        EXEC SQL DECLARE DB_DEVICES_ALL CURSOR FOR 
+          SELECT UNIQUE NAME FROM ESI.FINDER_PLOTTERS WHERE STATUS = 'ONLINE'
+          ORDER BY NAME;
+        }
+    else
+	{
+	V_FROMC (ptype,type);
+        EXEC SQL DECLARE DB_DEVICES CURSOR FOR 
+          SELECT UNIQUE NAME FROM ESI.FINDER_PLOTTERS WHERE STATUS = 'ONLINE'
+	  AND META_TYPE = :ptype ORDER BY NAME;
+	}
+        
+    if (*tcp_list != (TCP) 0)
+	{
+	ts_tcp_free (*tcp_list);
+	*tcp_list = (TCP) 0;
+	}
+
+    if (ARE_SAME(type,"ALL"))
+	{
+        EXEC SQL OPEN DB_DEVICES_ALL;
+        EXEC SQL FETCH DB_DEVICES_ALL INTO : plotter_name;
+	}
+    else
+	{
+        EXEC SQL OPEN DB_DEVICES;
+        EXEC SQL FETCH DB_DEVICES INTO : plotter_name;
+	}
+        
+    for (*nplotters = 0; OR_STATUS == SUCCESS; (*nplotters)++)
+        {
+        V_SETZERO (plotter_name);
+        ts_tcp_append (tcp_list,(CHAR *)plotter_name.arr);
+        if (ARE_SAME(type,"ALL"))
+	    {
+            EXEC SQL FETCH DB_DEVICES_ALL INTO : plotter_name;
+	    }
+	else
+	    {
+            EXEC SQL FETCH DB_DEVICES INTO : plotter_name;
+	    }
+        }
+    if (*nplotters == 0)
+        { 
+	ts_tcp_append (tcp_list,"------");
+        }
+
+    if (ARE_SAME(type,"ALL"))
+	{
+        EXEC SQL CLOSE DB_DEVICES_ALL;
+	}
+    else
+	{
+        EXEC SQL CLOSE DB_DEVICES;
+	}
+
+    return SUCCESS;
+    }
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    PLotfile manager cleanup call
+
+Prototype:
+    static INT pf_mgr_term (mgr_ws)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (O) INT *nplotters;
+    (O) CHAR ***tcp_list;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Scope:
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+#if USE_PROTOTYPES
+static INT pf_mgr_term (PF_MGR_WS *mgr_ws)
+#else
+static INT pf_mgr_term (mgr_ws)
+PF_MGR_WS *mgr_ws;
+#endif
+    {
+    INT status = SUCCESS;
+    PF_MGR_DSP_KEY key;
+    PF_MGR_DSP_STRUCT *data;
+    INT dummy;
+    INT i;
+
+    if (mgr_ws->nfiles == 0)
+	{
+	return SUCCESS;
+	}
+
+    /* ------------------------------ */
+    /* delete all the display windows */
+    /* ------------------------------ */
+    status = lh_first (mgr_ws->display,key,&data,&dummy);
+    for (i = 0; status == SUCCESS; i++)
+	{
+	wmsdelete (data->seg_id);
+	wmwdelete (data->win_id);
+	tc_free (data);
+	status = lh_next (mgr_ws->display,key,&data,&dummy);
+	}
+    return SUCCESS;
+    }
+
+
+
+
+/* Function Description -----------------------------------------------------
+Description: 
+    Build display TCPs and update the display list selector 
+
+Prototype:
+    static INT pfz_build_dsp_lists (id, display,flist,srclist,applist)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) INT id;
+    (I) lh_listhead *display;
+    (O) CHAR ***flist;
+    (O) CHAR ***srclist;
+    (O) CHAR ***applist;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Scope:
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+#if USE_PROTOTYPES
+static INT pfz_build_dsp_lists (INT id, lh_listhead *display, CHAR ***flist,
+				    CHAR ***srclist, CHAR ***applist)
+#else
+static INT pfz_build_dsp_lists (id, display,flist,srclist,applist)
+INT id;
+lh_listhead *display;
+CHAR ***flist;
+CHAR ***srclist;
+CHAR ***applist;
+#endif
+    {
+    INT status = SUCCESS;
+    PF_MGR_DSP_KEY key;
+    PF_MGR_DSP_STRUCT *data;
+    INT dummy;
+    INT i;
+    TCP tmp_flist = (TCP) NULL;
+    TCP tmp_srclist = (TCP) NULL;
+    TCP tmp_applist = (TCP) NULL;
+    CHAR *flist_string;
+    CHAR *srclist_string;
+    CHAR *applist_string;
+
+    status = lh_first (display,key,&data,&dummy);
+    for (i = 0; status == SUCCESS; i++)
+	{
+        ts_tcp_append (&tmp_flist,data->filename);
+	ts_tcp_append (&tmp_srclist,data->creator);
+	ts_tcp_append (&tmp_applist,data->application);
+	status = lh_next (display,key,&data,&dummy);
+	}
+
+    if (*flist != (TCP) NULL)
+	{
+	ts_tcp_free (*flist);
+	ts_tcp_free (*srclist);
+	ts_tcp_free (*applist);
+	}
+    if (i == 0)
+	{
+	*flist = (TCP) NULL;
+	*srclist = (TCP) NULL;
+	*applist = (TCP) NULL;
+	wi_set_dialog_text (id,PF_ERS_FNAME_SELECTOR,DASH);
+	wi_set_dialog_text (id,PF_ERS_SOURCE_SELECTOR,DASH);
+	wi_set_dialog_text (id,PF_ERS_APP_SELECTOR,DASH);
+	wi_enable_dialog_item (id,PF_ERS_ERASE,OFF);
+	}
+    else
+	{
+	*flist = tmp_flist;
+	*srclist = tmp_srclist;
+	*applist = tmp_applist;
+	flist_string = ts_pack_strings (i,*flist);
+	srclist_string = ts_pack_strings (i,*srclist);
+	applist_string = ts_pack_strings (i,*applist);
+
+	wi_enable_dialog_item (id,PF_ERS_ERASE,ON);
+
+	wi_set_dialog_text (id,PF_ERS_FNAME_SELECTOR,flist_string);
+	wi_set_dialog_text (id,PF_ERS_SOURCE_SELECTOR,srclist_string);
+	wi_set_dialog_text (id,PF_ERS_APP_SELECTOR,applist_string);
+
+	tc_free (flist_string);
+	tc_free (srclist_string);
+	tc_free (applist_string);
+	wi_activate (id,PF_ERS_FNAME_SELECTOR,ON);
+#if 0
+	wi_activate (id,PF_ERS_SOURCE_SELECTOR,ON);
+	wi_activate (id,PF_ERS_APP_SELECTOR,ON);
+#endif
+	}
+
+    return SUCCESS;
+    }
+
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    A interface function to call either the mapping info function 
+    or the cross section info function.
+
+Prototype:
+    static INT pf_mgr_pf_info (PF_MGR_WS *mgr_ws)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) PF_MGR_WS *mgr_ws;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+
+#if USE_PROTOTYPES
+static INT pf_mgr_pf_info (PF_MGR_WS *mgr_ws)
+#else
+static INT pf_mgr_pf_info (mgr_ws)
+PF_MGR_WS *mgr_ws;
+#endif
+    {
+    INT status = SUCCESS;
+
+    if (ARE_SAME (mgr_ws->app_list[mgr_ws->file_selected[0]-1],"MAPPING"))
+	{
+        status = pf_mgr_mp_pf_info (mgr_ws);
+	}
+    else
+	{
+	status = pf_mgr_xs_pf_info (mgr_ws);
+	}
+    return status;
+    }
+
+
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    Plotfile manager mapping plotfile info server
+
+Prototype:
+    static INT pf_mgr_mp_pf_info (PF_MGR_WS *mgr_ws)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) PF_MGR_WS *mgr_ws;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Scope:
+    PUBLIC
+    PRIVATE to <module_description>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+#if USE_PROTOTYPES
+static INT pf_mgr_mp_pf_info (PF_MGR_WS *mgr_ws)
+#else
+static INT pf_mgr_mp_pf_info (mgr_ws)
+PF_MGR_WS *mgr_ws;
+#endif
+    {
+
+    INT status;
+    INT id;
+    INT event_class;
+    INT event_id;
+    INT item;
+    INT num;
+    INT value;
+    BOOL done;
+    INT i;
+    CHAR content[240];
+    PF_INFO pf_info;
+    TCP tmp_verbs = (TCP) NULL;
+    TCP tmp_options = (TCP) NULL;
+    TCP tmp_parameters = (TCP) NULL;
+    CHAR *tmp_v;
+    CHAR *tmp_o;
+    CHAR *tmp_p;
+    PATHNAME pf_name;
+    CHAR remark[240];
+    DATE_TIME expired_date;
+    static CHAR EMPTY[] = "------------------";
+
+    if (ARE_SAME (mgr_ws->app_list[mgr_ws->file_selected[0]-1],"MAPPING"))
+	{
+        status = am_define_resource (AM_DIALOG, PF_RESOURCE_FILE, PF_MAP_INFO_CDLG,
+                                     NULL_FUNCTION_PTR, &id, (VOIDPTR) NULL);
+    
+	tc_zeroes (&pf_info,sizeof (PF_INFO));
+        status = pf_get_plotfile (&pf_info,
+				  mgr_ws->file_list[mgr_ws->file_selected[0]-1],
+				  mgr_ws->app_list[mgr_ws->file_selected[0]-1],
+				  mgr_ws->source_list[mgr_ws->file_selected[0]-1]);
+        wi_set_dialog_text (id,PF_MAP_INFO_PLOTFILE_NAME,pf_info.filename);
+	wi_set_dialog_text (id,PF_MAP_INFO_CREATOR,pf_info.analyst);
+	wi_set_dialog_text (id,PF_MAP_INFO_CREATION_DATE,pf_info.creation_date);
+	wi_set_dialog_text (id,PF_MAP_INFO_MAP_NAME,pf_info.parm.map->map_name);
+	wi_set_dialog_text (id,PF_MAP_INFO_LAYOUT_NAME,pf_info.layout);
+
+	sprintf (content,"%.2f %s",pf_info.parm.map->map_scale,pf_info.parm.map->map_scale_uom);
+	wi_set_dialog_text (id,PF_MAP_INFO_MAP_SCALE,content);
+
+	sprintf (content,"%.2f X %.2f INCHES",pf_info.xsize,pf_info.ysize);
+	wi_set_dialog_text (id,PF_MAP_INFO_MAP_SIZE,content);
+
+	wi_set_dialog_text (id,PF_MAP_INFO_MAP_PROJECTION,pf_info.parm.map->map_projection);
+
+	sprintf (content,"%.2f , %.2f",pf_info.parm.map->lower_left_xy.x,
+				     pf_info.parm.map->lower_left_xy.y);
+        wi_set_dialog_text (id,PF_MAP_INFO_LL_XY,content);
+
+	sprintf (content,"%.2f , %.2f",pf_info.parm.map->upper_right_xy.x,
+				     pf_info.parm.map->upper_right_xy.y);
+        wi_set_dialog_text (id,PF_MAP_INFO_UR_XY,content);
+
+	wi_set_dialog_text (id,PF_MAP_INFO_EXPIRED_DATE,pf_info.expired_date);
+
+        if (pf_info.parm.map->display->last_row_used  == 0)
+	    {
+	    wi_set_dialog_text (id,PF_MAP_INFO_OVERLAY,DASH);
+	    wi_set_dialog_text (id,PF_MAP_INFO_OPTION,DASH);
+	    wi_set_dialog_text (id,PF_MAP_INFO_PARAMETER,DASH);
+	    }
+        else
+	    {
+	    for (i = 0; i < pf_info.parm.map->display->last_row_used; ++i)
+		{
+                ts_tcp_append (&tmp_verbs,pf_info.parm.map->display->verbs[i]);
+                ts_tcp_append (&tmp_options,pf_info.parm.map->display->keywords[i]);
+                ts_tcp_append (&tmp_parameters,pf_info.parm.map->display->parameters[i]);
+                }
+            ts_tcp_append (&tmp_verbs,EMPTY);
+            ts_tcp_append (&tmp_options,EMPTY);
+            ts_tcp_append (&tmp_parameters,EMPTY);
+            i++;
+	    tmp_v = ts_pack_strings (i,tmp_verbs);
+	    tmp_o = ts_pack_strings (i,tmp_options);
+	    tmp_p = ts_pack_strings (i,tmp_parameters);
+
+	    wi_set_dialog_text (id,PF_MAP_INFO_OVERLAY,tmp_v);
+	    wi_set_dialog_text (id,PF_MAP_INFO_OPTION,tmp_o);
+	    wi_set_dialog_text (id,PF_MAP_INFO_PARAMETER,tmp_p);
+	    ts_tcp_free (tmp_verbs);
+	    ts_tcp_free (tmp_options);
+	    ts_tcp_free (tmp_parameters);
+	    tc_free (tmp_v);
+	    tc_free (tmp_o);
+	    tc_free (tmp_p);
+	    }
+
+        wi_set_dialog_text (id,PF_MAP_INFO_REMARK,pf_info.remark);
+
+/*
+        wi_enable_dialog_item (id,PF_MAP_INFO_OVERLAY,OFF);
+        wi_enable_dialog_item (id,PF_MAP_INFO_OPTION,OFF);
+        wi_enable_dialog_item (id,PF_MAP_INFO_PARAMETER,OFF);
+*/
+
+        fi_push ();
+
+        status = wi_open_dialog (id);
+
+        done = FALSE;
+        while (done == FALSE)
+            {
+            wi_request_event (0, &event_class, &event_id, &item);
+            switch (item)
+                {
+		case PF_MAP_INFO_SAVE:
+		    done = TRUE;
+		    wi_query_dialog_item (id,PF_MAP_INFO_PLOTFILE_NAME,&value,pf_name);
+		    ts_sto_upper (pf_name);
+		    wi_query_dialog_item (id,PF_MAP_INFO_EXPIRED_DATE,&value,expired_date);
+		    if ((status = ho_check_date (expired_date,"DD-MON-YYYY")) == FALSE)
+			{
+			status = PF_INVALID_EXPIRED_DATE;
+			am_message (AM_ALERT,mg_message(status));
+			break;
+			}
+
+		    wi_query_dialog_item (id,PF_MAP_INFO_REMARK,&value,remark);
+		    status = pfz_mgr_save_map_pf (&pf_info,pf_name,expired_date,remark);
+		    break;
+
+                case PF_MAP_INFO_CANCEL:
+		    done = TRUE;
+		    break;
+                }
+            }
+	am_release_resource (id);
+        fi_pop ();
+	}
+    return SUCCESS;
+    }
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    Plotfile manager cross section plotfile info server
+
+Prototype:
+    static INT pf_mgr_xs_pf_info (PF_MGR_WS *mgr_ws)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+
+    (I) PF_MGR_WS *mgr_ws;  Plotfile manager workspace 
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+#if USE_PROTOTYPES
+static INT pf_mgr_xs_pf_info (PF_MGR_WS *mgr_ws)
+#else
+static INT pf_mgr_xs_pf_info (mgr_ws)
+PF_MGR_WS *mgr_ws;
+#endif
+    {
+    INT status;
+    INT id;
+    INT event_class;
+    INT event_id;
+    INT item;
+    INT num;
+    INT value;
+    BOOL done;
+    INT i;
+    CHAR content[240];
+    PF_INFO pf_info;
+    PATHNAME pf_name;
+    CHAR remark[240];
+    DATE_TIME expired_date;
+
+    status = am_define_resource (AM_DIALOG, PF_RESOURCE_FILE, PF_XS_INFO_CDLG,
+                                     NULL_FUNCTION_PTR, &id, (VOIDPTR) NULL);
+    
+    tc_zeroes (&pf_info,sizeof (PF_INFO));
+    status = pf_get_plotfile (&pf_info,
+		              mgr_ws->file_list[mgr_ws->file_selected[0]-1],
+                              mgr_ws->app_list[mgr_ws->file_selected[0]-1],
+                              mgr_ws->source_list[mgr_ws->file_selected[0]-1]);
+    wi_set_dialog_text (id,PF_XS_INFO_PLOTFILE_NAME,pf_info.filename);
+    wi_set_dialog_text (id,PF_XS_INFO_CREATOR,pf_info.analyst);
+    wi_set_dialog_text (id,PF_XS_INFO_CREATION_DATE,pf_info.creation_date);
+    wi_set_dialog_text (id,PF_XS_INFO_EXPIRED_DATE,pf_info.expired_date);
+    wi_set_dialog_text (id,PF_XS_INFO_REMARK,pf_info.remark);
+    wi_set_dialog_text (id,PF_XS_INFO_LAYOUT_NAME,pf_info.parm.xs->layout_name);
+    wi_set_dialog_text (id,PF_XS_INFO_PLOT_LAYOUT,pf_info.layout);
+    sprintf (content,"%.2f X %.2f INCHES",pf_info.xsize,pf_info.ysize);
+    wi_set_dialog_text (id,PF_XS_INFO_PLOT_SIZE,content);
+
+    fi_push ();
+
+    status = wi_open_dialog (id);
+
+    done = FALSE;
+    while (done == FALSE)
+       {
+       wi_request_event (0, &event_class, &event_id, &item);
+       switch (item)
+           {
+           case PF_XS_INFO_SAVE:
+               done = TRUE;
+	       wi_query_dialog_item (id,PF_XS_INFO_PLOTFILE_NAME,&value,pf_name);
+               ts_sto_upper (pf_name);
+               wi_query_dialog_item (id,PF_XS_INFO_EXPIRED_DATE,&value,expired_date);
+               if ((status = ho_check_date (expired_date,"DD-MON-YYYY")) == FALSE)
+                   {
+		   status = PF_INVALID_EXPIRED_DATE;
+		   am_message (AM_ALERT,mg_message(status));
+		   break;
+                   }
+               wi_query_dialog_item (id,PF_XS_INFO_REMARK,&value,remark);
+               status = pfz_mgr_save_xs_pf (&pf_info,pf_name,expired_date,remark);
+               break;
+
+           case PF_XS_INFO_CANCEL:
+	       done = TRUE;
+               break;
+           }
+       }
+    am_release_resource (id);
+    fi_pop ();
+    return SUCCESS;
+    }
+
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    Save map plotfile 
+    if plotfile belongs to the user,
+    make sure that he/she save in other name if new plotfile is expected
+    otherwise replace it.
+    if file not belong to the user
+    new file created will be under the user name
+    and make sure that the file name is not in the system, since
+    the FM doesn't allow duplicate file name with different sources 
+    that should be changed in the future.
+
+Prototype:
+    static INT pfz_mgr_save_map_pf (pf_info,name,date,remark)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) PF_INFO *pf_info;
+    (I) CHAR *name;
+    (I) CHAR *date;
+    (I) CHAR *remark;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+
+#if USE_PROTOTYPES 
+static INT pfz_mgr_save_map_pf (PF_INFO *pf_info,CHAR *name,CHAR *date,CHAR *remark)
+#else
+static INT pfz_mgr_save_map_pf (pf_info,name,date,remark)
+PF_INFO *pf_info;
+CHAR *name;
+CHAR *date;
+CHAR *remark;
+#endif
+    {
+    static BOOL first = TRUE;
+    BOOL yesno;
+    INT status = SUCCESS;
+    PROJECT_NAME project;
+    ORACLE_NAME user;
+    CHAR *pdot;
+    CHAR msg[240];
+    CHAR command[100];
+    PATHNAME f_path;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+	VARCHAR stmt[500];
+	VARCHAR pf_name[241];
+	VARCHAR pf_remark[241];
+	VARCHAR expired_date[20];
+	VARCHAR pf_user[40];
+	VARCHAR pf_type[20];
+	VARCHAR pf_ospath[241];
+	VARCHAR pf_path[241];
+	long file_id;
+	long pf_size;
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO save_map_err;
+    if (first)
+	{
+	first = FALSE;
+	qs_inq_c (QS_PROJECT_NAME,project,(INT *)0);
+
+/*
+        stmt.len = sprintf ((CHAR *)stmt.arr,
+"UPDATE %s.FM_HDR SET FINDER_FILENAME = :v1, \
+EXPIRATION_DATE = TO_DATE(:v2,'DD-MON-YYYY'), REMARKS = :v3 WHERE FINDER_FILENAME = :v4 \
+AND CREATOR_ANALYST = :v5 AND CREATOR_APPLICATION = 'MAPPING'",project);
+*/
+        stmt.len = sprintf ((CHAR *)stmt.arr,
+"UPDATE %s.FM_HDR SET FINDER_FILENAME = :v1, \
+EXPIRATION_DATE = TO_DATE(:v2,'DD-MON-YYYY'), REMARKS = :v3 WHERE FILE_ID = :v4",project);
+
+        EXEC SQL PREPARE S44 FROM :stmt;
+
+	stmt.len = sprintf ((CHAR *)stmt.arr,
+"SELECT FILE_ID FROM %s.FM_HDR \
+WHERE FINDER_FILENAME = :v1 AND CREATOR_ANALYST = :v2 AND \
+CREATOR_APPLICATION = 'MAPPING' AND DELETE_FLAG != 'T' \
+AND EXPIRATION_DATE > SYSDATE \
+AND FILE_TYPE = :v3",project);
+
+	EXEC SQL PREPARE S55 FROM :stmt;
+	EXEC SQL DECLARE C55 CURSOR FOR S55;
+
+	stmt.len = sprintf ((CHAR *)stmt.arr,
+"INSERT INTO %s.FM_HDR (FILE_ID,FINDER_PATHNAME,FINDER_FILENAME,\
+FILE_TYPE,OS_PATHNAME,CREATOR_ANALYST,CREATOR_APPLICATION,CREATE_DATE,\
+EXPIRATION_DATE,LAST_MOD_DATE,FILE_SIZE,DELETE_FLAG,REMARKS)  \
+VALUES (:v1,:v2,:v3,:v4,:v5,:v6,'MAPPING',SYSDATE,TO_DATE(:v9,'DD-MON-YYYY'),\
+SYSDATE,:v11,'F',:v13)",project);
+
+	EXEC SQL PREPARE S66 FROM :stmt;
+        }
+        
+    qs_inq_c (QS_FINDER_ACCOUNT,user,(INT *)0);
+
+    V_FROMC (pf_name,name);
+    V_FROMC (expired_date,date);
+    V_FROMC (pf_remark,remark);
+    file_id = pf_info->file_id;
+    V_FROMC (pf_user,user);
+    pf_size = pf_info->size;
+    pf_type.len = sprintf ((CHAR *) pf_type.arr,"PLOTFILE");
+    if (ARE_SAME (user,pf_info->analyst))
+        {
+	if (ARE_SAME (name,pf_info->filename))
+	    {
+	    status = PF_CREATE_OR_UPDATE_PLOT_FILE;
+            wiyesno (mg_message (status),"",&yesno,&status);
+	    if (yesno)
+		{
+	        EXEC SQL EXECUTE S44 USING :pf_name,:expired_date,:pf_remark,:file_id;
+		}
+            }
+        else
+	    {
+
+            /* ---------------------- */
+	    /* create new os pathname */
+	    /* ---------------------- */
+            V_FROMC (pf_path,pf_info->finder_path);
+            status = fm_create_file_id (&pf_info->file_id);
+	    fm_create_os_filename (pf_info->file_id,f_path);
+            pf_ospath.len = sprintf ((CHAR *) pf_ospath.arr,"%s:%s",
+					 pf_info->finder_path,f_path);
+
+            ho_add_path ("ESI$PLOTS",f_path,sizeof (pf_info->pathname),f_path);
+	    /* --------------------------------- */
+	    /* copy plotfile under new file name */
+	    /* --------------------------------- */
+#if UNIX
+            sprintf (command,"cp %s %s",pf_info->pathname,f_path);
+            ho_syscom (command);
+            sprintf (command,"cp %s.PAR %s.PAR",pf_info->pathname,f_path);
+            ho_syscom (command);
+#endif
+#if vms
+            sprintf (command,"copy %s %s",pf_info->pathname,f_path);
+            ho_syscom (command);
+            sprintf (command,"copy %s.PAR %s.PAR",pf_info->pathname,f_path);
+            ho_syscom (command);
+#endif
+
+            /* --------------------------------------- */
+	    /* update the pathname in the PF structure */
+	    /* --------------------------------------- */
+	    strcpy (pf_info->pathname,f_path);
+
+            file_id = pf_info->file_id;
+	    EXEC SQL EXECUTE S66 USING :file_id, :pf_path, :pf_name,
+					   :pf_type, :pf_ospath, :pf_user,
+					   :expired_date,:pf_size,
+					   :pf_remark; 
+            strcpy (pf_info->filename,name);
+	    strcpy (pf_info->remark,remark);
+	    strcpy (pf_info->expired_date,date);
+
+	    /* ------------------ */
+	    /* store the plotfile */
+	    /* ------------------ */
+	    status = pf_put_plotfile (pf_info);
+	    }
+	}
+    else
+	{
+	status = PF_MODIFY_OTHER_PF;
+	wiyesno (mg_message(status),"",&yesno,&status);
+	if (yesno)
+	    {
+	    EXEC SQL OPEN C55 USING :pf_name, :pf_user, :pf_type;
+	    EXEC SQL FETCH C55 INTO :file_id;
+	    if (OR_STATUS == SUCCESS)
+	        {
+		status = PF_REPLACE_PLOT_FILE;
+		wiyesno (mg_message(status),"",&yesno,&status);
+		if (yesno)
+		    {
+	            EXEC SQL EXECUTE S44 USING :pf_name,:expired_date,
+					       :pf_remark,:file_id;
+		    }
+                }
+            else
+		{
+		V_FROMC (pf_path,pf_info->finder_path);
+#if UNIX 
+		pdot = strrchr (pf_info->pathname,'/') + 1;
+		pf_ospath.len = sprintf ((CHAR *) pf_ospath.arr,"%s:%s",pf_info->finder_path,pdot);
+#endif
+#if vms
+		V_FROMC (pf_ospath,pf_info->pathname);
+#endif
+
+		/* ---------------------- */
+		/* create new os pathname */
+		/* ---------------------- */
+                status = fm_create_file_id (&pf_info->file_id);
+		fm_create_os_filename (pf_info->file_id,f_path);
+		pf_ospath.len = sprintf ((CHAR *) pf_ospath.arr,"%s:%s",
+					 pf_info->finder_path,f_path);
+
+
+                ho_add_path ("ESI$PLOTS",f_path,sizeof (pf_info->pathname),f_path);
+		/* --------------------------------- */
+		/* copy plotfile under new file name */
+		/* --------------------------------- */
+#if UNIX
+                sprintf (command,"cp %s %s",pf_info->pathname,f_path);
+                ho_syscom (command);
+                sprintf (command,"cp %s.PAR %s.PAR",pf_info->pathname,f_path);
+                ho_syscom (command);
+#endif
+#if vms
+                sprintf (command,"copy %s %s",pf_info->pathname,f_path);
+                ho_syscom (command);
+                sprintf (command,"copy %s.PAR %s.PAR",pf_info->pathname,f_path);
+                ho_syscom (command);
+#endif
+
+
+		/* --------------------------------------- */
+		/* update the pathname in the PF structure */
+		/* --------------------------------------- */
+		strcpy (pf_info->pathname,f_path);
+
+                file_id = pf_info->file_id;
+		EXEC SQL EXECUTE S66 USING :file_id, :pf_path, :pf_name,
+					   :pf_type, :pf_ospath, :pf_user,
+					   :expired_date,:pf_size,
+					   :pf_remark; 
+                strcpy (pf_info->filename,name);
+		strcpy (pf_info->remark,remark);
+		strcpy (pf_info->expired_date,date);
+
+		/* ------------------ */
+		/* store the plotfile */
+		/* ------------------ */
+		status = pf_put_plotfile (pf_info);
+		}
+            }  
+	}
+    EXEC SQL COMMIT WORK;
+    return SUCCESS;
+save_map_err:
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL ROLLBACK WORK;
+    printf ("%s",OR_MESSAGE);
+    return OR_STATUS;
+    }
+
+
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    Save xs plotfile 
+    if plotfile belongs to the user,
+    make sure that he/she save in other name if new plotfile is expected
+    otherwise replace it.
+    if file not belong to the user
+    new file created will be under the user name
+    and make sure that the file name is not in the system, since
+    the FM doesn't allow duplicate file name with different sources 
+    that should be changed in the future.
+
+Prototype:
+    static INT pfz_mgr_save_xs_pf (pf_info,name,date,remark)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) PF_INFO *pf_info;
+    (I) CHAR *name;
+    (I) CHAR *date;
+    (I) CHAR *remark;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+
+#if USE_PROTOTYPES 
+static INT pfz_mgr_save_xs_pf (PF_INFO *pf_info,CHAR *name,CHAR *date,CHAR *remark)
+#else
+static INT pfz_mgr_save_xs_pf (pf_info,name,date,remark)
+PF_INFO *pf_info;
+CHAR *name;
+CHAR *date;
+CHAR *remark;
+#endif
+    {
+    static BOOL first = TRUE;
+    BOOL yesno;
+    INT status = SUCCESS;
+    PROJECT_NAME project;
+    ORACLE_NAME user;
+    CHAR *pdot;
+    CHAR msg[240];
+    CHAR command[100];
+    PATHNAME f_path;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+	VARCHAR stmt[500];
+	VARCHAR pf_name[241];
+	VARCHAR pf_remark[241];
+	VARCHAR expired_date[20];
+	VARCHAR pf_user[40];
+	VARCHAR pf_type[20];
+	VARCHAR pf_ospath[241];
+	VARCHAR pf_path[241];
+	long file_id;
+	long pf_size;
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO save_map_err;
+    if (first)
+	{
+	first = FALSE;
+	qs_inq_c (QS_PROJECT_NAME,project,(INT *)0);
+
+        stmt.len = sprintf ((CHAR *)stmt.arr,
+"UPDATE %s.FM_HDR SET FINDER_FILENAME = :v1, \
+EXPIRATION_DATE = TO_DATE(:v2,'DD-MON-YYYY'), REMARKS = :v3 WHERE FILE_ID = :v4",project);
+
+        EXEC SQL PREPARE S88 FROM :stmt;
+
+	stmt.len = sprintf ((CHAR *)stmt.arr,
+"SELECT FILE_ID FROM %s.FM_HDR \
+WHERE FINDER_FILENAME = :v1 AND CREATOR_ANALYST = :v2 AND \
+CREATOR_APPLICATION = 'XSECT' AND DELETE_FLAG != 'T' \
+AND EXPIRATION_DATE > SYSDATE \
+AND FILE_TYPE = :v3",project);
+
+	EXEC SQL PREPARE S99 FROM :stmt;
+	EXEC SQL DECLARE C99 CURSOR FOR S99;
+
+	stmt.len = sprintf ((CHAR *)stmt.arr,
+"INSERT INTO %s.FM_HDR (FILE_ID,FINDER_PATHNAME,FINDER_FILENAME,\
+FILE_TYPE,OS_PATHNAME,CREATOR_ANALYST,CREATOR_APPLICATION,CREATE_DATE,\
+EXPIRATION_DATE,LAST_MOD_DATE,FILE_SIZE,DELETE_FLAG,REMARKS)  \
+VALUES (:v1,:v2,:v3,:v4,:v5,:v6,'XSECT',SYSDATE,TO_DATE(:v9,'DD-MON-YYYY'),\
+SYSDATE,:v11,'F',:v13)",project);
+
+	EXEC SQL PREPARE S12 FROM :stmt;
+        }
+        
+    qs_inq_c (QS_FINDER_ACCOUNT,user,(INT *)0);
+
+    V_FROMC (pf_name,name);
+    V_FROMC (expired_date,date);
+    V_FROMC (pf_remark,remark);
+    file_id = pf_info->file_id;
+    V_FROMC (pf_user,user);
+    pf_size = pf_info->size;
+    pf_type.len = sprintf ((CHAR *) pf_type.arr,"PLOTFILE");
+    if (ARE_SAME (user,pf_info->analyst))
+        {
+	if (ARE_SAME (name,pf_info->filename))
+	    {
+	    status = PF_CREATE_OR_UPDATE_PLOT_FILE;
+            wiyesno (mg_message (status),"",&yesno,&status);
+	    if (yesno)
+		{
+	        EXEC SQL EXECUTE S88 USING :pf_name,:expired_date,:pf_remark,:file_id;
+		}
+            }
+        else
+	    {
+
+            /* ---------------------- */
+	    /* create new os pathname */
+	    /* ---------------------- */
+            V_FROMC (pf_path,pf_info->finder_path);
+            status = fm_create_file_id (&pf_info->file_id);
+	    fm_create_os_filename (pf_info->file_id,f_path);
+            pf_ospath.len = sprintf ((CHAR *) pf_ospath.arr,"%s:%s",
+					 pf_info->finder_path,f_path);
+
+            ho_add_path ("ESI$PLOTS",f_path,sizeof (pf_info->pathname),f_path);
+	    /* --------------------------------- */
+	    /* copy plotfile under new file name */
+	    /* --------------------------------- */
+#if UNIX
+            sprintf (command,"cp %s %s",pf_info->pathname,f_path);
+            ho_syscom (command);
+            sprintf (command,"cp %s.PAR %s.PAR",pf_info->pathname,f_path);
+            ho_syscom (command);
+#endif
+#if vms
+            sprintf (command,"copy %s %s",pf_info->pathname,f_path);
+            ho_syscom (command);
+            sprintf (command,"copy %s.PAR %s.PAR",pf_info->pathname,f_path);
+            ho_syscom (command);
+#endif
+
+            /* --------------------------------------- */
+	    /* update the pathname in the PF structure */
+	    /* --------------------------------------- */
+	    strcpy (pf_info->pathname,f_path);
+
+            file_id = pf_info->file_id;
+	    EXEC SQL EXECUTE S12 USING :file_id, :pf_path, :pf_name,
+					   :pf_type, :pf_ospath, :pf_user,
+					   :expired_date,:pf_size,
+					   :pf_remark; 
+            strcpy (pf_info->filename,name);
+	    strcpy (pf_info->remark,remark);
+	    strcpy (pf_info->expired_date,date);
+
+	    /* ------------------ */
+            /* store the plotfile */
+	    /* ------------------ */
+            status = pf_put_plotfile (pf_info);
+	    }
+	}
+    else
+	{
+	status = PF_MODIFY_OTHER_PF;
+	wiyesno (mg_message(status),"",&yesno,&status);
+	if (yesno)
+	    {
+	    EXEC SQL OPEN C99 USING :pf_name, :pf_user, :pf_type;
+	    EXEC SQL FETCH C99 INTO :file_id;
+	    if (OR_STATUS == SUCCESS)
+	        {
+		status = PF_REPLACE_PLOT_FILE;
+		wiyesno (mg_message(status),"",&yesno,&status);
+		if (yesno)
+		    {
+	            EXEC SQL EXECUTE S88 USING :pf_name,:expired_date,
+					       :pf_remark,:file_id;
+		    }
+                }
+            else
+		{
+		V_FROMC (pf_path,pf_info->finder_path);
+#if UNIX 
+		pdot = strrchr (pf_info->pathname,'/') + 1;
+		pf_ospath.len = sprintf ((CHAR *) pf_ospath.arr,"%s:%s",pf_info->finder_path,pdot);
+#endif
+#if vms
+		V_FROMC (pf_ospath,pf_info->pathname);
+#endif
+
+		/* ---------------------- */
+		/* create new os pathname */
+		/* ---------------------- */
+                status = fm_create_file_id (&pf_info->file_id);
+		fm_create_os_filename (pf_info->file_id,f_path);
+		pf_ospath.len = sprintf ((CHAR *) pf_ospath.arr,"%s:%s",
+					 pf_info->finder_path,f_path);
+
+
+                ho_add_path ("ESI$PLOTS",f_path,sizeof (pf_info->pathname),f_path);
+		/* --------------------------------- */
+		/* copy plotfile under new file name */
+		/* --------------------------------- */
+#if UNIX
+                sprintf (command,"cp %s %s",pf_info->pathname,f_path);
+                ho_syscom (command);
+                sprintf (command,"cp %s.PAR %s.PAR",pf_info->pathname,f_path);
+                ho_syscom (command);
+#endif
+#if vms
+                sprintf (command,"copy %s %s",pf_info->pathname,f_path);
+                ho_syscom (command);
+                sprintf (command,"copy %s.PAR %s.PAR",pf_info->pathname,f_path);
+                ho_syscom (command);
+#endif
+
+
+		/* --------------------------------------- */
+		/* update the pathname in the PF structure */
+		/* --------------------------------------- */
+		strcpy (pf_info->pathname,f_path);
+
+                file_id = pf_info->file_id;
+		EXEC SQL EXECUTE S12 USING :file_id, :pf_path, :pf_name,
+					   :pf_type, :pf_ospath, :pf_user,
+					   :expired_date,:pf_size,
+					   :pf_remark; 
+                strcpy (pf_info->filename,name);
+		strcpy (pf_info->remark,remark);
+		strcpy (pf_info->expired_date,date);
+
+		/* ------------------ */
+		/* store the plotfile */
+		/* ------------------ */
+		status = pf_put_plotfile (pf_info);
+		}
+            }  
+	}
+    EXEC SQL COMMIT WORK;
+    return SUCCESS;
+save_map_err:
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL ROLLBACK WORK;
+    printf ("%s",OR_MESSAGE);
+    return OR_STATUS;
+    }
+
+
+
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    get FM info for thge plotfile
+    and application specific info, i.e. map, xsect.
+
+Prototype:
+    publicdef INT pf_get_plotfile (pf_info,name,type,source)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (O) PF_INFO *pf_info;
+    (I) CHAR *name;
+    (I) CHAR *type;
+    (I) CHAR *source;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+#if USE_PROTOTYPES 
+publicdef INT pf_get_plotfile (PF_INFO *pf_info, CHAR *name, CHAR *type, CHAR *source)
+#else
+publicdef INT pf_get_plotfile (pf_info,name,type,source)
+PF_INFO *pf_info;
+CHAR *name;
+CHAR *type;
+CHAR *source;
+#endif
+    {
+    INT status = SUCCESS;
+    BOOL first = TRUE;
+    PROJECT_NAME project;
+    CHAR *pdot;
+    INT file_id;
+    PATHNAME temp;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+      VARCHAR stmt[500];
+      VARCHAR fname[256];
+      VARCHAR src[80];
+      VARCHAR app[80];
+      long fid;
+      VARCHAR path[256];
+      VARCHAR c_date[20];
+      VARCHAR exp_date[20];
+      VARCHAR remark[256];
+      VARCHAR ptype[30];
+      VARCHAR f_path[241];
+      long f_size;
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO oraerr1;
+    if (first)
+	{
+	first = FALSE;
+
+        qs_inq_c (QS_PROJECT_NAME,project,(INT *)0);
+
+	/* ------------------------ */
+	/* FM info select statement */
+	/* ------------------------ */
+        stmt.len = sprintf ((CHAR *)stmt.arr,
+"SELECT FILE_ID,FILE_TYPE,FINDER_PATHNAME,OS_PATHNAME,\
+TO_CHAR(CREATE_DATE,'DD-MON-YYYY'), \
+TO_CHAR(EXPIRATION_DATE,'DD-MON-YYYY'),REMARKS, FILE_SIZE \
+FROM %s.FM_HDR WHERE FINDER_FILENAME = :v1 \
+AND FILE_TYPE = 'PLOTFILE' AND DELETE_FLAG != 'T' AND \
+EXPIRATION_DATE > SYSDATE \
+AND CREATOR_ANALYST = :v2 AND CREATOR_APPLICATION = :v3",project);
+
+	EXEC SQL PREPARE S11 FROM :stmt;
+	EXEC SQL DECLARE C11 CURSOR FOR S11;
+	}
+    V_FROMC (fname,name);
+    V_FROMC (src,source);
+    V_FROMC (app,type);
+
+    EXEC SQL OPEN C11 USING :fname,:src,:app;
+    EXEC SQL FETCH C11 INTO :fid,:ptype,:path,:f_path,:c_date,
+			    :exp_date,:remark,:f_size;
+
+    if (OR_STATUS == OR_EOF)
+	{
+	EXEC SQL CLOSE C11;
+	return FAIL;
+	}
+
+    V_SETZERO (path);
+    V_SETZERO (c_date);
+    V_SETZERO (exp_date);
+    V_SETZERO (remark);
+    V_SETZERO (ptype);
+    V_SETZERO (f_path);
+    pf_info->file_id = fid;
+    strcpy (pf_info->filename,name);
+    /* ------------------------------------------------------------------ */
+    /* a work around for get the path translated right                    */
+    /* since ho_translate_filename dosen't work out the way as I expected */
+    /* ------------------------------------------------------------------ */
+#if UNIX
+    pdot = strchr ((CHAR *)f_path.arr,':') + 1;
+    ho_add_path ("ESI$PLOTS",pdot,sizeof(PATHNAME),temp);
+    strcpy (pf_info->pathname,temp);
+#else
+    V_FROMV (pf_info->pathname,f_path);
+#endif
+
+    strcpy (pf_info->expired_date,(CHAR *) exp_date.arr);
+    strcpy (pf_info->creation_date,(CHAR *) c_date.arr);
+    strcpy (pf_info->remark,(CHAR *) remark.arr);
+    strcpy (pf_info->analyst,source);
+    strcpy (pf_info->app,type);
+    strcpy (pf_info->finder_path,(CHAR *)path.arr);
+    pf_info->size = f_size;
+
+    EXEC SQL CLOSE C11;
+
+    /* ----------------------------- */
+    /* get application specific info */
+    /* ----------------------------- */
+    if (ARE_SAME (type,"MAPPING"))
+	{
+	status = pfz_get_map_pf_info (pf_info->file_id,pf_info);
+        }
+    else
+	{
+	status = pfz_get_xs_pf_info (pf_info->file_id,pf_info);
+	}
+
+    status = pf_read_parfile (pf_info->pathname,&pf_info->vdc_ll_x,&pf_info->vdc_ll_y,
+			      &pf_info->vdc_ur_x,&pf_info->vdc_ur_y);
+    return SUCCESS;
+
+oraerr1:
+
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL ROLLBACK WORK;
+    printf ("%s\n",OR_MESSAGE);
+    return FAIL;
+    }
+
+
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    Get map specific info
+
+Prototype:
+    static INT pfz_get_map_pf_info (fid, pf_info)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) INT fid;
+    (I/O) PF_INFO *pf_info;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+#if USE_PROTOTYPES
+static INT pfz_get_map_pf_info (INT fid, PF_INFO *pf_info)
+#else
+static INT pfz_get_map_pf_info (fid, pf_info)
+INT fid;
+PF_INFO *pf_info;
+#endif
+    {
+    INT status;
+    PROJECT_NAME project;
+    MAP_STRUCTURE *mapdef;
+    MD_DISPLAY *display = (MD_DISPLAY *)0;
+    MD_COMPILED_MAPDEF *compiled = (MD_COMPILED_MAPDEF *)0;
+    MD_COMPILED_VERB *verb;
+    MD_PARM_STRUCT *parmstruc;
+    MD_VERB_INFO *temp_verb_info;
+    MD_KEY_INFO *temp_key_info;
+    MP_FILES *file_struc;
+    FM_TYPE type;
+    CHAR **temp_tcp;
+    INT last_verb_read = -1;
+    INT last_verb_writ = -1;
+    INT temp_key_ndx;
+    BOOL verb_found = FALSE;
+    INT disp_lines = 0;
+    INT comp_lines = 0;
+    INT crnt_verb_lines = 0;
+    static BOOL inited = FALSE;
+    INT newrecs;
+    INT tot_recs = 0;
+    CHAR msg[200];
+    INT i;
+    INT dummy;
+    INT nclines = -1;
+    INT ndlines = 0;
+    BOOL first = TRUE;
+    INT *map_number;
+    BOOL valid = TRUE;
+    CHAR dash = '-';
+    CHAR blank = ' ';
+    ANALYST_NAME creator;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[500];
+    VARCHAR map_name[41];
+    VARCHAR pf_type[41];
+    VARCHAR projection[16];
+    VARCHAR coord_sys[16];
+    VARCHAR pl_name[41];
+    VARCHAR scale_unit[21];
+    VARCHAR parameter[50][1000];
+    float ll_x;
+    float ur_x;
+    float ll_y;
+    float ur_y;
+    float map_scale;
+    float xsize;
+    float ysize;
+    long display_lines;
+    long overlays;
+    long verb_code[50];
+    long key_code[50];
+    long file_id;
+    EXEC SQL END DECLARE SECTION;
+    
+    /* **********************************************************************       */
+    
+    /* * SET UP SQL STATEMENT AND CURSOR *                                          */
+    /* -----------------------------------                                          */
+    
+    EXEC SQL WHENEVER SQLERROR GOTO finished;
+    
+    if (NOT inited)
+        {
+        qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+        
+	stmt.len = sprintf ((CHAR *) stmt.arr,
+"SELECT MAP_NAME, PLOT_FILE_FORMAT, PLOT_LAYOUT_NAME, PLOT_WIDTH, PLOT_HEIGHT, PROJECTION,\
+COORDINATE_SYSTEM, LOWER_LEFT_X, LOWER_LEFT_Y, UPPER_RIGHT_X,\
+UPPER_RIGHT_Y, MAP_SCALE, MAP_SCALE_UNIT, DISPLAY_LINES, OVERLAYS \
+FROM %s.MAP_PLOTFILE_HDR WHERE FILE_ID = :v1",project);
+
+	EXEC SQL PREPARE S22 FROM :stmt;
+	EXEC SQL DECLARE C22 CURSOR FOR S22;
+
+        stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT VERB_CODE,KEY_CODE,PARAMETER FROM %s.MAP_PLOTFILE_OVERLAYS \
+WHERE FILE_ID = :v1 ORDER BY SEQ_NO"
+                , project);
+        
+        EXEC SQL PREPARE S33 FROM :stmt;
+        EXEC SQL DECLARE C33 CURSOR FOR S33;
+        
+        inited = TRUE;
+        }
+    
+    /* ------------------- */
+    /* get map header info */
+    /* ------------------- */
+    file_id = fid;
+    EXEC SQL OPEN C22 USING :file_id;
+    EXEC SQL FETCH C22 INTO :map_name, :pf_type, :pl_name, :xsize, :ysize , :projection, 
+			   :coord_sys, :ll_x, :ll_y, :ur_x, :ur_y, 
+			   :map_scale, :scale_unit, :display_lines, :overlays;
+    EXEC SQL CLOSE C22;
+    
+    if (pf_info->parm.map != (MAP_STRUCTURE *) NULL)
+	{
+	if (pf_info->parm.map->display != (MD_DISPLAY *) NULL)
+	   {
+	   tc_free (pf_info->parm.map->display);
+	   pf_info->parm.map->display = (MD_DISPLAY *) NULL;
+	   }
+	if (pf_info->parm.map->compiled != (MD_COMPILED_MAPDEF *) NULL)
+	   {
+	   tc_free (pf_info->parm.map->compiled);
+	   pf_info->parm.map->compiled = (MD_COMPILED_MAPDEF *) NULL;
+	   }
+	}
+
+    pf_info->parm.map = (MAP_STRUCTURE *) tc_zalloc (sizeof (MAP_STRUCTURE));
+    
+    V_FROMV (pf_info->layout,pl_name);
+    V_FROMV (pf_info->meta_type,pf_type);
+    pf_info->xsize = xsize;
+    pf_info->ysize = ysize;
+
+    mapdef = pf_info->parm.map;
+    
+    V_FROMV (mapdef->map_name, map_name);
+    V_FROMV (mapdef->map_projection, projection);
+    V_FROMV (mapdef->map_coordinate_system, coord_sys);
+    mapdef->lower_left_xy.x = ll_x;
+    mapdef->lower_left_xy.y = ll_y;
+    mapdef->upper_right_xy.x = ur_x;
+    mapdef->upper_right_xy.y = ur_y;
+    mapdef->map_scale = map_scale;
+    V_FROMV (mapdef->map_scale_uom, scale_unit);
+    mapdef->wcs_to_inches = 1.0;
+    
+    /* INITIALIZE DISPLAY & COMPILED STRUCTS                                        */
+    
+    mp_init_display_struct (&display, display_lines);
+    mp_init_compiled_mapdef (&compiled, overlays);
+    mapdef->display = display;
+    mapdef->compiled = compiled;
+    
+    tc_zeroes (display->overlay_displayed, display->nrows * sizeof(BOOL));
+    
+    /* * GET THE OVERLAYS *                                                         */
+    /* --------------------                                                         */
+    
+    /* ---------------- */
+    /* get map overlays */
+    /* ---------------- */
+    EXEC SQL OPEN C33 USING :file_id;
+    
+    FOREVER
+        {
+        EXEC SQL FETCH C33 INTO :verb_code, :key_code, :parameter;
+        
+        status = OR_STATUS;
+        newrecs = OR_ROWCOUNT - tot_recs;
+        tot_recs = OR_ROWCOUNT;
+        
+        /* * DISPLAY LINE LOOP *                                                    */
+        /* ---------------------                                                    */
+        
+        for (i = 0; i < newrecs; i++)
+            {
+            /* HAVE A NEW VERB                                                      */
+            
+            if (verb_code[i] != last_verb_read)
+                {
+                /* ONE LINE OVERLAY                                                 */
+                
+                if (verb_found AND crnt_verb_lines EQUALS 0)
+                    {
+                    temp_verb_info = &(overlay_verbs[last_verb_writ]);
+                    nclines++;
+                    display->verb_ndx[ndlines] = last_verb_writ;
+                    strcpy (display->verbs[ndlines], temp_verb_info->verb);
+                    
+                    display->key_ndx[ndlines] = -1;
+                    ts_fill (display->keywords[ndlines], blank, SELECTOR_SIZE);
+                    
+                    display->parameters[ndlines] =
+                        (CHAR *) am_allocate (AM_GLOBAL, SELECTOR_SIZE + 1);
+                    ts_fill (display->parameters[ndlines], blank, SELECTOR_SIZE);
+                    
+                    display->compiled_row[ndlines] = nclines;
+                    
+                    compiled->verb_code[nclines] = last_verb_read;
+                    mp_init_comp_verb (&verb, temp_verb_info);
+                    compiled->verb_ptr[nclines] = verb;
+                    
+                    ndlines++;
+                    }
+                /* START UP FOR NEXT VERB                                           */
+                
+                crnt_verb_lines = 0;
+                first = TRUE;
+                verb_found = mp_verb_lookup (verb_code[i], &last_verb_writ);
+                last_verb_read = verb_code[i];
+                }
+            /* STILL HAVE SAME VERB                                                 */
+            else
+                {
+                first = FALSE;
+                }
+            /* * PROCESS OPTIONS *                                                  */
+            /* -------------------                                                  */
+            
+            if (verb_found)
+                {
+                temp_verb_info = &(overlay_verbs[last_verb_writ]);
+                
+                /* CHECK KEY                                                        */
+                
+                if (mp_key_lookup (key_code[i], last_verb_writ, &temp_key_ndx))
+                    {
+                    temp_tcp = temp_verb_info->key_tcp;
+                    
+                    /* CHECK PARAMETER                                              */
+                    
+                    V_SETZERO (parameter[i]);
+                        display->verb_ndx[ndlines] = last_verb_writ;
+                        if (crnt_verb_lines EQUALS 0)
+                            {
+                            nclines++;
+                            strcpy (display->verbs[ndlines], temp_verb_info->verb);
+                            compiled->verb_code[nclines] = last_verb_read;
+                            mp_init_comp_verb (&verb, temp_verb_info);
+                            compiled->verb_ptr[nclines] = verb;
+                            }
+                        else
+                            {
+                            ts_fill (display->verbs[ndlines], blank, SELECTOR_SIZE);
+                            display->overlay_displayed[ndlines] = TRUE;
+                            }
+                        /* FILL FILE STRUCTURES                                     */
+                        
+                        temp_key_info = &(temp_verb_info->key_list[temp_key_ndx]);
+                        if ((temp_key_info->
+                             val_code EQUALS FILER$) OR (temp_key_info->
+                                                         val_code EQUALS FILEW$))
+                            {
+                            
+                            if (temp_key_info->val_code EQUALS FILER$)
+                                {
+				    fm_long_name ((CHAR *)parameter[i].arr,
+						  (CHAR *)parameter[i].arr);
+				    }
+				else
+				    {
+				    fm_parse_long_name ((CHAR *)parameter[i].arr, creator,
+                                                    (CHAR *)parameter[i].arr);
+                                }
+                            V_SETLEN (parameter[i]);
+                            
+                            strcpy (type, temp_key_info->val_arg + 4);
+                            type[strlen (type) - 1] = 0;
+                            }
+                        display->key_ndx[ndlines] = temp_key_ndx;
+                        strcpy (display->keywords[ndlines], temp_tcp[temp_key_ndx]);
+                        display->parameters[ndlines] =
+                            (CHAR *) am_allocate (AM_GLOBAL, parameter[i].len + 1);
+                        strcpy ((char *)display->parameters[ndlines],
+                                (char *)parameter[i].arr);
+                        
+                        display->compiled_row[ndlines] = nclines;
+                        
+                        verb->key_used[temp_key_ndx] = 1;
+                        verb->parm_ptr[temp_key_ndx] = parmstruc;
+                        
+                        ndlines++;
+                        crnt_verb_lines++;
+                    }
+                else if (key_code[i] != -1)
+                    {
+                    valid = FALSE;
+                    sprintf (msg, "%s: %s", mg_message (MD_VALID_ERROR_KEY),
+                             temp_verb_info->verb);
+                    am_message (AM_STATUS, msg);
+                    }
+                }
+            else if (verb_code[i] EQUALS - 1)
+                {
+                display->overlay_displayed[ndlines] = TRUE;
+                ts_fill (display->verbs[ndlines], dash, SELECTOR_SIZE);
+                ts_fill (display->keywords[ndlines], dash, SELECTOR_SIZE);
+                
+                display->parameters[ndlines] = (CHAR *) am_allocate (AM_GLOBAL,
+                                                                     SELECTOR_SIZE +
+                                                                     1);
+                ts_fill (display->parameters[ndlines], dash, SELECTOR_SIZE);
+                
+                ndlines++;
+                }
+            else if (first)
+                {
+                valid = FALSE;
+                am_message (AM_STATUS, mg_message (MD_VALID_ERROR_VERB));
+                }
+            }
+        if (status EQUALS OR_EOF)
+            {
+            break;
+            }
+        }
+    if (verb_found AND crnt_verb_lines EQUALS 0)
+        {
+        temp_verb_info = &(overlay_verbs[last_verb_writ]);
+        nclines++;
+        display->verb_ndx[ndlines] = last_verb_writ;
+        strcpy (display->verbs[ndlines], temp_verb_info->verb);
+        
+        display->key_ndx[ndlines] = -1;
+        ts_fill (display->keywords[ndlines], blank, SELECTOR_SIZE);
+        
+        display->parameters[ndlines] = (CHAR *) am_allocate (AM_GLOBAL,
+                                                             SELECTOR_SIZE + 1);
+        ts_fill (display->parameters[ndlines], blank, SELECTOR_SIZE);
+        
+        display->compiled_row[ndlines] = nclines;
+        
+        compiled->verb_code[nclines] = last_verb_read;
+        mp_init_comp_verb (&verb, temp_verb_info);
+        compiled->verb_ptr[nclines] = verb;
+        
+        ndlines++;
+        }
+    /* * SUCCESSFULLY READ (THOUGH PERHAPS NOT VALID MAP): STORE MAPDEF *           */
+    /* ------------------------------------------------------------------           */
+    
+    /* INIT MAP WM ELEMENTS                                                         */
+    
+    /* TRANSFER OVERLAY INFO                                                        */
+    
+    display->last_row_used = ndlines;
+    compiled->last_row_used = nclines;
+    mapdef->valid = valid;
+    if (NOT valid)
+        {
+        am_message (AM_ALERT, mg_message (MD_MAPDEF_NOT_VALID));
+        }
+    /* * RETURN *                                                                   */
+    /* ----------                                                                   */
+    
+    EXEC SQL CLOSE C33;
+finished:
+    if (OR_STATUS < 0)
+        {
+        sprintf (msg, "%s: %s", mg_message (MD_ORACLE_ERROR), OR_MESSAGE);
+        am_message (AM_STATUS, msg);
+        }
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    return SUCCESS;
+    }
+
+
+
+/* Function Description -----------------------------------------------------
+Description:
+    Get xsect specific info
+
+Prototype:
+    static INT pfz_get_xs_pf_info (fid, pf_info)
+
+Parameters:	    (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) INT fid;
+    (I/O) PF_INFO *pf_info;
+
+Return Value/Status:
+    SUCCESS	- Successfull completion
+    FAIL	- Unsuccessfull completion
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+#if USE_PROTOTYPES
+static INT pfz_get_xs_pf_info (INT fid, PF_INFO *pf_info)
+#else
+static INT pfz_get_xs_pf_info (fid, pf_info)
+INT fid;
+PF_INFO *pf_info;
+#endif
+    {
+    INT status;
+    static BOOL inited = FALSE;
+    CHAR msg[500];
+    PROJECT_NAME project;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[500];
+    VARCHAR layout_name[41];
+    VARCHAR pf_type[41];
+    VARCHAR pl_name[41];
+    float xsize;
+    float ysize;
+    long file_id;
+    EXEC SQL END DECLARE SECTION;
+    
+    /* **********************************************************************       */
+    
+    /* * SET UP SQL STATEMENT AND CURSOR *                                          */
+    EXEC SQL WHENEVER SQLERROR GOTO finido;
+    
+    if (NOT inited)
+        {
+        qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+        
+	stmt.len = sprintf ((CHAR *) stmt.arr,
+"SELECT CROSS_SECTION_LAYOUT, PLOT_FILE_FORMAT, PLOT_LAYOUT_NAME, PLOT_WIDTH, PLOT_HEIGHT \
+FROM %s.CROSS_SECTION_PLOTFILE_HDR WHERE FILE_ID = :v1",project);
+
+	EXEC SQL PREPARE S77 FROM :stmt;
+	EXEC SQL DECLARE C77 CURSOR FOR S77;
+
+        inited = TRUE;
+        }
+    
+    file_id = fid;
+    EXEC SQL OPEN C77 USING :file_id;
+    EXEC SQL FETCH C77 INTO :layout_name, :pf_type, :pl_name, :xsize, :ysize;
+    EXEC SQL CLOSE C77;
+
+    pf_info->parm.xs = (XS_STRUCT *) tc_zalloc (sizeof (XS_STRUCT));
+    
+    V_FROMV (pf_info->parm.xs->layout_name,layout_name);
+    V_FROMV (pf_info->layout,pl_name);
+    V_FROMV (pf_info->meta_type,pf_type);
+    pf_info->xsize = xsize;
+    pf_info->ysize = ysize;
+
+finido:
+    if (OR_STATUS < 0)
+        {
+        sprintf (msg, "%s: %s", mg_message (MD_ORACLE_ERROR), OR_MESSAGE);
+        am_message (AM_STATUS, msg);
+        }
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    return SUCCESS;
+    }
+
+

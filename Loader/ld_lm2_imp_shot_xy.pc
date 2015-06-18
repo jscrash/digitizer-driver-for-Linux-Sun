@@ -1,0 +1,898 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_SHOT_XY.PC */
+/* *2     1-MAY-1991 21:54:03 KEE "(SPR -1) Landmark Import" */
+/* *1     1-MAY-1991 21:24:12 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_SHOT_XY.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* ************************************************************************
+
+   NAME: LD_LM2_IMP_SHOT_XY.PC
+
+   AUTHOR: Rod Hanks
+   DATE:   May 7th, 1990
+   DESCRIPTION: Load seismic information (lines, shots with x/y's, traces)
+		from a file output by Landmark.
+
+   ************************************************************************ */
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+#ifndef ESI_NL_ERR_H
+#include "esi_nl_err.h"
+#endif
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+#ifndef ESI_SE_H
+#include "esi_se.h"
+#endif
+#ifndef ESI_HO_FILES_H
+#include "esi_ho_files.h"
+#endif
+#ifndef ESI_CTYPE_H
+#include "esi_ctype.h"
+#endif
+#ifndef LD_LM2_IMP_WORK_H
+#include "ld_lm2_imp_work.h"
+#endif
+
+#if USE_PROTOTYPES
+publicdef INT ld_lm2_imp_shot_xy (FILENAME fileName, PROJECT_NAME project,
+			BOOL convertProj, PROJECTION_STRUCTURE *defaultProj, 
+                        PROJECTION_STRUCTURE *inputProj, CHAR *source, 
+			INT overwrite, DOUBLE ll_x, DOUBLE ll_y, DOUBLE ur_x, 
+			DOUBLE ur_y)
+#else
+publicdef INT ld_lm2_imp_shot_xy (fileName, project, 
+			convertProj, defaultProj, inputProj,
+			source, overwrite, ll_x,
+			ll_y, ur_x, ur_y)
+FILENAME	      fileName;
+PROJECT_NAME	      project;
+BOOL	              convertProj;
+PROJECTION_STRUCTURE *defaultProj;
+PROJECTION_STRUCTURE *inputProj;
+CHAR		     *source;
+INT		      overwrite;
+DOUBLE		      ll_x;
+DOUBLE		      ll_y;
+DOUBLE		      ur_x;
+DOUBLE		      ur_y;
+#endif
+    {
+/****************************************************************************
+
+	V a r i a b l e   D e c l a r a t i o n s .
+
+******************************************************************************/
+
+    INT 	   status;
+    FILE	   *spfile;
+    FULL_LINE_NAME fullLineName;
+    FILENAME	   nListFile;
+    FILENAME	   full_filename;
+    FILENAME	   full_sl_filename; /* shot label */
+    NLIST_HEADER   nlist = (NLIST_HEADER) 0;
+    NLIST_HEADER   sl_nlist = (NLIST_HEADER) 0;
+    NLIST_ID	   nl_xy_id;
+    NLIST_ID	   opt_xy_id;
+    NLIST_ID	   sht_labels_id;
+    CHAR	   inputSurvey[24];
+    CHAR	  *inputName;
+    CHAR	  *pos;
+    CHAR	   lastName[80];
+    BOOL           moreFlag;
+    UINT	   ncols;
+    INT		   units[3];
+    INT		   data_types[3];
+    size_t	   data_sizes[3];
+    INT		   value_inc[3];
+    UINT	   blocksize;
+    INT		   tableNum;
+    INT		   rowNum;
+    INT		   thisCdp;
+    INT		   thisShot;
+    DOUBLE	   thisX;
+    DOUBLE	   thisY;
+    FLOAT          FX, FY;
+    UINT	   colList[3];
+    VOIDPTR	   valueList[3];
+    BOOL	   skipOne;
+    BOOL	   first_iteration;
+    BOOL	   clippedFlag;
+    CHAR	   thisSource[13];
+
+#ifdef USE_OLDPARSING
+    CHAR	   dummy[255];
+    CHAR	  *inputShot;
+    CHAR	  *inputX;
+    CHAR	  *inputY;
+#else
+    LD_SCANNER_STRUCT ld_scan;	
+#endif
+
+/*
+				General variable declarations.
+*/
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[400];
+	VARCHAR landmarkName[81];
+	int	lineID;
+	VARCHAR lineName[25];
+	VARCHAR	survey[25];
+        double	lower_left_x;
+        double	lower_left_y;
+        double	upper_right_x;
+        double	upper_right_y;
+	int	initial_cdp;
+	int	final_cdp;
+	int	initial_shot;
+	int	final_shot;
+	int	cdps_per_shot_point;
+	int	seis_assoc;
+	int	xy_assoc;
+	int	regular;
+	VARCHAR nlist_file[31];
+	VARCHAR shot_xy_id[62];
+	VARCHAR optim_xy_id[62];
+	VARCHAR shot_labels_id[62];
+	VARCHAR sourceName[13];
+    EXEC SQL END DECLARE SECTION;
+/*
+				Oracle variable declarations.
+*/
+/****************************************************************************
+
+	I n i t i a l i z a t i o n .
+
+******************************************************************************/
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT FINDER_LINE_NAME, FINDER_SURVEY FROM %s.SEIS_LINE_XREF \
+WHERE VENDOR_LINE_NAME = :landmarkName AND VENDOR = 'LANDMARK'", project);
+
+    EXEC SQL PREPARE S4 FROM :sqlstmt;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s4");
+    EXEC SQL DECLARE XREF_CURS CURSOR FOR S4;
+    
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT LINE_ID,\
+INITIAL_CDP,FINAL_CDP,INITIAL_SHOT,FINAL_SHOT,CDPS_PER_SHOT_POINT,\
+SEIS_ASSOC,XY_ASSOC,REGULAR,NLIST_FILE,SHOT_XY_ID,OPTIM_XY_ID,SHOT_LABELS_ID,SOURCE \
+FROM %s.SEIS_LINE_HDR \
+WHERE LINE_NAME = :lineName AND SURVEY = :survey", project);
+
+    EXEC SQL PREPARE S1 FROM :sqlstmt;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s1");
+    EXEC SQL DECLARE LOOK_CURS CURSOR FOR S1;
+    
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"INSERT INTO %s.SEIS_LINE_HDR (LINE_ID, LINE_NAME, SURVEY, LOWER_LEFT_X, \
+LOWER_LEFT_Y, UPPER_RIGHT_X, UPPER_RIGHT_Y, INITIAL_CDP, FINAL_CDP, \
+INITIAL_SHOT, FINAL_SHOT, CDPS_PER_SHOT_POINT, SEIS_ASSOC, XY_ASSOC, \
+REGULAR, NLIST_FILE, SHOT_XY_ID, OPTIM_XY_ID, SHOT_LABELS_ID, SOURCE) VALUES \
+(:lineID, :lineName, :survey, \
+:lower_left_x, :lower_left_y, :upper_right_x, :upper_right_y, :initial_cdp, \
+:final_cdp, :initial_shot, :final_shot, :cdps_per_shot_point, :seis_assoc, \
+:xy_assoc, :regular, :nlist_file, :shot_xy_id, :optim_xy_id, :shot_labels_id, :sourceName)", 
+								project);
+
+    EXEC SQL PREPARE S2 FROM :sqlstmt;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s2");
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"UPDATE %s.SEIS_LINE_HDR SET LOWER_LEFT_X = :lower_left_x, \
+LOWER_LEFT_Y = :lower_left_y, UPPER_RIGHT_X = :upper_right_x, \
+UPPER_RIGHT_Y = :upper_right_y, INITIAL_CDP = :initial_cdp, \
+FINAL_CDP = :final_cdp, INITIAL_SHOT = :initial_shot, \
+FINAL_SHOT = :final_shot, CDPS_PER_SHOT_POINT = :cdps_per_shot_point, \
+SEIS_ASSOC = :seis_assoc, XY_ASSOC = :xy_assoc, REGULAR = :regular, \
+NLIST_FILE = :nlist_file, SHOT_XY_ID = :shot_xy_id, \
+OPTIM_XY_ID = :optim_xy_id, SHOT_LABELS_ID = :shot_labels_id, SOURCE = :sourceName \
+WHERE LINE_ID = :lineID", project);
+
+    EXEC SQL PREPARE S3 FROM :sqlstmt;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s3");
+
+    spfile = ho_open(fileName, "r", NULL);
+    if (spfile == (FILE *)NULL)
+	{
+	printf("Unable to open seismic file named %s", fileName);
+	}
+    else
+	{
+        printf("loading seismic from %s\n", fileName);
+	lastName[0] = 0;
+#ifdef USE_OLDPARSING
+	fgets(dummy, 255, spfile);
+	fgets(dummy, 255, spfile);
+	fgets(dummy, 255, spfile);
+	fgets(dummy, 255, spfile);
+/*
+				Skip the first four lines, they contain
+				formatting information.  We don't use it
+				because we look for the spaces between
+				the columns.
+*/
+/*****************************************************************************
+
+	M a i n   L o g i c .
+
+*****************************************************************************/
+
+	moreFlag = TRUE;
+        while (moreFlag)
+            {
+	    do
+		{
+		pos = fgets(dummy, 255, spfile);
+		}
+		while (pos != (CHAR *) 0 && strlen(dummy) < 5);
+
+	    if (pos == (CHAR *) 0)
+		{
+		moreFlag = FALSE;
+		}
+/*
+				Get next line from file, if any, and
+				set a flag when no more.  We want to
+				fall thru the loop one last time in
+				this case in order to output the last
+				line.
+*/
+	    if (moreFlag)
+		{
+	        while (*pos == ' ')
+		    {
+		    pos++;
+		    }
+	        inputName = pos;
+	        while (*pos != ' ' && *pos != 0)
+		    {
+		    pos++;
+		    }
+	        *pos = 0;
+	        pos++;
+	        while (*pos == ' ')
+		    {
+		    pos++;
+		    }
+	        inputShot = pos;
+	        while (*pos != ' ' && *pos != 0)
+		    {
+		    pos++;
+		    }
+	        *pos = 0;
+	        pos++;
+	        while (*pos == ' ')
+		    {
+		    pos++;
+		    }
+	        inputX = pos;
+	        while (*pos != ' ' && *pos != 0)
+		    {
+		    pos++;
+		    }
+	        *pos = 0;
+	        pos++;
+	        while (*pos == ' ')
+		    {
+		    pos++;
+		    }
+	        inputY = pos;
+	        while (*pos != ' ' && *pos != 0)
+		    {
+		    pos++;
+		    }
+	        *pos = 0;
+#else
+        tc_zeroes(&ld_scan, sizeof(LD_SCANNER_STRUCT));	
+        ld_scan.in.fix_format = TRUE;
+	ld_scan.in.snowhite = TRUE;
+        ld_scan.in.num_pair = 4;
+        ld_scan.in.start[0] = 1;     ld_scan.in.end[0] = 12;
+        ld_scan.in.start[1] = 14;    ld_scan.in.end[1] = 24;
+        ld_scan.in.start[2] = 26;    ld_scan.in.end[2] = 36;
+        ld_scan.in.start[3] = 38;    ld_scan.in.end[3] = 48;
+	while (ld_scan.eof == FALSE)
+	  {
+	    ld_scan_line(spfile, &ld_scan);
+	    if ((ld_scan.out_nitems != ld_scan.in.num_pair AND 
+	         ld_scan.out_nitems != 0) OR
+	        ld_scan.out[0].parmtype != LD_STRING OR
+		ld_scan.out[1].parmtype != LD_DOUBLE OR
+		ld_scan.out[2].parmtype != LD_DOUBLE OR
+		ld_scan.out[3].parmtype != LD_DOUBLE)
+	      { /* scan header */
+		continue;
+              }
+	    else 
+	      {
+	        break;
+              }
+	  }
+	while (TRUE)
+	  {
+	    if (ld_scan.eof == TRUE)
+	      {
+	        moreFlag = !ld_scan.eof;
+		*inputName = *inputSurvey = 0;
+              }
+	    else if (ld_scan.out_nitems == 0)
+	      {
+	        ld_scan_line(spfile, &ld_scan);
+	        continue;
+              }
+	    else if (ld_scan.out_nitems != ld_scan.in.num_pair OR
+	             ld_scan.out[0].parmtype != LD_STRING OR
+		     ld_scan.out[1].parmtype != LD_DOUBLE OR
+		     ld_scan.out[2].parmtype != LD_DOUBLE OR
+		     ld_scan.out[3].parmtype != LD_DOUBLE)
+	      { 
+		printf("Invalid line format - following line will be skipped\n ");
+		printf("%s",ld_scan.line);
+		continue;
+              }
+	    else 
+	      {
+	        moreFlag = !ld_scan.eof;
+		inputName = ld_scan.out[0].parmval.cval;	
+	        thisShot = (INT) ld_scan.out[1].parmval.dbval;
+	        thisX = ld_scan.out[2].parmval.dbval;
+	        thisY = ld_scan.out[3].parmval.dbval;	
+#endif
+	        pos = inputName + strlen(inputName);
+	        while ((int)pos > (int)inputName && *pos != '-')
+		    {
+		    pos--;
+		    }
+	        if ((int)pos > (int)inputName)
+		    {
+		    strncpy(inputSurvey, inputName, (pos - inputName));
+		    inputSurvey[(int)(pos - inputName)] = 0;
+		    }
+	        else
+		    {
+	            pos = inputName;
+	            while (isalpha(*pos))
+		        {
+		        pos++;
+		        }
+	            strncpy(inputSurvey, inputName, (pos - inputName));
+	            inputSurvey[(int)(pos - inputName)] = 0;
+		    }
+		}
+/*
+				Above, parse out the input line into line
+				name (and survey), shot number, x, and y.
+*/	
+	        if (strcmp(lastName, inputName) != 0 || moreFlag == FALSE)
+		    {
+		    if (strlen(lastName) != 0 && skipOne == FALSE)
+		        {
+		        status = nl_write_nlist(nlist, full_filename, nl_xy_id);
+		        if (status == NL_INVALID_NLIST_NAME)
+			    {
+			    status = nl_update_nlist(nlist);
+			    }
+		        if (status != SUCCESS)
+			    {
+			    printf("Unable to dispose nlist, %s\n",
+					mg_message(status));
+			    }
+		        status = nl_write_nlist(nlist, full_filename, 
+								opt_xy_id);
+		        if (status == NL_INVALID_NLIST_NAME)
+			    {
+			    status = nl_update_nlist(nlist);
+			    }
+		        if (status != SUCCESS)
+			    {
+			    printf("Unable to dispose nlist, %s\n",
+					mg_message(status));
+			    }
+		        status = nl_write_nlist(sl_nlist, full_sl_filename, sht_labels_id);
+		        if (status == NL_INVALID_NLIST_NAME)
+			    {
+			    status = nl_update_nlist(sl_nlist);
+			    }
+		        if (status != SUCCESS)
+			    {
+			    printf("Unable to dispose nlist, %s\n",
+					mg_message(status));
+			    }
+/*
+	Above, write out the nlist.
+*/
+		        else
+			    {
+			    xy_assoc = 1;
+			    V_FROMC(sourceName, source);
+		            if (lineID == 0)
+			        {
+		                EXEC SQL SELECT ESI.SEISLINE_ID.NEXTVAL 
+				INTO :lineID FROM DUAL;
+    			        if (OR_STATUS != 0) ld_show_error(OR_STATUS, 
+							"SIESLINE_ID NEXTVAL");
+/*
+				Get the next line id number.
+*/
+			        EXEC SQL EXECUTE S2 USING :lineID, 
+					:lineName, :survey, 
+					:lower_left_x, :lower_left_y, 
+					:upper_right_x, :upper_right_y, 
+					:initial_cdp, :final_cdp, 
+					:initial_shot, :final_shot, 
+					:cdps_per_shot_point, :seis_assoc, 
+					:xy_assoc, :regular, 
+					:nlist_file, :shot_xy_id,
+					:optim_xy_id, :shot_labels_id, :sourceName;
+    			        if (OR_STATUS != 0) ld_show_error(OR_STATUS,
+							"execute s2");
+/*
+				Insert a new row into the SEIS_LINE_HDR.
+*/
+			        EXEC SQL COMMIT WORK;
+    			        if (OR_STATUS != 0) ld_show_error(OR_STATUS,
+							"commit s2");
+			        }
+		            else
+			        {
+			        EXEC SQL EXECUTE S3 USING :lower_left_x, 
+					:lower_left_y, :upper_right_x, 
+					:upper_right_y, :initial_cdp, 
+					:final_cdp, :initial_shot, 
+					:final_shot, :cdps_per_shot_point, 
+					:seis_assoc, :xy_assoc, :regular, 
+					:nlist_file, :shot_xy_id,
+					:optim_xy_id, :shot_labels_id, :sourceName, :lineID;
+    			        if (OR_STATUS != 0) ld_show_error(OR_STATUS,
+							"execute s3");
+
+			        EXEC SQL COMMIT WORK;
+    			        if (OR_STATUS != 0) ld_show_error(OR_STATUS,
+							"commit s3");
+			        }
+			    }
+		        if (nlist != (NLIST_HEADER) 0)
+			    {
+			    nl_free_nlist(nlist);
+			    nlist = (NLIST_HEADER) 0;
+			    }
+		        if (sl_nlist != (NLIST_HEADER) 0)
+			    {
+			    nl_free_nlist(sl_nlist);
+			    sl_nlist = (NLIST_HEADER) 0;
+			    }
+		        }
+/*
+				End.  We just completed retrieving all of the
+				lines for a survey, so write this line out.
+*/
+		    if (moreFlag)
+		        {
+/*
+				From here down, we are at the beginning of a
+				new line, so initialize to begin collecting
+				data from the file for it.
+*/
+			skipOne = FALSE;
+		        strcpy(lastName, inputName);
+		        printf("Line: %s\n", lastName);
+/*
+				Set control break value for next time.
+*/
+			first_iteration = TRUE;
+			clippedFlag = FALSE;
+			V_FROMC(landmarkName, inputName);
+		        V_FROMC(lineName, inputName);
+		        V_FROMC(survey, inputSurvey);
+			EXEC SQL OPEN XREF_CURS USING :landmarkName;
+			if (OR_STATUS != 0) ld_show_error(OR_STATUS, 
+							"open xref_curs");
+			EXEC SQL FETCH XREF_CURS INTO :lineName, :survey;
+			if (OR_STATUS < 0) ld_show_error(OR_STATUS,
+							"fetch xref_curs");
+			EXEC SQL CLOSE XREF_CURS;
+			if (OR_STATUS != 0) ld_show_error(OR_STATUS,
+							"close xref_curs");
+/*
+					Look in the cross reference file to
+					find the line name and survey we should
+					use for this landmark line name.  If we
+					don't find it, we'll use the results of
+					the parsing algorithm above.
+*/
+		        EXEC SQL OPEN LOOK_CURS USING :lineName, :survey;
+    		        if (OR_STATUS != 0) ld_show_error(OR_STATUS, 
+							"open look_curs");
+		        lineID = 0;
+		        initial_cdp = 0;
+		        final_cdp = 0;
+		        initial_shot = 0;
+		        final_shot = 0;
+		        cdps_per_shot_point = 2;
+		        seis_assoc = 0;
+		        xy_assoc = 0;
+		        regular = 0;
+		        nlist_file.arr[0] = 0;
+		        nlist_file.len = 0;
+		        shot_xy_id.arr[0] = 0;
+		        shot_xy_id.len = 0;
+		        optim_xy_id.arr[0] = 0;
+		        optim_xy_id.len = 0;
+		        shot_labels_id.arr[0] = 0;
+		        shot_labels_id.len = 0;
+			sourceName.arr[0] = 0;
+			sourceName.len = 0;
+		        EXEC SQL FETCH LOOK_CURS INTO :lineID, 
+				:initial_cdp, :final_cdp, :initial_shot,
+				:final_shot, :cdps_per_shot_point,
+				:seis_assoc, :xy_assoc, :regular,
+				:nlist_file, :shot_xy_id, :optim_xy_id,
+				:shot_labels_id, :sourceName;
+    		        if (OR_STATUS < 0) ld_show_error(OR_STATUS, 
+							"fetch look_curs");
+		        EXEC SQL CLOSE LOOK_CURS;
+ 		        if (OR_STATUS != 0) ld_show_error(OR_STATUS, 
+							"close look_curs");
+/*
+				First step, find out if this line already
+				exists.
+*/
+			if (lineID != 0 && overwrite == 0)
+			    {
+			    printf("Line exists, not overwritten.\n");
+			    skipOne = TRUE;
+			    }
+			else
+			    {
+			    V_V_TO_C(thisSource, sourceName);
+			    if (lineID != 0 && strcmp(thisSource, source) != 0)
+				{
+				printf("Line exists from source %s, \
+new source %s will be replaced.\n", thisSource, source);
+	                        V_FROMC(sourceName, source);
+				}
+
+
+			        fullLineName.id = lineID;
+			        V_V_TO_C(fullLineName.line_name, lineName);
+			        V_V_TO_C(fullLineName.survey, survey);
+			        V_V_TO_C(nl_xy_id, shot_xy_id);
+			        V_V_TO_C(opt_xy_id, optim_xy_id);
+			        V_V_TO_C(sht_labels_id, shot_labels_id);
+			        V_V_TO_C(nListFile, nlist_file);
+			        full_filename[0] = 0;
+			        full_sl_filename[0] = 0;
+			        se_bld_nlist_ids(&fullLineName, (VOIDPTR)0,
+				            SEIS_XY_DATA, nl_xy_id,
+				            nListFile, full_filename);
+			        se_bld_nlist_ids(&fullLineName, (VOIDPTR)0,
+				            SEIS_OPTIM_XY_DATA, opt_xy_id,
+				            nListFile, full_filename);
+			        se_bld_nlist_ids(&fullLineName, (VOIDPTR)0,
+				            SEIS_SHOT_LABEL_DATA, sht_labels_id,
+				            nListFile, full_sl_filename);
+			        V_C_TO_V(shot_xy_id, nl_xy_id);
+			        V_C_TO_V(optim_xy_id, opt_xy_id);
+			        V_C_TO_V(shot_labels_id, sht_labels_id);
+			        V_C_TO_V(nlist_file, nListFile);
+/*
+				se_bld_nlist_ids will return the name for
+				the shot xy nlist, the file name for it and
+				the full filename.  If the nlist name and file
+				name are already filled in via the sql fetch
+				above, it will leave them alone.
+*/
+			        if (lineID != 0 && xy_assoc == 1)
+			            {
+                	            status = nl_read_nlist (&nlist, 
+						full_filename, 
+						nl_xy_id);
+			            if (status < 0)
+			    	        {
+				        printf("Error reading NLIST %s\n", 
+						mg_message(status));
+				        }
+				    status = nl_delete_nlist(full_filename, 
+								nl_xy_id);
+			            if (status < 0)
+			    	        {
+				        printf("Error deleting NLIST %s\n", 
+						mg_message(status));
+				        }
+			            if (nlist != (NLIST_HEADER) 0)
+				        {
+				        nl_free_nlist(nlist);
+				        nlist = (NLIST_HEADER) 0;
+				        }
+        	                    status = nl_read_nlist (&nlist, 
+							full_filename, 
+							opt_xy_id);
+			            if (status < 0)
+			    	        {
+				        printf("Error reading NLIST %s\n", 
+						mg_message(status));
+				        }
+				    status = nl_delete_nlist(full_filename, 
+								opt_xy_id);
+			            if (status < 0)
+			    	        {
+				        printf("Error deleting NLIST %s\n", 
+						mg_message(status));
+				        }
+			            if (nlist != (NLIST_HEADER) 0)
+				        {
+				        nl_free_nlist(nlist);
+				        nlist = (NLIST_HEADER) 0;
+				        }
+        	                    status = nl_read_nlist (&sl_nlist, 
+							full_sl_filename, 
+							sht_labels_id);
+			            if (status < 0)
+			    	        {
+				        printf("Error reading NLIST %s\n", 
+						mg_message(status));
+				        }
+				    status = nl_delete_nlist(full_sl_filename, 
+								sht_labels_id);
+			            if (status < 0)
+			    	        {
+				        printf("Error deleting NLIST %s\n", 
+						mg_message(status));
+				        }
+			            if (sl_nlist != (NLIST_HEADER) 0)
+				        {
+				        nl_free_nlist(sl_nlist);
+				        sl_nlist = (NLIST_HEADER) 0;
+				        }
+				    initial_cdp = 0;
+				    final_cdp = 0;
+				    initial_shot = 0;
+			    	    final_shot = 0;
+			            }
+/*
+				The philosophy is to completely replace any
+			        shotpoints we have now with the new ones.
+*/
+	                        if (nlist == (NLIST_HEADER) 0)
+			            {
+			            ncols = 3;
+			            units[0] = units[1] = units[2] = 0;
+			            data_types[0] = INT_TYPE;
+			            data_types[1] = data_types[2] = FLOAT_TYPE;
+			            data_sizes[0] = sizeof(INT);
+			            data_sizes[1] = data_sizes[2] = 
+								sizeof(FLOAT);
+			            value_inc[0] = value_inc[1] = 
+						value_inc[2] = VALUE_LIST;
+			            blocksize = 25;
+			            status = nl_init_nlist(&nlist, ncols, 
+						   units, data_sizes,
+						   data_types, value_inc, 
+						   blocksize);
+			            if (status != SUCCESS)
+				        {
+				        printf("Unable to initialize nlist, \
+%s\n", 
+						mg_message(status));
+				        return FAIL;
+			                }
+
+
+			            ncols = 2;
+			            units[0] = units[1] = units[2] = 0;
+			            data_types[0] = data_types[1] = INT_TYPE;
+			            data_sizes[0] = data_sizes[1] = sizeof(INT);
+			            status = nl_init_nlist(&sl_nlist, ncols, 
+						   units, data_sizes,
+						   data_types, value_inc, 
+						   blocksize);
+			            if (status != SUCCESS)
+				        {
+				        printf("Unable to initialize nlist, \
+%s\n", 
+						mg_message(status));
+				        return FAIL;
+			                }
+
+			            status = nl_inq_nlist_int(nlist, 
+							NL_NLIST_NTABLES, 
+								&tableNum);
+				    if (tableNum == 0)
+				        {
+				        status = nl_start_table(nlist, 
+								(UINT *) &tableNum);
+				        }
+			            status = nl_set_current_row(nlist, 1, 
+								tableNum);
+			            status = nl_inq_nlist_int(nlist, 
+							NL_NLIST_NROWS, 
+								&rowNum);
+			            status = nl_set_current_row(nlist, rowNum, 
+								tableNum);
+			            if (status != SUCCESS)
+				        {
+				        printf("Unable to set row in nlist, \
+%s\n", 
+						mg_message(status));
+				        return FAIL;
+			                }
+
+
+			            status = nl_inq_nlist_int(sl_nlist, 
+							NL_NLIST_NTABLES, 
+								&tableNum);
+				    if (tableNum == 0)
+				        {
+				        status = nl_start_table(sl_nlist, 
+								(UINT *) &tableNum);
+				        }
+			            status = nl_set_current_row(sl_nlist, 1, 
+								tableNum);
+			            status = nl_inq_nlist_int(sl_nlist, 
+							NL_NLIST_NROWS, 
+								&rowNum);
+			            status = nl_set_current_row(sl_nlist, rowNum, 
+								tableNum);
+			            if (status != SUCCESS)
+				        {
+				        printf("Unable to set row in nlist, \
+%s\n", 
+						mg_message(status));
+				        return FAIL;
+			                }
+				    }
+			        }
+/*
+				This is a new line.  We must initialize an
+				nlist to go with it.  Set up to be at the last
+				row of the last table.
+
+				Above, Beginning.  We just hit this line for the
+				first time.  Initialize for a new line.
+*/
+			    }
+		    }
+
+	        if (moreFlag == TRUE && skipOne == FALSE)
+		    {
+#ifdef USE_OLDPARSING	
+	            sscanf(inputShot, "%d", &thisShot);
+	            sscanf(inputX, "%lf", &thisX);
+	            sscanf(inputY, "%lf", &thisY);
+#endif
+		    if (convertProj)
+		        {
+		        ct_transform_point(thisX, thisY, inputProj,
+					   &thisX, &thisY, defaultProj);
+		        }
+		    if (thisX >= ll_x && thisX <= ur_x
+		    &&  thisY >= ll_y && thisY <= ur_y)
+			{
+			FX = (FLOAT) thisX;
+			FY = (FLOAT) thisY;
+	                thisCdp = (initial_cdp == 0) ? 1 * cdps_per_shot_point :
+			  ((thisShot - initial_shot) + 1) * cdps_per_shot_point;
+	                colList[0] = 1;
+	                colList[1] = 2;
+	                colList[2] = 3;
+	                valueList[0] = (VOIDPTR)&thisCdp;
+	                valueList[1] = (VOIDPTR)&FX;
+	                valueList[2] = (VOIDPTR)&FY;
+	                status = nl_add_rows(nlist, 1, 3, colList, valueList);
+		        if (status != SUCCESS)
+		            {
+		            printf("Unable to add to nlist, %s\n", 
+					mg_message(status));
+		            return FAIL;
+		            }
+
+	                valueList[1] = (VOIDPTR)&thisShot;
+	                status = nl_add_rows(sl_nlist, 1, 2, colList, valueList);
+		        if (status != SUCCESS)
+		            {
+		            printf("Unable to add to nlist, %s\n", 
+					mg_message(status));
+		            return FAIL;
+		            }
+/*
+				Put this row into the nlist.
+*/
+		        if (first_iteration)
+			    {
+			    lower_left_x = thisX;
+			    upper_right_x = thisX;
+			    lower_left_y = thisY;
+			    upper_right_y = thisY;
+			    first_iteration = FALSE;
+			    }
+		        else
+			    {
+	                    if (thisX < lower_left_x)
+		                {
+		                lower_left_x = thisX;
+		        	}
+	            	    if (thisX > upper_right_x)
+		   	    	{
+		   	     	upper_right_x = thisX;
+		   	     	}
+	        	    if (thisY < lower_left_y)
+			        {
+			        lower_left_y = thisY;
+			        }
+		            if (thisY > upper_right_y)
+			        {
+			        upper_right_y = thisY;
+			        }
+			    }
+/*
+				Maintain the box which defines the line.
+*/
+	                if (initial_shot == 0) initial_shot = thisShot;
+	                final_shot = thisShot;
+	                if (initial_cdp == 0) initial_cdp = 1;
+	                final_cdp = ((final_shot - initial_shot) + 1)
+			          * cdps_per_shot_point;
+/*
+				Middle.  Same line as last time.  Keep adding
+				to the Nlist of x,y's.
+*/
+		        }
+		    else
+			{
+			if (clippedFlag == FALSE)
+			    {
+			    printf("Clipped...\n");
+			    clippedFlag = TRUE;
+			    }
+		        }
+		    }
+		 if (ld_scan.eof == FALSE)
+		   {
+	             ld_scan_line(spfile, &ld_scan);
+                   }
+	         else
+	           {
+		     break;
+	           }
+            }
+/*****************************************************************************
+
+	C l e a n   U p   A n d   E x i t .
+
+******************************************************************************/
+        }
+    if (spfile != (FILE *)NULL) fclose(spfile);
+    return SUCCESS;
+    }
+
+
+
+
+
+
+

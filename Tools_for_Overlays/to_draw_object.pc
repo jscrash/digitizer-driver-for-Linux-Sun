@@ -1,0 +1,158 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element TO_DRAW_OBJECT.PC */
+/* *12   25-JUL-1991 11:54:29 PURNA "(SPR 0) fixed invalid column name" */
+/* *11   24-JUL-1991 17:02:49 PURNA "(SPR 0) added more stuff for prev mods" */
+/* *10    6-MAY-1991 16:48:52 PURNA "(SPR 0) add select list in culture overlay for data mover" */
+/* *9    20-JUL-1990 13:47:44 PURNA "(SPR 0) fix compiling errors" */
+/* *8    18-JUL-1990 18:03:54 JESSIE "(SPR 1) change include files" */
+/* *7     1-JUN-1990 15:43:58 PURNA "(SPR 0) remove session_id from to_draw_text parameter" */
+/* *6    23-MAR-1990 15:31:52 PURNA "(SPR 5095) change method in text clip" */
+/* *5    22-MAR-1990 11:44:25 PURNA "(SPR 0) change calls to esi_to.ah" */
+/* *4    22-MAR-1990 10:37:24 PURNA "(SPR 5095) change on external variable, add township labeling & text clip" */
+/* *3    21-MAR-1990 16:27:12 PURNA "(SPR 0) more changes" */
+/* *2    16-MAR-1990 09:09:48 PURNA "(SPR 5095) culture" */
+/* *1    16-MAR-1990 08:49:08 PURNA "culture overlay " */
+/* DEC/CMS REPLACEMENT HISTORY, Element TO_DRAW_OBJECT.PC */
+#include "esi_ly.h"
+
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_TO_AH
+#include "esi_to.ah"
+#endif
+
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+
+/* EXEC ORACLE OPTION (REBIND=NO); */
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+/**************************************************************** 
+
+    FUNCTION : TO_DRAW_OBJECT
+    DESCRIPTION : for specified culture(s) stored in temp tables,
+	build an nlist of nodes by traversing its arcs efficiently.
+    
+    AUTHOR : Purna Tjahjana (Feb 8,1990)
+
+*****************************************************************/
+
+publicdef INT to_draw_object(suppress_lines,suppress_text,n_lines)
+INT suppress_lines;
+INT suppress_text;
+INT *n_lines;
+{
+    INT i,status=SUCCESS;
+    CHAR d_type[30];
+    PROJECT_NAME project;
+    INT no_of_buckets;
+
+    EXEC SQL BEGIN DECLARE SECTION;
+	static int  session_number;
+	static int lynx_id,n_type,n_lynx;
+	static VARCHAR data_type[31];
+	VARCHAR sqlstmt[500];
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL WHENEVER SQLERROR GOTO :sqlerr;
+ 
+                             /*	    GET PROJECT NAME 	*/
+    qs_inq_c(QS_PROJECT_NAME,project,(INT *)0);	   
+
+                             /* GET THE CURRENT SESSION NUMBER */
+    EXEC SQL SELECT USERENV('SESSIONID')
+	     INTO   :session_number
+	     FROM   DUAL;
+
+#ifdef DEBUG
+lib$init_timer();
+lib$show_timer();
+#endif
+                             /*	    COUNT NO OF DATA_TYPE IN FOR SPECIFIED CULTURES
+                             */
+    sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+    "SELECT COUNT(DISTINCT DATA_TYPE) 	\
+FROM %s.LYNX_CULTURE C,TEMP_LYNX_LISTS T \
+WHERE C.LYNX_ID=T.LYNX_ID AND T.TEMP_PROCESS_ID=%d",
+    project,session_number);
+    EXEC SQL PREPARE S1 FROM :sqlstmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1;
+    EXEC SQL FETCH C1 INTO :n_type;
+    EXEC SQL CLOSE C1;
+
+#ifdef DEBUG
+printf("count data type,no of data type:%d\n",n_type);
+lib$show_timer();
+#endif
+                             /* FOR EACH DATA TYPE BUILD AN NLIST OF NODES BY
+                             TRAVERSING ITS ARCS */
+    sqlstmt.len=sprintf((CHAR *)sqlstmt.arr,
+    "SELECT DISTINCT DATA_TYPE,COUNT(*) FROM %s.LYNX_CULTURE C,\
+TEMP_LYNX_LISTS T WHERE \
+C.LYNX_ID=T.LYNX_ID AND T.TEMP_PROCESS_ID=%d GROUP BY DATA_TYPE",
+    project,session_number);
+    EXEC SQL PREPARE S2 FROM :sqlstmt;
+    EXEC SQL DECLARE C2 CURSOR FOR S2;
+    EXEC SQL OPEN C2;
+
+    if(! suppress_lines)
+	to_line_nlists=(NLIST_HEADER *)tc_alloc(n_type * sizeof(NLIST_HEADER));
+    if(! suppress_text)
+    {	
+	status=ly_init_text_nlist(&to_text_nlist);
+	if(status != SUCCESS) return status;
+	status=nl_set_nlist_method(to_text_nlist,NL_DRAW_METHOD,"TO_DRAW_TEXT_METHOD",
+	    to_draw_text_method);
+	status=nl_set_nlist_method(to_text_nlist,NL_CLIP_METHOD,
+	    "NLM_WINDOW_CLIP_TEXT",nlm_window_clip_text);
+    }
+
+    for(i=0;i<n_type;i++) 
+    {
+	EXEC SQL FETCH C2 INTO :data_type,:n_lynx;
+	V_FROMV(d_type,data_type);
+
+#ifdef DEBUG
+printf("fetch data_type, no of culture:%d\n",n_lynx);
+lib$show_timer();
+#endif
+
+	if(! suppress_lines)
+	    status=to_draw_line(d_type,&to_line_nlists[i]);
+	if(! suppress_text && ARE_DIFFERENT(d_type,"TOWNSHIP"))
+	    status=to_draw_text(d_type,&to_text_nlist);
+    }
+
+    EXEC SQL CLOSE C2;
+    *n_lines=n_type;
+    EXEC SQL DELETE TEMP_LYNX_LISTS 
+		WHERE TEMP_PROCESS_ID = USERENV('SESSIONID');
+    EXEC SQL COMMIT WORK;
+
+    return status;
+sqlerr:
+    return OR_STATUS;
+}   
+

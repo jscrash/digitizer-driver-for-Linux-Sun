@@ -1,0 +1,175 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_CULTURE_TEXT.PC */
+/* *2     1-MAY-1991 21:53:13 KEE "(SPR -1) Landmark Import" */
+/* *1     1-MAY-1991 21:16:59 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_CULTURE_TEXT.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* ************************************************************************
+
+   NAME: LD_LM2_IMP_CULTURE_TEXT.PC
+
+   AUTHOR: Rod Hanks
+   DATE:   June 21st, 1990
+   DESCRIPTION: Store text for a cultural object.
+
+   ************************************************************************ */
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+#ifndef LD_LM2_IMP_WORK_H
+#include "ld_lm2_imp_work.h"
+#endif
+
+#if USE_PROTOTYPES
+publicdef VOID ld_lm2_imp_culture_text (BOOL *oldObject, CHAR *text,
+			  CHAR *objectName, DOUBLE inputX, DOUBLE inputY, 
+			  DOUBLE height, DOUBLE width, DOUBLE angle,
+			  CHAR *justification, DOUBLE slant, CHAR *font, CHAR *color,
+			  CHAR *project, CHAR *source, INT overwrite, 
+			  HASH_TABLE_P hash_table, INT *currentObject, 
+			  DOUBLE *ll_x, DOUBLE *ll_y, DOUBLE *ur_x, DOUBLE *ur_y)
+#else
+publicdef VOID ld_lm2_imp_culture_text (oldObject, text,
+			   objectName, inputX, inputY, height, width,
+			   angle, justification, slant, font, color,
+			   project, source, overwrite, hash_table, 
+			   currentObject, ll_x, ll_y, ur_x, ur_y)
+BOOL		*oldObject;
+CHAR		*text;
+CHAR		*objectName;
+DOUBLE		inputX;
+DOUBLE		inputY;
+DOUBLE		height;
+DOUBLE		width;
+DOUBLE		angle;
+CHAR		*justification;
+DOUBLE		slant;
+CHAR		*font;
+CHAR		*color;
+CHAR		*project;
+CHAR		*source;
+INT		 overwrite;
+INT		*currentObject;
+HASH_TABLE_P	 hash_table;
+DOUBLE		*ll_x;
+DOUBLE		*ll_y;
+DOUBLE		*ur_x;
+DOUBLE		*ur_y;
+#endif
+    {
+/****************************************************************************
+
+	V a r i a b l e   D e c l a r a t i o n s .
+
+******************************************************************************/
+
+    INT		   result;
+    CHAR	   text_id[25];
+/*
+				General variable declarations.
+*/
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[400];
+	VARCHAR	colorName[50];
+	int	textID;
+	int	colorCode;
+    EXEC SQL END DECLARE SECTION;
+/*
+				Oracle variable declarations.
+*/
+/****************************************************************************
+
+	I n i t i a l i z a t i o n .
+
+******************************************************************************/
+
+    result = ld_lm2_imp_culture_check (objectName, project, source, overwrite, 
+			   hash_table, currentObject);
+    *oldObject = FALSE;
+    switch (result)
+	{
+	case 3:
+	    ld_lm2_imp_culture_delete(objectName, *currentObject, project);
+/*
+					Delete the existing object first.
+*/
+	case 1:
+	    *oldObject = TRUE;
+	case 2:
+	    EXEC SQL SELECT ESI.LYNX_ID_SEQ.NEXTVAL INTO :textID
+			     FROM DUAL;
+	    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "close id_curs");
+/*
+					Get the next line id number.
+*/
+	    sprintf(text_id, "%d", textID);
+	    ld_lm2_imp_culture_header (*oldObject, project, source, 
+				      objectName, currentObject,
+				      text_id, "TEXT", inputX, inputY,
+				      inputX, inputY, ll_x, ll_y, ur_x, ur_y);
+/*
+					Write out to GRAPHIC_OBJECT_CODES,
+					GRAPHIC_OBJECTS, and 
+					GRAPHIC_OBJECT_CORRELATIONS
+*/
+	    colorCode = 0;
+	    V_FROMC(colorName, color);
+	    EXEC SQL SELECT CODE INTO :colorCode FROM CODES.EXPRESSION_CODES
+		 WHERE KEYWORD = 'COLOR' AND ENVIRONMENT = 'VMS'
+		 AND   NAME = :colorName;
+	    if (OR_STATUS < SUCCESS) ld_show_error(OR_STATUS, "color decode");
+/*
+					Convert text color to code.
+*/
+	    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"INSERT INTO %s.TEXT (UP_VECTOR_Y, UP_VECTOR_X, TEXT_EXPANSION_FACTOR, \
+TEXT_ID, POSITION, LINE_SPACING, TEXT_SIZE, \
+TEXT_PATH, TEXT_FONT, TEXT_COLOR, TEXT_STRING) \
+VALUES (1, 0, 1, %d, '%d', 400, 153, %f, '1', '%d', '%s')", 
+project, textID, textID, angle, colorCode, text);
+
+/*
+					Hardcode line_spacing, text_size,
+					and font.  Too difficult to translate
+					back and forth between landmark and
+					Finder
+*/
+    EXEC SQL PREPARE S3 FROM :sqlstmt;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s3");
+    EXEC SQL EXECUTE S3;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "execute s3");
+	    	    
+	    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"INSERT INTO %s.NODES (NODE_ID, NODE_X, NODE_Y, LOC_QUAL) \
+ VALUES (%d, %f, %f, 'A')", project, textID, inputX, inputY);
+
+    EXEC SQL PREPARE S4 FROM :sqlstmt;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s4");
+    EXEC SQL EXECUTE S4;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "execute s4");
+
+    EXEC SQL COMMIT WORK;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "commit text and nodes");
+	}
+    *oldObject = FALSE;
+    return;
+    }

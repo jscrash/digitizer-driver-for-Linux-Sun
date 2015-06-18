@@ -1,0 +1,1073 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element TU_UOM.PC*/
+/* *6    20-AUG-1990 18:11:58 GILLESPIE "(SPR 5644) Fix syntax error in last checkin"*/
+/* *5    17-AUG-1990 22:31:11 VINCE "(SPR 5644) Code Cleanup"*/
+/* *4    21-MAR-1990 18:32:52 GILLESPIE "(SPR 1) Change %f to %lf, since all values are now DOUBLE"*/
+/* *3     7-MAR-1990 17:25:36 WALTERS "(SPR 0) Remove FLOAT types from system"*/
+/* *2     6-FEB-1990 15:40:04 WALTERS "(SPR 0) Fix ts_tcp_copy"*/
+/* *1    19-JUN-1989 12:41:47 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element TU_UOM.PC*/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_tu.h"
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_BT_H
+#include "esi_bt.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#include "esi_tu_err.h"
+
+/******************************************************************************/
+
+#if USE_PROTOTYPES
+static INT tu_parse_uom (CHAR *unit_string, CHAR *uom1, CHAR *uom2);
+static INT tu_init_uom (VOID);
+
+#else       /* no prototypes */
+static INT tu_parse_uom ();
+static INT tu_init_uom ();
+
+#endif      /* of #if USE_PROTOTYPES */
+
+#define null_string  ""
+#define NULL_IT(s)   s[0]='\0'
+static TREEHEAD uom_tree = 
+    {
+    0
+    };
+
+
+static BOOL needs_init = TRUE;
+
+static TCP TU_DIST_TCP;      /* TCP FOR DISTANCE UOM'S, TYPE 1 */
+static TCP TU_TIME_TCP;      /* TCP FOR TIME UOM'S, TYPE 2 */
+static TCP TU_ANG_TCP;       /* TCP FOR ANGULAR UOM's, TYPE 4 */
+
+/* File Description ---------------------------------------------------------
+Overview:
+    The UOM toolkit                             
+    
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef  INT tu_disp_units_to_wcs(CHAR units[],DOUBLE *wcs, DOUBLE wcs_to_inches);
+    
+    publicdef  INT tu_unit_conversion(DOUBLE value_in,CHAR uom_in[],DOUBLE *value_out,
+        CHAR uom_out[]);
+    
+    publicdef  INT tu_parse_unit(CHAR *unit_string,DOUBLE *value,CHAR *uom1,CHAR *uom2);
+    
+    publicdef  INT tu_verify_uom(CHAR *uom_name_in,UOM_STRUCTURE *uom_data);
+    
+    publicdef  INT tu_parse_scale(CHAR scale_string[],DOUBLE*map_scale,CHAR scale_units[]);
+    
+    publicdef  INT tu_parse_scale2(CHAR scale_string[],DOUBLE*map_scale,CHAR units_right[],
+        CHAR units_left[]);
+    
+    publicdef  INT tu_conversion_factor(CHAR *from_uom_name,CHAR *to_uom_name,
+        DOUBLE*conversion_factor);
+    
+    publicdef  INT tu_scale_conversion(CHAR *from_uom_name,CHAR *scale_string,
+        DOUBLE*conversion_factor);
+    
+    publicdef  INT tu_get_tcp(TCP *tcp,INT type);
+
+Private_Functions:
+    static INT tu_parse_uom(CHAR *unit_string,CHAR *uom1,CHAR *uom2);
+    
+    static INT tu_init_uom();
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+    Converts a value or a value-uom string from map paper units
+    to world coordinates.
+
+Prototype:
+    publicdef  INT tu_disp_units_to_wcs(CHAR units[],DOUBLE *wcs, DOUBLE wcs_to_inches);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) units           -(CHAR []) Value or value-uom string in direction.
+    (I) wcs_to_inches   -(DOUBLE) Wcs to inches conversion factor. 
+    (O) wcs             -(DOUBLE *) Output value in world coordinates.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    TU_INVALID_UOM_STRING
+    TU_INVALID_UOM
+    TU_INVALID_VALUE
+    TU_WCS_NOT_INIT
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT tu_disp_units_to_wcs (CHAR units[], DOUBLE *wcs, DOUBLE wcs_to_inches)
+#else
+publicdef INT tu_disp_units_to_wcs (units, wcs, wcs_to_inches)
+CHAR units[];
+DOUBLE *wcs;
+DOUBLE wcs_to_inches;
+#endif
+    {
+    UOM_NAME uom_string, trash;     /* UOM string           */
+    DOUBLE map_unit;                /* Value in map units   */
+    DOUBLE map_inches;              /* Value in inches  */
+    INT status;
+    
+    if (wcs_to_inches == 0.0)
+        return TU_WCS_NOT_INIT;
+    
+    /*  Parse the string        */
+    
+    status = tu_parse_unit (units, &map_unit, uom_string, trash);
+    if (status != SUCCESS)
+        return status;
+    
+    /*  Convert to inches       */
+    
+    status = tu_unit_conversion (map_unit, uom_string, &map_inches, "INCHES");
+    if (status != SUCCESS)
+        return status;
+    
+    /*  Convert to WCS          */
+    
+    *wcs = map_inches / wcs_to_inches;
+    
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Converts a value from one unit of measure to another.  If the
+    first UOM is null, the input value is returned. 
+
+Prototype:
+    publicdef  INT tu_unit_conversion(DOUBLE value_in,CHAR uom_in[],DOUBLE *value_out,
+        CHAR uom_out[]);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) value_in    -(DOUBLE) Value to be converted.
+    (I) uom_in      -(CHAR []) UOM of input value.
+    (I) uom_out     -(CHAR []) UOM of output value.
+    (O) value_out   -(DOUBLE *) Converted value.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    TU_INVALID_UOM
+    TU_INVALID_VALUE
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT tu_unit_conversion (DOUBLE value_in, CHAR uom_in[], DOUBLE *value_out,
+                                  CHAR uom_out[])
+#else
+publicdef INT tu_unit_conversion (value_in, uom_in, value_out, uom_out)
+DOUBLE value_in;
+CHAR uom_in[];
+DOUBLE *value_out;
+CHAR uom_out[];
+#endif
+    {
+    INT status;
+    CHAR str_in[41], str_out[41], in1[21], in2[21], out1[21], out2[21];
+    UOM_STRUCTURE uom_node_in1, uom_node_out1;
+    UOM_STRUCTURE uom_node_in2, uom_node_out2;
+    FLOAT def_in, def_out;
+    
+    if (strcmp (uom_in, null_string) == 0)
+        {
+        *value_out = value_in;
+        return SUCCESS;
+        }
+    strcpy (str_in, uom_in);
+    strcpy (str_out, uom_out);
+    ts_noblanks (str_in);
+    ts_noblanks (str_out);
+    status = tu_verify_uom (str_in, &uom_node_in1);
+    if (status == SUCCESS)
+        /*  we have a simple   <uom>         */
+        {
+        status = tu_verify_uom (str_out, &uom_node_out1);
+        if (status != SUCCESS)
+            return status;
+        /*   Check the types            */
+        
+        if (strcmp (uom_node_in1.uom_type, uom_node_out1.uom_type) != 0)
+            return TU_INCOMPATIBLE_UOM;
+        def_in = uom_node_in1.uom_definition;
+        def_out = uom_node_out1.uom_definition;
+        }
+    else                            /*     let see  if it is a complex unit  <uom1>/<uom2>   */
+        {
+        status = tu_parse_uom (str_in, in1, in2);
+        if (status != SUCCESS)
+            return status;
+        status = tu_verify_uom (in1, &uom_node_in1);
+        if (status != SUCCESS)
+            return status;
+        status = tu_verify_uom (in2, &uom_node_in2);
+        if (status != SUCCESS)
+            return status;
+        
+        status = tu_parse_uom (str_out, out1, out2);
+        if (status != SUCCESS)
+            return status;
+        status = tu_verify_uom (out1, &uom_node_out1);
+        if (status != SUCCESS)
+            return status;
+        status = tu_verify_uom (out2, &uom_node_out2);
+        if (status != SUCCESS)
+            return status;
+        
+        if (strcmp (uom_node_in1.uom_type, uom_node_out1.uom_type) != 0)
+            return TU_INCOMPATIBLE_UOM;
+        if (strcmp (uom_node_in2.uom_type, uom_node_out2.uom_type) != 0)
+            return TU_INCOMPATIBLE_UOM;
+        def_in = uom_node_in1.uom_definition / uom_node_in2.uom_definition;
+        def_out = uom_node_out1.uom_definition / uom_node_out2.uom_definition;
+        }
+    /*   Convert                */
+    
+    *value_out = value_in * def_in / def_out;
+    
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Parses a string of the form:
+        
+    <uom1>/<uom2>
+    
+    where
+        <uom>    -> a valid uom string, i.e., it must be in UOM_CODES
+
+Prototype:
+    static INT tu_parse_uom(CHAR *unit_string,CHAR *uom1,CHAR *uom2);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) unit_string -(CHAR *) The input text string.
+    (O) uom1        -(CHAR *) The first uom code.
+    (O) uom2        -(CHAR *) The second uom code (May be NUL).
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE to <tu_uom.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT tu_parse_uom (CHAR *unit_string, CHAR *uom1, CHAR *uom2)
+#else
+static INT tu_parse_uom (unit_string, uom1, uom2)
+CHAR *unit_string;
+CHAR *uom1, *uom2;
+#endif
+    {
+    CHAR uom_string[41];            /* Token string for the uom(s)  */
+    CHAR *next_string;              /* Place keeping pointer        */
+    INT i, j, k;                    /* Counters and indices     */
+    CHAR *next_token;               /* Pointer to next substring    */
+    
+    NULL_IT (uom1);
+    NULL_IT (uom2);
+    
+    /*  Copy the uom string, if any             */
+    strcpy (uom_string, unit_string);
+    
+    /*  Interpret the uom string                */
+    
+    ts_sto_upper (uom_string);
+    i = strlen (uom_string);
+    
+    /*  Leave if there is no uom code                               */
+    
+    if (i == 0)
+        return SUCCESS;
+    
+    /*  Search for a slash(/) or PER                */
+    
+    j = strcspn (uom_string, "/");
+    if (i != j)
+        {                           /* Found a slash(/)     */
+        ts_noblanks (uom_string);
+        next_string = ts_next_token (uom_string, uom1, '/');
+        next_string = ts_next_token (next_string, uom2, '/');
+        return SUCCESS;
+        }
+    return FAIL;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Parses a string of the form:
+        
+        <number> <uom1><sep><uom2> or
+        <number> <uom>, where
+
+        <number> -> any numeric string
+        <uom>    -> a valid uom string, i.e., it must be in UOM_CODES
+        <sep>    -> either "/" or "per"
+
+Prototype:
+    publicdef  INT tu_parse_unit(CHAR *unit_string,DOUBLE *value,CHAR *uom1,CHAR *uom2);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) unit_string -(CHAR *) The input text string.
+    (O) value       -(DOUBLE *) The numeric value.
+    (O) uom1        -(CHAR *) The first uom code.
+    (O) uom2        -(CHAR *) The second uom code(May be NUL).
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    TU_INVALID_UOM_STRING
+    TU_INVALID_UOM
+    TU_INVALID_VALUE
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT tu_parse_unit (CHAR *unit_string, DOUBLE *value, CHAR *uom1, CHAR *uom2)
+#else
+publicdef INT tu_parse_unit (unit_string, value, uom1, uom2)
+CHAR *unit_string;
+DOUBLE *value;
+CHAR *uom1, *uom2;
+#endif
+    {
+    CHAR value_string[41];          /* Token string for the value   */
+    CHAR uom_string[41];            /* Token string for the uom(s)  */
+    CHAR *next_string;              /* Place keeping pointer        */
+    INT i, j, k;                    /* Counters and indices     */
+    INT status;                     /* Status received      */
+    CHAR *next_token;               /* Pointer to next substring    */
+    UOM_STRUCTURE uom_node;         /* UOM data node                */
+    
+    NULL_IT (uom1);
+    NULL_IT (uom2);
+    NULL_IT (uom_string);
+    
+    /*  Extract the value string                */
+    
+    next_string = ts_next_word (unit_string, value_string);
+    
+    /*  Extract the uom string, if any              */
+    
+    if (next_string != (CHAR *)NULL)
+        if (strcmp (next_string, null_string) != 0)
+            {
+            next_string = ts_next_word (next_string, uom_string);
+            }
+    /*  Reformat the value string               */
+    
+    if (ts_isfloat (value_string) <= 0)
+        return TU_INVALID_VALUE;
+    sscanf (value_string, "%lf", value);
+    
+    /*  Interpret the uom string                */
+    
+    ts_sto_upper (uom_string);
+    i = strlen (uom_string);
+    
+    /*  Leave if there is no uom code                               */
+    
+    if (i == 0)
+        return SUCCESS;
+    
+    /*  Search for a slash(/) or PER                */
+    
+    j = strcspn (uom_string, "/");
+    if (i != j)
+        {                           /* Found a slash(/)     */
+        ts_noblanks (uom_string);
+        next_string = ts_next_token (uom_string, uom1, '/');
+        next_string = ts_next_token (next_string, uom2, '/');
+        status = tu_verify_uom (uom1, &uom_node);
+        if (status != SUCCESS)
+            return status;
+        status = tu_verify_uom (uom2, &uom_node);
+        if (status != SUCCESS)
+            return status;
+        return SUCCESS;
+        }
+    if (ts_like (uom_string, "*PER*", '*'))
+        {                           /* Found a PER          */
+        next_string = ts_next_word (uom_string, uom1);
+        next_string = ts_next_word (next_string, uom2);
+        next_string = ts_next_word (next_string, uom2);
+        status = tu_verify_uom (uom1, &uom_node);
+        if (status != SUCCESS)
+            return status;
+        status = tu_verify_uom (uom2, &uom_node);
+        if (status != SUCCESS)
+            return status;
+        return SUCCESS;
+        }
+    /*  uom is a single code    */
+    
+    status = tu_verify_uom (uom_string, &uom_node);
+    if (status == SUCCESS)
+        {
+        strcpy (uom1, uom_string);
+        NULL_IT (uom2);
+        return SUCCESS;
+        }
+    else
+        {
+        return status;
+        }
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Verifies a uom code.
+
+Prototype:
+    publicdef  INT tu_verify_uom(CHAR *uom_name_in,UOM_STRUCTURE *uom_data);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) uom_name_in -(CHAR *)
+    (I) uom_data    -(UOM_STRUCTURE *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    TU_INVALID_UOM
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT tu_verify_uom (CHAR *uom_name_in, UOM_STRUCTURE *uom_data)
+#else
+publicdef INT tu_verify_uom (uom_name_in, uom_data)
+CHAR *uom_name_in;
+UOM_STRUCTURE *uom_data;
+#endif
+    {
+    INT status;
+    
+    /* Check to see if uom system is initialized    */
+    
+    if (needs_init)
+        {
+        status = tu_init_uom ();
+        }
+    /*  Verify uom name             */
+    
+    uom_name_in = ts_sto_upper (uom_name_in);
+    if (btfind (&uom_tree, uom_name_in, uom_data))
+        return SUCCESS;
+    else
+        return TU_INVALID_UOM;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Initialize the Unit of Measure System.
+
+Prototype:
+    static INT tu_init_uom();
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    None.
+    
+Return Value/Status:
+    SUCCESS - Successful completion.
+    OR_STATUS
+    
+Scope:
+    PRIVATE to <tu_uom.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT tu_init_uom (void)
+#else
+static INT tu_init_uom ()
+#endif
+    {
+    UOM_STRUCTURE *uom_node;
+    INT status;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR uom_name[21];
+    int uom_code;
+    VARCHAR uom_type[11];
+    float uom_definition;
+    EXEC SQL END DECLARE SECTION;
+    
+    if (NOT needs_init)
+        {
+        return SUCCESS;
+        }
+    btinit (&uom_tree, 0, sizeof(UOM_NAME), sizeof(UOM_STRUCTURE),
+            BT_KEY_IS_C_STRING | BT_TREE_SYSTEM);
+    
+    TU_DIST_TCP = ts_tcp_alloc (10);
+    TU_TIME_TCP = ts_tcp_alloc (10);
+    TU_ANG_TCP = ts_tcp_alloc (10);
+    
+    EXEC SQL WHENEVER SQLERROR GOTO process_error;
+    EXEC SQL WHENEVER NOT FOUND GOTO process_error;
+    EXEC SQL DECLARE UOM_CUR CURSOR FOR SELECT UOM_NAME, UOM_CODE, UOM_TYPE,
+        UOM_DEFINITION FROM CODES.UOM_CODES;
+    
+    EXEC SQL OPEN UOM_CUR;
+    
+    FOREVER
+        {
+        EXEC SQL FETCH UOM_CUR INTO : uom_name,  : uom_code,  : uom_type,
+            : uom_definition;
+        
+        uom_node = ALLOCATE (UOM_STRUCTURE);
+        
+        V_FROMV (uom_node->uom_name, uom_name);
+        uom_node->uom_code = uom_code;
+        V_FROMV (uom_node->uom_type, uom_type);
+        uom_node->uom_definition = uom_definition;
+        
+        btadd (&uom_tree, uom_node->uom_name, uom_node);
+        
+        if (uom_node->uom_code < 0)
+            {
+            if (strcmp (uom_node->uom_type, "DISTANCE") EQUALS 0)
+                {
+                ts_tcp_append (&TU_DIST_TCP, uom_node->uom_name);
+                }
+            else if (strcmp (uom_node->uom_type, "TIME") EQUALS 0)
+                {
+                ts_tcp_append (&TU_TIME_TCP, uom_node->uom_name);
+                }
+            else if (strcmp (uom_node->uom_type, "ANGULAR") EQUALS 0)
+                {
+                ts_tcp_append (&TU_ANG_TCP, uom_node->uom_name);
+                }
+            }
+        }
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    
+process_error:
+    if (OR_STATUS == OR_EOF)
+        {
+        EXEC SQL CLOSE UOM_CUR;
+        needs_init = FALSE;
+        status = SUCCESS;
+        }
+    else
+        {
+        status = OR_STATUS;
+        }
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Parse a scale string of the type:
+            
+        <value><uom> :/= <value><uom>
+
+        such as,
+
+        1 INCH = 2000 FEET  or 1 INCH : 2000 FEET
+
+Prototype:
+    publicdef  INT tu_parse_scale(CHAR scale_string[],DOUBLE*map_scale,CHAR scale_units[]);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) scale_string    -(CHAR []) The string to be parsed.
+    (O) map_scale       -(DOUBLE *) A scale factor, such that, 
+                            WCS/map_scale = paper units.
+    (O) scale_units     -(CHAR []) The units of the scale factor.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    TU_INVALID_STRING - The input string is invalid.
+    TU_INVALID_UOM - One or both of the uom codes are invalid.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT tu_parse_scale (CHAR scale_string[], DOUBLE *map_scale,
+                              CHAR scale_units[])
+#else
+publicdef INT tu_parse_scale (scale_string, map_scale, scale_units)
+CHAR scale_string[];
+DOUBLE *map_scale;
+CHAR scale_units[];
+#endif
+    {
+    CHAR left_side[41];             /* Left of :/=      */
+    CHAR right_side[41];            /* Right of :/=     */
+    INT status;                     /* Status for tools */
+    UOM_NAME uom_left, uom_right, junk; /* Various UOM codes    */
+    INT nch;                        /*  String index    */
+    INT nlen, nlen_l, nlen_r;       /*  String length       */
+    DOUBLE val_paper, val_wcs;      /*  Values for both sides */
+    INT i;
+    
+    /*  Break up the string             */
+    
+    nlen = strlen (scale_string);
+    if (nlen == 0)
+        return TU_INVALID_STRING;
+    
+    nch = strcspn (scale_string, ":=");
+    if (nch == nlen)
+        {
+        return TU_INVALID_STRING;   /* No match */
+        }
+    strncpy (left_side, scale_string, nch);
+    left_side[nch] = '\0';
+    for (i = nch + 1; i < nlen; i++)
+        right_side[i - (nch + 1)] = scale_string[i];
+    right_side[nlen - nch - 1] = '\0';
+    
+    /*  Parse the left side                 */
+    
+    status = tu_parse_unit (left_side, &val_paper, uom_left, junk);
+    if ((status != SUCCESS) AND (status != TU_UOM_MISSING))
+        return status;
+    
+    /*  Parse the right side                    */
+    
+    status = tu_parse_unit (right_side, &val_wcs, uom_right, junk);
+    if ((status != SUCCESS) AND (status != TU_UOM_MISSING))
+        return status;
+    
+    /*  Compute scale factor                    */
+    
+    nlen_l = strlen (uom_left);
+    nlen_r = strlen (uom_right);
+    
+    if (((nlen_l == 0) AND (nlen_r != 0)) OR ((nlen_l != 0) AND (nlen_r == 0)))
+        return TU_INVALID_STRING;
+    
+    if (nlen_r != 0)
+        {
+        *map_scale = val_wcs / val_paper;
+        strcpy (scale_units, uom_right);
+        strcat (scale_units, "/");
+        strcat (scale_units, uom_left);
+        }
+    else
+        {
+        *map_scale = val_wcs / val_paper;
+        strcpy (scale_units, null_string);
+        }
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Parse a scale string of the type:
+            
+        <value><uom> :/= <value><uom>
+
+        such as,
+
+        1 INCH = 2000 FEET  or 1 INCH : 2000 FEET
+
+Prototype:
+    publicdef  INT tu_parse_scale2(CHAR scale_string[],DOUBLE*map_scale,CHAR units_right[],
+        CHAR units_left[]);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) scale_string    -(CHAR []) The string to be parsed.
+    (O) map_scale       -(DOUBLE *) A scale factor, such that, 
+                            WCS/map_scale = paper units.
+    (O) units_right     -(CHAR []) The WCS units such as FEET or METRES.
+    (O) units_left      -(CHAR []) The paper units such as IN or CM.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+    TU_INVALID_STRING - The input string is invalid.
+    TU_INVALID_UOM - One or both of the uom codes are invalid.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+    This function differs from tu_parse_scale only in that it
+    returns the two units separately rather than in one string
+    separated by a slash (/).  Tu_parse_scale may be better for
+    generating displayable scales.
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT tu_parse_scale2 (CHAR scale_string[], DOUBLE *map_scale,
+                               CHAR units_right[], CHAR units_left[])
+#else
+publicdef INT tu_parse_scale2 (scale_string, map_scale, units_right, units_left)
+CHAR scale_string[];
+DOUBLE *map_scale;
+CHAR units_right[];
+CHAR units_left[];
+#endif
+    {
+    CHAR left_side[41];             /* Left of :/=      */
+    CHAR right_side[41];            /* Right of :/=     */
+    INT status;                     /* Status for tools */
+    UOM_NAME uom_left, uom_right, junk; /* Various UOM codes    */
+    INT nch;                        /*  String index    */
+    INT nlen, nlen_l, nlen_r;       /*  String length       */
+    DOUBLE val_paper, val_wcs;      /*  Values for both sides */
+    INT i;
+    
+    /*  Break up the string             */
+    
+    nlen = strlen (scale_string);
+    if (nlen == 0)
+        return TU_INVALID_STRING;
+    
+    nch = strcspn (scale_string, ":=");
+    if (nch == nlen)
+        return TU_INVALID_STRING;   /* No match */
+    
+    strncpy (left_side, scale_string, nch);
+    left_side[nch] = '\0';
+    for (i = nch + 1; i < nlen; i++)
+        {
+        right_side[i - (nch + 1)] = scale_string[i];
+        }
+    right_side[nlen - nch - 1] = '\0';
+    
+    /*  Parse the left side                 */
+    
+    status = tu_parse_unit (left_side, &val_paper, uom_left, junk);
+    if ((status != SUCCESS) AND (status != TU_UOM_MISSING))
+        return status;
+    
+    /*  Parse the right side                    */
+    
+    status = tu_parse_unit (right_side, &val_wcs, uom_right, junk);
+    if ((status != SUCCESS) AND (status != TU_UOM_MISSING))
+        return status;
+    
+    /*  Compute scale factor                    */
+    
+    nlen_l = strlen (uom_left);
+    nlen_r = strlen (uom_right);
+    
+    if (((nlen_l == 0) AND (nlen_r != 0)) OR ((nlen_l != 0) AND (nlen_r == 0)))
+        {
+        return TU_INVALID_STRING;
+        }
+    *map_scale = val_wcs / val_paper;
+    strcpy (units_right, uom_right);
+    strcpy (units_left, uom_left);
+    
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Returns a conversion factor.
+
+Prototype:
+    publicdef  INT tu_conversion_factor(CHAR *from_uom_name,CHAR *to_uom_name,
+        DOUBLE*conversion_factor);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) from_uom_name       -(CHAR *) The source uom code.
+    (I) to_uom_name         -(CHAR *) The destination code.
+    (O) conversion_factor   -(DOUBLE *) The factor for converting from/to.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    TU_INVALID_UOM
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT tu_conversion_factor (CHAR *from_uom_name, CHAR *to_uom_name,
+                                    DOUBLE *conversion_factor)
+#else
+publicdef INT tu_conversion_factor (from_uom_name, to_uom_name, conversion_factor)
+CHAR *from_uom_name, *to_uom_name;
+DOUBLE *conversion_factor;
+#endif
+    {
+    UOM_STRUCTURE from_node, to_node;
+    INT status;
+    
+    status = tu_verify_uom (from_uom_name, &from_node);
+    if (status != SUCCESS)
+        return status;
+    
+    status = tu_verify_uom (to_uom_name, &to_node);
+    if (status != SUCCESS)
+        return status;
+    
+    *conversion_factor = from_node.uom_definition / to_node.uom_definition;
+    
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Returns a conversion factor based on a UOM and a scale expression.
+
+Prototype:
+    publicdef  INT tu_scale_conversion(CHAR *from_uom_name,CHAR *scale_string,
+        DOUBLE*conversion_factor);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) from_uom_name       -(CHAR *) The source uom code.
+    (I) scale_string        -(CHAR *) A scale string.
+    (O) conversion_factor   -(DOUBLE *) The factor for converting from/to.
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    TU_INVALID_UOM
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT tu_scale_conversion (CHAR *from_uom_name, CHAR *scale_string,
+                                   DOUBLE *conversion_factor)
+#else
+publicdef INT tu_scale_conversion (from_uom_name, scale_string, conversion_factor)
+CHAR *from_uom_name;
+CHAR *scale_string;
+DOUBLE *conversion_factor;
+#endif
+    {
+    UOM_STRUCTURE from_node;
+    INT status;
+    DOUBLE map_scale;
+    CHAR scale_units[41];
+    UOM_NAME uom1, uom2;
+    DOUBLE scale1, scale2;
+    CHAR uom_string[41];
+    
+    status = tu_parse_scale (scale_string, &scale1, scale_units);
+    if (status != SUCCESS)
+        return status;
+    
+    sprintf (uom_string, "%lf ", scale1);
+    strcat (uom_string, scale_units);
+    status = tu_parse_unit (uom_string, &scale1, uom1, uom2);
+    if (status != SUCCESS)
+        return status;
+    
+    status = tu_unit_conversion (scale1, uom1, conversion_factor, from_uom_name);
+    if (status != SUCCESS)
+        return status;
+    
+    return SUCCESS;
+    }
+
+/* Function Description -----------------------------------------------------
+Description:
+    Returns a tcp of uom names for the requested types:
+            1 => Distance only;
+            2 => Time only;
+            3 => Time and Distance;
+            4 => Angular only;
+            5 => Angular and Distance;
+            6 => Angular and Time;
+            7 => Angular and Time and Distance.
+
+Prototype:
+    publicdef  INT tu_get_tcp(TCP *tcp,INT type);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) type        -(INT) Integer code for types to return (1 to 7).
+    (O) tcp         -(TCP *) Returned tcp of types.
+    
+Return Value/Status:
+    SUCCESS - Successful completion.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT tu_get_tcp (TCP *tcp, INT type)
+#else
+publicdef INT tu_get_tcp (tcp, type)
+TCP *tcp;
+INT type;
+#endif
+    {
+    INT status;
+    INT i;
+    INT len;
+    INT ndx;
+    BOOL start = TRUE;
+    static TCP done_tcp[7] = 
+        {
+        (TCP)0
+        };
+    
+    /* Check to see if uom system is initialized    */
+    
+    if (needs_init)
+        {
+        status = tu_init_uom ();
+        }
+    ndx = type - 1;
+    /* CHECK INDEX VALUE */
+    if (ndx >= 0 AND ndx <= 6)
+        {
+        
+        /* RETRIEVE PREVIOUSLY CALCULATED TCP */
+        if (done_tcp[ndx] != (TCP)NULL)
+            {
+            *tcp = done_tcp[ndx];
+            }
+        /* CONSTRUCT NEW TCP */
+        else
+            {
+            if (type >= 4)
+                {
+                ts_tcp_copy (tcp, TU_ANG_TCP);
+                type -= 4;
+                start = FALSE;
+                }
+            if (type >= 2)
+                {
+                len = ts_tcp_len (TU_TIME_TCP);
+                if (start)
+                    {
+                    ts_tcp_copy (tcp, TU_TIME_TCP);
+                    start = FALSE;
+                    }
+                else
+                    {
+                    for (i = 0; i < len; i++)
+                        {
+                        ts_tcp_append (tcp, TU_TIME_TCP[i]);
+                        }
+                    }
+                type -= 2;
+                }
+            if (type EQUALS 1)
+                {
+                len = ts_tcp_len (TU_DIST_TCP);
+                if (start)
+                    {
+                    ts_tcp_copy (tcp, TU_DIST_TCP);
+                    start = FALSE;
+                    }
+                else
+                    {
+                    for (i = 0; i < len; i++)
+                        {
+                        ts_tcp_append (tcp, TU_DIST_TCP[i]);
+                        }
+                    }
+                }
+            /* SORT IT IF ITS A COMBINATION */
+            if (NOT start)
+                {
+                ts_tcp_sort (*tcp);
+                }
+            /* STORE IT */
+            done_tcp[ndx] = *tcp;
+            }
+        }
+    return SUCCESS;
+    }
+/* END:     */

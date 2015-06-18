@@ -1,0 +1,159 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element SS_GET_2D_DEF.PC*/
+/* *4    17-AUG-1990 22:19:08 VINCE "(SPR 5644) Code Cleanup"*/
+/* *3    18-JUN-1990 12:10:15 GILLESPIE "(SPR 1) Changes to allow 3-D lines to be handles as select list entryes (IES deltas)"*/
+/* *2    25-JUL-1989 20:08:38 GILLESPIE "(SPR 50) Seismic system revamp"*/
+/* *1    19-JUN-1989 12:41:29 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element SS_GET_2D_DEF.PC*/
+/* DEC/CMS REPLACEMENT HISTORY, Element SS_GET_2D_DEF.PC                            */
+/* *2    25-JUL-1989 20:08:38 GILLESPIE "(SPR 50) Seismic system revamp"            */
+/* *1    19-JUN-1989 12:41:29 SYSTEM ""                                             */
+/* DEC/CMS REPLACEMENT HISTORY, Element SS_GET_2D_DEF.PC                            */
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_se.h"
+#include "esi_oracle.h"
+#include "esi_qs.h"
+
+/* **********************************************************************           */
+
+EXEC ORACLE OPTION (RELEASE_CURSOR = YES);
+
+/* Function Description -----------------------------------------------------
+Description:
+    Get the default 2d survey name for the current  project.
+
+Prototype:
+    publicdef INT func (arg);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (O) survey      -(SEIS_SURV) Current 2d survey. 
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    OR_STATUS
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT ss_get_2d_def (SEIS_SURV survey)
+#else
+publicdef INT ss_get_2d_def (survey)
+SEIS_SURV survey;
+#endif
+    {
+    INT status;
+    PROJECT_NAME project;
+    
+    /*  SQL Definition of the project default  Table                                */
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR default_name[40];
+    VARCHAR default_value[40];
+    VARCHAR sqlstmt[200];
+    EXEC SQL END DECLARE SECTION;
+    
+    EXEC SQL WHENEVER NOT FOUND GOTO not_found;
+    EXEC SQL WHENEVER SQLERROR GOTO d_cur_error;
+    
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    
+    sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"SELECT DEFAULT_VALUE FROM  \
+       %s.PROJECT_DEFAULTS WHERE DEFAULT_NAME = 'DEF_2D_NAME' "
+            , project);
+    
+    EXEC SQL PREPARE S1 FROM : sqlstmt;
+    
+    EXEC SQL DECLARE D_CUR CURSOR FOR S1;
+    
+    EXEC SQL OPEN D_CUR;
+    
+    EXEC SQL FETCH D_CUR INTO : default_value;
+    
+    /*  we found the default survey name in the table                               */
+    
+    V_FROMV (survey, default_value);
+    EXEC SQL CLOSE D_CUR;
+    return SUCCESS;
+    
+d_cur_error:
+    
+    status = OR_STATUS;
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL CLOSE D_CUR;
+    return status;
+    
+not_found:
+    /*  row not found in the table PROJECT_DEFAULTS 
+        we create a default 2d survey name */
+    
+    EXEC SQL WHENEVER NOT FOUND CONTINUE;
+    
+    EXEC SQL CLOSE D_CUR;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO err_sql;
+    
+    /* add a default 2d survey name in the table DEFAULT_PROJECT                    */
+    
+    sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+" INSERT INTO \
+       %s.PROJECT_DEFAULTS ( DEFAULT_NAME , DEFAULT_VALUE)\
+       VALUES (  'DEF_2D_NAME' , '?' )"
+            , project);
+    
+    EXEC SQL EXECUTE IMMEDIATE : sqlstmt;
+    
+    /* add a default 2d survey in the table SEIS_SURVEY_HDR                         */
+    
+    sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+" INSERT INTO \
+       %s.SEIS_SURVEY_HDR ( SURVEY_CODE ,SURVEY_TYPE, INTERP_CODE)\
+       VALUES ( '?','2D','SSD' )"
+            , project);
+    
+    EXEC SQL EXECUTE IMMEDIATE : sqlstmt;
+    
+    /*   commit the changes in the DB                                               */
+    
+    EXEC SQL COMMIT WORK;
+    
+    strcpy (survey, "?");
+    
+    return SUCCESS;
+    
+err_sql:
+    
+    status = OR_STATUS;
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL ROLLBACK WORK;
+    
+    return status;
+    }
+/* END:     */

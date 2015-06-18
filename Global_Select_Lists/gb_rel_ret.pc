@@ -1,0 +1,1371 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element GB_REL_RET.PC*/
+/*  24   13-FEB-1992 15:40:20 PURNA "(SPR 5066) removed check before updating edittext"*/
+/* *23   28-OCT-1991 18:26:34 PURNA "(SPR 3735) Added more information to retrict to map messages"*/
+/* *22   30-SEP-1991 17:54:29 PURNA "(SPR 2387) clear select phrases selection when change data type"*/
+/* *21   23-JUL-1991 09:29:28 PURNA "(SPR 3318) fixed crashes when do retrict to map on empty map"*/
+/* *20   17-JUL-1991 16:09:10 PURNA "(SPR 1544) added functionality to clear the select phrases"*/
+/* *19   11-JUN-1991 13:41:53 PURNA "(SPR 7283) change retrieval table from DB"*/
+/* *18   23-AUG-1990 15:29:48 PURNA "(SPR 0) fix compiling error"*/
+/* *17   30-JUL-1990 17:22:25 PURNA "(SPR 0) add lynx,lease select_list"*/
+/* *16   29-APR-1990 11:15:04 SCD "(SPR 1) Handle restrict to map when no wells/seismic displayed."*/
+/* *15    2-APR-1990 09:36:32 KEE "(SPR -1) fix #include <$$$.rhx> to #include <$$$.rh>"*/
+/* *14    1-APR-1990 20:05:52 SCD "(SPR 1) Add buttons for HILITE and EDIT SQL MACRO."*/
+/* *13   18-MAR-1990 14:12:04 SCD "(SPR 1) Change DESCRIPTION column to REMARKS for SELECT_PHRASES table."*/
+/* *12   29-DEC-1989 14:14:52 SCD "(SPR 100) Correct auto selection of table associated with select phrase."*/
+/* *11   25-NOV-1989 16:00:35 JULIAN "(SPR 100) Automatically set base table specified by a select phrase."*/
+/* *10    1-NOV-1989 09:22:01 GILLESPIE "(SPR 30) REMOVE REFS TO GRAPHIC OBJECT SELECTS"*/
+/* *9    30-OCT-1989 14:34:30 PURNA "(SPR 5039) Seismic Select List Mods"*/
+/* *8    24-OCT-1989 09:37:28 CONROY "(SPR 5043) Mods for new map UI includes"*/
+/* *7    20-SEP-1989 07:48:24 GORDON "(SPR 100) Undo last checkin"*/
+/* *6    19-SEP-1989 13:36:53 GILLESPIE "(SPR 100) GULF MODS"*/
+/* *5    18-SEP-1989 12:43:09 PURNA "Gulf mods under SPR 100"*/
+/* *4    14-SEP-1989 16:15:22 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *3    12-AUG-1989 21:26:47 CONROY "(SPR 0) Show table names actually in current project"*/
+/* *2    11-AUG-1989 20:38:51 CONROY "(SPR 0) Revised global, selects, SQL macros & fixes"*/
+/* *1    19-JUN-1989 12:32:25 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element GB_REL_RET.PC*/
+/******************************************************************************
+
+        Copyright Exploration Systems, Inc. 1989
+        Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND   MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+*****************************************************************************/
+#include "esi_c_lib.h"
+#include "esi_time.h"
+
+#ifndef ESI_GB_H
+#include "esi_gb.h"
+#endif
+
+#ifndef ESI_NL_H
+#include "esi_nl.h"
+#endif
+
+#ifndef ESI_AM_H
+#include "esi_am.h"
+#endif
+
+#ifndef ESI_TC_H
+#include "esi_tc.h"
+#endif
+
+#ifndef ESI_TS_H
+#include "esi_ts.h"
+#endif
+
+#ifndef ESI_MG_H
+#include "esi_mg.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_WI_H
+#include "esi_wi.h"
+#endif
+
+#ifndef ESI_WM_H
+#include "esi_wm.h"
+#endif
+
+#ifndef ESI_GKS_H
+#include "esi_gks.h"
+#endif
+
+#ifndef ESI_GB_GLOBAL_SELECTION_H
+#include "esi_gb_global_selection.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_MP_H
+#include "esi_mp.h"
+#endif
+
+#ifndef ESI_SO_H
+#include "esi_so.h"
+#endif
+
+#ifndef ESI_SL_H
+#include "esi_sl.h"
+#endif
+
+#ifndef ESI_SL_GB_H
+#include "esi_sl_gb.h"
+#endif
+
+#ifndef ESI_HT_H
+#include "esi_ht.h"
+#endif
+
+#ifndef ESI_MD_DBDEFS_H
+#include "esi_md_dbdefs.h"
+#endif
+
+#ifndef ESI_DB_SQL_PARMS_H
+#include "esi_db_sql_parms.h"
+#endif
+
+#include "esi_gb_err.h"
+#include "esi_gb_msg.h"
+
+#include "gb_relational_cdlg.rh"
+
+/* ---------------- */
+/* Global Variables */
+/* ---------------- */
+static CHAR ResourceFile[] = "gb_relational_cdlg";
+static BOOL if_map = FALSE;
+
+/* -------------------------- */
+/* Declarations of Structures */
+/* -------------------------- */
+
+#define T_DESCRIPTION_SIZE  121
+#define T_TYPE_SIZE     21
+
+#define SP_NAME_SIZE        33
+#define SP_DESCRIPTION_SIZE 121
+#define SP_TYPE_SIZE        21
+#define SP_PHRASE_SIZE   241
+
+#define SP_SIZE         241
+#define DESC_SIZE        121
+
+typedef struct 
+    {
+    TABLE_NAME Name;
+    } TABLENAMESSTRUCTURE;
+
+typedef struct 
+    {
+    CHAR Name[SP_NAME_SIZE];
+    CHAR Description[SP_DESCRIPTION_SIZE];
+    CHAR Type[SP_TYPE_SIZE];
+    CHAR Phrase[SP_PHRASE_SIZE];
+    CHAR Tname[SP_NAME_SIZE];
+    } SELECTPHRASESSTRUCTURE;
+
+typedef struct 
+    {
+    INT RelationalRetrievalDialogID;
+    SL_DATA_TYPE TypeOfData;
+    TABLE_NAME TableName;
+    CHAR SelectPhrase[SP_SIZE];
+    PROJECT_NAME ProjectName;
+    ANALYST_NAME CreatedBy;
+    CHAR Description[DESC_SIZE];
+    NLIST_HEADER CurrentList;
+    INT nRowsRetrieved;
+
+    TABLENAMESSTRUCTURE *tn;
+    LISTHEAD TableNamesLL;
+    CHAR **TableNames;
+
+    SELECTPHRASESSTRUCTURE *sp;
+    LISTHEAD SelectPhrasesLL;
+    CHAR **SelectPhrases;
+
+    MAP_NAME CurrentMapName;
+    INT CascadeOn;
+    } RELRETSPACE;
+
+
+/* Declarations of Functions */
+
+#if USE_PROTOTYPES
+
+static INT gb_rr_dialog_event (INT item, RELRETSPACE *rp,
+                                   NLIST_HEADER *lsp);
+static VOID gb_rr_operate (RELRETSPACE *rp, NLIST_HEADER *lsp);
+static VOID gb_rr_current_map (RELRETSPACE *rp, NLIST_HEADER *lsp);
+static VOID gb_rr_cascade_lists (RELRETSPACE *rp);
+static VOID gb_rr_sql_macro (RELRETSPACE *rp);
+static INT gb_rr_select (RELRETSPACE *rp, NLIST_HEADER *lsp);
+static VOID gb_rr_get_text (INT cdID, INT itemID, INT TruncationSize,
+                         CHAR *OutText, INT UnderscoreFlag);
+static VOID gbz_show_num_retrieved (RELRETSPACE *rp);
+static VOID gb_rr_get_textFields (RELRETSPACE *rp);
+static INT gb_rr_get_table_names (RELRETSPACE *rp);
+static INT gb_rr_get_select_phrases (RELRETSPACE *rp);
+static INT gb_rr_update_curr_count (RELRETSPACE *rp);
+
+#else
+
+static INT gb_rr_dialog_event ();
+static VOID gb_rr_operate ();
+static VOID gb_rr_current_map ();
+static VOID gb_rr_cascade_lists ();
+static VOID gb_rr_sql_macro ();
+static INT gb_rr_select ();
+static VOID gb_rr_get_text ();
+static VOID gbz_show_num_retrieved ();
+static VOID gbzz_make_list_current ();
+static VOID gb_rr_get_textFields ();
+static INT gb_rr_get_table_names ();
+static INT gb_rr_get_select_phrases ();
+static INT gb_rr_update_curr_count ();
+#endif
+
+/* ORACLE precompiler declarations for global variables */
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+/* File Description ---------------------------------------------------------
+Overview:
+    Gb_relational_retrieval manages the user interaction for setting
+    the current selection by SQL retrieval methods.
+
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT gb_relational_retrieval (SL_DATA_TYPE TypeOfData, 
+	NLIST_HEADER *lsp);
+
+Private_Functions:
+    static INT gb_rr_dialog_event (INT item, RELRETSPACE *rp,
+                                   NLIST_HEADER *lsp);
+
+    static VOID gb_rr_operate (RELRETSPACE *rp, NLIST_HEADER *lsp);
+
+    static VOID gb_rr_current_map (RELRETSPACE *rp, NLIST_HEADER *lsp);
+
+    static VOID gb_rr_cascade_lists (RELRETSPACE *rp);
+
+    static VOID gb_rr_sql_macro (RELRETSPACE *rp);
+
+    static INT gb_rr_select (RELRETSPACE *rp, NLIST_HEADER *lsp);
+
+    static VOID gb_rr_get_text (INT cdID, INT itemID, INT TruncationSize,
+                         CHAR *OutText, INT UnderscoreFlag);
+
+    static VOID gbz_show_num_retrieved (RELRETSPACE *rp);
+
+    static VOID gb_rr_get_textFields (RELRETSPACE *rp);
+
+    static INT gb_rr_get_table_names (RELRETSPACE *rp);
+
+    static INT gb_rr_get_select_phrases (RELRETSPACE *rp);
+
+    static INT gb_rr_update_curr_count (RELRETSPACE *rp);
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT gb_relational_retrieval (SL_DATA_TYPE TypeOfData, NLIST_HEADER
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) TypeOfData  -(SL_DATA_TYPE) Data type to retrieve.
+    (O) lsp         -(NLIST_HEADER *) Select list of items retrieved.
+
+Return Value/Status:
+    SUCCESS normal exit, with or without successful retrieval.
+    <error status>  from subordinant functions such as am_define_resource.
+
+Scope:
+    PUBLIC
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT gb_relational_retrieval (SL_DATA_TYPE TypeOfData, NLIST_HEADER *lsp)
+#else
+publicdef INT gb_relational_retrieval (TypeOfData, lsp)
+SL_DATA_TYPE TypeOfData;
+NLIST_HEADER *lsp;
+#endif
+    {
+    static BOOL if_initialized = FALSE;
+    static MAP_STRUCTURE *mapdef;
+    static RELRETSPACE *rp;
+    static INT num_maps_display = 0;
+    static INT status = SUCCESS;
+    static INT cdlg_id = 0;
+    INT nphrases = 0, ntables = 0, default_table_index = 0;
+
+    /*----------------------------------------------------------*/
+    /* First time only initialization:                          */
+    /* - R points to relational retrieval state structure       */
+    /* - Table names and select phrases are only loaded once    */
+    /* - define resource                                        */
+    /*----------------------------------------------------------*/
+
+    if (!if_initialized)
+        {
+        rp = ALLOCATE (RELRETSPACE);
+
+        strcpy (rp->TableName, NullString);
+        strcpy (rp->SelectPhrase, NullString);
+
+        qs_inq_c (QS_PROJECT_NAME, rp->ProjectName, (INT *)0);
+        if (strlen (rp->ProjectName) == 0)
+            {
+            am_message (AM_ALERT, mg_message (GB_ERR_NO_PROJECT));
+            return FAIL;
+            }
+
+        status = am_define_resource (AM_DIALOG, ResourceFile, REL_RET,
+                                     NULL_FUNCTION_PTR, &cdlg_id, rp);
+        if (status != SUCCESS)
+            {
+            return status;
+            }
+        rp->RelationalRetrievalDialogID = cdlg_id;
+
+        /*------------------------------------------------------*/
+        /* default on first invocation is to turn on cascading  */
+        /* thereafter, we remember the preference user has set  */
+        /*------------------------------------------------------*/
+
+        rp->CascadeOn = 0;
+        gb_rr_cascade_lists (rp);
+        if_initialized = TRUE;
+        }
+
+    /*------------------------------------------------------------------*/
+    /* Allocate memory for this invocation, which is freed on return    */
+    /*------------------------------------------------------------------*/
+
+    rp->tn = ALLOCATE (TABLENAMESSTRUCTURE);
+    rp->sp = ALLOCATE (SELECTPHRASESSTRUCTURE);
+
+    llinit (&rp->TableNamesLL, 0, sizeof(TABLENAMESSTRUCTURE), 0);
+    llinit (&rp->SelectPhrasesLL, 0, sizeof(SELECTPHRASESSTRUCTURE), 0);
+
+    rp->TableNames = (CHAR * *)NULL;
+    rp->SelectPhrases = (CHAR * *)NULL;
+
+    rp->TypeOfData = TypeOfData;
+    rp->nRowsRetrieved = 0;
+
+    /* clear dialog box from all info left from other data types (case 2387) */
+
+    wi_clear(cdlg_id);
+
+    /*------------------------------------------------------*/
+    /* build linked lists and TCP's of tables and phrases   */
+    /* and place them into the two selectors.               */
+    /* enable tables and phrases selectors to generate      */
+    /* select events, and select the select phrase edit     */
+    /* text field					    */
+    /*------------------------------------------------------*/
+    nphrases = gb_rr_get_select_phrases (rp);
+    if (nphrases > 0)
+        {
+        wi_set_selections (cdlg_id, REL_RET_PHRASES, REL_RET_SEL_SCROLL,
+                           nphrases, 1, rp->SelectPhrases);
+    	wi_activate (cdlg_id, REL_RET_PHRASES, ON);
+        }
+    else
+	{
+	wi_activate (cdlg_id, REL_RET_PHRASES, OFF);
+	}
+	
+    ntables = gb_rr_get_table_names (rp);
+    if (ntables > 0)
+        {
+        wi_set_selections (cdlg_id, REL_RET_TABLENAMES, REL_RET_TAB_SCROLL,
+                           ntables, 1, rp->TableNames);
+    	wi_activate (cdlg_id, REL_RET_TABLENAMES, ON);
+        }
+    else
+	{
+    	wi_activate (cdlg_id, REL_RET_TABLENAMES, OFF);
+	}
+     
+    wi_activate (cdlg_id, REL_RET_EDIT_SELECTPHRASE, ON);
+
+    /*------------------------------------------------------*/
+    /* find out if there is a map on the screen, if not we  */
+    /* will disable the Restrict To Map button later.       */
+    /*------------------------------------------------------*/
+
+    if_map = (mp_get_current_map (&mapdef) == SUCCESS);
+    if (if_map == FALSE)
+        {
+        mp_num_displayed_maps (&num_maps_display);
+        if_map = (num_maps_display > 0);
+        }
+
+    wiscdt (cdlg_id, REL_RET_STAT_MESSAGE, mg_message (GB_ENTERTABLEMSG));
+    wiscdt (cdlg_id, REL_RET_EDIT_SELECTPHRASE, rp->SelectPhrase);
+
+    status = sl_inq_dtype_string("TABLE_HDR_NAME",rp->TypeOfData,rp->TableName);
+    if (status != SUCCESS) return status;
+
+    /*----------------------------------------------*/
+    /* set tablename selector to default table name */
+    /* set tablename field to default table name    */
+    /* set phrases selector default to nothing      */
+    /*----------------------------------------------*/
+
+    if (ntables > 0)
+        {
+        default_table_index = ts_switch (rp->TableName, rp->TableNames) + 1;
+        wi_set_default_sel (cdlg_id, REL_RET_TABLENAMES, default_table_index);
+        wi_set_dialog_text (cdlg_id, REL_RET_THE_TABLE, rp->TableName);
+        }
+    wi_set_default_sel (cdlg_id, REL_RET_PHRASES, 0);
+
+    qs_inq_c (QS_FINDER_ACCOUNT, rp->CreatedBy, (INT *)0);
+
+    /* empty the select phrases stattext box */
+    wi_set_dialog_text (cdlg_id, REL_RET_EDIT_SELECTPHRASE," ");
+
+    /*------------------------------------------------*/
+    /* guarantee correspondence of state variable and */
+    /* checkbox state                                 */
+    /*------------------------------------------------*/
+
+    rp->CascadeOn = (rp->CascadeOn == 0 ? 1 : 0);
+    gb_rr_cascade_lists (rp);
+
+    /*----------------*/
+    /* process events */
+    /*----------------*/
+
+    gb_rr_operate (rp, lsp);
+
+    /*----------------*/
+    /* free up memory */
+    /*----------------*/
+
+    llfree (&rp->TableNamesLL);
+    llfree (&rp->SelectPhrasesLL);
+
+    tc_free (rp->tn);
+    tc_free (rp->sp);
+
+    ts_tcp_free (rp->TableNames);
+    ts_tcp_free (rp->SelectPhrases);
+
+    return status;
+
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static VOID gb_rr_operate (RELRETSPACE *rp, NLIST_HEADER *lsp);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    rp              -(RELRETSPACE *)
+    lsp             -(NLIST_HEADER *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE to <gb_rel_ret.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static VOID gb_rr_operate (RELRETSPACE *rp, NLIST_HEADER *lsp)
+#else
+static VOID gb_rr_operate (rp, lsp)
+RELRETSPACE *rp;
+NLIST_HEADER *lsp;
+#endif
+    {
+    INT status, id, item, class;
+    INT cdlg_id = rp->RelationalRetrievalDialogID;
+
+
+    wipush ();
+    wi_set_event_mode (WI_MENU_EVENT, WI_EVENT_MODE);
+    wi_set_event_mode (WI_DIALOG_EVENT, WI_EVENT_MODE);
+    wi_set_event_mode (WI_SELECT_EVENT, WI_EVENT_MODE);
+
+    wi_open_dialog (cdlg_id);
+
+    status = SUCCESS;
+
+    while (status == SUCCESS)
+        {
+        wiencdi (cdlg_id, REL_RET_BTN_CURRENTMAP, if_map);
+        wiencdi (cdlg_id, REL_RET_BTN_HILITE, if_map);
+        gb_rr_update_curr_count (rp);
+        wirqevt (0, &class, &id, &item);
+        status = gb_rr_dialog_event (item, rp, lsp);
+        }
+    wi_close_dialog (cdlg_id);
+    wipop ();
+
+    return;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT gb_rr_dialog_event (INT itemID, RELRETSPACE *rp, 
+	    NLIST_HEADER *lsp)
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    itemID          -(INT)
+    rp              -(RELRETSPACE *)
+    lsp             -(NLIST_HEADER *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE to <gb_rel_ret.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT gb_rr_dialog_event (INT itemID, RELRETSPACE *rp, NLIST_HEADER *lsp)
+#else
+static INT gb_rr_dialog_event (itemID, rp, lsp)
+INT itemID;
+RELRETSPACE *rp;
+NLIST_HEADER *lsp;
+#endif
+    {
+    INT status = SUCCESS;
+    INT sl_status = SUCCESS;    /* temp status private to this function */
+    INT nsel = 0;
+    INT item_selected[1];
+    CHAR *phrase_buff;
+    INT cdlg_id = rp->RelationalRetrievalDialogID;
+
+
+    switch (itemID)
+        {
+    case REL_RET_TABLENAMES:
+        wi_query_selections (cdlg_id, REL_RET_TABLENAMES, &nsel,
+                             item_selected);
+
+        if (nsel > 0)
+            {
+            wi_set_default_sel (cdlg_id, REL_RET_TABLENAMES,
+                                item_selected[0]);
+            llgetn (&rp->TableNamesLL, rp->tn, item_selected[0]);
+            strcpy (rp->TableName, rp->tn->Name);
+            wi_set_dialog_text (cdlg_id, REL_RET_THE_TABLE, rp->TableName);
+            }
+        break;
+
+    case REL_RET_PHRASES:
+        gb_rr_sql_macro (rp);
+        break;
+
+    case REL_RET_BTN_CURRENTMAP:
+        gb_rr_current_map (rp, lsp);
+        if (rp->CascadeOn == 0)
+            gb_rr_cascade_lists (rp);
+        break;
+
+    case REL_RET_CHK_CASCADELISTS:
+        gb_rr_cascade_lists (rp);
+        break;
+
+    case REL_RET_BTN_SELECT:
+        gb_rr_select (rp, lsp);
+        break;
+
+    case REL_RET_BTN_GET_LIST:
+        sl_status = sl_choose_list (rp->TypeOfData, &rp->CurrentList);
+        if (sl_status == SUCCESS)
+            {
+            gb_update_current_status (rp->CurrentList);
+            *lsp = rp->CurrentList;
+            gbz_show_num_retrieved (rp);
+            }
+        break;
+
+    case REL_RET_BTN_HILITE:
+        sl_status = gb_highlight (rp->TypeOfData);
+        if (sl_status)
+            {
+            gb_set_hilite_exists (rp->TypeOfData);
+            }
+        break;
+
+    case REL_RET_BTN_SQL_MACRO:
+        am_message (AM_ALERT, "SQL Macro Editor Not Yet Implemented!");
+        break;
+        /*        sl_status = db_sql_editor ();
+                break; */
+
+    case REL_RET_BTN_DONE:
+        status = FAIL;
+        break;
+
+    default:
+        break;
+        }
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Process the selected SQL macro, substituting any
+    substitution variables, and setting base table for select.
+
+Prototype:
+    static VOID gb_rr_sql_macro (RELRETSPACE *rp);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    rp              -(RELRETSPACE *)
+
+Return Value/Status:
+    None.
+
+Scope:
+    PRIVATE to <gb_rel_ret.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static VOID gb_rr_sql_macro (RELRETSPACE *rp)
+#else
+static VOID gb_rr_sql_macro (rp)
+RELRETSPACE *rp;
+#endif
+    {
+    INT sl_status = SUCCESS;    /* temp status private to this function */
+    INT ntables = 0;
+    INT i;
+    INT nsel = 0;
+    INT item_selected[1];
+    CHAR *phrase_buff;
+    INT cdlg_id = rp->RelationalRetrievalDialogID;
+
+    wi_query_selections (cdlg_id, REL_RET_PHRASES, &nsel, item_selected);
+    if (nsel > 0)
+        {
+        wi_set_default_sel (cdlg_id, REL_RET_PHRASES, 0);
+        llgetn (&rp->SelectPhrasesLL, rp->sp, item_selected[0]);
+
+        /*--------------------------------------------------------------*/
+        /* Set base table name associated with the chosen select phrase */
+        /*--------------------------------------------------------------*/
+        /* NOTE: the current user-selected table name is not changed if */
+        /* there is no associated table name (rp->sp->Tname) or if      */
+        /* there are no tables or the associated table name is not      */
+        /* found in the list of table names                             */
+        /*--------------------------------------------------------------*/
+        ntables = llcount (&rp->TableNamesLL);
+        if ((ntables > 0) && (strlen (rp->sp->Tname) > 0))
+            {
+            /*----------------------------------------------*/
+            /* Verify table name is in the list and get the */
+            /* index of the table name, so we can set the   */
+            /* current selection in the selector control    */
+            /*----------------------------------------------*/
+            for (i = 0; i < ntables; i++)
+                {
+                if (strcmp (rp->TableNames[i], rp->sp->Tname) == 0)
+                    {
+                    wi_set_default_sel (cdlg_id, REL_RET_TABLENAMES, i + 1);
+                    strcpy (rp->tn->Name, rp->sp->Tname);
+                    strcpy (rp->TableName, rp->sp->Tname);
+                    wi_set_dialog_text (cdlg_id, REL_RET_THE_TABLE,
+                                        rp->TableName);
+                    break;
+                    }
+                }
+            }
+
+        /*--------------------------------------*/
+        /* Substitute any SQL macro variables:  */
+        /* The returned phrase is allocated by  */
+        /* db_sql_parms_processor               */
+        /*--------------------------------------*/
+
+        sl_status = db_sql_parms_processor (rp->sp->Phrase, &phrase_buff);
+
+        /*-----------------------------*/
+        /* user may cancel interaction */
+        /*-----------------------------*/
+
+        if (sl_status != SUCCESS)
+            return;
+
+        strcpy (rp->SelectPhrase, phrase_buff);
+        tc_free (phrase_buff);
+
+        wiscdt (cdlg_id, REL_RET_EDIT_SELECTPHRASE, rp->SelectPhrase);
+        }
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Display the number of items in the current list,  if any.
+
+Prototype:
+    static INT gb_rr_update_curr_count (RELRETSPACE *rp);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    rp              -(RELRETSPACE *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE to <gb_rel_ret.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT gb_rr_update_curr_count (RELRETSPACE *rp)
+#else
+static INT gb_rr_update_curr_count (rp)
+RELRETSPACE *rp;
+#endif
+    {
+    INT status = SUCCESS;
+    INT cdlg_id = rp->RelationalRetrievalDialogID;
+    INT qs_var;
+    INT count;
+    CHAR buff[11];
+
+    status = sl_inq_dtype_int("QS_CUR_COUNT",rp->TypeOfData, &qs_var);
+    if(status != SUCCESS) count = 0;
+    else qs_inq_i(qs_var,&count);
+
+    if (count >= 0 && count < 9999999)
+        {
+        sprintf (buff, "%ld", count);
+        wi_set_dialog_text (cdlg_id, REL_RET_CURR_COUNT, buff);
+        }
+    else
+        status = FAIL;
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    Perform selection limited by the current selection.
+
+    Make the list current if the retrieval is successful,
+    else do not change current list.
+
+Prototype:
+    static INT gb_rr_select (RELRETSPACE *rp, NLIST_HEADER *lsp);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    rp              -(RELRETSPACE *)
+    lsp             -(NLIST_HEADER *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE to <gb_rel_ret.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT gb_rr_select (RELRETSPACE *rp, NLIST_HEADER *lsp)
+#else
+static INT gb_rr_select (rp, lsp)
+RELRETSPACE *rp;
+NLIST_HEADER *lsp;
+#endif
+    {
+    INT ReturnStatus = 0, db_status;
+    INT cdlg_id = rp->RelationalRetrievalDialogID;
+    CHAR list_name[STMAX];  /* current list name, if any */
+    INT len = 0;
+    NLIST_HEADER control_list = 0;  /* current list, if any */
+    INT qs_var;
+
+    rp->nRowsRetrieved = 0;
+
+    gb_rr_get_textFields (rp);
+
+    if (strlen (rp->TableName) == 0)
+        {
+        ReturnStatus = -1;
+        wiscdt (cdlg_id, REL_RET_STAT_MESSAGE,
+                mg_message (GB_NOTABLENAMEMSG));
+        }
+    else
+        {
+	ReturnStatus = sl_inq_dtype_int("QS_CUR_LIST",rp->TypeOfData,&qs_var);
+	if (ReturnStatus != SUCCESS) return ReturnStatus;
+
+	qs_inq_c (qs_var, list_name, &len);
+
+        wiscdt (cdlg_id, REL_RET_STAT_MESSAGE, mg_message (GB_OKMSG));
+
+        /*----------------------------------------------------------*/
+        /* If there is a current list name, fetch the select list   */
+        /* into control_list:                                       */
+        /*----------------------------------------------------------*/
+
+        if (rp->CascadeOn && len > 0)
+            {
+            ReturnStatus = sl_read_list (rp->TypeOfData, list_name,
+                                         &control_list);
+            if (ReturnStatus != SUCCESS)
+                return ReturnStatus;
+            }
+        else
+            control_list = (NLIST_HEADER)0;
+
+        /*----------------------------------------------------------*/
+        /* Perform selection controlled by current list, if any     */
+        /* The returned select list is allocated here by sl_select  */
+        /* and the list handle is placed in rp->CurrentList         */
+        /*----------------------------------------------------------*/
+
+        db_status = sl_select (control_list, rp->TableName, rp->SelectPhrase,
+                               &rp->CurrentList, &rp->nRowsRetrieved);
+
+        wi_beep (1);
+
+        if (db_status != SUCCESS)
+            {
+            ReturnStatus = FAIL;
+            wiscdt (cdlg_id, REL_RET_STAT_MESSAGE, mg_message (db_status));
+            }
+        else
+            {
+            gbz_show_num_retrieved (rp);
+            }
+
+        if (ReturnStatus < 0)
+            rp->nRowsRetrieved = 0;
+
+        /*----------------------------------------------------------*/
+        /* If retrieval produced any rows, make it the current list */
+        /* and return the select list to caller                     */
+        /*----------------------------------------------------------*/
+
+        if (rp->nRowsRetrieved > 0)
+            {
+            gb_make_list_current (rp->CurrentList);
+            *lsp = rp->CurrentList;
+            }
+        }
+    return(ReturnStatus);
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static VOID gb_rr_get_textFields (RELRETSPACE *rp);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    rp              -(RELRETSPACE *)
+
+Return Value/Status:
+    None.
+
+Scope:
+    PRIVATE to <gb_rel_ret.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static VOID gb_rr_get_textFields (RELRETSPACE *rp)
+#else
+static VOID gb_rr_get_textFields (rp)
+RELRETSPACE *rp;
+#endif
+    {
+    INT i, nItems, Items[3];
+    INT cdlg_id = rp->RelationalRetrievalDialogID;
+
+    wiqdrcd (cdlg_id, 3, &nItems, Items);
+
+    if (nItems > 0)
+        rp->nRowsRetrieved = 0;
+
+    for (i = 0; i < nItems; i++)
+        {
+        switch (Items[i])
+            {
+
+        case REL_RET_EDIT_SELECTPHRASE:
+            gb_rr_get_text (cdlg_id, REL_RET_EDIT_SELECTPHRASE, 250,
+                     rp->SelectPhrase, OFF);
+            break;
+
+        case REL_RET_THE_TABLE:
+            gb_rr_get_text (cdlg_id, REL_RET_THE_TABLE, 31, rp->TableName, OFF);
+            break;
+
+        default:
+            break;
+            }
+        }
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static VOID gb_rr_get_text (INT cdID, INT itemID, INT TruncationSize, 
+	CHAR *OutText, INT UnderscoreFlag);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    cdID            -(INT)
+    itemID          -(INT)
+    TruncationSize  -(INT)
+    UnderscoreFlag  -(INT)
+    OutText         -(CHAR *)
+
+Return Value/Status:
+    None.
+
+Scope:
+    PRIVATE to <gb_rel_ret.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static VOID gb_rr_get_text (INT cdID, INT itemID, INT TruncationSize,
+                                CHAR *OutText, INT UnderscoreFlag)
+#else
+static VOID gb_rr_get_text (cdID, itemID, TruncationSize, OutText, UnderscoreFlag)
+INT cdID, itemID, TruncationSize, UnderscoreFlag;
+CHAR *OutText;
+#endif
+    {
+    INT TextLength, Value;
+    CHAR *ptrChar, UserText[1025];
+
+    TruncationSize = (TruncationSize < 256) ? TruncationSize : 256;
+
+    wiqccdi (cdID, itemID, &Value, UserText);
+
+    /* get rid of any leading or trailing blanks */
+    ts_trim (UserText);
+
+    /* truncate Text to TruncationSize */
+    TextLength = strlen (UserText);
+    TextLength = MIN (TextLength, TruncationSize);
+    UserText[TextLength] = NullChar;
+
+    /* convert blanks to underscore and lower case alpha to upper case */
+    for (ptrChar = UserText; *ptrChar != NullChar; ptrChar++)
+        {
+        if (UnderscoreFlag == ON && *ptrChar == ' ')
+            *ptrChar = '_';
+        else if (*ptrChar >= 'a' && *ptrChar <= 'z')
+            *ptrChar = *ptrChar - 'a' + 'A';
+
+        }
+
+    wiscdt (cdID, itemID, UserText);
+    strcpy (OutText, UserText);
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT gb_rr_get_table_names (RELRETSPACE *rp);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    rp              -(RELRETSPACE *)
+
+Return Value/Status:
+    Function returns the value of ReturnStatus (0/nLinks).
+
+Scope:
+    PRIVATE to <gb_rel_ret.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT gb_rr_get_table_names (RELRETSPACE *rp)
+#else
+static INT gb_rr_get_table_names (rp)
+RELRETSPACE *rp;
+#endif
+    {
+    INT i, nLinks, ReturnStatus;
+
+    /* ORACLE precompiler declarations */
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[250];
+    VARCHAR name[33];
+    VARCHAR type[32];
+    int domain;
+    EXEC SQL END DECLARE SECTION;
+
+    rp->TableNames = (CHAR * *)NULL;
+
+    ReturnStatus = sl_inq_dtype_string("DATA_TYPE_NAME",rp->TypeOfData,
+					(char *)type.arr);
+    if(ReturnStatus != SUCCESS) return ReturnStatus;
+    V_SETLEN(type);
+
+    ReturnStatus = sl_inq_dtype_int("COLUMN_DOMAIN",rp->TypeOfData,&domain);
+    if(ReturnStatus != SUCCESS) return ReturnStatus;
+
+
+    EXEC SQL DECLARE C1 CURSOR FOR
+	SELECT DISTINCT A.TNAME FROM ESI.FINDER_TABLES A, ESI.FINDER_COLUMNS B
+	WHERE A.TNAME = B.TNAME AND A.DATA_TYPE = :type 
+	      AND B.DOMAIN = :domain AND A.SCOPE = 'PROJECT'
+	      ORDER BY A.TNAME;
+    EXEC SQL OPEN C1;
+
+    /*  get the first table name */
+    EXEC SQL FETCH C1 INTO : name;
+
+    while (OR_STATUS == SUCCESS)/* while more tables to load. */
+    {
+    /*  move the FETCHed values into the TN structure */
+    V_FROMV (rp->tn->Name, name);
+
+    /*  add the current TN structure to the linked list */
+    llappnd (&rp->TableNamesLL, rp->tn);
+
+    /*  get the next table name */
+    EXEC SQL FETCH C1 INTO : name;
+    }
+
+EXEC SQL CLOSE C1;
+
+if ((nLinks = llcount (&rp->TableNamesLL)) > 0)
+    {
+    rp->TableNames = TCP_ALLOCATE (nLinks);
+
+    for (i = 0; i < nLinks; i++)
+        {
+        llgetn (&rp->TableNamesLL, rp->tn, i + 1);
+        rp->TableNames[i] = STRING_ALLOCATE (rp->tn->Name);
+        strcpy (rp->TableNames[i], rp->tn->Name);
+        }
+
+    ReturnStatus = nLinks;
+    }
+else
+    {
+    ReturnStatus = 0;
+    }
+
+return(ReturnStatus);
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT gb_rr_get_select_phrases (RELRETSPACE *rp);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    rp              -(RELRETSPACE *)
+
+Return Value/Status:
+    Function returns the value of ReturnStatus (0/nLinks).
+
+Scope:
+    PRIVATE to <gb_rel_ret.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT gb_rr_get_select_phrases (RELRETSPACE *rp)
+#else
+static INT gb_rr_get_select_phrases (rp)
+RELRETSPACE *rp;
+#endif
+    {
+    INT i, nLinks, ReturnStatus;
+    CHAR dtype[24];
+
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR name[33];
+    VARCHAR description[121];
+    VARCHAR phrase[241];
+    VARCHAR type[21];
+    VARCHAR tname[31];
+    EXEC SQL END DECLARE SECTION;
+
+    rp->SelectPhrases = (CHAR * *)NULL;
+
+    ReturnStatus = sl_inq_dtype_string("DATA_TYPE_NAME",rp->TypeOfData,dtype);
+    if(ReturnStatus != SUCCESS)
+	{
+        am_message (AM_ALERT, mg_message (GB_BAD_DATA_TYPE));
+        ReturnStatus = GB_BAD_DATA_TYPE;
+        }
+    V_FROMC(type,dtype);
+
+    EXEC SQL DECLARE C2 CURSOR FOR SELECT NAME, REMARKS, PHRASE,
+        TNAME FROM ESI.SELECT_PHRASES WHERE TYPE =  : type ORDER BY NAME;
+
+    EXEC SQL OPEN C2;
+
+    /*  fetch the first phrase  */
+    EXEC SQL FETCH C2 INTO : name,  : description,  : phrase,  : tname;
+
+    while (OR_STATUS == SUCCESS)/* while more phrases */
+    {
+    V_FROMV (rp->sp->Name, name);
+    V_FROMV (rp->sp->Description, description);
+    V_FROMV (rp->sp->Phrase, phrase);
+    V_FROMV (rp->sp->Tname, tname);
+    strcpy (rp->sp->Type, (char *)type.arr);
+
+    llappnd (&rp->SelectPhrasesLL, rp->sp);
+
+    EXEC SQL FETCH C2 INTO : name,  : description,  : phrase;
+    }
+
+EXEC SQL CLOSE C2;
+if ((nLinks = llcount (&rp->SelectPhrasesLL)) > 0)
+    {
+    rp->SelectPhrases = TCP_ALLOCATE (nLinks);
+
+    for (i = 0; i < nLinks; i++)
+        {
+        llgetn (&rp->SelectPhrasesLL, rp->sp, i + 1);
+
+        rp->SelectPhrases[i] = STRING_ALLOCATE (rp->sp->Description);
+        strcpy (rp->SelectPhrases[i], rp->sp->Description);
+        }
+
+    ReturnStatus = nLinks;
+    }
+else
+    {
+    ReturnStatus = 0;
+    }
+
+return(ReturnStatus);
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static VOID gb_rr_current_map (RELRETSPACE *rp, NLIST_HEADER *lsp);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    rp              -(RELRETSPACE *)
+    lsp             -(NLIST_HEADER *)
+
+Return Value/Status:
+    None.
+
+Scope:
+    PRIVATE to <gb_rel_ret.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static VOID gb_rr_current_map (RELRETSPACE *rp, NLIST_HEADER *lsp)
+#else
+static VOID gb_rr_current_map (rp, lsp)
+RELRETSPACE *rp;
+NLIST_HEADER *lsp;
+#endif
+    {
+    INT status = SUCCESS;
+    INT cdlg_id = rp->RelationalRetrievalDialogID;
+    CHAR msg[STMAX];
+    DOUBLE xmin, xmax, ymin, ymax;
+    MAP_STRUCTURE *map;
+    SL_DATA_TYPE_NAME data_type_name;
+    INT gb_msg;
+    SL_GB_RRMAP_STRUCT param;    
+
+    status = mp_front_map (&map);
+    if (status != SUCCESS)
+        {
+        strcpy (rp->CurrentMapName, "");
+        wiscdt (cdlg_id, REL_RET_STAT_MESSAGE, mg_message (GB_ERR_NO_MAP));
+        /* print error. No map exists */
+        return;
+        }
+
+    status = sl_inq_dtype_string("DATA_TYPE_NAME",rp->TypeOfData,data_type_name);
+    sprintf (msg, mg_message (GB_GET_LIST),data_type_name);
+    wiscdt (cdlg_id, REL_RET_STAT_MESSAGE, msg);
+
+    param.map = map;
+    param.flag = TRUE;
+    status = sl_call_method (rp->TypeOfData,"GB_CREATE_ON_MAP",(VOIDPTR)&param);
+    if (status != SUCCESS)
+	{
+	if(rp->TypeOfData EQUALS WELLS_DATA_TYPE)
+           am_message (AM_ALERT, mg_message (GB_NO_WELLS_ON_MAP));
+	else if (rp->TypeOfData EQUALS SEISMIC_DATA_TYPE)
+           am_message (AM_ALERT, mg_message (GB_NO_SEISMIC_ON_MAP));
+	
+	return;
+        }
+
+    rp->CurrentList = param.nlist;
+
+    status = sl_inq_dtype_int("GB_NO_ON_MAP",rp->TypeOfData,&gb_msg);
+    if (status != SUCCESS)
+	{
+        am_message (AM_ALERT, mg_message (gb_msg));
+        }
+    wiscdt (cdlg_id, REL_RET_STAT_MESSAGE, NullString);
+
+    /*----------------------------------------------------------*/
+    /* If retrieval produced any rows, make it the current list */
+    /*----------------------------------------------------------*/
+
+    if (rp->CurrentList != (NLIST_HEADER)0)
+        {
+        gb_make_list_current (rp->CurrentList);
+        *lsp = rp->CurrentList;
+        gbz_show_num_retrieved (rp);
+        }
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static VOID gb_rr_cascade_lists (RELRETSPACE *rp);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    rp              -(RELRETSPACE *)
+
+Return Value/Status:
+    None.
+
+Scope:
+    PRIVATE to <gb_rel_ret.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static VOID gb_rr_cascade_lists (RELRETSPACE *rp)
+#else
+static VOID gb_rr_cascade_lists (rp)
+RELRETSPACE *rp;
+#endif
+    {
+    INT cdlg_id = rp->RelationalRetrievalDialogID;
+
+    if (rp->CascadeOn == 0)
+        {
+        rp->CascadeOn = 1;
+        wiscdv (cdlg_id, REL_RET_CHK_CASCADELISTS, 1);
+        }
+    else
+        {
+        rp->CascadeOn = 0;
+        wiscdv (cdlg_id, REL_RET_CHK_CASCADELISTS, 0);
+        }
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static VOID gbz_show_num_retrieved (RELRETSPACE *rp);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    rp              -(RELRETSPACE *)
+
+Return Value/Status:
+    None.
+
+Scope:
+    PRIVATE to <gb_rel_ret.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static VOID gbz_show_num_retrieved (RELRETSPACE *rp)
+#else
+static VOID gbz_show_num_retrieved (rp)
+RELRETSPACE *rp;
+#endif
+    {
+    INT cdlg_id = rp->RelationalRetrievalDialogID;
+    INT nrows = 0;
+    CHAR MsgBuf[STMAX];
+    if (rp->CurrentList != (NLIST_HEADER)0)
+        {
+        nl_inq_nlist_int (rp->CurrentList, NL_NLIST_NPOINTS, &nrows);
+        }
+    else
+        nrows = 0;
+    sprintf (MsgBuf, mg_message (GB_ROW_RETRIEVE), nrows,
+             nrows == 1 ? "" : "s");
+    wi_set_dialog_text (cdlg_id, REL_RET_STAT_MESSAGE, MsgBuf);
+    }
+/* END:     */

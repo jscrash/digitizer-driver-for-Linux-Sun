@@ -1,0 +1,338 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element CT_TRANS_NODE_CARTO.PC*/
+/* *5     9-DEC-1990 19:40:05 VINCE "(SPR 1) added table_name selection and lots-o-fixup"*/
+/* *4    16-FEB-1990 09:04:10 GORDON "(SPR 0) Make it work -- regardless of number of rows in table"*/
+/* *3    13-OCT-1989 17:19:00 PURNA "(SPR 5020) Complete prev mods"*/
+/* *2    19-SEP-1989 11:54:35 GORDON "(SPR 100) make it work for less than 100 rows, too"*/
+/* *1     1-JUL-1989 12:23:04 GILLESPIE ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element CT_TRANS_NODE_CARTO.PC*/
+/******************************************************************************
+
+		Copyright Exploration Systems, Inc. 1989
+		   Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF 
+
+			Exploration Systems, Inc.
+			579 Market Street
+			San Francisco, CA  USA 94105
+			(415) 974-1600
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work) 
+
+
+******************************************************************************/
+
+/******************************************************************************
+     Copyright (c)  1987, Exploration Systems, Inc., Sausalito, CA 94965
+*******************************************************************************
+
+NAME:           ct_trans_node_carto
+
+DESCRIPTION:    Convert the NODES table from one projection to another
+
+
+     Input:     From user:  old_projection - Cartographic projection to 
+                                             convert from
+                            new_projection - Cartographic projection to 
+                                             convert to
+
+     Output:    None - Main program
+
+     Status:    None
+
+******************************************************************************/
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+#ifndef ESI_GL_TOP_H
+#include "esi_gl_top.h"
+#endif
+
+#ifndef ESI_CT_H
+#include "esi_ct.h"
+#endif
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+
+main(argc, argv)
+INT argc;
+CHAR **argv;
+{
+    INT status;
+    PROJECTION_STRUCTURE *in_projection,*out_projection;
+    PROJECT_NAME project;
+    TCP  tnames;
+    CHAR **projection_list;
+    INT nproj;
+    BOOL done = FALSE;
+    INT i;
+    INT total;
+    INT iin, iout;
+    INT itname, ntnames;
+    CHAR ok[4];
+EXEC ORACLE OPTION (REBIND = NO);
+
+EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[200];
+    int nrec;
+    double x[100];
+    double y[100];
+    int node_id[100];
+    double min_x;
+    double min_y;
+    double max_x;
+    double max_y;
+    VARCHAR table_name[33];
+    VARCHAR default_projection[33];
+EXEC SQL END DECLARE SECTION;
+
+EXEC SQL WHENEVER SQLERROR GOTO exit_error;
+
+/*  Login to the database  */
+
+    if (or_login(argc, argv))
+	{
+	exit (EXIT_FAILURE);
+	}
+
+/*  Get the project  */
+
+    printf ("\n\n");
+    printf ("Enter the name of project:");
+    scanf("%s",project);
+    getchar();		/* eat the \n */
+    printf ("\n");
+
+    ts_sto_upper (project);
+    qs_set_c(QS_PROJECT_NAME, project, 0);
+
+/* Get the list of table names */
+
+    sqlstmt.len = sprintf ((char *)sqlstmt.arr,
+    "SELECT TABLE_NAME \
+     FROM   ALL_TABLES \
+     WHERE  OWNER = '%s' AND \
+	    TABLE_NAME LIKE '%%NODES%%'",
+    project);
+
+    EXEC SQL PREPARE TABLE_STMT FROM :sqlstmt;
+    EXEC SQL DECLARE TABLES CURSOR FOR TABLE_STMT;
+    EXEC SQL OPEN TABLES;
+
+    tnames  = (TCP)NULL;
+    itname  = 0;
+    ntnames = 0;
+
+    EXEC SQL FETCH TABLES INTO :table_name;
+    while (OR_STATUS == SUCCESS)
+        {
+	V_SETZERO (table_name);
+	ts_tcp_append (&tnames, (char *)table_name.arr);
+	ntnames++;
+	EXEC SQL FETCH TABLES INTO :table_name;
+	}
+    EXEC SQL CLOSE TABLES;
+
+    if (ntnames == 0)
+	{
+        printf("Unable to find table names like '%%NODES%%' for %s\n",project);
+	or_logout(FALSE);
+        exit(EXIT_FAILURE);
+	}
+
+/* Get the table name [default is NODES]  */
+
+    printf ("\nThe following tables may be converted:\n");
+    for (i=0; i<ntnames; i++)
+	{
+	printf ("%3d:   %s\n", i+1, tnames[i]);
+	}
+
+    printf ("Enter the number of the table to be converted: ");
+    for (itname = -1; itname < 1 OR itname > ntnames; )
+	{
+	scanf("%d", &itname);
+	getchar();		/* eat the \n */
+	}
+    printf ("\n");
+
+/* display the current default projection */
+
+    V_FROMC (default_projection, "<not defined>");
+
+    sqlstmt.len = sprintf ((char *)sqlstmt.arr,
+    "SELECT DEFAULT_VALUE \
+     FROM   %s.PROJECT_DEFAULTS \
+     WHERE  DEFAULT_NAME = 'PROJECT_PROJECTION'",
+    project);
+
+    EXEC SQL PREPARE DEFPROJ_STMT FROM :sqlstmt;
+    EXEC SQL DECLARE DEFPROJ CURSOR FOR DEFPROJ_STMT;
+    EXEC SQL OPEN DEFPROJ;
+    EXEC SQL FETCH DEFPROJ INTO :default_projection;
+    EXEC SQL CLOSE DEFPROJ;
+
+    V_SETZERO (default_projection);
+    printf ("\nCurrent project default projection for %s is %s\n",
+	    project, (char *)default_projection.arr);
+
+/* Get the input projection  */
+
+    status = ct_projection_list(&projection_list,&nproj,FALSE);
+
+    printf("\nThe following projections are available:\n");
+    for(i = 0; i < nproj; i++)
+	{
+	printf("%3d:    %s\n",i + 1, projection_list[i]);
+	}
+
+    printf("Enter the number of the  input projection: ");
+    for (iin = -1; iin < 1 OR iin > nproj; )
+	{
+	scanf("%d",&iin);
+	getchar();		/* eat the \n */
+	}
+    printf ("\n");
+
+    status = ct_get_projection(projection_list[iin-1],&in_projection);
+    if(status != SUCCESS)
+    {
+        printf("Unable to find %s\n",projection_list[iin-1]);
+	or_logout(FALSE);
+        exit(EXIT_FAILURE);
+    }
+
+/* Get the output projection  */
+
+    printf("Enter the number of the output projection: ");
+    for (iout = -1; iout < 1 OR iout > nproj; )
+	{
+	scanf("%d",&iout);
+	getchar();		/* eat the \n */
+	}
+    printf ("\n");
+
+    status = ct_get_projection(projection_list[iout-1],&out_projection);
+    if(status != SUCCESS)
+    {
+        printf("Unable to find %s\n",projection_list[iout-1]);
+	or_logout(FALSE);
+        exit(EXIT_FAILURE);
+    }
+
+/*  get the current node extents  */
+
+    sqlstmt.len = sprintf ((char *)sqlstmt.arr,
+    "SELECT MAX(NODE_X), MAX(NODE_Y), MIN(NODE_X), MIN(NODE_Y) \
+     FROM   %s.%s", project, tnames[itname-1]);
+
+    EXEC SQL PREPARE EXTENT_STMT FROM :sqlstmt;
+    EXEC SQL DECLARE EXTENTS CURSOR FOR EXTENT_STMT;
+    EXEC SQL OPEN EXTENTS;
+    EXEC SQL FETCH EXTENTS INTO :max_x, :max_y, :min_x, :min_y;
+    EXEC SQL CLOSE EXTENTS;
+
+/*  Prompt for proceed  */
+
+    printf ("\n\n");
+    printf ("Requested projection conversion for %s --\n", project);
+    printf ("    Table : %s\n",   tnames[itname-1]);
+    printf ("    From  : %s\n",   projection_list[iin-1]);
+    printf ("    To    : %s\n\n", projection_list[iout-1]);
+
+    printf ("Current node extents are as follows:\n\n");
+
+    printf ("        Min              Max\n");
+    printf ("  ---------------  ---------------\n");
+    printf ("X:%15.3f  %15.3f\n",   min_x, max_x);
+    printf ("Y:%15.3f  %15.3f\n\n", min_y, max_y);
+
+    printf ("Please verify that the above values are within the expected\n");
+    printf ("range of the %s projection.\n\n", projection_list[iin-1]);
+
+    printf ("If these values are not within the expected range, the nodes\n");
+    printf ("may have been loaded from mixed projections or zones.  Do NOT\n");
+    printf ("proceed until the problem is corrected.\n\n");
+
+    printf("OK to proceed? (y or n) ");
+    scanf("%s",ok);
+    getchar();		/* eat the \n */
+    printf ("\n");
+
+    if(ok[0] != 'y' && ok[0] != 'Y')
+	{
+	or_logout(FALSE);
+	exit(EXIT_SUCCESS);
+	}
+        
+/*  Init the node retrieval  */
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+    "LOCK TABLE %s.%s IN EXCLUSIVE MODE",
+    project, tnames[itname-1]);
+
+    EXEC SQL EXECUTE IMMEDIATE :sqlstmt;
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+    "SELECT NODE_ID, NODE_X, NODE_Y FROM %s.%s",
+    project, tnames[itname-1]);
+
+    EXEC SQL PREPARE SEL_STMT FROM :sqlstmt;
+    EXEC SQL DECLARE SEL_CUR CURSOR FOR SEL_STMT;
+
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+    "UPDATE %s.%s SET NODE_X = :a, NODE_Y = :b WHERE NODE_ID = :c",
+    project, tnames[itname-1]);
+
+    EXEC SQL PREPARE UPD_STMT FROM :sqlstmt;
+
+    EXEC SQL OPEN SEL_CUR;
+
+    total = nrec = 0;
+    while( !done )
+	{
+	EXEC SQL FETCH SEL_CUR INTO :node_id, :x, :y;
+	if (OR_STATUS == OR_EOF)
+	    done = TRUE;
+		
+		/* nrec is the number fetched this time */
+	nrec = OR_ROWCOUNT - total;
+		/* total is the cumulative number fetched */
+        total = OR_ROWCOUNT;
+        if (nrec > 0)
+	    {
+	    printf("Processing through row %d\n", total);
+ 	    for (i = 0; i < nrec; i++)
+		{
+                ct_transform_point( x[i], y[i], in_projection, &x[i], &y[i],
+		    out_projection);
+		}
+
+	    EXEC SQL FOR :nrec EXECUTE UPD_STMT USING :x, :y, :node_id;
+	    }
+
+        }
+
+    printf("\nTotal number of nodes processed = %d\n", total);
+
+    or_logout(TRUE);
+    exit(EXIT_SUCCESS);
+
+exit_error:
+    printf("Oracle error %d detected:\n%70s\n", OR_STATUS, OR_MESSAGE);
+    or_logout(FALSE);
+    exit(EXIT_FAILURE);
+}

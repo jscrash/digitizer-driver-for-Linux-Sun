@@ -1,0 +1,669 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_REP_CDLG.PC*/
+/*  5    10-MAR-1992 16:24:50 LOEBL "(SPR 6140) Eliminate misplaced OUTPUT TYPE text"*/
+/* *4    25-JUL-1990 19:57:45 VINCE "(SPR 5644) Header Standardization"*/
+/* *3    26-FEB-1990 19:00:32 JULIAN "(SPR 6010) Port to Decstation 3100 (ULTRIX)"*/
+/* *2    24-OCT-1989 11:12:54 PURNA "(SPR 0) sl_free_tcp to ts_tcp_free"*/
+/* *1    19-JUN-1989 12:35:39 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element OR_REP_CDLG.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+
+#ifndef OR_REPORTS_H
+
+#include "or_reports.h"
+
+#endif
+
+#ifndef ESI_AM_H
+
+#include "esi_am.h"
+
+#endif
+
+#ifndef ESI_SL_H
+
+#include "esi_sl.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+#ifndef ESI_QS_H
+
+#include "esi_qs.h"
+
+#endif
+
+#ifndef ESI_OR_ERR_H
+
+#include "esi_or_err.h"
+
+#endif
+
+#ifndef ESI_TC_H
+
+#include "esi_tc.h"
+
+#endif
+
+#ifndef ESI_TS_H
+
+#include "esi_ts.h"
+
+#endif
+
+#ifndef ESI_WI_H
+
+#include "esi_wi.h"
+
+#endif
+
+#ifndef OR_SCRIPTS_CDLG_RH
+
+#include "or_scripts_cdlg.rh"
+
+#endif
+
+publicdef INT or_load_script_cdlg ();
+
+static CHAR OR_SCRIPTS_RESOURCE[] = "OR_SCRIPTS_CDLG";
+#define ALL_DONE 1111
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL END DECLARE SECTION;
+
+static CHAR *fdt[5] = 
+    {                               /* finder data types */
+    "WELLS",
+    "SEISMIC",
+    "OTHER"
+    };
+
+
+
+typedef enum 
+    {
+    WELLS, SEISMIC, OTHER
+    } finder_dtypes;
+
+/* File Description ---------------------------------------------------------
+Overview:
+
+Prototypes and one line descriptions of each function in the file.
+Public_Functions:
+    publicdef INT or_select_script(REPORT_STRUCT *pScript);
+    
+    publicdef INT or_load_script_cdlg(REPORT_STRUCT *pScript);
+    
+    publicdef or_scripts_init(INT id, REPORT_STRUCT *pScript);
+
+Private_Functions:
+    static INT or_report_parm_server(INT id, INT item, REPORT_STRUCT *pScript);
+    
+    static INT or_script_select_server(INT id, INT item, REPORT_STRUCT *pScript);
+
+-----------------------------------------------------------------------------*/
+
+/* Function Description -----------------------------------------------------
+Description:
+    Select an Oracle script.
+    
+Prototype:
+    static INT or_report_parm_server(INT id, INT item, REPORT_STRUCT *pScript);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    id              -(INT)
+    item            -(INT)
+    pScript         -(REPORT_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE to <or_rep_cdlg.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT or_report_parm_server (INT id, INT item, REPORT_STRUCT *pScript)
+#else
+static INT or_report_parm_server (id, item, pScript)
+INT id;
+INT item;
+REPORT_STRUCT *pScript;
+#endif
+    {
+    INT i;
+    INT status = SUCCESS;
+    CHAR text[133];
+    
+    switch (item)
+        {
+        
+        /* if a radio button is pressed, reload the dialog box with the new SCRIPTS */
+        
+    case CDLG_128_WELLS:
+        strcpy (pScript->data_type, fdt[(INT)WELLS]);
+        qs_inq_c (QS_CUR_WELL_LIST, pScript->select_list_name, (INT *)0);
+        or_scripts_init (id, pScript);
+        break;
+    case CDLG_128_SEISMIC:
+        strcpy (pScript->data_type, fdt[(INT)SEISMIC]);
+        qs_inq_c (QS_CUR_SEISMIC_LIST, pScript->select_list_name, (INT *)0);
+        or_scripts_init (id, pScript);
+        break;
+    case CDLG_128_OTHER:
+        strcpy (pScript->data_type, fdt[(INT)OTHER]);
+        or_scripts_init (id, pScript);
+        break;
+        
+        /* Radio button Group 1 */
+    case CDLG_128_ALL_ITEMS:
+        pScript->control_list_required = FALSE;
+        wi_set_dialog_text (id, CDLG_128_ITEMS_SELECTED, "");
+        or_scripts_init (id, pScript);
+        break;
+    case CDLG_128_USE_DEFAULT:
+        pScript->control_list_required = TRUE;
+        or_scripts_init (id, pScript);
+        break;
+        /* End Radio Button Group 1 */
+        
+    case CDLG_128_DISPLAY:
+        /* get report file name */
+        wi_query_dialog_item (id, CDLG_128_FILENAME, &i, pScript->report_name);
+        wi_query_dialog_item (id, CDLG_128_DISPLAY_REPORT, &pScript->run_interactive,
+                              text);
+        wi_query_dialog_item (id, CDLG_128_PRINT_REPORT, &pScript->print, text);
+        wi_query_dialog_item (id, CDLG_128_SAVE_REPORT, &pScript->save, text);
+        wi_close_dialog (id);
+        or_load_script_cdlg (pScript);
+        wi_open_dialog (pScript->scripts_id);
+        break;
+    case CDLG_128_DONE:
+        nl_free_nlist (pScript->nlist);
+        status = am_quit ();
+        break;
+    default:
+        break;
+        }
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    static INT or_script_select_server(INT id, INT item, REPORT_STRUCT *pScript);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    id              -(INT)
+    item            -(INT)
+    pScript         -(REPORT_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PRIVATE to <or_rep_cdlg.pc>
+
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+static INT or_script_select_server (INT id, INT item, REPORT_STRUCT *pScript)
+#else
+static INT or_script_select_server (id, item, pScript)
+INT id;
+INT item;
+REPORT_STRUCT *pScript;
+#endif
+    {
+    INT nselected;
+    INT *selected;
+    UINT ndim;
+    INT i;
+    UINT nitems;
+    INT status = SUCCESS;
+    UINT Dim_List[2];
+    VOIDPTR Value_List[2];
+    CHAR text[128];
+    
+    switch (item)
+        {
+    case CDLG_129_EXECUTE:
+        if (NOT pScript->control_list_required)
+            {
+            strcpy (pScript->select_list_name, "NULL");
+            }
+        /* get list of SCRIPTS requested */
+        status = nl_inq_nlist_int (pScript->nlist, NL_NLIST_NPOINTS, (INT *) & nitems);
+        if (status IS_NOT_EQUAL_TO SUCCESS)
+            {
+            break;
+            }
+        selected = (INT *)tc_alloc (sizeof(INT) * nitems);
+        status = wiqsel (id, CDLG_129_SCRIPT_SELECTOR, &nselected, selected);
+        ndim = 2;
+        Dim_List[0] = 1;
+        Dim_List[1] = 2;
+        Value_List[0] = (VOIDPTR)pScript->script_name;
+        Value_List[1] = (VOIDPTR)pScript->script_type;
+        
+        /* process each script */
+        for (i = 0; i < nselected; i++)
+            {
+            nl_set_current_point (pScript->nlist, selected[i], 1);
+            nl_get_points (pScript->nlist, 1, ndim, Dim_List, Value_List, &nitems);
+            or_run_oracle_report (pScript);
+            }
+        tc_free (selected);
+        am_message (AM_DIALOG, NULL);   /* take down the message box */
+        wi_open_dialog (id);        /* Get dialog back in front */
+        status = SUCCESS;
+        break;
+    case CDLG_129_DONE:
+        nl_free_nlist (pScript->nlist);
+        status = am_quit ();
+        break;
+    case CDLG_129_CHANGE_PARMS:
+        wi_close_dialog (id);
+        wi_open_dialog (pScript->parms_id);
+        break;
+        }
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+    APPLICATION ENTRY POINT -                        
+    This routine is invoked from two places within Finder: global reporting
+    and as a main application from the Finder Database menu.  The Global Reporting
+    entry is within the context of select list management; the Finder Database menu
+    is for SCRIPTS which are not designed to work with select lists.
+    The Global Reports must service its own events; the Finder Database is a
+    pure application working under the Application Manager.  The calling
+    routine identifies itself by setting the flag isapp.
+
+Prototype:
+    publicdef INT or_select_script(REPORT_STRUCT *pScript);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    pScript         -(REPORT_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT or_select_script (REPORT_STRUCT *pScript)
+#else
+publicdef INT or_select_script (pScript)
+REPORT_STRUCT *pScript;
+#endif
+    {
+    UINT ndim = 3;
+    INT Units[3];
+    INT Data_Types[3];
+    size_t Data_Widths[3];
+    INT Value_Inc[3];
+    INT status;
+    INT value;
+    INT id;
+    
+    Units[0] = Units[1] = Units[2] = 0;
+    Data_Widths[0] = sizeof(FILENAME), Data_Widths[1] = 16, Data_Widths[2] = 255;
+    Data_Types[0] = Data_Types[1] = Data_Types[2] = CHAR_TYPE;
+    Value_Inc[0] = Value_Inc[1] = Value_Inc[2] = VALUE_LIST;
+    status = nl_init_nlist (&pScript->nlist, ndim, Units, Data_Widths, Data_Types,
+                            Value_Inc, 0);
+    
+    if ((status = am_define_resource (AM_DIALOG, OR_SCRIPTS_RESOURCE,
+                                      CDLG_128_REPORT_PARMS, or_report_parm_server,
+                                      &pScript->parms_id,
+                                      pScript)) OR (status =
+                                                   am_define_resource (
+                                                        AM_DIALOG,
+                                                OR_SCRIPTS_RESOURCE,
+                                            CDLG_129_SCRIPTS,
+                                                           or_script_select_server,
+                                                                       &pScript->
+                                                                       scripts_id,
+                                                                       pScript)))
+        {
+        am_quit ();
+        return status;
+        }
+    id = pScript->parms_id;
+    or_scripts_init (id, pScript);
+    
+    wi_set_dialog_text (id, CDLG_128_FILENAME, pScript->report_name);
+    
+    /* set initial state of check boxes */
+    wi_set_dialog_value (id, CDLG_128_DISPLAY_REPORT, pScript->run_interactive);
+    wi_set_dialog_value (id, CDLG_128_PRINT_REPORT, pScript->print);
+    wi_set_dialog_value (id, CDLG_128_SAVE_REPORT, pScript->save);
+    
+    /* Set initial state of radio buttons */
+    if (pScript->control_list_required)
+        {
+        wi_set_dialog_value (id, CDLG_128_USE_DEFAULT, ON);
+        }
+    else
+        {
+        wi_set_dialog_value (id, CDLG_128_ALL_ITEMS, ON);
+        }
+    if (ARE_SAME (pScript->data_type, fdt[(INT)SEISMIC]))
+        {
+        value = CDLG_128_SEISMIC;
+        }
+    else if (ARE_SAME (pScript->data_type, fdt[(INT)WELLS]))
+        {
+        value = CDLG_128_WELLS;
+        }
+    else
+        {
+        value = CDLG_128_OTHER;
+        }
+    wi_set_dialog_value (id, value, ON);
+    
+    wi_open_dialog (id);
+    
+    status = SUCCESS;
+    return status;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT or_load_script_cdlg(REPORT_STRUCT *pScript);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    pScript         -(REPORT_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT or_load_script_cdlg (REPORT_STRUCT *pScript)
+#else
+publicdef INT or_load_script_cdlg (pScript)
+REPORT_STRUCT *pScript;
+#endif
+    {
+    INT id = pScript->scripts_id;
+    INT status;
+    CHAR **pnames;
+    UINT nitems;
+    UINT ndim;
+    UINT stroke_num;
+    UINT Dim_List[3];
+    VOIDPTR Value_List[3];
+    CHAR control;
+    PROJECT_NAME project;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR script_type[16];
+    VARCHAR text[255];
+    VARCHAR s[255];
+    VARCHAR description[255];
+    EXEC SQL END DECLARE SECTION;
+    
+    ndim = 3;
+    Dim_List[0] = 1, Dim_List[1] = 2, Dim_List[2] = 3;
+    Value_List[0] = (VOIDPTR)text.arr;
+    Value_List[1] = (VOIDPTR)script_type.arr;
+    Value_List[2] = (VOIDPTR)description.arr;
+    
+    status = nl_clear_nlist (pScript->nlist);
+    status = nl_start_stroke (pScript->nlist, &stroke_num);
+    
+    control = pScript->control_list_required ? 'Y' : 'N';
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    
+    /* select all SCRIPTS of the type set in the OR_REPORT
+                   structure */
+    
+    s.len = sprintf ((char *)s.arr, 
+"SELECT NAME, UPPER(SCRIPT_TYPE), DESCRIPTION FROM ESI.ORACLE_SCRIPTS \
+WHERE DATA_TYPE = UPPER('%s') AND CONTROL_LIST_REQUIRED = '%c' \
+UNION \
+SELECT NAME, UPPER(SCRIPT_TYPE), DESCRIPTION FROM %s.ORACLE_SCRIPTS \
+WHERE DATA_TYPE = UPPER('%s') AND CONTROL_LIST_REQUIRED = '%c'\
+ORDER BY 3"
+            , pScript->data_type, control, project, pScript->data_type, control);
+    
+    EXEC SQL PREPARE S2 FROM : s;
+    EXEC SQL DECLARE SCRIPTS2 CURSOR FOR S2;
+    EXEC SQL OPEN SCRIPTS2;
+    
+    EXEC SQL FETCH SCRIPTS2 INTO : text,  : script_type,  : description;
+    
+    while (OR_STATUS EQUALS SUCCESS)
+        {
+        V_SETZERO (text);
+        V_SETZERO (script_type);
+        V_SETZERO (description);
+        status = nl_add_points (pScript->nlist, 1, ndim, Dim_List, Value_List);
+        EXEC SQL FETCH SCRIPTS2 INTO : text,  : script_type,  : description;
+        }
+    EXEC SQL CLOSE SCRIPTS2;
+    
+    status = nl_inq_nlist_int (pScript->nlist, NL_NLIST_NPOINTS, (INT *) & nitems);
+    if (status EQUALS SUCCESS)
+        {
+        status = sl_make_tcp (&pnames, pScript->nlist, 3);
+        status = wisselt (id, CDLG_129_SCRIPT_SELECTOR, CDLG_129_SCRIPT_VSCROLL,
+                          nitems, nitems, pnames);
+        status = ts_tcp_free (pnames);
+        }
+    else
+        {
+        status = wisselt (id, CDLG_129_SCRIPT_SELECTOR, CDLG_129_SCRIPT_VSCROLL, 0, 0,
+                          (CHAR **)0);
+        }
+    return SUCCESS;
+    }
+/* END:     */
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef or_scripts_init(INT id, REPORT_STRUCT *pScript);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    id              -(INT)
+    pScript         -(REPORT_STRUCT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    FAIL    - Unsuccessful completion.
+    Function returns the value of any_exists (TRUE/FALSE).
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef or_scripts_init (INT id, REPORT_STRUCT *pScript)
+#else
+publicdef or_scripts_init (id, pScript)
+INT id;
+REPORT_STRUCT *pScript;
+#endif
+    {
+    BOOL exists;
+    BOOL any_exists;
+    BOOL wells_rb = OFF;
+    BOOL seismic_rb = OFF;
+    BOOL other_rb = OFF;
+    CHAR control;
+    PROJECT_NAME project;
+    INT value;
+    INT i;
+    INT status;
+    NLIST_HEADER nlist;
+    CHAR text[133];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR data_type_1[16];
+    VARCHAR stmt[255];
+    EXEC SQL END DECLARE SECTION;
+    
+    /* 
+       find all the POSSIBLE script types that exist - enable the appropriate
+       button
+     */
+    
+    control = pScript->control_list_required ? 'Y' : 'N';
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    
+    /* select all SCRIPTS of the type set in the OR_REPORT
+                   structure */
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+"SELECT DISTINCT DATA_TYPE FROM ESI.ORACLE_SCRIPTS WHERE CONTROL_LIST_REQUIRED = '%c' \
+UNION \
+SELECT DISTINCT DATA_TYPE FROM %s.ORACLE_SCRIPTS WHERE CONTROL_LIST_REQUIRED = '%c'"
+            , control, project, control);
+    EXEC SQL PREPARE S1 FROM : stmt;
+    EXEC SQL DECLARE SCRIPTS1 CURSOR FOR S1;
+    
+    EXEC SQL OPEN SCRIPTS1;
+    
+    EXEC SQL FETCH SCRIPTS1 INTO : data_type_1;
+    
+    while (OR_STATUS EQUALS SUCCESS)
+        {
+        V_SETZERO (data_type_1);
+        if (ARE_SAME ((char *)data_type_1.arr, fdt[(INT)WELLS]))
+            {
+            wells_rb = ON;
+            }
+        else if (ARE_SAME ((char *)data_type_1.arr, fdt[(INT)SEISMIC]))
+            {
+            seismic_rb = ON;
+            }
+        EXEC SQL FETCH SCRIPTS1 INTO : data_type_1;
+        }
+    EXEC SQL CLOSE SCRIPTS1;
+    
+    if (pScript->control_list_required)
+        {
+        /* 
+           disable radio buttons for those things that do not have
+           a select list active, even if a script exists ...
+            ( This provides a look-ahead mechanism that disallows a user to
+            select a radio button for a report type that does NOT have an appropriate
+            script type)
+         */
+        any_exists = FALSE;
+        qs_inq_i (QS_WELL_LIST_EXISTS, &exists);
+        wells_rb &= exists;
+        any_exists |= exists;
+        qs_inq_i (QS_SEISMIC_LIST_EXISTS, &exists);
+        seismic_rb &= exists;
+        any_exists |= exists;
+        }
+    else
+        {
+        any_exists = TRUE;
+        }
+    /* set the availability of all radio buttons */
+    
+    wiencdi (id, CDLG_128_WELLS, wells_rb);
+    wiencdi (id, CDLG_128_SEISMIC, seismic_rb);
+    
+    /* if control list is required, OTHER is disabled */
+    wiencdi (id, CDLG_128_OTHER, NOT pScript->control_list_required);
+    
+    if (NOT pScript->control_list_required OR NOT any_exists)
+        {
+        wiscdt (id, CDLG_128_ITEMS_SELECTED, "");
+        return any_exists;
+        }
+    if (ARE_SAME (pScript->data_type, fdt[(INT)SEISMIC]))
+        {
+        qs_inq_c (QS_CUR_SEISMIC_LIST, pScript->select_list_name, (INT *)0);
+        status = sl_read_list (SEISMIC_DATA_TYPE, pScript->select_list_name, &nlist);
+        }
+    else if (ARE_SAME (pScript->data_type, fdt[(INT)WELLS]))
+        {
+        qs_inq_c (QS_CUR_WELL_LIST, pScript->select_list_name, (INT *)0);
+        status = sl_read_list (WELLS_DATA_TYPE, pScript->select_list_name, &nlist);
+        }
+    else
+        {
+        status = FAIL;
+        }
+    if (status EQUALS SUCCESS)
+        {
+        status = nl_inq_nlist_int (nlist, NL_NLIST_NPOINTS, &i);
+        nl_free_nlist (nlist);
+        sprintf (text, "%d items selected.", i);
+        wi_set_dialog_text (id, CDLG_128_ITEMS_SELECTED, text);
+        }
+    else
+        {
+        wi_set_dialog_text (id, CDLG_128_ITEMS_SELECTED, "");
+        }
+    return any_exists;
+    }
+/* END:     */

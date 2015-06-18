@@ -1,0 +1,222 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_CULTURE_HEADER.PC */
+/* *2     1-MAY-1991 21:53:06 KEE "(SPR -1) Landmark Import" */
+/* *1     1-MAY-1991 21:14:56 KEE "Landmark Import & Export, Zycor Export and Mimic Export" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LD_LM2_IMP_CULTURE_HEADER.PC */
+/******************************************************************************     */
+/*                                                                                  */
+/*                Copyright Finder Graphics Systems, Inc. 1989                      */
+/*           Unpublished -- All rights reserved                                     */
+/*                                                                                  */
+/*THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Finder Graphics Systems, Inc.  AND   */
+/*MAY CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE  */
+/*DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE         */
+/*MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF       */
+/*                                                                                  */
+/*            Finder Graphics Systems, Inc.                                         */
+/*            201 Tamal Vista Blvd                                                  */
+/*            Corte Madera, CA  USA 94925                                           */
+/*            (415) 927-0100                                                        */
+/*                                                                                  */
+/*(The above notice does not constitute an admission of publication or              */
+/*unrestricted dissemination of the work)                                           */
+/*                                                                                  */
+/******************************************************************************     */
+
+/* ************************************************************************
+
+   NAME: LD_LM2_IMP_CULTURE_HEADER.PC
+
+   AUTHOR: Rod Hanks
+   DATE:   June 21st, 1990
+   DESCRIPTION: Write out the graphic_objects, graphic_object_codes entries.
+
+   ************************************************************************ */
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#if USE_PROTOTYPES
+publicdef VOID ld_lm2_imp_culture_header (BOOL writeObject, 
+			  CHAR *project, CHAR *source, 
+			  CHAR *objectName, INT *currentObject, 
+			  CHAR *item_id, CHAR *item_class,
+			  DOUBLE lower_left_x, DOUBLE lower_left_y,
+			  DOUBLE upper_right_x, DOUBLE upper_right_y,
+			  DOUBLE *ll_x_now, DOUBLE *ll_y_now, 
+			  DOUBLE *ur_x_now, DOUBLE *ur_y_now)
+#else
+publicdef VOID ld_lm2_imp_culture_header (writeObject, project, source, 
+			  objectName, currentObject, 
+			  item_id, item_class,
+			  lower_left_x, lower_left_y,
+			  upper_right_x, upper_right_y,
+			  ll_x_now, ll_y_now, ur_x_now, ur_y_now)
+BOOL		writeObject;
+CHAR		*project;
+CHAR		*source;
+CHAR		*objectName;
+INT		*currentObject;
+CHAR		*item_id;
+CHAR		*item_class;
+DOUBLE		lower_left_x;
+DOUBLE		lower_left_y;
+DOUBLE		upper_right_x;
+DOUBLE		upper_right_y;
+DOUBLE		*ll_x_now;
+DOUBLE		*ll_y_now;
+DOUBLE		*ur_x_now;
+DOUBLE		*ur_y_now;
+#endif
+    {
+/****************************************************************************
+
+	V a r i a b l e   D e c l a r a t i o n s .
+
+******************************************************************************/
+
+/*
+				General variable declarations.
+*/
+    EXEC SQL BEGIN DECLARE SECTION;
+        VARCHAR sqlstmt[500];
+	int	objectID;
+	int	code;
+    EXEC SQL END DECLARE SECTION;
+/*
+				Oracle variable declarations.
+*/
+/****************************************************************************
+
+	I n i t i a l i z a t i o n .
+
+******************************************************************************/
+
+    if (writeObject == FALSE)
+	{
+	objectID = *currentObject;
+	if (lower_left_x < *ll_x_now || *ll_x_now == 0.0) 
+	    {
+	    *ll_x_now = lower_left_x;
+	    }
+	if (lower_left_y < *ll_y_now || *ll_y_now == 0.0) 
+	    {
+	    *ll_y_now = lower_left_y;
+	    }
+	if (upper_right_x > *ur_x_now || *ur_x_now == 0.0) 
+	    {
+	    *ur_x_now = upper_right_x;
+	    }
+	if (upper_right_y > *ur_y_now || *ur_y_now == 0.0) 
+	    {
+	    *ur_y_now = upper_right_y;
+	    }
+        sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"UPDATE %s.GRAPHIC_OBJECTS SET LOWER_LEFT_X = %lf, \
+LOWER_LEFT_Y = %lf, UPPER_RIGHT_X = %lf, UPPER_RIGHT_Y = %lf \
+WHERE OBJECT_ID = %d", project, *ll_x_now, *ll_y_now, *ur_x_now, 
+			*ur_y_now, objectID);
+
+        EXEC SQL PREPARE s18 FROM :sqlstmt;
+        if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s18");
+        EXEC SQL EXECUTE s18;
+        if (OR_STATUS != 0) ld_show_error(OR_STATUS, "execute s18");
+/*
+					Update the graphic object record.
+*/
+
+	}
+    else
+        {
+	EXEC SQL SELECT ESI.GRAPHIC_OBJECT_SEQ.NEXTVAL 
+				INTO :objectID FROM DUAL;
+    	if (OR_STATUS != 0) ld_show_error(OR_STATUS, 
+				"graphic_object_seq NEXTVAL");
+	*currentObject = objectID;
+/*
+					Get the object id number.
+*/
+        sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"INSERT INTO %s.GRAPHIC_OBJECTS (OBJECT_NAME, OBJECT_ID, LOWER_LEFT_X, \
+LOWER_LEFT_Y, UPPER_RIGHT_X, UPPER_RIGHT_Y, SOURCE) \
+VALUES ('%s', %d, %lf, %lf, %lf, %lf, '%s')", project, objectName, objectID,
+lower_left_x, lower_left_y, upper_right_x, upper_right_y, source);
+
+        EXEC SQL PREPARE s6 FROM :sqlstmt;
+        if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s6");
+        EXEC SQL EXECUTE s6;
+        if (OR_STATUS != 0) ld_show_error(OR_STATUS, "execute s6");
+/*
+					Insert the graphic object record.
+*/
+	sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"LOCK TABLE %s.GRAPHIC_OBJECT_CODES IN EXCLUSIVE MODE", project);
+
+	EXEC SQL PREPARE S8 FROM :sqlstmt;
+	if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s8");
+	EXEC SQL EXECUTE S8;
+	if (OR_STATUS != 0) ld_show_error(OR_STATUS, "execute s8");
+
+	sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT CODE FROM %s.GRAPHIC_OBJECT_CODES WHERE NAME = '%s'", 
+				project, objectName);
+
+	EXEC SQL PREPARE S9 FROM :sqlstmt;
+	if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s9");
+	EXEC SQL DECLARE LOOK_CURS CURSOR FOR S9;
+	EXEC SQL OPEN LOOK_CURS;
+	if (OR_STATUS != 0) ld_show_error(OR_STATUS, "open look_curs");
+	code = 0;
+	EXEC SQL FETCH LOOK_CURS INTO :code;
+	if (OR_STATUS < 0) ld_show_error(OR_STATUS, "fetch look_curs");
+	EXEC SQL CLOSE LOOK_CURS;
+	if (OR_STATUS != 0) ld_show_error(OR_STATUS, "close look_curs");
+
+	if (code == 0)
+	    {
+	    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"SELECT NVL(MAX(CODE), 0) + 1 FROM %s.GRAPHIC_OBJECT_CODES", project);
+
+	    EXEC SQL PREPARE s10 FROM :sqlstmt;
+	    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s10");
+	    EXEC SQL DECLARE ID_CURS CURSOR FOR s10;
+	    EXEC SQL OPEN ID_CURS;
+	    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "open id_curs");
+	    EXEC SQL FETCH ID_CURS INTO :code;
+	    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "fetch id_curs");
+	    EXEC SQL CLOSE ID_CURS;
+	    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "close id_curs");
+/*
+				Get the next line id number.
+*/
+	    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"INSERT INTO %s.GRAPHIC_OBJECT_CODES (NAME, CODE) VALUES ('%s', %d)", 
+			project, objectName, code);
+
+	    EXEC SQL PREPARE S11 FROM :sqlstmt;
+	    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare S11");
+	    EXEC SQL EXECUTE S11;
+	    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "execute S11");
+	    }
+	}
+/*
+					Put in a graphic object codes
+					entry if we need one.
+*/
+    sqlstmt.len = sprintf((char *)sqlstmt.arr,
+"INSERT INTO %s.GRAPHIC_OBJECT_CORRELATIONS (OBJECT_ID, ITEM_ID, ITEM_CLASS) \
+VALUES (%d, %s, '%s')", project, objectID, item_id, item_class);
+
+    EXEC SQL PREPARE s7 FROM :sqlstmt;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "prepare s7");
+    EXEC SQL EXECUTE s7;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "execute s7");
+/*
+					Insert the graphic object correlation 
+					record.
+*/	
+    EXEC SQL COMMIT WORK;
+    if (OR_STATUS != 0) ld_show_error(OR_STATUS, "commit s6 and s7");
+
+    return;
+    }

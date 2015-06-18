@@ -1,0 +1,62 @@
+C  DEC/CMS REPLACEMENT HISTORY, Element MO_TIEP_DRV.FOR
+C  *3     3-NOV-1989 12:02:34 GILLESPIE "(SPR 30) Change entry points for new n-List nomenclature"
+C  *2    19-SEP-1989 10:14:39 GORDON "(PURNA) GULF MODS UNDER SPR 100"
+C  *1    10-AUG-1989 18:49:39 VINCE "Fortran code after UNIX mods"
+C  DEC/CMS REPLACEMENT HISTORY, Element MO_TIEP_DRV.FOR
+      SUBROUTINE MO_TIE_PLT_DRIVER (PARAM_FILE)
+
+C ****************************************************************************
+C
+C     ROUTINE:    MO_TIE_PLT_DRIVER
+C
+C     FUNCTION:   DRIVER ROUTINE TO READ IN THE PLOT PARAMETERS FROM THE 
+C                 PARAMETER FILE, THEN CALL THE ROUTINE TO READ IN THE TIE
+C                 DATA FILE AND PLOT THE SUCKER.  ASSUMES FINDER AND GKS 
+C                 ENVIRONMENTS ALREADY SET UP (GKS TO NEUTRAL PLOT FILE).
+C
+C ****************************************************************************  
+
+
+      CHARACTER*(*) PARAM_FILE
+      CHARACTER*240  TIEFILE
+      CHARACTER*128  MO_TYPE, MO_NAME
+      REAL  SCALE_MIN, SCALE_MAX, DEPTH_SCALE
+      INTEGER IFBATCH, IFSEGS, IFPLOT_METRIC, IFDATA_METRIC, IPLOT2
+
+C
+C READ IN PLOT PARAMETERS FROM FILE
+C
+
+      CALL HOGFNT( IUNIT)
+
+C 01/03/89 GS - use argument instead of hard-coded file name
+
+      OPEN (IUNIT, FILE = PARAM_FILE, STATUS = 'OLD')
+
+      READ (IUNIT,1) MO_TYPE
+1     FORMAT (A)          
+
+      READ (IUNIT,1) TIEFILE
+      READ (IUNIT,1) MO_NAME
+
+      READ (IUNIT,2) SCALE_MIN, SCALE_MAX, DEPTH_SCALE
+2     FORMAT (3F20.2)          
+
+      READ (IUNIT,3) IFBATCH, IFSEGS, IFPLOT_METRIC, IFDATA_METRIC, IPLOT2
+3     FORMAT (5I5)
+
+      CLOSE (IUNIT)
+
+C
+C   CALL ROUTINE TO CREATE TIEPLOT
+C
+
+      CALL MO_TIEPLOTTER( MO_TYPE, TIEFILE, MO_NAME, 1,
+     *                       IFSEGS, SCALE_MIN, SCALE_MAX,
+     *                       DEPTH_SCALE, IFPLOT_METRIC, 
+     *                       IFDATA_METRIC, 1, IPLOT2)   
+
+      RETURN
+      END
+
+C  END CODE

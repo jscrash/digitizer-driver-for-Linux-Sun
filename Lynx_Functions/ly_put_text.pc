@@ -1,0 +1,205 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_PUT_TEXT.PC */
+/* *7    13-SEP-1991 12:28:38 LOEBL "(SPR 3951) Eliminate Core Dump and Performance Enhancements" */
+/* *6    19-JUL-1990 19:58:47 GILLESPIE "(SPR 1) Simplify the code" */
+/* *5    19-JUL-1990 11:18:55 JESSIE "(SPR 5628) Make LYNX functions internally consistant" */
+/* *4    19-JUL-1990 10:20:43 VINCE "(SPR 5628) Make LYNX functions internally consistant" */
+/* *3    17-MAR-1990 15:11:37 VINCE "(SPR -1) mods for db changes" */
+/* *2    16-MAR-1990 17:32:50 VINCE "(SPR -1) removed lynx_id from the inserts since its not in the table anymore" */
+/* *1    15-MAR-1990 13:37:40 VINCE "Initial Checkin" */
+/* DEC/CMS REPLACEMENT HISTORY, Element LY_PUT_TEXT.PC */
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Finder Graphics Systems, Inc. 1990
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_ly.h"
+
+#ifndef ESI_ORACLE_H
+#include "esi_oracle.h"
+#endif
+
+#ifndef ESI_QS_H
+#include "esi_qs.h"
+#endif
+
+#ifndef ESI_C_LIB_H
+#include "esi_c_lib.h"
+#endif
+
+#define BASE_ONLY   0
+#define WITH_OFFSET 1
+#define WITH_NEXT   2
+#define WITH_BOTH   3
+
+/* Function Description -----------------------------------------------------
+Description:
+    This routine will store a text object in the LYNX database. 
+
+Prototype:
+    publicdef ly_put_text (LY_TEXT_OBJECT *text_object);
+    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    text_object     -(LY_TEXT_OBJECT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    OR_STATUS - Status returned by Oracle.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT ly_put_text (LY_TEXT_OBJECT *text_object) 
+#else
+publicdef INT ly_put_text (text_object)
+LY_TEXT_OBJECT *text_object;
+#endif
+    {
+    INT status=SUCCESS;
+    PROJECT_NAME project;
+    static BOOL first_time = TRUE; 
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR stmt[2000];
+    int db_text_id;
+    int db_lynx_id ;
+    int db_node_id ;
+    int db_text_gc_bundle_id ;
+    int use_up;
+    int use_offset;
+    double db_x_offset ;
+    double db_y_offset ;
+    double db_text_up_x ;
+    double db_text_up_y ;
+    int db_offset_units ;
+    int db_next_text_id ;
+    VARCHAR text_string_V[81];
+    VARCHAR color_override_V[13];
+    EXEC SQL END DECLARE SECTION;
+
+/*     EXEC ORACLE OPTION REBIND = YES; */
+    EXEC ORACLE OPTION (HOLD_CURSOR = YES);
+    EXEC SQL WHENEVER SQLERROR GOTO :sql_error;
+    
+
+    if (first_time)
+    {
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+
+    stmt.len = sprintf ((char *)stmt.arr,
+      "SELECT NVL(MAX(TEXT_ID),0)+1 FROM %s.LYNX_TEXT", project);
+    
+    EXEC SQL PREPARE S1 FROM : stmt;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+
+
+    stmt.len = sprintf ((char *)stmt.arr, 
+    "INSERT INTO %s.LYNX_TEXT \
+    (TEXT_ID, LYNX_ID, NODE_ID, TEXT_STRING, \
+     X_OFFSET, Y_OFFSET, OFFSET_UNITS, NEXT_TEXT_ID) \
+    VALUES \
+    (:db_text_id, :db_lynx_id, :db_node_id, :text_string_V,\
+     decode(:use_offset, 0, NULL, :db_x_offset), \
+     decode(:use_offset, 0, NULL, :db_y_offset), \
+     decode(:use_offset, 0, NULL, :db_offset_units ), \
+     decode(:db_next_text_id, 0, NULL, :db_next_text_id))"
+            , project);
+
+     EXEC SQL PREPARE INSERT_LYNX_TEXT FROM :stmt;
+
+    
+    stmt.len = sprintf ((char *)stmt.arr, 
+    "INSERT INTO %s.LYNX_TEXT_GC \
+    (TEXT_ID, TEXT_BUNDLE_ID, TEXT_UP_X, TEXT_UP_Y, COLOR_OVERRIDE) \
+    VALUES \
+    (:db_text_id, :db_text_gc_bundle_id, \
+     decode(:use_up,0,NULL,:db_text_up_x), \
+     decode(:use_up,0,NULL,:db_text_up_y), :color_override_V)"
+            , project);
+
+    EXEC SQL PREPARE INSERT_LYNX_TEXT_GC FROM :stmt;
+
+    first_time = FALSE;
+    }
+
+    
+    status=lu_index_to_text("COLOR", (char *)color_override_V.arr,
+	    text_object->color_override);
+    V_SETLEN( color_override_V );
+    if(status != SUCCESS)
+	{
+	V_FROMC (color_override_V ,"NORMAL");
+	}
+    
+    EXEC SQL OPEN C1;
+    EXEC SQL FETCH C1 INTO : db_text_id;
+    EXEC SQL CLOSE C1;
+    
+    text_object->text_id = db_text_id ;
+
+    use_offset = 0;
+    if ((text_object->x_offset > 0.0) || (text_object->y_offset > 0.0))
+        use_offset = 1;
+    use_up = 0;
+    if ((text_object->text_up_x > 0.0) || (text_object->text_up_y > 0.0))
+        use_up = 1;
+
+
+        db_lynx_id = text_object->lynx_id;
+        db_node_id =  text_object->node_id;
+	V_FROMC ( text_string_V, text_object->text_string);
+	db_x_offset = text_object->x_offset;
+	db_y_offset = text_object->y_offset;
+	db_offset_units =  text_object->offset_units;
+	db_next_text_id = text_object->next_text_id;
+    
+    EXEC SQL EXECUTE INSERT_LYNX_TEXT USING
+    :db_text_id, :db_lynx_id, :db_node_id, :text_string_V,
+    :use_offset, :db_x_offset,
+    :use_offset, :db_y_offset,
+    :use_offset, :db_offset_units,
+    :db_next_text_id, :db_next_text_id;
+
+
+            db_text_gc_bundle_id = text_object->text_gc_bundle_id;
+	    db_text_up_x = text_object->text_up_x;
+	    db_text_up_y = text_object->text_up_y;
+    
+    EXEC SQL EXECUTE INSERT_LYNX_TEXT_GC USING
+    :db_text_id, :db_text_gc_bundle_id,
+    :use_up, :db_text_up_x,
+    :use_up, :db_text_up_y,
+    :color_override_V;
+
+    return SUCCESS;
+    
+sql_error:
+    if (OR_STATUS != OR_ABORT)
+        {
+        printf ("\nly_put_text:\n%-70.70s\n", OR_MESSAGE);
+        printf ("%s\n", stmt.arr);
+        }
+    return OR_STATUS;
+    }
+/* END:     */

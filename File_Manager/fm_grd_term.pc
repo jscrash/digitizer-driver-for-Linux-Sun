@@ -1,0 +1,154 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element FM_GRD_TERM.PC*/
+/* *4    14-AUG-1990 13:24:49 VINCE "(SPR 5644) Header Standardization"*/
+/* *3     7-NOV-1989 13:23:28 GILLESPIE "(SPR 30) Use esi_fm_int.h include file"*/
+/* *2    17-OCT-1989 16:40:33 PURNA "(SPR 0) mod param passing on nl_inq_nlist_user_struct"*/
+/* *1    19-JUN-1989 12:32:07 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element FM_GRD_TERM.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_c_lib.h"
+#include "esi_dg_defs.h"
+#include "esi_fm_int.h"
+#include "esi_nl.h"
+#include "esi_qs.h"
+#include "esi_oracle.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+    Function to update the GC_FILE_HDR table for grid files.
+
+Prototype:
+    publicdef INT fm_grid_term_func(INT file_id,FILENAME os_name);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    file_id         -(INT)
+    os_name         -(FILENAME)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    OR_STATUS
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT fm_grid_term_func (INT file_id, FILENAME os_name)
+#else
+publicdef INT fm_grid_term_func (file_id, os_name)
+INT file_id;
+FILENAME os_name;
+#endif
+    {
+    
+    PROJECT_NAME project;
+    NLIST_HEADER grid;
+    GRID_NLIST_USER_STRUCT grid_user;
+    UINT d_list[1];
+    VOIDPTR v_list[1];
+    INT nrows, ncols;
+    DOUBLE xint, yint;
+    CHAR uniform[2];
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR sqlstmt[500];
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ********************************************************************** */
+    
+    /* * GET NECESSARY INFO FOR GC_FILE_HDR TABLE * */
+    /* -------------------------------------------- */
+    
+    qs_inq_c (QS_PROJECT_NAME, project, (INT *)0);
+    
+    nl_read_nlist (&grid, os_name, "GRIDS");
+    nl_inq_nlist_user_struct (grid, sizeof(GRID_NLIST_USER_STRUCT),
+                              (VOIDPTR) & grid_user, (size_t *) & nrows);
+    
+    if (grid_user.uniform)
+        {
+        strcpy (uniform, "Y");
+        }
+    else
+        {
+        strcpy (uniform, "N");
+        }
+    nl_inq_nlist_int (grid, NL_NLIST_NSTROKES, &nrows);
+    nl_inq_stroke_int (grid, 1, NL_STROKE_NPOINTS, &ncols);
+    
+    xint = (grid_user.xmax - grid_user.xmin) / (ncols - 1);
+    yint = (grid_user.ymax - grid_user.ymin) / (nrows - 1);
+    
+    nl_free_nlist (grid);
+    
+    /* * COMMIT WORK FOR A BASELINE * */
+    /* ------------------------------ */
+    
+    EXEC SQL COMMIT WORK;
+    EXEC SQL WHENEVER SQLERROR GOTO orc_err;
+    
+    /* * DELETE CURRENT RECORD * */
+    /* ------------------------- */
+    
+    EXEC SQL WHENEVER NOT FOUND GOTO sql_insert;
+    
+    sqlstmt.len = sprintf ((char *)sqlstmt.arr,
+                           "DELETE FROM %s.GC_FILE_HDR WHERE FILE_ID = %d", project,
+                           file_id);
+    
+    EXEC SQL EXECUTE IMMEDIATE : sqlstmt;
+    
+    /* * INSERT NEW RECORD * */
+    /* --------------------- */
+    
+sql_insert:
+    sqlstmt.len = sprintf ((char *)sqlstmt.arr, 
+"INSERT INTO %s.GC_FILE_HDR (FILE_ID,PROJECTION,TOP_SURFACE_NAME, \
+BASE_SURFACE_NAME,LOWER_LEFT_X,LOWER_LEFT_Y,UPPER_RIGHT_X,UPPER_RIGHT_Y, \
+INTERVAL_X,INTERVAL_Y,UNIFORMITY_FLAG,FAULT) \
+VALUES (%d,'%s','%s','%s',%f,%f,%f,%f,%f,%f,'%s','%s')"
+            , project, file_id, grid_user.projection, grid_user.top_surface,
+                           grid_user.base_surface, grid_user.xmin, grid_user.ymin,
+                           grid_user.xmax, grid_user.ymax, xint, yint, uniform,
+                           grid_user.fault);
+    
+    EXEC SQL EXECUTE IMMEDIATE : sqlstmt;
+    
+    /* * RE- COMMIT WORK FOR A BASELINE * */
+    /* ---------------------------------- */
+    
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL COMMIT WORK;
+    return SUCCESS;
+    
+    /* * ORACLE ERROR * */
+    /* ---------------- */
+    
+orc_err:
+    return OR_STATUS;
+    }
+/* END:     */

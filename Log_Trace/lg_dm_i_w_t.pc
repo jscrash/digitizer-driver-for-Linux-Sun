@@ -1,0 +1,199 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element LG_DM_I_W_T.PC*/
+/* *6    23-AUG-1990 17:48:00 JESSIE "(SPR 1) fix include files"*/
+/* *5    14-SEP-1989 16:16:54 GORDON "(SPR 100) Gulf/Sun/Unix mods"*/
+/* *4    13-AUG-1989 01:46:59 GILLESPIE "(SPR 5) Change WLL_LOG_TRACE_HDR to WELL_LOG_CURVE; always release cursor"*/
+/* *3     4-AUG-1989 17:52:38 VINCE "(SPR -1) added Gulf mods; static in sql declare section"*/
+/* *2    19-JUL-1989 08:01:14 GORDON "(SPR 100) Add mods from Sun port"*/
+/* *1    19-JUN-1989 12:33:29 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element LG_DM_I_W_T.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#include "esi_lg_ldefs.h"
+#include "esi_qs.h"
+#include "esi_tc.h"
+#include "esi_oracle.h"
+#include "esi_ts.h"
+#include "esi_lg_err.h"
+
+/* Function Description -----------------------------------------------------
+Description:
+
+Prototype:
+    publicdef INT lg_ltdm_inq_well_trace(UWI inputUwi, CHAR sqlString[], 
+                                    CHAR ***tablePtr, INT *returnedNum);
+                                    
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (I) uwi         -(UWI) The requested UWI.      
+    (I) sqlString   -(CHAR []) The selecting SQL phrase.   
+    (I) tablePtr    -(LOG_TRACE_STRUCT ***) A pointer of table includes pointers
+                        of char. string.
+    (O) returnedNum -(INT *)
+
+Return Value/Status:
+    SUCCESS - Successful completion.
+    OR_STATUS - Status returned by Oracle.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT lg_ltdm_inq_well_trace (UWI inputUwi, CHAR sqlString[], CHAR ***tablePtr,
+                                      INT *returnedNum) 
+#else
+publicdef INT lg_ltdm_inq_well_trace (inputUwi, sqlString, tablePtr, returnedNum)
+UWI inputUwi;
+CHAR sqlString[];
+CHAR ***tablePtr;
+INT *returnedNum;
+#endif
+    {
+    PROJECT_NAME current_project;
+    CHAR **returnTable;             /*  returned table.                      */
+    CHAR buffer[STMAX], shortBuffer[66];
+    INT status;
+    INT i;
+    BOOL no_sql;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    VARCHAR select[1024];
+    VARCHAR source[30];
+    VARCHAR trace[12];
+    VARCHAR service[12];
+    int version;
+    int total_traces;
+    EXEC SQL END DECLARE SECTION;
+    /* ************************************************************************** */
+    
+    /* error checking.                          */
+    
+    if (lgz_check_exist (inputUwi))
+        return LG_INVALID_POINTER;
+    
+    /* check the input SQL and set the re_build */
+    
+    no_sql = IS_EMPTY_STRING (sqlString);
+    
+    qs_inq_c (QS_PROJECT_NAME, current_project, (INT *)0);
+    
+    /* count the qualified items first.      */
+    
+    EXEC SQL WHENEVER SQLERROR GOTO errrpt;
+    EXEC SQL WHENEVER NOT FOUND GOTO errnfd;
+    if (no_sql)
+        {
+        select.len = sprintf ((char *)select.arr,
+                       "SELECT COUNT( *) FROM %s.WELL_LOG_CURVE_HDR WHERE UWI = '%s'",
+                              current_project, inputUwi);
+        }
+    else
+        {
+        select.len = sprintf ((char *)select.arr,
+                     "SELECT COUNT( * ) FROM %s.WELL_LOG_CURVE_HDR WHERE UWI = '%s' AND %s "
+                              , current_project, inputUwi, sqlString);
+        }
+    EXEC SQL PREPARE S1 FROM : select;
+    EXEC SQL DECLARE C1 CURSOR FOR S1;
+    EXEC SQL OPEN C1;
+    EXEC SQL FETCH C1 INTO : total_traces;
+    EXEC SQL CLOSE C1;
+    
+    /* if there is no trace exists, return.    */
+    
+    if (total_traces <= 0)
+        {
+        
+        *returnedNum = 0;
+        *tablePtr = (CHAR **)tc_zalloc (sizeof(CHAR *));
+        return LG_NO_TRACE_NAME;
+        }
+    /* construct the dynamic selecting phrase. */
+    if (no_sql)
+        {
+        select.len = sprintf ((char *)select.arr, 
+"SELECT SOURCE, TRACE_TYPE, \
+SERVICE, VERSION FROM %s.WELL_LOG_CURVE_HDR WHERE UWI = '%s'"
+                , current_project, inputUwi);
+        }
+    else
+        {
+        select.len = sprintf ((char *)select.arr, 
+"SELECT SOURCE, TRACE_TYPE, \
+SERVICE, VERSION FROM %s.WELL_LOG_CURVE_HDR WHERE UWI = '%s' \
+AND %s"
+                , current_project, inputUwi, sqlString);
+        }
+    EXEC SQL PREPARE S2 FROM : select;
+    EXEC SQL DECLARE C2 CURSOR FOR S2;
+    EXEC SQL OPEN C2;
+    
+    /* create table of char string.  */
+    
+    *tablePtr = returnTable = (CHAR **)tc_zalloc (sizeof(CHAR *) * (total_traces + 1));
+    
+    EXEC SQL WHENEVER NOT FOUND GOTO errnfd;
+    
+    /* fetch each trace and construct the name */
+    for (i = 0; TRUE; i++)
+        {
+        EXEC SQL FETCH C2 INTO : source,  : trace,  : service,  : version;
+        returnTable[i] = (CHAR *)tc_alloc (sizeof(LOG_TRACE_NAME) + 1);
+        buffer[0] = '\0';
+        if (source.len > 0)
+            {
+            V_FROMV (buffer, source);
+            strcat (buffer, ":");
+            }
+        V_FROMV (shortBuffer, trace);
+        strcat (buffer, shortBuffer);
+        if (service.len > 0)
+            {
+            V_FROMV (shortBuffer, service);
+            strcat (buffer, ".");
+            strcat (buffer, shortBuffer);
+            }
+        if (version > 0)
+            {
+            sprintf (shortBuffer, ";%d", version);
+            strcat (buffer, shortBuffer);
+            }
+        strcpy (returnTable[i], buffer);
+        }
+errrpt:
+    status = OR_STATUS;
+    goto way_out;
+errnfd:
+    *returnedNum = total_traces;
+    *tablePtr = returnTable;
+    status = SUCCESS;
+    
+way_out:
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL CLOSE C2;
+    return status;
+    }
+/* END:     */

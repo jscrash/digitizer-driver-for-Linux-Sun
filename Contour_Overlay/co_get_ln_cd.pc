@@ -1,0 +1,166 @@
+/* DEC/CMS REPLACEMENT HISTORY, Element CO_GET_LN_CD.PC*/
+/* *2    14-AUG-1990 11:42:44 VINCE "(SPR 5644) Header Standardization"*/
+/* *1    19-JUN-1989 12:02:40 SYSTEM ""*/
+/* DEC/CMS REPLACEMENT HISTORY, Element CO_GET_LN_CD.PC*/
+/*****************************************************************************/
+/******************************************************************************
+
+                Copyright Exploration Systems, Inc. 1989
+                    Unpublished -- All rights reserved
+
+THIS SOFTWARE IS THE PROPRIETARY PROPERTY OF Exploration Systems, Inc.  AND MAY
+CONTAIN CONFIDENTIAL TRADE SECRET INFORMATION. IT IS LICENSED FOR USE ON THE
+DESIGNATED EQUIPMENT ON WHICH IT WAS ORIGINALLY INSTALLED AND  MAY NOT BE
+MODIFIED, DUPLICATED OR COPIED IN ANY FORM WITHOUT PRIOR WRITTEN CONSENT OF
+
+                            Exploration Systems
+                            c/o Finder Graphics Systems
+                            201 Tamal Vista Blvd.
+                            Corte Madera, CA  94925
+                            (415) 927-0100
+
+(The above notice does not constitute an admission of publication or
+unrestricted dissemination of the work)
+
+******************************************************************************/
+
+#ifndef ESI_C_LIB_H
+
+#include "esi_c_lib.h"
+
+#endif
+
+#ifndef ESI_C_H
+
+#include "esi_co.h"
+
+#endif
+
+#ifndef ESI_CO_ERR_H
+
+#include "esi_co_err.h"
+
+#endif
+
+#ifndef ESI_ORACLE_H
+
+#include "esi_oracle.h"
+
+#endif
+
+/* Function Description -----------------------------------------------------
+Description:
+    Function to get the line thickness codes for fine and
+    bold lines as stored in the data base.
+
+Prototype:
+    publicdef INT co_get_line_codes(INT *fine, INT *bold);
+
+Parameters:     (indicate (I)/(O)/(M) for input/output/input-and-modified)
+    (O) fine        -(INT *) Returned code for fine line.
+    (O) bold        -(INT *) Returned code for bold line.
+
+Return Value/Status:
+    SUCCESS - Successful completion
+    CO_ORACLE_ERROR - Database error.
+    
+Scope:
+    PUBLIC
+    
+Limitations/Assumptions:
+
+-----------------------------------------------------------------------------*/
+
+/* BEGIN:   */
+#if USE_PROTOTYPES
+publicdef INT co_get_line_codes (INT *fine, INT *bold) 
+#else
+publicdef INT co_get_line_codes (fine, bold)
+INT *fine;
+INT *bold;
+#endif
+/* * VARIABLE LIST * */
+/* ----------------- */
+    {
+    
+    PROGNAME ("CO_GET_LINE_CODES");
+    INT i;                          /* DUMMY INDEX */
+    INT status;
+    
+    EXEC SQL BEGIN DECLARE SECTION;
+    long var_fine;                  /* RETURNED TYPE */
+    long var_bold;                  /* RETURNED TYPE */
+    EXEC SQL END DECLARE SECTION;
+    
+    /* ********************************************************************** */
+    
+    status = SUCCESS;
+    
+    EXEC SQL WHENEVER SQLERROR GOTO orcerr;
+    
+    /* * GET FINE LINE CODE * */
+    /* ---------------------- */
+    
+    EXEC SQL SELECT CODE INTO :
+                                                                                     var_fine
+                                                                                      FROM
+                                                                                      CODES
+                                                                                     .EXPRESSION_CODES
+                                                                                      WHERE
+                                                                                      KEYWORD
+                                                                                      = 
+                                                                                     'THICKNESS'
+                                                                                     AND
+                                                                                      NAME
+                                                                                      = 
+                                                                                     'FINE'
+                                                                                     ;
+    
+    /* NOT FOUND, RETURN FINE = 1 */
+    
+    if (OR_STATUS EQUALS OR_EOF)
+        {
+        var_fine = 1;
+        }
+    /* * GET BOLD LINE CODE * */
+    /* ---------------------- */
+    
+    EXEC SQL SELECT CODE INTO :
+                                                                                     var_bold
+                                                                                      FROM
+                                                                                      CODES
+                                                                                     .EXPRESSION_CODES
+                                                                                      WHERE
+                                                                                      KEYWORD
+                                                                                      = 
+                                                                                     'THICKNESS'
+                                                                                     AND
+                                                                                      NAME
+                                                                                      = 
+                                                                                     'BOLD'
+                                                                                     ;
+    
+    /* NOT FOUND, RETURN BOLD = 3 */
+    
+    if (OR_STATUS EQUALS OR_EOF)
+        {
+        var_bold = 3;
+        }
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    
+    *fine = var_fine;
+    *bold = var_bold;
+    goto finished;
+    
+    /* * ORACLE ERROR * */
+    /* ---------------- */
+    
+orcerr:
+    status = CO_ORACLE_ERROR;
+    *fine = 1;
+    *bold = 3;
+    
+finished:
+    return status;
+    }
+/* END:     */
