@@ -3,5 +3,6 @@
 *.exe
 *.ppm
 *.avi
+bin/*
 
 
